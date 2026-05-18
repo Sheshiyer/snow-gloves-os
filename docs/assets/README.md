@@ -8,6 +8,8 @@ Generated via [`gpt-image-2`](https://github.com/agentspace-so/agent-skills/tree
 | `snowgloves-icon-256.png`  | 256×256   | Inline docs, README inline mark |
 | `snowgloves-hero.png`      | 1672×941  | README top hero banner |
 | `snowgloves-og.png`        | 1731×909  | GitHub social preview / OG card |
+| `explainer-hero-1.png`     | 1672×941  | Explainer doc — Hand-in-Glove concept |
+| `explainer-hero-2.png`     | 1672×941  | Explainer doc — Four engines |
 
 ## Brand palette
 - **Bg deep:** `#0b0d14`
