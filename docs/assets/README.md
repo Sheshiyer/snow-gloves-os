@@ -10,6 +10,7 @@ Generated via [`gpt-image-2`](https://github.com/agentspace-so/agent-skills/tree
 | `snowgloves-og.png`        | 1731×909  | GitHub social preview / OG card |
 | `explainer-hero-1.png`     | 1672×941  | Explainer doc — Hand-in-Glove concept |
 | `explainer-hero-2.png`     | 1672×941  | Explainer doc — Four engines |
+| `snowgloves-pitch.pdf`     | 12 slides · 1376×768 | NotebookLM-generated pitch deck for non-technical stakeholders |
 
 ## Brand palette
 - **Bg deep:** `#0b0d14`
@@ -28,3 +29,18 @@ Prompts are preserved in the commit history (search `gpt-image-2` in `git log`).
 
 ## GitHub social preview
 Upload `snowgloves-og.png` manually via **repo Settings → Social preview → Upload an image**.
+
+## Pitch deck regeneration
+
+Generated via [notebooklm-py](https://github.com/teng-lin/notebooklm-py):
+
+```bash
+notebooklm create "Snow Gloves OS — Pitch Deck" --json
+notebooklm source add docs/explainer.md
+notebooklm source add README.md
+notebooklm source add .specify/memory/constitution.md
+notebooklm source add docs/assets/explainer-hero-1.png
+notebooklm source add docs/assets/explainer-hero-2.png
+notebooklm generate slide-deck --format detailed --length default <prompt>
+notebooklm download slide-deck docs/assets/snowgloves-pitch.pdf -a <artifact_id>
+```

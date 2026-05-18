@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="UTF-8" />
+<title>Snow Gloves OS — Demo</title>
+<style>
+:root{--bg:#0b0d14;--panel:#12151f;--panel-2:#1a1e2c;--line:#262b3d;--fg:#e6e9f2;--muted:#8a91a8;--accent:#7c5cff;--accent-2:#4cc9f0;--ok:#3ee07f;--warn:#ffb347;--err:#ff5c7a;--font:ui-sans-serif,-apple-system,"SF Pro Text","Inter",system-ui,sans-serif}
+*{box-sizing:border-box}html,body,#app{height:100%;margin:0}
+body{background:linear-gradient(180deg,#0b0d14 0%,#0e1320 100%);color:var(--fg);font-family:var(--font);font-size:14px;overflow:hidden}
+#app{display:grid;grid-template-rows:auto 1fr auto;max-width:880px;margin:0 auto;padding:32px;height:100vh}
+header{display:flex;align-items:center;justify-content:space-between;padding-bottom:18px;border-bottom:1px solid var(--line)}
+header .brand{display:flex;gap:12px;align-items:center}
+header .logo{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#7c5cff,#4cc9f0);box-shadow:0 6px 22px rgba(124,92,255,.35)}
+header h1{font-size:15px;margin:0;font-weight:600}
+header .steps{display:flex;gap:6px}
+.step-dot{width:8px;height:8px;border-radius:50%;background:#2a3046;transition:background .25s}
+.step-dot.active{background:var(--accent)}
+.step-dot.done{background:var(--ok)}
+main{overflow:auto;padding:28px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;animation:fadein .25s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+h2{margin:0 0 6px;font-size:22px;letter-spacing:-.2px}
+p.sub{margin:0 0 22px;color:var(--muted);line-height:1.55}
+label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px;letter-spacing:.4px;text-transform:uppercase}
+input,textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:11px 13px;font-family:var(--font);font-size:14px;outline:none;transition:border .12s}
+input:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:none;min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:11px 18px;font:600 13.5px var(--font);cursor:pointer;transition:filter .12s}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
+button:hover:not(:disabled){filter:brightness(1.08)}
+button:disabled{opacity:.45;cursor:not-allowed}
+footer{display:flex;justify-content:space-between;align-items:center;padding-top:18px;border-top:1px solid var(--line)}
+.checks{display:grid;gap:8px}
+.check{display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;animation:slidein .2s ease both}
+@keyframes slidein{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+.check .badge{font-size:11px;padding:3px 8px;border-radius:999px;background:#2a3046;color:var(--muted)}
+.check.ok .badge{background:rgba(62,224,127,.15);color:var(--ok)}
+.check.warn .badge{background:rgba(255,179,71,.15);color:var(--warn)}
+.banner{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;margin-bottom:14px;font-size:13px}
+.banner.ok{background:rgba(62,224,127,.08);border:1px solid rgba(62,224,127,.3);color:var(--ok)}
+pre.log{background:#080a12;border:1px solid var(--line);border-radius:10px;padding:14px;font-family:ui-monospace,Menlo,monospace;font-size:12px;max-height:200px;overflow:auto;white-space:pre-wrap;color:#cfd6e7}
+.summary{display:grid;grid-template-columns:140px 1fr;gap:10px 16px;font-size:13px}
+.summary .k{color:var(--muted)}
+.summary .v{color:var(--fg);font-family:ui-monospace,Menlo,monospace}
+.tag{display:inline-block;padding:3px 8px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);font-size:11px;color:var(--muted);margin-right:6px}
+.cursor{display:inline-block;width:8px;height:14px;background:var(--accent);margin-left:-2px;animation:blink .8s steps(2) infinite;vertical-align:-2px;border-radius:1px}
+@keyframes blink{50%{opacity:0}}
+/* fake mouse cursor */
+#cursor{position:fixed;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle,#fff 30%,rgba(255,255,255,.15) 60%,transparent 70%);box-shadow:0 0 14px rgba(124,92,255,.7);pointer-events:none;z-index:9999;transition:all .35s cubic-bezier(.4,0,.2,1);transform:translate(-50%,-50%);opacity:0}
+#cursor.show{opacity:1}
+#cursor.click{transform:translate(-50%,-50%) scale(.5);background:radial-gradient(circle,#fff 30%,rgba(124,92,255,.6) 60%,transparent 70%)}
+</style></head>
+<body><div id="app"></div><div id="cursor"></div>
+<script>
+const STEPS=["welcome","doctor","tenant","paperclip","sources","review","done"];
+const state={step:0,doctor:null,business:"",slug:"",company_id:"",sources:"",result:null,smokeLog:""};
+const root=document.getElementById("app");
+const header=()=>{
+  const dots=STEPS.map((_,i)=>`<span class="step-dot ${i<state.step?'done':i===state.step?'active':''}"></span>`).join("");
+  return `<header><div class="brand"><div class="logo"></div><h1>Snow Gloves OS · Onboarding</h1></div><div class="steps">${dots}</div></header>`;
+};
+const footer=(p=true,nL="Continue",nD=false,id="next")=>`<footer><button class="ghost" ${p?"":"disabled"} id="back">Back</button><button ${nD?"disabled":""} id="${id}">${nL}</button></footer>`;
+const views={
+welcome:()=>`<main><div class="card"><h2>Welcome to Snow Gloves OS</h2><p class="sub">A reusable Hand-In-Glove operations platform. This wizard will provision a new tenant, verify the local runtime, and wire your first sources.</p><div class="checks"><div class="check"><span class="badge">1</span><div>Run preflight (doctor)</div></div><div class="check"><span class="badge">2</span><div>Create tenant scaffold</div></div><div class="check"><span class="badge">3</span><div>Bind Paperclip company</div></div><div class="check"><span class="badge">4</span><div>Add knowledge sources</div></div></div></div></main>${footer(false,"Start →")}`,
+doctor:()=>{const d=state.doctor;const rows=d?.checks?.map((c,i)=>`<div class="check ${c.status}" style="animation-delay:${i*60}ms"><span class="badge">${c.status.toUpperCase()}</span><div>${c.label}</div></div>`).join("")||"<div class='check'><span class='badge'>—</span><div>Click <b>Run check</b> to verify.</div></div>";const banner=d?`<div class="banner ok">System healthy · ${d.passed}/${d.total} checks passed</div>`:"";return`<main><div class="card"><h2>Preflight check</h2><p class="sub">Verifies python, paperclipai, ports 3100/4100, config files, and NVIDIA key.</p>${banner}<div class="checks">${rows}</div><div style="margin-top:18px"><button class="ghost" id="doctor">Run check</button></div></div></main>${footer(true,"Continue",!d)}`;},
+tenant:()=>`<main><div class="card"><h2>Create tenant</h2><p class="sub">Each tenant is isolated under <code>tenants/&lt;slug&gt;/</code> with its own sources, memory, embeddings, and approvals.</p><label>Business name</label><input id="biz" value="${state.business}" placeholder="Tryambakam Noesis" /><label>Tenant slug</label><input id="slug" value="${state.slug}" placeholder="auto-generated from business name" /></div></main>${footer(true,"Create tenant",!state.business||!state.slug)}`,
+paperclip:()=>`<main><div class="card"><h2>Bind Paperclip company</h2><p class="sub">Paste the company UUID from your Paperclip instance on <code>127.0.0.1:3100</code>.</p><label>Paperclip company ID</label><input id="cid" value="${state.company_id}" placeholder="2f554495-a76c-4d5a-bec8-71be115bce76" /><div style="margin-top:14px"><span class="tag">Tip</span><span style="color:var(--muted)">Run <code>paperclipai companies list</code> to retrieve.</span></div></div></main>${footer(true,"Continue")}`,
+sources:()=>`<main><div class="card"><h2>Knowledge sources</h2><p class="sub">Paths to folders or files to index. One per line. The Librarian will chunk + embed these into your tenant's vector index.</p><label>Source paths</label><textarea id="sources" placeholder="/Users/you/Documents/business/\n/Users/you/wiki/handbook.md">${state.sources}</textarea></div></main>${footer(true,"Continue")}`,
+review:()=>`<main><div class="card"><h2>Review & provision</h2><p class="sub">Confirm and create the tenant.</p><div class="summary"><div class="k">Business</div><div class="v">${state.business||"—"}</div><div class="k">Slug</div><div class="v">${state.slug||"—"}</div><div class="k">Paperclip company</div><div class="v">${state.company_id||"(unbound)"}</div><div class="k">Sources</div><div class="v">${(state.sources||"").split("\n").filter(Boolean).length} entries</div></div></div></main>${footer(true,"Provision tenant")}`,
+done:()=>{const r=state.result;return`<main><div class="card"><div class="banner ok">Tenant <b>${state.slug}</b> created at <code>${r?.path}</code></div><h2>You're set</h2><p class="sub">Run an end-to-end smoke test or close this window.</p><div style="display:flex;gap:10px;margin:14px 0 18px"><button id="smoke">Run smoke test</button><button class="ghost">Open repo</button></div>${state.smokeLog?`<pre class="log">${state.smokeLog}</pre>`:""}</div></main><footer><span style="color:var(--muted);font-size:12px">Snow Gloves OS · v0.1</span><button>Done</button></footer>`;}};
+function render(){const v=STEPS[state.step];root.innerHTML=header()+(views[v]?views[v]():"");}
+// event delegation
+document.addEventListener('click', e=>{
+  const t = e.target.closest('button'); if(!t) return;
+  if(t.id==='next'){
+    const v = STEPS[state.step];
+    if(v==='tenant'){
+      const biz=document.getElementById('biz')?.value||state.business;
+      const slug=document.getElementById('slug')?.value||state.slug;
+      state.business=biz; state.slug=slug;
+    }
+    if(v==='paperclip'){state.company_id=document.getElementById('cid')?.value||state.company_id;}
+    if(v==='sources'){state.sources=document.getElementById('sources')?.value||state.sources;}
+    state.step=Math.min(state.step+1,STEPS.length-1);
+    render();
+  } else if(t.id==='back'){
+    state.step=Math.max(state.step-1,0); render();
+  } else if(t.id==='doctor'){
+    window.__mockDoctor();
+  } else if(t.id==='smoke'){
+    window.__mockSmoke();
+  }
+});
+window.__step=()=>STEPS[state.step];
+window.__setState=(p)=>{Object.assign(state,p);render();};
+window.__advance=()=>{state.step=Math.min(state.step+1,STEPS.length-1);render();};
+window.__mockDoctor=()=>{state.doctor={ok:true,total:8,passed:7,failed:0,checks:[{status:"ok",label:"python3"},{status:"ok",label:"node"},{status:"ok",label:"paperclipai"},{status:"ok",label:"python: pyyaml"},{status:"ok",label:"port 4100 free"},{status:"warn",label:"port 3100: paperclip NOT running (bridge will queue)"},{status:"ok",label:"config/snowgloves.yaml"},{status:"ok",label:"NVIDIA_API_KEY set"}]};render();};
+window.__mockProvision=()=>{state.result={ok:true,path:`tenants/${state.slug}`,sources_added:2,company_bound:!!state.company_id};state.step=STEPS.indexOf("done");render();};
+window.__mockSmoke=async()=>{const lines=["==> [1/5] starting Hermes in background","==> [2/5] firing e2e test event","   ✓ routed to interpreter (funnel-and-launch)","   ✓ routed to dispatcher (virality-and-distribution)","==> [3/5] bridging decision to Paperclip","==> [4/5] running embed worker on _demo (stub)","   ✓ 4 chunks · 1024-dim vectors","==> [5/5] sentinel sweep","   ✓ EVOLUTION.md updated for 7 agents","==> smoke complete ✅"];state.smokeLog="$ make smoke\n";render();for(const l of lines){await new Promise(r=>setTimeout(r,260));state.smokeLog+=l+"\n";const log=document.querySelector("pre.log");if(log){log.textContent=state.smokeLog;log.scrollTop=log.scrollHeight;}}};
+render();
+</script></body></html>
