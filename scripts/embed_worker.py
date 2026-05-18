@@ -85,5 +85,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("tenant")
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--quiet", action="store_true")
     a = ap.parse_args()
-    print(json.dumps(run(a.tenant, a.limit), indent=2))
+    r = run(a.tenant, a.limit)
+    if not a.quiet: print(json.dumps(r, indent=2))

@@ -94,7 +94,7 @@ class H(http.server.BaseHTTPRequestHandler):
 
 def serve():
     with socketserver.TCPServer((HOST, PORT), H) as httpd:
-        print(f"[hermes] listening on http://{HOST}:{PORT}  channel={CHANNEL}")
+        import sys as _sys; print(f"[hermes] listening on http://{HOST}:{PORT}  channel={CHANNEL}", file=_sys.stderr, flush=True)
         httpd.serve_forever()
 
 def one_shot_test():
