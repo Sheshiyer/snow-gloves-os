@@ -32,6 +32,10 @@ Upload `snowgloves-og.png` manually via **repo Settings → Social preview → U
 
 ## Pitch deck regeneration
 
+See [`docs/notebooklm/`](../notebooklm/) for the full reproducible bundle (sources, prompt, regenerate script).
+
+### Quick reference
+
 Generated via [notebooklm-py](https://github.com/teng-lin/notebooklm-py):
 
 ```bash

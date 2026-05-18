@@ -209,6 +209,6 @@ make approvals T=acme     # human-in-loop queue
 <div align="center">
 
 **Ready to go deeper?**
-[Quick Start](../README.md#-quick-start) · [Architecture](../README.md#-architecture) · [Pitch Deck (PDF)](./assets/snowgloves-pitch.pdf) · [Spec-Kit Workflow](../specs/001-hand-in-glove-platform) · [Onboarding App](../apps/onboarding)
+[Quick Start](../README.md#-quick-start) · [Architecture](../README.md#-architecture) · [Pitch Deck (PDF)](./assets/snowgloves-pitch.pdf) · [Deck regenerator](./notebooklm/) · [Spec-Kit Workflow](../specs/001-hand-in-glove-platform) · [Onboarding App](../apps/onboarding)
 
 </div>

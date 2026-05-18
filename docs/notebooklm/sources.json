@@ -1,0 +1,57 @@
+{
+  "notebook_id": "9754bcac-fb7b-43d9-b23f-2d155fec4af6",
+  "notebook_title": "Snow Gloves OS \u2014 Pitch Deck",
+  "sources": [
+    {
+      "index": 1,
+      "id": "0b04f271-ec88-465d-aeed-a6fe62532310",
+      "title": "README.md",
+      "type": "SourceType.MARKDOWN",
+      "url": null,
+      "status": "ready",
+      "status_id": 2,
+      "created_at": "2026-05-18T14:59:13"
+    },
+    {
+      "index": 2,
+      "id": "6476bda3-e99d-421d-ae65-f777fa55050d",
+      "title": "constitution.md",
+      "type": "SourceType.MARKDOWN",
+      "url": null,
+      "status": "ready",
+      "status_id": 2,
+      "created_at": "2026-05-18T14:59:18"
+    },
+    {
+      "index": 3,
+      "id": "0da8d6e0-bbc9-4d93-bae3-f0573fbc5c4b",
+      "title": "explainer-hero-1.png",
+      "type": "SourceType.IMAGE",
+      "url": null,
+      "status": "ready",
+      "status_id": 2,
+      "created_at": "2026-05-18T14:59:24"
+    },
+    {
+      "index": 4,
+      "id": "bfde08cd-3e5e-4f7a-94a8-a4ac7af55658",
+      "title": "explainer-hero-2.png",
+      "type": "SourceType.IMAGE",
+      "url": null,
+      "status": "ready",
+      "status_id": 2,
+      "created_at": "2026-05-18T14:59:29"
+    },
+    {
+      "index": 5,
+      "id": "24c88ef3-7fab-4470-8e08-f0eb122123f5",
+      "title": "explainer.md",
+      "type": "SourceType.MARKDOWN",
+      "url": null,
+      "status": "ready",
+      "status_id": 2,
+      "created_at": "2026-05-18T14:59:08"
+    }
+  ],
+  "count": 5
+}
