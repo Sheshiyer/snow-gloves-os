@@ -10,7 +10,10 @@ body{background:linear-gradient(180deg,#0b0d14 0%,#0e1320 100%);color:var(--fg);
 #app{display:grid;grid-template-rows:auto 1fr auto;max-width:880px;margin:0 auto;padding:32px}
 header{display:flex;align-items:center;justify-content:space-between;padding-bottom:18px;border-bottom:1px solid var(--line)}
 header .brand{display:flex;gap:12px;align-items:center}
-header .logo{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#7c5cff,#4cc9f0);box-shadow:0 6px 22px rgba(124,92,255,.35)}
+header .logo{
+  width:34px;height:34px;border-radius:9px;object-fit:cover;
+  box-shadow:0 8px 28px rgba(124,92,255,.32), 0 0 0 1px rgba(255,255,255,.08);
+}
 header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.2px}
 header .steps{display:flex;gap:6px}
 .step-dot{width:8px;height:8px;border-radius:50%;background:#2a3046}

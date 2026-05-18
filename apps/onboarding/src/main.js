@@ -23,15 +23,15 @@ function header(){
     return `<span class="step-dot ${cls}"></span>`;
   }).join("");
   return `<header>
-    <div class="brand"><div class="logo"></div><h1>Snow Gloves OS · Onboarding</h1></div>
+    <div class="brand"><img class="logo" src="/snowgloves-icon-256.png" alt="Snow Gloves OS logo" /><h1>Snow Gloves OS · Onboarding</h1></div>
     <div class="steps">${dots}</div>
   </header>`;
 }
 
 function footer(prev=true,next=true,nextLabel="Continue",nextDisabled=false){
   return `<footer>
-    <button class="ghost" ${prev?"":"disabled"} onclick="window.__back()">Back</button>
-    <button ${nextDisabled?"disabled":""} onclick="window.__next()">${nextLabel}</button>
+    <button class="ghost" ${prev?"":"disabled"} data-action="back">Back</button>
+    <button ${nextDisabled?"disabled":""} data-action="next">${nextLabel}</button>
   </footer>`;
 }
 
@@ -62,7 +62,7 @@ const views = {
       ${banner}
       <div class="checks">${rows}</div>
       <div style="margin-top:18px;display:flex;gap:10px">
-        <button class="ghost" onclick="window.__doctor()">Run check</button>
+        <button class="ghost" data-action="doctor">Run check</button>
       </div>
     </div></main>
     ${footer(true,true,"Continue",!d)}`;
@@ -73,9 +73,9 @@ const views = {
       <h2>Create tenant</h2>
       <p class="sub">Each tenant is isolated under <code>tenants/&lt;slug&gt;/</code> with its own sources, memory, embeddings, and approvals.</p>
       <label>Business name</label>
-      <input id="biz" value="${state.business}" placeholder="Tryambakam Noesis" oninput="window.__bizInput(this.value)" />
+      <input id="biz" value="${state.business}" placeholder="Tryambakam Noesis" data-input="business" />
       <label>Tenant slug</label>
-      <input id="slug" value="${state.slug}" placeholder="auto-generated from business name" oninput="state.slug=this.value" />
+      <input id="slug" value="${state.slug}" placeholder="auto-generated from business name" data-input="slug" />
       <div style="margin-top:8px;color:var(--muted);font-size:12px">Lowercase, alphanumeric, hyphens only.</div>
     </div></main>
     ${footer(true,true,"Create tenant",!state.business || !state.slug)}`,
@@ -85,7 +85,7 @@ const views = {
       <h2>Bind Paperclip company</h2>
       <p class="sub">Optional. Paste the company UUID from your Paperclip instance running on <code>127.0.0.1:3100</code>. Leave empty to bind later.</p>
       <label>Paperclip company ID (UUID)</label>
-      <input id="cid" value="${state.company_id}" placeholder="2f554495-a76c-4d5a-bec8-71be115bce76" oninput="state.company_id=this.value" />
+      <input id="cid" value="${state.company_id}" placeholder="2f554495-a76c-4d5a-bec8-71be115bce76" data-input="company_id" />
       <div style="margin-top:14px"><span class="tag">Tip</span><span style="color:var(--muted)">Run <code>paperclipai companies list</code> in your terminal to retrieve IDs.</span></div>
     </div></main>
     ${footer(true,true,"Continue")}`,
@@ -95,7 +95,7 @@ const views = {
       <h2>Knowledge sources</h2>
       <p class="sub">Paths to folders or files that should be indexed. One per line. The Librarian will chunk + embed these into your tenant's vector index.</p>
       <label>Source paths</label>
-      <textarea id="sources" placeholder="/Users/you/Documents/business/\n/Users/you/wiki/handbook.md" oninput="state.sources=this.value">${state.sources}</textarea>
+      <textarea id="sources" placeholder="/Users/you/Documents/business/\n/Users/you/wiki/handbook.md" data-input="sources">${state.sources}</textarea>
     </div></main>
     ${footer(true,true,"Continue")}`,
 
@@ -120,14 +120,14 @@ const views = {
       <h2>You're set</h2>
       <p class="sub">You can now run an end-to-end smoke test to verify the routing/bridge loop, or close this window and continue from the CLI.</p>
       <div style="display:flex;gap:10px;margin:14px 0 18px">
-        <button onclick="window.__smoke()">Run smoke test</button>
-        <button class="ghost" onclick="window.__openRepo()">Open repo</button>
+        <button data-action="smoke">Run smoke test</button>
+        <button class="ghost" data-action="open-repo">Open repo</button>
       </div>
       ${state.smokeLog ? `<pre class="log">${state.smokeLog}</pre>` : ""}
     </div></main>
     <footer>
-      <span style="color:var(--muted);font-size:12px">Snow Gloves OS · v0.1</span>
-      <button onclick="window.__close()">Done</button>
+      <span style="color:var(--muted);font-size:12px">Snow Gloves OS · v0.1.2</span>
+      <button data-action="close">Done</button>
     </footer>`;
   }
 };
@@ -136,6 +136,26 @@ function render(){
   const view = STEPS[state.step];
   root.innerHTML = header() + (views[view] ? views[view]() : "");
 }
+
+root.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button || button.disabled) return;
+  const action = button.dataset.action;
+  if (action === "back") return window.__back();
+  if (action === "next") return window.__next();
+  if (action === "doctor") return window.__doctor();
+  if (action === "smoke") return window.__smoke();
+  if (action === "open-repo") return window.__openRepo();
+  if (action === "close") return window.__close();
+});
+
+root.addEventListener("input", (event) => {
+  const el = event.target;
+  if (!el?.dataset?.input) return;
+  const key = el.dataset.input;
+  if (key === "business") return window.__bizInput(el.value);
+  state[key] = el.value;
+});
 
 window.__back = () => { if(state.step>0){state.step--;render();} };
 window.__next = async () => {
@@ -191,13 +211,13 @@ async function checkForUpdates() {
     if (!update) return;
     const banner = document.createElement("div");
     banner.style.cssText = "position:fixed;bottom:14px;right:14px;background:#1a1e2c;border:1px solid #7c5cff;border-radius:10px;padding:12px 14px;color:#e6e9f2;font:13px ui-sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.45);z-index:9999;display:flex;gap:10px;align-items:center;max-width:340px";
-    banner.innerHTML = `<div>Update available: <b>v${update.version}</b><div style="color:#8a91a8;font-size:11px;margin-top:2px">${update.body?.split("\n")[0] || "Click install to update."}</div></div><button id="updNow" style="background:#7c5cff;border:0;color:#fff;border-radius:6px;padding:7px 10px;font-weight:600;cursor:pointer">Install</button>`;
+    banner.innerHTML = `<div>Update available: <b>v${update.version}</b><div style="color:#8a91a8;font-size:11px;margin-top:2px">${update.body?.split("\n")[0] || "Click install to update."}</div></div><button class="upd-now" style="background:#7c5cff;border:0;color:#fff;border-radius:6px;padding:7px 10px;font-weight:600;cursor:pointer">Install</button>`;
     document.body.appendChild(banner);
-    document.getElementById("updNow").onclick = async () => {
+    banner.querySelector(".upd-now").addEventListener("click", async () => {
       banner.innerHTML = "Downloading…";
       await update.downloadAndInstall();
       await relaunch();
-    };
+    });
   } catch (e) {
     console.warn("update check failed:", e);
   }
