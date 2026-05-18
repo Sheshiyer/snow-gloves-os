@@ -1,8 +1,14 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=12,13,14&height=220&text=Snow%20Gloves%20OS&fontSize=58&fontAlignY=36&desc=Hand-In-Glove%20Business%20Operations%20Platform&descAlignY=58&fontColor=ffffff" width="100%" />
+<img src="docs/assets/snowgloves-hero.png" width="100%" alt="Snow Gloves OS — Hand-In-Glove Business Operations Platform" />
+
+# Snow Gloves OS
+
+**Hand-In-Glove Business Operations Platform**
 
 </div>
+
+<!-- og:image: docs/assets/snowgloves-og.png (upload via repo Settings → Social preview) -->
 
 <!-- readme-gen:start:badges -->
 <div align="center">
