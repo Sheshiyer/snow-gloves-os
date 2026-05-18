@@ -192,6 +192,20 @@ graph TD
 > **Overall: 67%** — Functional alpha; needs CI, tests, and real connector wiring before pilot.
 <!-- readme-gen:end:health -->
 
+
+
+## 🖥 Onboarding App
+
+A native Tauri v2 wizard wraps the CLI onboarding flow.
+
+```bash
+make app-install   # one-time: npm install
+make app-dev       # launch in dev mode (hot-reload frontend)
+make app-build     # produce a signed-able release bundle
+```
+
+Source: [`apps/onboarding/`](./apps/onboarding) · See [its README](./apps/onboarding/README.md) for the IPC surface and capability list.
+
 ## 🧪 Spec-Driven Development
 
 This repo uses [GitHub Spec-Kit](https://github.com/github/spec-kit). Available slash commands (in Copilot/Codex chat):

@@ -76,3 +76,14 @@ test:
 
 clean:
 	rm -f .hermes.pid .e2e.json
+
+
+# ---- Onboarding app (Tauri v2) ----
+app-install:
+	cd apps/onboarding && npm install
+
+app-dev:
+	cd apps/onboarding && npm run tauri dev
+
+app-build:
+	cd apps/onboarding && npm run tauri build

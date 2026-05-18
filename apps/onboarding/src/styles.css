@@ -1,0 +1,60 @@
+:root{
+  --bg:#0b0d14; --panel:#12151f; --panel-2:#1a1e2c; --line:#262b3d;
+  --fg:#e6e9f2; --muted:#8a91a8; --accent:#7c5cff; --accent-2:#4cc9f0;
+  --ok:#3ee07f; --warn:#ffb347; --err:#ff5c7a;
+  --font: ui-sans-serif, -apple-system, "SF Pro Text", "Inter", system-ui, sans-serif;
+}
+*{box-sizing:border-box}
+html,body,#app{height:100%;margin:0}
+body{background:linear-gradient(180deg,#0b0d14 0%,#0e1320 100%);color:var(--fg);font-family:var(--font);font-size:14px;overflow:hidden}
+#app{display:grid;grid-template-rows:auto 1fr auto;max-width:880px;margin:0 auto;padding:32px}
+header{display:flex;align-items:center;justify-content:space-between;padding-bottom:18px;border-bottom:1px solid var(--line)}
+header .brand{display:flex;gap:12px;align-items:center}
+header .logo{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#7c5cff,#4cc9f0);box-shadow:0 6px 22px rgba(124,92,255,.35)}
+header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.2px}
+header .steps{display:flex;gap:6px}
+.step-dot{width:8px;height:8px;border-radius:50%;background:#2a3046}
+.step-dot.active{background:var(--accent)}
+.step-dot.done{background:var(--ok)}
+main{overflow:auto;padding:28px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}
+h2{margin:0 0 6px;font-size:22px;letter-spacing:-.2px}
+p.sub{margin:0 0 22px;color:var(--muted);line-height:1.55}
+label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px;letter-spacing:.4px;text-transform:uppercase}
+input,select,textarea{
+  width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--fg);
+  border-radius:10px;padding:11px 13px;font-family:var(--font);font-size:14px;outline:none;
+  transition:border .12s;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:90px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{
+  background:var(--accent);color:white;border:0;border-radius:10px;padding:11px 18px;
+  font-family:var(--font);font-size:13.5px;font-weight:600;cursor:pointer;letter-spacing:.2px;
+  transition:transform .08s,filter .12s;
+}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
+button:hover:not(:disabled){filter:brightness(1.08)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+footer{display:flex;justify-content:space-between;align-items:center;padding-top:18px;border-top:1px solid var(--line)}
+.checks{display:grid;gap:8px}
+.check{display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px}
+.check .badge{font-size:11px;padding:3px 8px;border-radius:999px;background:#2a3046;color:var(--muted)}
+.check.ok .badge{background:rgba(62,224,127,.15);color:var(--ok)}
+.check.warn .badge{background:rgba(255,179,71,.15);color:var(--warn)}
+.check.err .badge{background:rgba(255,92,122,.15);color:var(--err)}
+pre.log{
+  background:#080a12;border:1px solid var(--line);border-radius:10px;padding:14px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  max-height:340px;overflow:auto;white-space:pre-wrap;color:#cfd6e7
+}
+.banner{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;margin-bottom:14px;font-size:13px}
+.banner.ok{background:rgba(62,224,127,.08);border:1px solid rgba(62,224,127,.3);color:var(--ok)}
+.banner.warn{background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.3);color:var(--warn)}
+.banner.err{background:rgba(255,92,122,.08);border:1px solid rgba(255,92,122,.3);color:var(--err)}
+.tag{display:inline-block;padding:3px 8px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);font-size:11px;color:var(--muted);margin-right:6px}
+.summary{display:grid;grid-template-columns:120px 1fr;gap:8px 16px;font-size:13px}
+.summary .k{color:var(--muted)}
+.summary .v{color:var(--fg);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
