@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 const STEPS = ["welcome","doctor","tenant","paperclip","sources","review","done"];
 const state = {
@@ -181,3 +183,25 @@ window.__openRepo = ()=> invoke("open_repo");
 window.__close   = ()=> invoke("quit_app");
 
 render();
+
+
+async function checkForUpdates() {
+  try {
+    const update = await check();
+    if (!update) return;
+    const banner = document.createElement("div");
+    banner.style.cssText = "position:fixed;bottom:14px;right:14px;background:#1a1e2c;border:1px solid #7c5cff;border-radius:10px;padding:12px 14px;color:#e6e9f2;font:13px ui-sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.45);z-index:9999;display:flex;gap:10px;align-items:center;max-width:340px";
+    banner.innerHTML = `<div>Update available: <b>v${update.version}</b><div style="color:#8a91a8;font-size:11px;margin-top:2px">${update.body?.split("\n")[0] || "Click install to update."}</div></div><button id="updNow" style="background:#7c5cff;border:0;color:#fff;border-radius:6px;padding:7px 10px;font-weight:600;cursor:pointer">Install</button>`;
+    document.body.appendChild(banner);
+    document.getElementById("updNow").onclick = async () => {
+      banner.innerHTML = "Downloading…";
+      await update.downloadAndInstall();
+      await relaunch();
+    };
+  } catch (e) {
+    console.warn("update check failed:", e);
+  }
+}
+
+// fire-and-forget after first paint
+setTimeout(checkForUpdates, 1500);

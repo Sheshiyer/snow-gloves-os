@@ -1,0 +1,8 @@
+
+# Tauri build artifacts
+apps/onboarding/src-tauri/target/
+apps/onboarding/src-tauri/gen/
+apps/onboarding/dist/
+apps/onboarding/node_modules/
+apps/onboarding/demo/node_modules/
+apps/onboarding/demo/out/
