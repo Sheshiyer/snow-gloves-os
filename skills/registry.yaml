@@ -1,0 +1,19 @@
+version: "1.0"
+source_prefix: "inference-sh/agent-skills@"
+agents:
+  ceo: [mission-vision-refiner, core-values-designer, business-foundations-audit, specialization-vs-diversification-advisor, public-image-presentation-advisor, persuasion-strategy-coach, recognition-rewards-system-designer, leadership-development-coach, team-building-strategist, mental-health-workplace-conversation]
+  cto: [concept-to-realworld-application-coach, five-whys-root-cause-analyzer, project-management-execution-coach, adaptability-coach, creativity-innovation-work-coach, skill-development-planner, smart-goal-coach, daily-priority-planner]
+  chief-of-staff: [corporate-communication-coach, negotiation-skills-coach, workplace-conflict-resolver, performance-feedback-writer, workplace-culture-onboarding, remote-productivity-coach, resilience-during-tough-periods, work-life-balance-planner, career-advancement-planner, career-transition-roadmap, interview-prep-coach, job-search-strategy, professional-networking-playbook, professional-development-curator, resume-enhancer, portfolio-builder, personal-brand-strategy]
+  librarian: [audience-segmentation-generator, unmet-needs-analyzer, startup-idea-generator, content-marketing-leadgen]
+  interpreter: [brand-story-builder, value-proposition-crafter, elevator-pitch-generator, marketing-plan-generator, headline-generator, twitter-thread-aida-writer, newsletter-pas-writer, open-loop-social-writer, fomo-copy-generator, listicle-idea-generator, engagement-question-writer, writing-editor-proofreader, sales-funnel-designer, product-launch-strategy, channel-prioritization-planner, pricing-strategy-optimizer]
+  dispatcher: [viral-campaign-ideator, referral-program-designer, business-network-expansion]
+  sentinel: [passive-income-planner, real-estate-investment-evaluator]
+totals:
+  ceo: 10
+  cto: 8
+  chief-of-staff: 17
+  librarian: 4
+  interpreter: 16
+  dispatcher: 3
+  sentinel: 2
+  all: 60

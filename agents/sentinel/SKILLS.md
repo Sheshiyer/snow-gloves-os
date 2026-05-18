@@ -1,8 +1,12 @@
 # Skills — Audit & Risk Sentinel
 
-This agent is bound to:
-- snowgloves.core@trace-recorder
-- snowgloves.core@policy-breach-monitor
-- snowgloves.core@regression-auditor
+## Assigned skills (from snow gloves skill repository)
+- inference-sh/agent-skills@passive-income-planner
+- inference-sh/agent-skills@real-estate-investment-evaluator
 
-Skill routing is delegated to the **chief-of-staff** orchestrator unless overridden.
+## Routing
+Routed via `workflows/skill-hooks.yaml` (Chief of Staff orchestrator).
+Hooks for this agent are defined under `routing.sentinel.hooks`.
+
+## Escalation
+Falls back to chief-of-staff; technical issues escalate to cto, strategic to ceo.

@@ -1,0 +1,147 @@
+version: "1.0"
+description: "Snow Gloves — Chief of Staff skill graph. 60 skills routed to 7 platform agents via glob matching on task title/tags/brief."
+source_prefix: "inference-sh/agent-skills@"
+
+routing:
+  ceo:
+    default_skills:
+      - mission-vision-refiner
+      - core-values-designer
+      - business-foundations-audit
+      - specialization-vs-diversification-advisor
+      - public-image-presentation-advisor
+      - persuasion-strategy-coach
+      - recognition-rewards-system-designer
+      - leadership-development-coach
+      - team-building-strategist
+      - mental-health-workplace-conversation
+    hooks:
+      - id: strategy-and-vision
+        globs: ["*strategy*", "*mission*", "*vision*", "*core values*", "*business model*", "*positioning bet*"]
+        skills: [mission-vision-refiner, core-values-designer, business-foundations-audit, specialization-vs-diversification-advisor]
+      - id: leadership-and-culture
+        globs: ["*leadership*", "*org design*", "*team strategy*", "*culture system*", "*recognition*", "*team building*"]
+        skills: [leadership-development-coach, team-building-strategist, recognition-rewards-system-designer, mental-health-workplace-conversation]
+      - id: persuasion-and-image
+        globs: ["*public image*", "*persuasion*", "*pitch deck*", "*board narrative*"]
+        skills: [public-image-presentation-advisor, persuasion-strategy-coach]
+
+  cto:
+    default_skills:
+      - concept-to-realworld-application-coach
+      - five-whys-root-cause-analyzer
+      - project-management-execution-coach
+      - adaptability-coach
+      - creativity-innovation-work-coach
+      - skill-development-planner
+      - smart-goal-coach
+      - daily-priority-planner
+    hooks:
+      - id: architecture-and-execution
+        globs: ["*architecture*", "*build*", "*deploy*", "*execution*", "*project plan*", "*priorit*"]
+        skills: [concept-to-realworld-application-coach, project-management-execution-coach, daily-priority-planner, smart-goal-coach]
+      - id: diagnostics-and-quality
+        globs: ["*root cause*", "*five whys*", "*failure analysis*", "*regression*", "*bug*"]
+        skills: [five-whys-root-cause-analyzer]
+      - id: innovation-and-adapt
+        globs: ["*innovation*", "*r&d*", "*experiment*", "*adapt*", "*skill plan*"]
+        skills: [creativity-innovation-work-coach, adaptability-coach, skill-development-planner]
+
+  chief-of-staff:
+    default_skills:
+      - corporate-communication-coach
+      - negotiation-skills-coach
+      - workplace-conflict-resolver
+      - performance-feedback-writer
+      - workplace-culture-onboarding
+      - remote-productivity-coach
+      - resilience-during-tough-periods
+      - work-life-balance-planner
+      - career-advancement-planner
+      - career-transition-roadmap
+      - interview-prep-coach
+      - job-search-strategy
+      - professional-networking-playbook
+      - professional-development-curator
+      - resume-enhancer
+      - portfolio-builder
+      - personal-brand-strategy
+    hooks:
+      - id: people-ops
+        globs: ["*hr*", "*onboarding*", "*conflict*", "*feedback*", "*burnout*", "*well-being*", "*resilience*", "*remote*"]
+        skills: [workplace-conflict-resolver, performance-feedback-writer, workplace-culture-onboarding, remote-productivity-coach, resilience-during-tough-periods, work-life-balance-planner]
+      - id: career-and-coaching
+        globs: ["*career*", "*promotion*", "*interview*", "*job search*", "*transition role*", "*resume*", "*portfolio*", "*personal brand*"]
+        skills: [career-advancement-planner, career-transition-roadmap, interview-prep-coach, job-search-strategy, professional-networking-playbook, professional-development-curator, resume-enhancer, portfolio-builder, personal-brand-strategy]
+      - id: comms-and-negotiation
+        globs: ["*corporate communication*", "*negotiation*", "*stakeholder*", "*internal memo*"]
+        skills: [corporate-communication-coach, negotiation-skills-coach]
+
+  librarian:
+    default_skills:
+      - audience-segmentation-generator
+      - unmet-needs-analyzer
+      - startup-idea-generator
+      - content-marketing-leadgen
+    hooks:
+      - id: research-and-discovery
+        globs: ["*research*", "*audience segment*", "*persona*", "*market gap*", "*unmet need*", "*startup idea*"]
+        skills: [audience-segmentation-generator, unmet-needs-analyzer, startup-idea-generator]
+      - id: knowledge-leadgen
+        globs: ["*leadgen*", "*content marketing*", "*knowledge base*"]
+        skills: [content-marketing-leadgen]
+
+  interpreter:
+    default_skills:
+      - brand-story-builder
+      - value-proposition-crafter
+      - elevator-pitch-generator
+      - marketing-plan-generator
+      - headline-generator
+      - twitter-thread-aida-writer
+      - newsletter-pas-writer
+      - open-loop-social-writer
+      - fomo-copy-generator
+      - listicle-idea-generator
+      - engagement-question-writer
+      - writing-editor-proofreader
+      - sales-funnel-designer
+      - product-launch-strategy
+      - channel-prioritization-planner
+      - pricing-strategy-optimizer
+    hooks:
+      - id: narrative-and-brand
+        globs: ["*brand story*", "*positioning*", "*value prop*", "*elevator pitch*"]
+        skills: [brand-story-builder, value-proposition-crafter, elevator-pitch-generator]
+      - id: funnel-and-launch
+        globs: ["*funnel*", "*marketing plan*", "*launch*", "*channel*", "*pricing*"]
+        skills: [sales-funnel-designer, marketing-plan-generator, product-launch-strategy, channel-prioritization-planner, pricing-strategy-optimizer]
+      - id: editorial-and-social
+        globs: ["*twitter thread*", "*newsletter*", "*headline*", "*listicle*", "*social hook*", "*proofread*", "*edit draft*", "*fomo*"]
+        skills: [twitter-thread-aida-writer, newsletter-pas-writer, headline-generator, open-loop-social-writer, fomo-copy-generator, listicle-idea-generator, engagement-question-writer, writing-editor-proofreader]
+
+  dispatcher:
+    default_skills:
+      - viral-campaign-ideator
+      - referral-program-designer
+      - business-network-expansion
+    hooks:
+      - id: virality-and-distribution
+        globs: ["*viral*", "*share loop*", "*referral*", "*invite program*", "*growth loop*", "*partner outreach*", "*network expansion*"]
+        skills: [viral-campaign-ideator, referral-program-designer, business-network-expansion]
+
+  sentinel:
+    default_skills:
+      - passive-income-planner
+      - real-estate-investment-evaluator
+    hooks:
+      - id: investment-and-financial-risk
+        globs: ["*investment*", "*passive income*", "*real estate*", "*yield*", "*portfolio return*", "*financial risk*", "*compliance audit*"]
+        skills: [passive-income-planner, real-estate-investment-evaluator]
+
+escalation:
+  no_match:
+    - chief-of-staff
+  technical_keywords: ["bug", "arch", "build", "deploy", "incident"]
+  technical_escalates_to: cto
+  strategic_escalates_to: ceo

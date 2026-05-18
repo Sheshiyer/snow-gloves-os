@@ -1,8 +1,13 @@
 # Skills — Orchestration Dispatcher
 
-This agent is bound to:
-- snowgloves.core@hermes-bridge
-- snowgloves.core@paperclip-bridge
-- snowgloves.core@approval-router
+## Assigned skills (from snow gloves skill repository)
+- inference-sh/agent-skills@viral-campaign-ideator
+- inference-sh/agent-skills@referral-program-designer
+- inference-sh/agent-skills@business-network-expansion
 
-Skill routing is delegated to the **chief-of-staff** orchestrator unless overridden.
+## Routing
+Routed via `workflows/skill-hooks.yaml` (Chief of Staff orchestrator).
+Hooks for this agent are defined under `routing.dispatcher.hooks`.
+
+## Escalation
+Falls back to chief-of-staff; technical issues escalate to cto, strategic to ceo.
