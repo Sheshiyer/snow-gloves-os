@@ -1,0 +1,55 @@
+version: "1.0"
+connectors:
+  gmail:
+    auth: oauth2
+    scopes_default: [gmail.readonly]
+    capabilities:
+      - id: gmail.read_messages
+        risk: low
+      - id: gmail.send_message
+        risk: high
+        approval: required
+  google_calendar:
+    auth: oauth2
+    capabilities:
+      - id: calendar.read_events
+        risk: low
+      - id: calendar.create_event
+        risk: medium
+  google_drive:
+    auth: oauth2
+    capabilities:
+      - id: drive.list_files
+        risk: low
+      - id: drive.read_file
+        risk: low
+  slack:
+    auth: oauth2
+    capabilities:
+      - id: slack.post_message
+        risk: medium
+        approval: required
+  pms_generic:
+    auth: api_key
+    capabilities:
+      - id: pms.read_bookings
+        risk: low
+      - id: pms.update_booking
+        risk: high
+        approval: required
+  accounting_generic:
+    auth: api_key
+    capabilities:
+      - id: finance.read_ledger
+        risk: low
+      - id: finance.create_invoice
+        risk: high
+        approval: required
+  hris_generic:
+    auth: api_key
+    capabilities:
+      - id: hr.read_roster
+        risk: low
+      - id: hr.update_role
+        risk: high
+        approval: required

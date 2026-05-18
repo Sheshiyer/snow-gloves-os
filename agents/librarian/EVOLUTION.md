@@ -14,6 +14,13 @@ post-mortem by cto.
 - _(none yet)_
 
 ## Drift alerts (from sentinel)
+### 2026-05-18 — sentinel sweep
+- events: 0
+- fallback_count: 0
+- escalations: 0
+- hook_diversity: 0
+- top_skills: —
+
 - _(none yet)_
 
 ## Review cadence
