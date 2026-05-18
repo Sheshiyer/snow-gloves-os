@@ -12,3 +12,9 @@
 - When replacing inline handlers with delegated events, also verify dynamic button state transitions.
 - Test the actual form path: type business name → slug auto-fills → primary CTA becomes enabled → click CTA.
 - Prefer a small `syncNavState()` helper over full rerenders on every keystroke to avoid losing focus.
+
+## 2026-05-18 — Verify domain rules from source before encoding UI assumptions
+
+- Paperclip company shortnames are `issuePrefix` values generated from the first 3 alphabetic characters of the company name, uppercase.
+- Collisions append `A`, `AA`, etc.; do not hard-code a 4-character max unless the upstream validator says so.
+- UI should show the derived Paperclip prefix beside tenant slug so users can predict issue keys like `TRY-123`.

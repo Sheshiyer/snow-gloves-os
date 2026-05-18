@@ -56,6 +56,7 @@ fn run_doctor() -> Result<DoctorReport, String> {
 struct CreateTenantArgs {
     slug: String,
     business: String,
+    issue_prefix: Option<String>,
     company_id: Option<String>,
     sources: Vec<String>,
 }
@@ -71,10 +72,16 @@ fn write_sources_yaml(root: &Path, slug: &str, sources: &[String]) -> std::io::R
     std::fs::write(p, s)
 }
 
-fn patch_company_id(root: &Path, slug: &str, cid: &str) -> std::io::Result<()> {
+fn patch_paperclip_manifest(root: &Path, slug: &str, cid: Option<&str>, issue_prefix: Option<&str>) -> std::io::Result<()> {
     let p = root.join("tenants").join(slug).join("MANIFEST.yaml");
     let txt = std::fs::read_to_string(&p)?;
-    let new = txt.replace("company_id: \"\"", &format!("company_id: \"{cid}\""));
+    let mut new = txt;
+    if let Some(cid) = cid {
+        new = new.replace("company_id: \"\"", &format!("company_id: \"{cid}\""));
+    }
+    if let Some(prefix) = issue_prefix {
+        new = new.replace("lane_prefix: \"\"", &format!("lane_prefix: \"{prefix}\""));
+    }
     std::fs::write(p, new)
 }
 
@@ -94,11 +101,12 @@ fn create_tenant(args: CreateTenantArgs) -> Result<CreateTenantResult, String> {
     }
     write_sources_yaml(&root, &args.slug, &args.sources)
         .map_err(|e| format!("sources.yaml write: {e}"))?;
-    let mut bound = false;
-    if let Some(cid) = args.company_id.as_ref().filter(|s| !s.is_empty()) {
-        patch_company_id(&root, &args.slug, cid).map_err(|e| format!("manifest patch: {e}"))?;
-        bound = true;
+    let cid = args.company_id.as_ref().filter(|s| !s.is_empty()).map(|s| s.as_str());
+    let prefix = args.issue_prefix.as_ref().filter(|s| !s.is_empty()).map(|s| s.as_str());
+    if cid.is_some() || prefix.is_some() {
+        patch_paperclip_manifest(&root, &args.slug, cid, prefix).map_err(|e| format!("manifest patch: {e}"))?;
     }
+    let bound = cid.is_some();
     Ok(CreateTenantResult {
         path: tdir.display().to_string(),
         sources_added: args.sources.len(),

@@ -9,6 +9,7 @@ const state = {
   doctor: null,
   business: "",
   slug: "",
+  issuePrefix: "CMP",
   company_id: "",
   sources: "",
   result: null,
@@ -36,6 +37,10 @@ function footer(prev=true,next=true,nextLabel="Continue",nextDisabled=false){
 }
 
 function slugify(s){return s.toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"").slice(0,40);}
+function deriveIssuePrefix(name){
+  const letters = String(name || "").toUpperCase().replace(/[^A-Z]/g, "");
+  return letters.slice(0, 3) || "CMP";
+}
 
 const views = {
   welcome: () => `
@@ -77,6 +82,9 @@ const views = {
       <label>Tenant slug</label>
       <input id="slug" value="${state.slug}" placeholder="auto-generated from business name" data-input="slug" />
       <div style="margin-top:8px;color:var(--muted);font-size:12px">Lowercase, alphanumeric, hyphens only.</div>
+      <label>Paperclip shortname / issue prefix</label>
+      <input id="issuePrefix" value="${state.issuePrefix}" placeholder="CMP" data-input="issuePrefix" maxlength="8" />
+      <div style="margin-top:8px;color:var(--muted);font-size:12px">Paperclip derives this from the first 3 letters of the business name, uppercase. If already taken, Paperclip appends A/AA/etc. Example: Tryambakam Noesis → TRY.</div>
     </div></main>
     ${footer(true,true,"Create tenant",!state.business || !state.slug)}`,
 
@@ -106,6 +114,7 @@ const views = {
       <div class="summary">
         <div class="k">Business</div><div class="v">${state.business||"—"}</div>
         <div class="k">Slug</div><div class="v">${state.slug||"—"}</div>
+        <div class="k">Paperclip prefix</div><div class="v">${state.issuePrefix||"CMP"}</div>
         <div class="k">Paperclip company</div><div class="v">${state.company_id||"(unbound)"}</div>
         <div class="k">Sources</div><div class="v">${(state.sources||"").split("\n").filter(Boolean).length} entries</div>
       </div>
@@ -126,7 +135,7 @@ const views = {
       ${state.smokeLog ? `<pre class="log">${state.smokeLog}</pre>` : ""}
     </div></main>
     <footer>
-      <span style="color:var(--muted);font-size:12px">Snow Gloves OS · v0.1.3</span>
+      <span style="color:var(--muted);font-size:12px">Snow Gloves OS · v0.1.4</span>
       <button data-action="close">Done</button>
     </footer>`;
   }
@@ -167,6 +176,9 @@ root.addEventListener("input", (event) => {
   const key = el.dataset.input;
   if (key === "business") {
     window.__bizInput(el.value);
+  } else if (key === "issuePrefix") {
+    state.issuePrefix = el.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 8) || "CMP";
+    el.value = state.issuePrefix;
   } else {
     state[key] = el.value;
   }
@@ -184,10 +196,14 @@ window.__next = async () => {
 };
 window.__bizInput = (v)=>{
   const previous = state.business;
+  const previousPrefix = deriveIssuePrefix(previous);
   state.business = v;
   if(!state.slug || state.slug===slugify(previous)) state.slug=slugify(v);
+  if(!state.issuePrefix || state.issuePrefix===previousPrefix) state.issuePrefix=deriveIssuePrefix(v);
   const slugInput = document.getElementById("slug");
   if (slugInput) slugInput.value = state.slug;
+  const prefixInput = document.getElementById("issuePrefix");
+  if (prefixInput) prefixInput.value = state.issuePrefix;
 };
 
 window.__doctor = async ()=>{
