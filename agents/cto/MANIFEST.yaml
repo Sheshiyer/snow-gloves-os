@@ -1,0 +1,10 @@
+slug: cto
+role: "Chief Technology Agent"
+layer: CTO
+hermes_channel: snowgloves.events.v1
+paperclip_lane: cto
+skills: []
+approvals_required:
+  - finance.write
+  - hr.write
+  - legal.write

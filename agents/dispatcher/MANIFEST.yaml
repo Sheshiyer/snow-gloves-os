@@ -1,0 +1,10 @@
+slug: dispatcher
+role: "Orchestration Dispatcher"
+layer: DISPATCHER
+hermes_channel: snowgloves.events.v1
+paperclip_lane: dispatcher
+skills: []
+approvals_required:
+  - finance.write
+  - hr.write
+  - legal.write

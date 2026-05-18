@@ -1,0 +1,10 @@
+slug: librarian
+role: "Knowledge Librarian"
+layer: LIBRARIAN
+hermes_channel: snowgloves.events.v1
+paperclip_lane: librarian
+skills: []
+approvals_required:
+  - finance.write
+  - hr.write
+  - legal.write
