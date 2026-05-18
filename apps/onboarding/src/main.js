@@ -126,7 +126,7 @@ const views = {
       ${state.smokeLog ? `<pre class="log">${state.smokeLog}</pre>` : ""}
     </div></main>
     <footer>
-      <span style="color:var(--muted);font-size:12px">Snow Gloves OS · v0.1.2</span>
+      <span style="color:var(--muted);font-size:12px">Snow Gloves OS · v0.1.3</span>
       <button data-action="close">Done</button>
     </footer>`;
   }
@@ -135,6 +135,18 @@ const views = {
 function render(){
   const view = STEPS[state.step];
   root.innerHTML = header() + (views[view] ? views[view]() : "");
+  syncNavState();
+}
+
+function syncNavState(){
+  const view = STEPS[state.step];
+  const next = root.querySelector('button[data-action="next"]');
+  if (!next) return;
+  if (view === "tenant") {
+    next.disabled = !state.business.trim() || !state.slug.trim();
+  } else if (view === "doctor") {
+    next.disabled = !state.doctor;
+  }
 }
 
 root.addEventListener("click", (event) => {
@@ -153,8 +165,12 @@ root.addEventListener("input", (event) => {
   const el = event.target;
   if (!el?.dataset?.input) return;
   const key = el.dataset.input;
-  if (key === "business") return window.__bizInput(el.value);
-  state[key] = el.value;
+  if (key === "business") {
+    window.__bizInput(el.value);
+  } else {
+    state[key] = el.value;
+  }
+  syncNavState();
 });
 
 window.__back = () => { if(state.step>0){state.step--;render();} };
@@ -166,7 +182,13 @@ window.__next = async () => {
   render();
   if(STEPS[state.step]==="doctor" && !state.doctor) window.__doctor();
 };
-window.__bizInput = (v)=>{state.business=v; if(!state.slug || state.slug===slugify(state.business.slice(0,-1))) state.slug=slugify(v); document.getElementById("slug").value=state.slug;};
+window.__bizInput = (v)=>{
+  const previous = state.business;
+  state.business = v;
+  if(!state.slug || state.slug===slugify(previous)) state.slug=slugify(v);
+  const slugInput = document.getElementById("slug");
+  if (slugInput) slugInput.value = state.slug;
+};
 
 window.__doctor = async ()=>{
   try{
