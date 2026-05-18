@@ -15,6 +15,9 @@ Run:
   python3 scripts/hermes.py --test     # one-shot end-to-end smoke
 """
 import json, os, sys, time, threading, http.server, socketserver, urllib.request
+sys_path_added = True
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
+from lib.redact import redact
 from pathlib import Path
 from datetime import datetime, timezone
 import yaml, fnmatch, argparse
@@ -55,7 +58,7 @@ def route(task):
     return matches
 
 def append(event):
-    rec = {"ts": datetime.now(timezone.utc).isoformat(), **event}
+    rec = {"ts": datetime.now(timezone.utc).isoformat(), **redact(event)}
     with LOG.open("a") as f:
         f.write(json.dumps(rec) + "\n")
     return rec

@@ -1,0 +1,8 @@
+tenant: acme
+business_name: "Acme Co"
+created_at: 2026-05-18T07:43:29Z
+paperclip:
+  company_id: ""    # fill in after paperclip company exists
+  lane_prefix: ""
+isolation: strict
+status: active

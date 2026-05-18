@@ -10,7 +10,9 @@ Set SNOWGLOVES_EMBED_BACKEND=stub for offline development.
 from __future__ import annotations
 import argparse, hashlib, json, os, sys, urllib.request
 from pathlib import Path
-import yaml
+import yaml, time, random
+
+CACHE_DIR = None  # set in run()
 
 ROOT = Path(__file__).resolve().parent.parent
 CONF = yaml.safe_load((ROOT / "config" / "snowgloves.yaml").read_text())
@@ -39,21 +41,51 @@ def stub_embed(texts: list[str]) -> list[list[float]]:
         vecs.append([(b - 127.5) / 127.5 for b in raw])
     return vecs
 
-def nvidia_embed(texts: list[str]) -> list[list[float]]:
+def _post_nvidia(texts):
     payload = {"input": texts, "model": MODEL, "input_type": "passage"}
     req = urllib.request.Request(NVIDIA_URL,
         data=json.dumps(payload).encode(),
-        headers={
-            "Authorization": f"Bearer {os.environ['NVIDIA_API_KEY']}",
-            "Content-Type": "application/json",
-        })
-    r = json.loads(urllib.request.urlopen(req, timeout=30).read())
-    return [d["embedding"] for d in r["data"]]
+        headers={"Authorization": f"Bearer {os.environ['NVIDIA_API_KEY']}",
+                 "Content-Type": "application/json"})
+    return json.loads(urllib.request.urlopen(req, timeout=30).read())
 
-def embed(texts: list[str]) -> list[list[float]]:
-    return nvidia_embed(texts) if BACKEND == "nvidia" else stub_embed(texts)
+def nvidia_embed(texts):
+    last = None
+    for attempt in range(5):
+        try:
+            r = _post_nvidia(texts)
+            return [d["embedding"] for d in r["data"]]
+        except Exception as e:
+            last = e
+            wait = (2 ** attempt) + random.random()
+            time.sleep(min(wait, 30))
+    raise RuntimeError(f"nvidia embed failed after retries: {last}")
+
+def _cache_path(sha):
+    return CACHE_DIR / f"{sha[:2]}" / f"{sha}.json"
+
+def embed(texts):
+    if not CACHE_DIR:
+        return nvidia_embed(texts) if BACKEND == "nvidia" else stub_embed(texts)
+    out, miss_idx, miss_txt = [None]*len(texts), [], []
+    for i, t in enumerate(texts):
+        sha = hashlib.sha256(t.encode()).hexdigest()
+        cp = _cache_path(sha)
+        if cp.exists():
+            out[i] = json.loads(cp.read_text())["v"]
+        else:
+            miss_idx.append((i, sha)); miss_txt.append(t)
+    if miss_txt:
+        vecs = nvidia_embed(miss_txt) if BACKEND == "nvidia" else stub_embed(miss_txt)
+        for (i, sha), v in zip(miss_idx, vecs):
+            cp = _cache_path(sha); cp.parent.mkdir(parents=True, exist_ok=True)
+            cp.write_text(json.dumps({"v": v}))
+            out[i] = v
+    return out
 
 def run(tenant: str, limit: int | None = None) -> dict:
+    global CACHE_DIR
+    CACHE_DIR = ROOT / "tenants" / tenant / "_embed_cache"; CACHE_DIR.mkdir(parents=True, exist_ok=True)
     plan_path = ROOT / "tenants" / tenant / "ingest-plan.json"
     if not plan_path.exists():
         return {"error": f"missing {plan_path}", "hint": "run scripts/ingest.py first"}
