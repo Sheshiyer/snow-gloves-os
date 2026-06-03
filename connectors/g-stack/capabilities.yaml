@@ -53,3 +53,21 @@ connectors:
       - id: hr.update_role
         risk: high
         approval: required
+  explee_proxy:
+    auth: api_key            # X-Proxy-Token header; secret bound per-tenant via auth.py (vault ref)
+    base_url: "https://explee-proxy.sheshnarayan-iyer.workers.dev"
+    note: "Token-gated cookie-auth proxy to api.explee.com (de-siloed Explee cluster; specs/002)."
+    capabilities:
+      - id: explee.list_agents
+        risk: low
+      - id: explee.nl_to_filters
+        risk: low
+      - id: explee.paid_search
+        risk: high
+        approval: required
+      - id: explee.enrichment
+        risk: high
+        approval: required
+      - id: explee.autogtm
+        risk: high
+        approval: required

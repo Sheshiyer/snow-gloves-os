@@ -1,0 +1,10 @@
+tenant: tryambakam-noesis
+sources:
+  - id: brand-docs
+    type: filesystem
+    path: "/Volumes/madara/2026/twc-vault/01-Projects/tryambakam-noesis/brand-docs-final"
+    note: "Positioning, persona, messaging, voice, visual identity, launch materials"
+  - id: content-engine
+    type: filesystem
+    path: "/Volumes/madara/2026/twc-vault/01-Projects/tryambakam-noesis/Content-Engine"
+    note: "Editorial pipeline + brand knowledge base (production source of truth)"

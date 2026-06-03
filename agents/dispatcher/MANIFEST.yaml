@@ -8,3 +8,6 @@ approvals_required:
   - finance.write
   - hr.write
   - legal.write
+  - explee.paid_search
+  - explee.enrichment
+  - explee.autogtm
