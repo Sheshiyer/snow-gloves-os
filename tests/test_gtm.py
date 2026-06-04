@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib.gtm import brand_to_gtm, load_brief, derive_brief
+from lib.gtm import brand_to_gtm, load_brief, derive_brief, score_fit, rank_candidates
 
 BRIEF = {
     "arm": "partner",
@@ -79,3 +79,27 @@ def test_derive_brief_refuses_draft(tmp_path):
     with pytest.raises(PermissionError):
         derive_brief(_write_brief_md(tmp_path, "partner", "draft"), out)
     assert not out.exists() or not list(out.glob("*.yaml"))
+
+
+# --- re-scoring pass: re-rank raw Explee candidates by brand/positioning fit ---
+BRIEF_FIT = {"fit_criteria": ["cross-tradition non-dogmatic", "integration capable engineering"]}
+
+
+def test_score_fit_high():
+    c = {"description": "a cross-tradition non-dogmatic platform with strong integration and engineering"}
+    r = score_fit(c, BRIEF_FIT)
+    assert r["fit"] == 1.0 and len(r["reasons"]) == 2
+
+
+def test_score_fit_low():
+    c = {"description": "a generic corporate wellness habit tracker"}
+    assert score_fit(c, BRIEF_FIT)["fit"] == 0.0
+
+
+def test_rank_candidates_orders_by_fit():
+    cands = [
+        {"name": "Generic", "description": "generic corporate wellness app"},
+        {"name": "Fit", "description": "cross-tradition non-dogmatic integration engineering platform"},
+    ]
+    ranked = rank_candidates(cands, BRIEF_FIT)
+    assert ranked[0]["name"] == "Fit" and ranked[0]["fit"] >= ranked[1]["fit"]

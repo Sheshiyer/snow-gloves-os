@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -58,6 +59,36 @@ def derive_brief(md_path, tenant_gtm_dir):
     path = out / f"brief-{brief.get('arm', 'unknown')}.yaml"
     path.write_text(yaml.safe_dump(brief, sort_keys=False))
     return path
+
+
+def _sig_words(phrase):
+    """Significant (len>4) lowercase words of a fit-criterion phrase."""
+    return [w for w in re.findall(r"[a-z]+", str(phrase).lower()) if len(w) > 4]
+
+
+def score_fit(candidate, brief):
+    """Re-score one raw Explee candidate against the Brief's fit_criteria (brand/positioning fit).
+
+    Pure + deterministic — the brand-fit pass that re-ranks raw firmographic results. A criterion is
+    met when >= half its significant words appear in the candidate's text. Returns {fit: 0..1, reasons}.
+    """
+    text = " ".join(
+        str(candidate.get(k, "")) for k in ("name", "title", "description", "summary", "definition", "industry")
+    ).lower()
+    crits = (brief or {}).get("fit_criteria") or []
+    matched = []
+    for c in crits:
+        words = _sig_words(c)
+        if words and sum(1 for w in words if w in text) / len(words) >= 0.5:
+            matched.append(c)
+    fit = round(len(matched) / len(crits), 2) if crits else 0.0
+    return {"fit": fit, "reasons": [f"fit: {m!r}" for m in matched]}
+
+
+def rank_candidates(candidates, brief):
+    """Re-rank Explee candidates by brand fit (highest first); annotates each with fit + reasons."""
+    scored = [{**c, **score_fit(c, brief)} for c in candidates]
+    return sorted(scored, key=lambda x: x["fit"], reverse=True)
 
 
 def _default_call(method, path, body, *, timeout=30):
