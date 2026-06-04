@@ -14,6 +14,9 @@ import json
 import os
 import urllib.error
 import urllib.request
+from pathlib import Path
+
+import yaml
 
 PROXY = os.environ.get("EXPLEE_PROXY_URL", "https://explee-proxy.sheshnarayan-iyer.workers.dev")
 COMPANIES = "/public/api/v1/search/companies"
@@ -34,6 +37,27 @@ def brand_to_gtm(brief, *, call=None, page_size=10):
     companies = call("POST", COMPANIES, {"filters": cf, "page": 1, "page_size": page_size})
     people = call("POST", PEOPLE, {"company_filters": cf, "people_filters": pf, "page": 1, "page_size": page_size})
     return {"arm": brief.get("arm"), "companies": companies, "people": people}
+
+
+def load_brief(path):
+    """Parse a Brand GTM Brief markdown file → dict (its frontmatter)."""
+    text = Path(path).read_text()
+    if not text.startswith("---"):
+        return {}
+    parts = text.split("---", 2)
+    return (yaml.safe_load(parts[1]) if len(parts) >= 3 else {}) or {}
+
+
+def derive_brief(md_path, tenant_gtm_dir):
+    """Derive the executable tenant yaml from an APPROVED Brief .md. Refuses drafts (the spend gate)."""
+    brief = load_brief(md_path)
+    if brief.get("status") != "approved":
+        raise PermissionError("Brief not approved — refusing to derive an executable payload (spend gate)")
+    out = Path(tenant_gtm_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"brief-{brief.get('arm', 'unknown')}.yaml"
+    path.write_text(yaml.safe_dump(brief, sort_keys=False))
+    return path
 
 
 def _default_call(method, path, body, *, timeout=30):

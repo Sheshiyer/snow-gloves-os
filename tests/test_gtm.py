@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib.gtm import brand_to_gtm
+from lib.gtm import brand_to_gtm, load_brief, derive_brief
 
 BRIEF = {
     "arm": "partner",
@@ -39,3 +39,43 @@ def test_refuses_unapproved_brief():
     with pytest.raises(PermissionError):
         brand_to_gtm(draft, call=lambda *a: calls.append(a))
     assert calls == []  # never touched Explee — the spend gate held
+
+
+def _write_brief_md(d, arm="partner", status="draft"):
+    p = d / f"brief-{arm}.md"
+    p.write_text(
+        "---\n"
+        f"arm: {arm}\n"
+        f"status: {status}\n"
+        "companies_filters:\n  definition: consciousness tech\n  is_tech: true\n"
+        "people_filters:\n  job_titles: [Founder]\n  people_per_company_limit: 2\n"
+        "outreach_angle: peer\n"
+        "fit_criteria:\n  - cross-tradition\n"
+        "---\n\n# Brief\nbody\n"
+    )
+    return p
+
+
+def test_load_brief_parses_frontmatter(tmp_path):
+    b = load_brief(_write_brief_md(tmp_path, "partner", "draft"))
+    assert b["arm"] == "partner" and b["status"] == "draft"
+    assert b["companies_filters"]["definition"] == "consciousness tech"
+    assert b["people_filters"]["job_titles"] == ["Founder"]
+
+
+def test_derive_brief_writes_yaml_for_approved(tmp_path):
+    import yaml
+    md = _write_brief_md(tmp_path, "partner", "approved")
+    out = tmp_path / "gtm"
+    path = derive_brief(md, out)
+    assert path == out / "brief-partner.yaml" and path.exists()
+    derived = yaml.safe_load(path.read_text())
+    assert derived["arm"] == "partner" and derived["status"] == "approved"
+    assert derived["companies_filters"]["is_tech"] is True
+
+
+def test_derive_brief_refuses_draft(tmp_path):
+    out = tmp_path / "gtm"
+    with pytest.raises(PermissionError):
+        derive_brief(_write_brief_md(tmp_path, "partner", "draft"), out)
+    assert not out.exists() or not list(out.glob("*.yaml"))

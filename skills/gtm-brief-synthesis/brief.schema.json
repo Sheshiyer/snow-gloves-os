@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Brand GTM Brief",
+  "description": "A tenant ICP Brief for brand-enriched AutoGTM (specs/004). companies_filters/people_filters are exactly Explee PublicCompaniesFilters/PublicPeopleFilters.",
+  "type": "object",
+  "required": ["arm", "status", "companies_filters", "people_filters", "outreach_angle", "fit_criteria"],
+  "properties": {
+    "arm": {"enum": ["partner", "customer"]},
+    "status": {"enum": ["draft", "approved"], "description": "only `approved` may derive + drive paid Explee ops"},
+    "companies_filters": {
+      "type": "object",
+      "description": "Explee PublicCompaniesFilters (~50 fields): definition, definition_exclude, geo_include, geo_exclude, size, revenue_annual, is_b2b, is_saas, is_tech, is_ai, industry_nace_classes, technologies, funding_last_round_stage, has_public_emails, criteria, …"
+    },
+    "people_filters": {
+      "type": "object",
+      "description": "Explee PublicPeopleFilters: job_titles, job_titles_exclude, geo, followers, people_per_company_limit, criteria"
+    },
+    "outreach_angle": {"type": "string"},
+    "fit_criteria": {"type": "array", "items": {"type": "string"}, "description": "used by the re-scoring pass (Kha-Ba-La / positioning fit)"},
+    "source_docs": {"type": "array", "items": {"type": "string"}}
+  }
+}
