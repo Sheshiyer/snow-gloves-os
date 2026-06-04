@@ -1,0 +1,9 @@
+tenant: tryambakam-noesis
+business_name: "Tryambakam Noesis"
+created_at: 2026-06-03T00:00:00Z
+paperclip:
+  company_id: "e97ff473-f919-404e-b59c-5591e9c3e9ae"   # Tryambakam Noesis (created 2026-06-03)
+  lane_prefix: "TRY"
+isolation: strict
+status: active
+# De-siloed vocation org. Knowledge sources in sources.yaml; GTM via dispatcher -> explee cluster.
