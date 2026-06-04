@@ -109,6 +109,7 @@ routing:
       - product-launch-strategy
       - channel-prioritization-planner
       - pricing-strategy-optimizer
+      - snowgloves:gtm-brief-synthesis
     hooks:
       - id: narrative-and-brand
         globs: ["*brand story*", "*positioning*", "*value prop*", "*elevator pitch*"]
@@ -119,6 +120,9 @@ routing:
       - id: editorial-and-social
         globs: ["*twitter thread*", "*newsletter*", "*headline*", "*listicle*", "*social hook*", "*proofread*", "*edit draft*", "*fomo*"]
         skills: [twitter-thread-aida-writer, newsletter-pas-writer, headline-generator, open-loop-social-writer, fomo-copy-generator, listicle-idea-generator, engagement-question-writer, writing-editor-proofreader]
+      - id: gtm-brief-synthesis
+        globs: ["*gtm brief*", "*brand icp*", "*synthesize icp*", "*refresh gtm*", "*brand registration*"]
+        skills: [snowgloves:gtm-brief-synthesis]
 
   dispatcher:
     default_skills:

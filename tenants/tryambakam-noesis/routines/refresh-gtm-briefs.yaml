@@ -1,0 +1,31 @@
+# Paperclip routine — refresh the tenant's GTM Briefs (specs/004, the agent-synthesizes half).
+# Declarative spec. Goes live once an Interpreter agent is hired in the TRY Paperclip company,
+# registered via the bridge (scripts/paperclip_bridge.py -> :3100). v1 = scheduled + manual.
+name: refresh-gtm-briefs
+tenant: tryambakam-noesis
+company_id: e97ff473-f919-404e-b59c-5591e9c3e9ae   # TRY
+assignee: interpreter
+skill: snowgloves:gtm-brief-synthesis
+
+triggers:
+  - type: schedule
+    cron: "0 9 1 * *"          # 09:00 on the 1st of each month
+    timezone: Asia/Kolkata
+  - type: manual               # on-demand "refresh gtm brief" task
+  # - type: webhook            # reserved (v2): brand-docs git change -> Hermes -> here
+
+concurrency_policy: skip        # don't stack synthesis runs
+catch_up_policy: skip           # a missed month does not backfill
+
+task:
+  title: "Refresh GTM Briefs (partner + customer) from brand-docs"
+  brief: >
+    Re-synthesize Content-Engine/_gtm/brief-partner.md and brief-customer.md from
+    brand-docs-final using the gtm-brief-synthesis skill. Write status: draft and set
+    the issue in_review for human approval. NEVER self-approve — approval is the spend gate.
+  outputs:
+    - Content-Engine/_gtm/brief-partner.md
+    - Content-Engine/_gtm/brief-customer.md
+
+# After approval, derive_brief(brief-*.md) -> tenant gtm/*.yaml feeds brand_to_gtm (the executor).
+guard: approval-gated   # constitution #4 — only an approved Brief may drive paid Explee ops
