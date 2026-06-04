@@ -4,13 +4,14 @@ source_prefix: "inference-sh/agent-skills@"
 # A skill written "<prefix>:<slug>" uses sources.<prefix> instead of source_prefix.
 sources:
   explee: "Sheshiyer/explee-skills@"   # github.com/Sheshiyer/explee-skills — see specs/002-orchestration-wiring
+  snowgloves: "local:./skills/"        # snow-gloves-native skills (e.g. tn-seed) — see specs/003-distribution-os
 agents:
   ceo: [mission-vision-refiner, core-values-designer, business-foundations-audit, specialization-vs-diversification-advisor, public-image-presentation-advisor, persuasion-strategy-coach, recognition-rewards-system-designer, leadership-development-coach, team-building-strategist, mental-health-workplace-conversation]
   cto: [concept-to-realworld-application-coach, five-whys-root-cause-analyzer, project-management-execution-coach, adaptability-coach, creativity-innovation-work-coach, skill-development-planner, smart-goal-coach, daily-priority-planner]
   chief-of-staff: [corporate-communication-coach, negotiation-skills-coach, workplace-conflict-resolver, performance-feedback-writer, workplace-culture-onboarding, remote-productivity-coach, resilience-during-tough-periods, work-life-balance-planner, career-advancement-planner, career-transition-roadmap, interview-prep-coach, job-search-strategy, professional-networking-playbook, professional-development-curator, resume-enhancer, portfolio-builder, personal-brand-strategy]
   librarian: [audience-segmentation-generator, unmet-needs-analyzer, startup-idea-generator, content-marketing-leadgen]
   interpreter: [brand-story-builder, value-proposition-crafter, elevator-pitch-generator, marketing-plan-generator, headline-generator, twitter-thread-aida-writer, newsletter-pas-writer, open-loop-social-writer, fomo-copy-generator, listicle-idea-generator, engagement-question-writer, writing-editor-proofreader, sales-funnel-designer, product-launch-strategy, channel-prioritization-planner, pricing-strategy-optimizer]
-  dispatcher: [viral-campaign-ideator, referral-program-designer, business-network-expansion, "explee:explee-orchestrator", "explee:explee-search", "explee:explee-enrichment", "explee:explee-agents", "explee:explee-autogtm", "explee:explee-auth-cookie", "explee:explee-api-core"]
+  dispatcher: [viral-campaign-ideator, referral-program-designer, business-network-expansion, "explee:explee-orchestrator", "explee:explee-search", "explee:explee-enrichment", "explee:explee-agents", "explee:explee-autogtm", "explee:explee-auth-cookie", "explee:explee-api-core", "snowgloves:tn-seed"]
   sentinel: [passive-income-planner, real-estate-investment-evaluator]
 totals:
   ceo: 10
@@ -18,6 +19,6 @@ totals:
   chief-of-staff: 17
   librarian: 4
   interpreter: 16
-  dispatcher: 10   # 3 native + 7 explee cluster (external source: Sheshiyer/explee-skills@)
+  dispatcher: 11   # 3 native + 7 explee + 1 tn-seed (native)
   sentinel: 2
-  all: 67
+  all: 68

@@ -126,6 +126,7 @@ routing:
       - referral-program-designer
       - business-network-expansion
       - explee:explee-orchestrator
+      - snowgloves:tn-seed
     hooks:
       - id: virality-and-distribution
         globs: ["*viral*", "*share loop*", "*referral*", "*invite program*", "*growth loop*", "*partner outreach*", "*network expansion*"]
@@ -133,6 +134,9 @@ routing:
       - id: gtm-and-prospecting
         globs: ["*icp*", "*prospect*", "*find compan*", "*find people*", "*enrich email*", "*gtm*", "*lead list*", "*partner finder*"]
         skills: [explee:explee-orchestrator]
+      - id: community-seeding
+        globs: ["*seed*", "*community*", "*reddit thread*", "*distribution run*"]
+        skills: [snowgloves:tn-seed]
 
   sentinel:
     default_skills:
