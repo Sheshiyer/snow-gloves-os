@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 from lib.reddit import fetch_threads
 from lib.score import score_thread
 from lib.draft import build_brief
@@ -30,6 +32,23 @@ def _yaml_val(v):
     if isinstance(v, (int, float)):
         return repr(v)
     return v if re.fullmatch(r"[\w./:-]+", str(v)) else f'"{v}"'
+
+
+def load_targets(distribution_dir):
+    """Parse _distribution/targets/*.md frontmatter into target dicts."""
+    out = []
+    tdir = Path(distribution_dir) / "targets"
+    for f in sorted(tdir.glob("*.md")):
+        text = f.read_text()
+        if not text.startswith("---"):
+            continue
+        parts = text.split("---", 2)
+        if len(parts) < 3:
+            continue
+        data = yaml.safe_load(parts[1]) or {}
+        if data.get("sub"):
+            out.append(data)
+    return out
 
 
 def write_brief(brief, queue_root):

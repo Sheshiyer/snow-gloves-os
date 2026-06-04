@@ -6,4 +6,6 @@ paperclip:
   lane_prefix: "TRY"
 isolation: strict
 status: active
+distribution:
+  vault_path: "/Volumes/madara/2026/twc-vault/01-Projects/tryambakam-noesis/Content-Engine/_distribution"
 # De-siloed vocation org. Knowledge sources in sources.yaml; GTM via dispatcher -> explee cluster.
