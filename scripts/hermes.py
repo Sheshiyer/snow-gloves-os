@@ -18,6 +18,7 @@ import json, os, sys, time, threading, http.server, socketserver, urllib.request
 sys_path_added = True
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
 from lib.redact import redact
+from lib.contract import contract_routing_terms, extract_variable_contract
 from pathlib import Path
 from datetime import datetime, timezone
 import yaml, fnmatch, argparse
@@ -33,10 +34,12 @@ HOOKS = yaml.safe_load((ROOT / "workflows" / "skill-hooks.yaml").read_text())
 
 def route(task):
     """Chief of Staff routing — match task to agent + hook + skills."""
+    contract = extract_variable_contract(task)
     text = " ".join([
         task.get("title", ""),
         " ".join(task.get("tags", []) or []),
         task.get("brief", ""),
+        " ".join(contract_routing_terms(contract)),
     ]).lower()
     matches = []
     for agent, cfg in HOOKS["routing"].items():
@@ -56,6 +59,16 @@ def route(task):
             "escalation": "cto" if any(k in text for k in ["bug","arch","build","deploy"]) else "ceo",
         })
     return matches
+
+def route_payload(payload):
+    """Route a task envelope while preserving its full variable contract."""
+    task = payload.get("task", payload) if isinstance(payload, dict) else {}
+    contract = extract_variable_contract(task)
+    return {
+        "task": task,
+        "routing": route(task),
+        "variable_contract": contract,
+    }
 
 def append(event):
     rec = {"ts": datetime.now(timezone.utc).isoformat(), **redact(event)}
