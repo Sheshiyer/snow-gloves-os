@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse, json, os, sys, urllib.request, urllib.error
 from pathlib import Path
 import yaml
+from lib.contract import extract_variable_contract
 
 ROOT = Path(__file__).resolve().parent.parent
 CONF = yaml.safe_load((ROOT / "config" / "snowgloves.yaml").read_text())
@@ -37,6 +38,7 @@ def create_task(tenant: str, decision: dict, dry: bool = False) -> dict:
     agent = primary.get("agent", "chief-of-staff")
     skills = primary.get("skills", [])
     task = decision.get("task", {})
+    variable_contract = decision.get("variable_contract") or extract_variable_contract(task)
     company = resolve_company(tenant)
     payload = {
         "tenant": tenant,
@@ -47,6 +49,7 @@ def create_task(tenant: str, decision: dict, dry: bool = False) -> dict:
                                             f"snowgloves:tenant:{tenant}"],
         "brief": task.get("brief", ""),
         "skills": skills,
+        "variable_contract": variable_contract,
         "all_routes": routing_list,
         "source": "snow-gloves-os",
         "hermes_audit_ts": decision.get("audit", {}).get("ts"),

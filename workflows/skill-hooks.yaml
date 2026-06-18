@@ -141,6 +141,11 @@ routing:
       - id: community-seeding
         globs: ["*seed*", "*community*", "*reddit thread*", "*distribution run*"]
         skills: [snowgloves:tn-seed]
+      - id: brand-enriched-autogtm
+        # brand_to_gtm(approved Brief) → Explee /search/companies + /search/people, approval-gated (spec 004).
+        # The brand-docs synthesize the Brief (Interpreter:gtm-brief-synthesis); the Dispatcher executes it.
+        globs: ["*brand gtm*", "*enriched gtm*", "*partner list*", "*customer icp*", "*brand to gtm*"]
+        skills: [explee:explee-orchestrator]
 
   sentinel:
     default_skills:

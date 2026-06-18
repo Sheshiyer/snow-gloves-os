@@ -4,7 +4,7 @@
 
 `004-brand-enriched-autogtm`
 
-**Created**: 2026-06-04 · **Status**: Draft
+**Created**: 2026-06-04 · **Status**: Wired — deterministic path live + verified end-to-end (seed Briefs + `brand_to_gtm` + gate + re-scoring + Dispatcher hook); synthesis-agent automation + refresh routine pending.
 
 ## Goal
 
