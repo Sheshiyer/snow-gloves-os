@@ -18,6 +18,7 @@ import urllib.request
 from pathlib import Path
 
 import yaml
+from lib.contract import extract_variable_contract
 
 PROXY = os.environ.get("EXPLEE_PROXY_URL", "https://explee-proxy.sheshnarayan-iyer.workers.dev")
 COMPANIES = "/public/api/v1/search/companies"
@@ -35,9 +36,11 @@ def brand_to_gtm(brief, *, call=None, page_size=10):
     call = call or _default_call
     cf = brief.get("companies_filters") or {}
     pf = brief.get("people_filters") or {}
-    companies = call("POST", COMPANIES, {"filters": cf, "page": 1, "page_size": page_size})
-    people = call("POST", PEOPLE, {"company_filters": cf, "people_filters": pf, "page": 1, "page_size": page_size})
-    return {"arm": brief.get("arm"), "companies": companies, "people": people}
+    variable_contract = extract_variable_contract(brief)
+    brand_context = {"variable_contract": variable_contract} if variable_contract else {}
+    companies = call("POST", COMPANIES, {"filters": cf, "page": 1, "page_size": page_size, **brand_context})
+    people = call("POST", PEOPLE, {"company_filters": cf, "people_filters": pf, "page": 1, "page_size": page_size, **brand_context})
+    return {"arm": brief.get("arm"), "companies": companies, "people": people, "variable_contract": variable_contract}
 
 
 def load_brief(path):

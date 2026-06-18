@@ -33,6 +33,24 @@ def test_builds_search_payloads_for_approved_brief():
     assert ppl[2]["people_filters"] == BRIEF["people_filters"]
 
 
+def test_passes_variable_contract_to_explee_brand_context():
+    calls = []
+    contract = {
+        "brand_system": {"brand_archetype": "saas-ai"},
+        "visual_system": {"motion_style": "data-driven"},
+    }
+    brief = {**BRIEF, "variable_contract": contract}
+
+    def fake_call(method, path, body):
+        calls.append((method, path, body))
+        return {"results": []}
+
+    result = brand_to_gtm(brief, call=fake_call, page_size=10)
+
+    assert result["variable_contract"] == contract
+    assert all(call[2]["variable_contract"] == contract for call in calls)
+
+
 def test_refuses_unapproved_brief():
     calls = []
     draft = {**BRIEF, "status": "draft"}
