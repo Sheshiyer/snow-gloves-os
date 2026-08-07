@@ -104,7 +104,7 @@ and a distribution KPI — so the motion compounds and the throughput guardrail 
 | 2 | Tenant isolation | `tn-seed` scoped to `tryambakam-noesis`. |
 | 3 | Interpretation before automation | Drafts are proposals; human-gated. |
 | 4 | Approval-gated risk | Every external post is human-approved (the gate). |
-| 5 | Auditability | `log/` + response tracker + Hermes tags. |
+| 5 | Auditability | `log/` + response tracker + SG Bus tags. |
 | 6 | Wiki as control surface | The Content-Engine vault IS the operator surface. |
 
 ## Resolved Decisions

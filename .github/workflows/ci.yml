@@ -17,7 +17,7 @@ jobs:
         run: bash scripts/doctor.sh || true
       - name: Pytest
         run: pytest -q tests/
-      - name: Smoke (background hermes, e2e, embed stub, sentinel)
+      - name: Smoke (background sg-bus, e2e, embed stub, sentinel)
         env:
           SNOWGLOVES_EMBED_BACKEND: stub
         run: make smoke

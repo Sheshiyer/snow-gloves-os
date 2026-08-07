@@ -18,7 +18,7 @@ and one-off skills:
 
 **This slice** wires the Explee cluster to the **Dispatcher** agent and stands up a
 `tryambakam-noesis` tenant bridged to a Paperclip company. Everything routes through the existing
-Hermes → Chief-of-Staff → Dispatcher → Paperclip path, with approval gates and audit.
+SG Bus → Chief-of-Staff → Dispatcher → Paperclip path, with approval gates and audit.
 
 ## User Stories
 
@@ -29,7 +29,7 @@ Chief of Staff routes it to the **Dispatcher**, which invokes the Explee cluster
 `explee-orchestrator`) through the approval-gated `explee-proxy` connector — so prospect/partner
 intelligence runs *inside* the orchestration (interpreted, gated, audited), not as a side silo.
 
-**Independent test**: post a Hermes event titled "find partner podcasts for tryambakam-noesis ICP";
+**Independent test**: post a SG Bus event titled "find partner podcasts for tryambakam-noesis ICP";
 assert it routes `dispatcher → explee-orchestrator`, and that a paid search requires approval.
 
 ### US2 — Tryambakam Noesis as a tenant/org (Priority: P2)
@@ -64,7 +64,7 @@ without forking the single `source_prefix`. (Constitution #7, portable packs.)
 6. A `tryambakam-noesis` tenant MUST exist (`tenants/tryambakam-noesis/MANIFEST.yaml` + `sources.yaml`), added to `tenants/_registry.yaml`, `isolation: strict`.
 7. The tenant MUST resolve to a Paperclip company (`paperclip.company_id` + `lane_prefix` derived from "Tryambakam Noesis"); until the company exists, the bridge MUST degrade to the local outbox.
 8. `tenants/tryambakam-noesis/sources.yaml` MUST point at `brand-docs-final/` + `Content-Engine/` for ingest/embed.
-9. Every Explee invocation MUST pass through a routed, logged decision (interpretation + Hermes audit) — no raw cold-scrape → action. (Constitution #3, #5.)
+9. Every Explee invocation MUST pass through a routed, logged decision (interpretation + SG Bus audit) — no raw cold-scrape → action. (Constitution #3, #5.)
 
 ## Non-Goals (v1)
 
@@ -97,7 +97,7 @@ without forking the single `source_prefix`. (Constitution #7, portable packs.)
 | 2 | Tenant isolation first | Explee runs tenant-scoped; `tryambakam-noesis` isolation strict. |
 | 3 | Interpretation before automation | Explee invoked only via routed decisions, never raw scrape→act. |
 | 4 | Approval-gated risk | Paid Explee ops gated; connector flags `risk: approval`. |
-| 5 | Auditability by default | Hermes audit + `snowgloves:tenant:` bridge tags on every task. |
+| 5 | Auditability by default | SG Bus audit + `snowgloves:tenant:` bridge tags on every task. |
 | 6 | Wiki as human control surface | Tenant sources = brand-docs + Content-Engine (the operator wiki). |
 | 7 | Portable domain packs | The `sources:` external-cluster pattern is reusable for any future cluster. |
 

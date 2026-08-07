@@ -1,0 +1,35 @@
+# Snow Gloves OS — runtime config
+platform:
+  name: snow-gloves-os
+  version: 0.1.0
+
+paperclip:
+  host: 127.0.0.1
+  port: 3100
+  instance: default
+
+hermes:
+  host: 127.0.0.1
+  port: 4100
+  channel: snowgloves.events.v1
+
+embeddings:
+  provider: nvidia
+  model: nv-embedqa-e5-v5
+  dimension: 1024
+
+connectors:
+  fabric: g-stack
+  scope_mode: least-privilege
+  approval_required:
+    - finance.write
+    - hr.write
+    - legal.write
+
+retrieval:
+  index: vector
+  per_tenant_isolation: true
+
+audit:
+  enabled: true
+  sink: ./_audit/trace.log

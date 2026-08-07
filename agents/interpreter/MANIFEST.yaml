@@ -1,7 +1,7 @@
 slug: interpreter
 role: "Interpretation Engine"
 layer: INTERPRETER
-hermes_channel: snowgloves.events.v1
+sg_bus_channel: snowgloves.events.v1
 paperclip_lane: interpreter
 skills: []
 approvals_required:

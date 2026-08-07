@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse, json, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hermes import route, LOG
+from sg_bus import route, LOG
 
 def load():
     if not LOG.exists(): return []

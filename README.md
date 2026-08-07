@@ -17,7 +17,7 @@
 ![License](https://img.shields.io/badge/license-private-lightgrey?style=for-the-badge)
 ![Spec-Kit](https://img.shields.io/badge/spec--kit-v0.8.12-blue?style=for-the-badge&logo=github)
 ![Paperclip](https://img.shields.io/badge/paperclip-3100-9cf?style=for-the-badge)
-![Hermes](https://img.shields.io/badge/hermes-4100-blueviolet?style=for-the-badge)
+![SG Bus](https://img.shields.io/badge/sg-bus-4100-blueviolet?style=for-the-badge)
 
 </div>
 <!-- readme-gen:end:badges -->
@@ -38,7 +38,7 @@
 </div>
 <!-- readme-gen:end:social -->
 
-> **Run a business as if a senior team were watching it 24/7.** Snow Gloves OS is a reusable, tenant-scoped operations platform that wraps your tools (G-Stack connectors), your knowledge (NVIDIA embeddings), your judgement (an interpretation layer), and your action (Hermes + Paperclip orchestration) — so events don't get dropped, decisions are auditable, and risky actions are gated.
+> **Run a business as if a senior team were watching it 24/7.** Snow Gloves OS is a reusable, tenant-scoped operations platform that wraps your tools (G-Stack connectors), your knowledge (NVIDIA embeddings), your judgement (an interpretation layer), and your action (SG Bus + Paperclip orchestration) — so events don't get dropped, decisions are auditable, and risky actions are gated.
 
 <img src="https://capsule-render.vercel.app/api?type=rect&color=gradient&customColorList=12,13,14&height=2" width="100%" />
 
@@ -76,7 +76,7 @@ Tenant-isolated vector index (`nv-embedqa-e5-v5`, 1024-dim). Plug into NVIDIA NI
 <tr>
 <td width="50%" valign="top">
 
-### 🛰️ Hermes Event Bus
+### 🛰️ SG Bus Event Bus
 Minimal HTTP listener on port `4100`. `POST /publish`, `GET /events`, `POST /test/e2e` for end-to-end smoke. Every event is append-logged for audit.
 
 </td>
@@ -108,11 +108,11 @@ make smoke                    # full end-to-end smoke test
 |---|---|
 | `make install` | Bootstrap (paperclipai + python deps) |
 | `make onboard` | Interactive tenant onboarding |
-| `make hermes` | Foreground Hermes listener on `:4100` |
-| `make smoke` | Hermes → e2e → bridge dry-run → embed stub → sentinel |
+| `make sg-bus` | Foreground SG Bus listener on `:4100` |
+| `make smoke` | SG Bus → e2e → bridge dry-run → embed stub → sentinel |
 | `make embed T=<tenant>` | Run NVIDIA embed worker (`QUIET=1` for cron) |
 | `make sentinel` | Daily drift sweep |
-| `make kill-hermes` | Free port 4100 |
+| `make kill-sg-bus` | Free port 4100 |
 
 </details>
 
@@ -124,7 +124,7 @@ make smoke                    # full end-to-end smoke test
 ```mermaid
 graph TD
   Ext[3rd-party app] -- signed webhook --> GS[G-Stack /webhook]
-  GS -- normalized envelope --> Her[Hermes :4100]
+  GS -- normalized envelope --> Her[SG Bus :4100]
   Her --> CoS[Chief of Staff<br/>skill-hooks.yaml]
   CoS -->|strategy| CEO
   CoS -->|technical| CTO
@@ -135,7 +135,7 @@ graph TD
   Dis --> PB[Paperclip Bridge<br/>:3100/api/tasks]
   Lib --> EW[NVIDIA Embed Worker]
   EW --> VI[(tenant vector-index.jsonl)]
-  Her -- audit --> Log[(_audit/hermes-events.jsonl)]
+  Her -- audit --> Log[(_audit/sg-bus-events.jsonl)]
   Log --> SS[Sentinel Sweep<br/>daily]
   SS --> Evo[(agents/*/EVOLUTION.md)]
 ```
@@ -147,7 +147,7 @@ graph TD
 | **Connector** | G-Stack fabric, scopes, webhooks | `connectors/g-stack/` |
 | **Knowledge** | Ingest, chunk, embed, retrieve | `scripts/ingest.py`, `scripts/embed_worker.py` |
 | **Interpretation** | Skill routing, escalation | `workflows/skill-hooks.yaml`, `agents/chief-of-staff/` |
-| **Orchestration** | Event bus + Paperclip bridge | `scripts/hermes.py`, `scripts/paperclip_bridge.py` |
+| **Orchestration** | Event bus + Paperclip bridge | `scripts/sg_bus.py`, `scripts/paperclip_bridge.py` |
 
 <!-- readme-gen:end:architecture -->
 
@@ -167,7 +167,7 @@ graph TD
 │   ├── 📂 dispatcher/          # Distribution + virality (3 skills)
 │   └── 📂 sentinel/            # Audit + risk (2 skills)
 ├── 📂 connectors/g-stack/      # Capability registry + auth + webhooks
-├── 📂 scripts/                 # install · hermes · ingest · embed · bridge · sentinel
+├── 📂 scripts/                 # install · sg-bus · ingest · embed · bridge · sentinel
 ├── 📂 workflows/               # skill-hooks.yaml — Chief of Staff graph
 ├── 📂 skills/                  # registry.yaml — 60-skill index
 ├── 📂 specs/                   # Spec-Kit features (001-hand-in-glove-platform)
@@ -243,7 +243,7 @@ See [`.specify/memory/constitution.md`](./.specify/memory/constitution.md).
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=12,13,14&height=110&section=footer" width="100%" />
 
-**Built with ❤️ by [Mage Narayan](https://github.com/Sheshiyer) · Thoughtseed Labs**
+**Built with ❤️ by [Mage Narayan](https://github.com/Sheshiyer) · Tryambakam Noesis**
 
 </div>
 <!-- readme-gen:end:footer -->

@@ -46,7 +46,7 @@ As the Interpreter, AutoGTM results are re-ranked against the brand's **position
 ### US4 — Refresh routine (Priority: P3)
 
 As the ecosystem, a Paperclip **routine** `refresh-gtm-briefs` re-runs synthesis (→ human re-approval)
-on a **monthly schedule + manual trigger** (v1); an **event-driven webhook** (vault git-hook → Hermes
+on a **monthly schedule + manual trigger** (v1); an **event-driven webhook** (vault git-hook → SG Bus
 on brand-docs change) is the reserved responsive upgrade. So the Briefs stay current without per-run cost.
 
 ### Edge Cases

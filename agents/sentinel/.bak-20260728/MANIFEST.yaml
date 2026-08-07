@@ -1,0 +1,10 @@
+slug: sentinel
+role: "Audit & Risk Sentinel"
+layer: SENTINEL
+hermes_channel: snowgloves.events.v1
+paperclip_lane: sentinel
+skills: []
+approvals_required:
+  - finance.write
+  - hr.write
+  - legal.write

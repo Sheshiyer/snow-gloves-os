@@ -1,9 +1,12 @@
 # Paperclip routine — refresh the tenant's GTM Briefs (specs/004, the agent-synthesizes half).
 # Declarative spec. Goes live once an Interpreter agent is hired in the TRY Paperclip company,
-# registered via the bridge (scripts/paperclip_bridge.py -> :3100). v1 = scheduled + manual.
+# registered via the bridge (scripts/paperclip_bridge.py -> paperclip.tn.local:3100 placeholder;
+# env override PAPERCLIP_HOST/PAPERCLIP_PORT). v1 = scheduled + manual.
 name: refresh-gtm-briefs
 tenant: tryambakam-noesis
-company_id: e97ff473-f919-404e-b59c-5591e9c3e9ae   # TRY
+company_id: PENDING-T5-RECREATE   # TRY — severed from retired Thoughtseed paperclip instance
+                                  # 2026-07-28 (P-SEC-a2); phase T5 recreates in TN paperclip
+                                  # (paperclip.tn.local:3100 placeholder) and writes the real id.
 assignee: interpreter
 skill: snowgloves:gtm-brief-synthesis
 
@@ -12,7 +15,7 @@ triggers:
     cron: "0 9 1 * *"          # 09:00 on the 1st of each month
     timezone: Asia/Kolkata
   - type: manual               # on-demand "refresh gtm brief" task
-  # - type: webhook            # reserved (v2): brand-docs git change -> Hermes -> here
+  # - type: webhook            # reserved (v2): brand-docs git change -> SG Bus -> here
 
 concurrency_policy: skip        # don't stack synthesis runs
 catch_up_policy: skip           # a missed month does not backfill

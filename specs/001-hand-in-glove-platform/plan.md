@@ -20,7 +20,7 @@
    - recommended action envelope
 
 4. **Orchestration Layer**
-   - Hermes event routing
+   - SG Bus event routing
    - Paperclip task assignment
    - agent skill routing
    - escalation/approval policies
@@ -58,7 +58,7 @@
 - confidence/risk classification
 - action proposal API
 
-### Phase D — Hermes/Paperclip integration
+### Phase D — SG Bus/Paperclip integration
 - routing adapter
 - task lifecycle sync
 - approvals + escalations

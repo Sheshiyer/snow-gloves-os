@@ -50,5 +50,5 @@ route-test (glob → `dispatcher → explee-orchestrator`); approval-gate test (
 - **#2 Tenant isolation** — Explee runs tenant-scoped; `tryambakam-noesis` strict.
 - **#3 Interpretation before automation** — Explee only via a routed decision (Phase E route-test).
 - **#4 Approval-gated risk** — paid Explee ops gated (Phase E gate-test).
-- **#5 Auditability** — bridge `snowgloves:tenant:` tags + Hermes audit present.
+- **#5 Auditability** — bridge `snowgloves:tenant:` tags + SG Bus audit present.
 - **#7 Portable packs** — the `sources:` external-cluster pattern is reusable.

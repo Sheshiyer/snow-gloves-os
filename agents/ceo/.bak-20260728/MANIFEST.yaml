@@ -1,0 +1,10 @@
+slug: ceo
+role: "Chief Executive Agent"
+layer: CEO
+hermes_channel: snowgloves.events.v1
+paperclip_lane: ceo
+skills: []
+approvals_required:
+  - finance.write
+  - hr.write
+  - legal.write

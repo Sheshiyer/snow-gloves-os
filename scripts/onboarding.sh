@@ -26,8 +26,8 @@ done
   echo "paperclip:"
   echo "  port: ${PAPERCLIP_PORT:-3100}"
   echo "  instance: ${PAPERCLIP_INSTANCE:-default}"
-  echo "hermes:"
-  echo "  port: ${HERMES_PORT:-4100}"
+  echo "sg-bus:"
+  echo "  port: ${SG_BUS_PORT:-4100}"
   echo "sources:"
   for s in "${SOURCES[@]}"; do
     echo "  - path: \"$s\""
