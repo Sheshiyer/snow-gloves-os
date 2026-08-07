@@ -46,7 +46,7 @@ const views = {
   welcome: () => `
     <main><div class="card">
       <h2>Welcome to Snow Gloves OS</h2>
-      <p class="sub">A reusable Hand-In-Glove operations platform. This wizard will provision a new tenant, verify the local Paperclip + Hermes runtime, and wire your first sources.</p>
+      <p class="sub">A reusable Hand-In-Glove operations platform. This wizard will provision a new tenant, verify the local Paperclip + SG Bus runtime, and wire your first sources.</p>
       <div class="checks">
         <div class="check"><span class="badge">1</span><div>Run preflight (doctor)</div></div>
         <div class="check"><span class="badge">2</span><div>Create tenant scaffold</div></div>
@@ -91,7 +91,7 @@ const views = {
   paperclip: () => `
     <main><div class="card">
       <h2>Bind Paperclip company</h2>
-      <p class="sub">Optional. Paste the company UUID from your Paperclip instance running on <code>127.0.0.1:3100</code>. Leave empty to bind later.</p>
+      <p class="sub">Optional. Paste the company UUID from your Paperclip instance running on <code>paperclip.tn.local:3100</code> (placeholder — TN instance, phase T5). Leave empty to bind later.</p>
       <label>Paperclip company ID (UUID)</label>
       <input id="cid" value="${state.company_id}" placeholder="2f554495-a76c-4d5a-bec8-71be115bce76" data-input="company_id" />
       <div style="margin-top:14px"><span class="tag">Tip</span><span style="color:var(--muted)">Run <code>paperclipai companies list</code> in your terminal to retrieve IDs.</span></div>

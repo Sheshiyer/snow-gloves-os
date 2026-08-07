@@ -1,7 +1,7 @@
-"""G-Stack inbound webhook → Hermes publish.
+"""G-Stack inbound webhook → SG Bus publish.
 
 Verifies a simple HMAC signature, normalizes the payload into a Snow Gloves
-event envelope, and POSTs to Hermes /publish on port 4100.
+event envelope, and POSTs to SG Bus /publish on port 4100.
 """
 from __future__ import annotations
 import hmac, hashlib, json, os, sys, time, urllib.request
@@ -10,7 +10,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 CONF = yaml.safe_load((ROOT / "config" / "snowgloves.yaml").read_text())
-HERMES = f"http://{CONF['hermes']['host']}:{CONF['hermes']['port']}/publish"
+SG_BUS = f"http://{CONF['sg-bus']['host']}:{CONF['sg-bus']['port']}/publish"
 
 def verify(secret: str, body: bytes, signature: str) -> bool:
     mac = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
@@ -18,7 +18,7 @@ def verify(secret: str, body: bytes, signature: str) -> bool:
 
 def normalize(tenant: str, connector: str, capability: str, payload: dict) -> dict:
     return {
-        "channel": CONF["hermes"]["channel"],
+        "channel": CONF["sg-bus"]["channel"],
         "event": {
             "tenant": tenant,
             "connector": connector,
@@ -29,7 +29,7 @@ def normalize(tenant: str, connector: str, capability: str, payload: dict) -> di
     }
 
 def emit(envelope: dict) -> dict:
-    req = urllib.request.Request(HERMES,
+    req = urllib.request.Request(SG_BUS,
         data=json.dumps(envelope).encode(),
         headers={"Content-Type": "application/json"})
     return json.loads(urllib.request.urlopen(req, timeout=5).read())
@@ -41,7 +41,7 @@ def handle(tenant: str, connector: str, capability: str, body: bytes, signature:
     return {"ok": True, "result": emit(normalize(tenant, connector, capability, payload))}
 
 if __name__ == "__main__":
-    # Smoke: simulate an inbound PMS booking event end-to-end (requires Hermes running)
+    # Smoke: simulate an inbound PMS booking event end-to-end (requires SG Bus running)
     secret = "demo-secret"
     body = json.dumps({"booking_id": "BK-1001", "amount": 320, "currency": "USD"}).encode()
     sig = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()

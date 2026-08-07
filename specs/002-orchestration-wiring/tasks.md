@@ -3,6 +3,11 @@
 > **Status (2026-06-03):** Phases A–D complete; Phase E verified except live approval-gate
 > enforcement and the runtime secret bind (both noted). Paperclip company **Tryambakam Noesis**
 > created (`TRY`, `e97ff473-f919-404e-b59c-5591e9c3e9ae`); bridge resolves it; `make smoke` ✅.
+>
+> **Superseded (2026-07-28, P-SEC-a2):** the `e97ff473-…` company id below is a historical record
+> only — it lived in the retired Thoughtseed paperclip instance and was severed. Live configs now
+> carry `PENDING-T5-RECREATE` until phase T5 recreates TRY in the TN paperclip instance
+> (`paperclip.tn.local:3100`, placeholder).
 
 ## Phase A — Skill wiring (Explee → Dispatcher)
 

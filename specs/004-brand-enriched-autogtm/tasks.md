@@ -29,7 +29,7 @@
 ## Phase E — Refresh routine
 
 - [ ] T040 Paperclip routine `refresh-gtm-briefs` (schedule=monthly + manual `api` trigger)
-- [ ] T041 (reserved) `webhook` trigger on brand-docs change (vault git-hook → Hermes)
+- [ ] T041 (reserved) `webhook` trigger on brand-docs change (vault git-hook → SG Bus)
 
 ## Phase F — Verify + route
 

@@ -1,7 +1,7 @@
 import sys, json
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from hermes import route
+from sg_bus import route
 
 def test_viral_routes_to_dispatcher():
     r = route({"title":"viral growth loop", "tags":[], "brief":""})

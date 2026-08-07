@@ -28,9 +28,9 @@
 - [ ] T032 Implement confidence scoring and fallback behavior
 - [ ] T033 Implement interpreted context query endpoint
 
-## Hermes + Paperclip Orchestration
+## SG Bus + Paperclip Orchestration
 
-- [ ] T040 Implement event envelope translation to Hermes
+- [ ] T040 Implement event envelope translation to SG Bus
 - [ ] T041 Implement Paperclip task creation/update sync
 - [ ] T042 Implement approval-gate routing for high-risk actions
 - [ ] T043 Implement escalation policies and owner resolution

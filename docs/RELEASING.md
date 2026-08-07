@@ -23,7 +23,7 @@ You need to set these 8 secrets in **Settings → Secrets and variables → Acti
 |---|---|---|
 | `APPLE_CERTIFICATE` | base64 of `.p12` export of your Developer ID Application cert | Keychain → right-click cert → Export → .p12 → `base64 -i cert.p12 \| pbcopy` |
 | `APPLE_CERTIFICATE_PASSWORD` | password used when exporting the .p12 | — |
-| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: Thoughtseed Private Limited (BS6SZR4929)` | `security find-identity -v -p codesigning` |
+| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: Thoughtseed Private Limited (BS6SZR4929)` — cert CN verbatim; team approved for Snow Gloves signing under owner ruling R3. Do NOT re-word this string, codesign matches it exactly. | `security find-identity -v -p codesigning` |
 | `KEYCHAIN_PASSWORD` | any password (just unlocks the temp keychain in CI) | e.g. `openssl rand -base64 24` |
 
 ### C. macOS notarization (required for the app to launch on other Macs without scary dialogs)
@@ -32,7 +32,7 @@ You need to set these 8 secrets in **Settings → Secrets and variables → Acti
 |---|---|---|
 | `APPLE_ID` | the Apple ID email used to enroll in the Developer Program | — |
 | `APPLE_PASSWORD` | **app-specific password** (NOT your real Apple password) | https://appleid.apple.com → Security → App-Specific Passwords → generate |
-| `APPLE_TEAM_ID` | `BS6SZR4929` (Thoughtseed) | https://developer.apple.com/account → Membership |
+| `APPLE_TEAM_ID` | `BS6SZR4929` (kept per owner ruling R3 — cert issued to Thoughtseed Private Limited, team approved for Snow Gloves / Tryambakam Noesis signing) | https://developer.apple.com/account → Membership |
 
 ---
 
@@ -115,10 +115,16 @@ To do a **fully signed local build** (matches CI output exactly except notarizat
 cd apps/onboarding
 export TAURI_SIGNING_PRIVATE_KEY=$(cat ~/.tauri/snowgloves-updater.key)
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
-export APPLE_SIGNING_IDENTITY="Developer ID Application: Thoughtseed Private Limited (BS6SZR4929)"
+export APPLE_SIGNING_IDENTITY="Developer ID Application: Thoughtseed Private Limited (BS6SZR4929)"  # cert CN verbatim — team approved per owner ruling R3; do not re-word
 npx tauri build
 # → src-tauri/target/release/bundle/
 ```
+
+---
+
+## Bundle identifier
+
+The app bundle id is **`com.tryambakam.snowgloves.onboarding`** (`apps/onboarding/src-tauri/tauri.conf.json` → `identifier`), re-branded from the former `com.thoughtseed.snowgloves.onboarding`. The Apple signing team (`BS6SZR4929`) is unchanged and approved for Snow Gloves signing under owner ruling R3; the signing identity string above must stay byte-identical to the certificate CN in the keychain.
 
 ---
 

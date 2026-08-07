@@ -12,7 +12,7 @@ Build the reusable core architecture for Snow Gloves OS so it can onboard differ
 - wiki ingestion and understanding
 - NVIDIA-based semantic retrieval
 - interpretation/policy layer
-- Hermes + Paperclip orchestration
+- SG Bus + Paperclip orchestration
 
 ## User Stories
 
@@ -40,7 +40,7 @@ so that finance/HR/legal operations remain controlled.
 2. System MUST ingest tenant wiki/doc sources into a normalized knowledge pipeline.
 3. System MUST generate and store embeddings using an NVIDIA-compatible embedding provider.
 4. System MUST expose interpreted context (entities, policies, confidence, owner) via a query API.
-5. System MUST route tasks/events into Hermes + Paperclip orchestration lanes.
+5. System MUST route tasks/events into SG Bus + Paperclip orchestration lanes.
 6. System MUST support approval gates for high-risk operations.
 7. System MUST maintain complete audit logs for interpretation and execution.
 8. System MUST provide reusable domain-pack templates for new businesses.

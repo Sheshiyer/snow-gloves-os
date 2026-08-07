@@ -1,6 +1,6 @@
 """Sentinel — daily drift sweep.
 
-Reads _audit/hermes-events.jsonl, computes per-agent signals:
+Reads _audit/sg-bus-events.jsonl, computes per-agent signals:
   - fallback_count (default-fallback / no-match)
   - hook_diversity (#unique hooks used today)
   - skill_load (top 3 skills called)
@@ -16,7 +16,7 @@ from datetime import datetime, timezone, date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LOG = ROOT / "_audit" / "hermes-events.jsonl"
+LOG = ROOT / "_audit" / "sg-bus-events.jsonl"
 AGENTS_DIR = ROOT / "agents"
 
 def load_today():

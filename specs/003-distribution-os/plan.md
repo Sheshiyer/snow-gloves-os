@@ -37,4 +37,4 @@
 
 ## Constitution Gates
 
-#2 tenant-scoped · #3 drafts are proposals (human-gated) · #4 human approves every post · #5 log + Hermes audit · #6 the vault is the control surface.
+#2 tenant-scoped · #3 drafts are proposals (human-gated) · #4 human approves every post · #5 log + SG Bus audit · #6 the vault is the control surface.

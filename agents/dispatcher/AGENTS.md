@@ -1,7 +1,7 @@
 # Agent Relationships — Orchestration Dispatcher
 
 ## Upstream
-- Hermes channel: `snowgloves.events.v1`
+- SG Bus channel: `snowgloves.events.v1`
 - Chief of Staff (skill routing)
 
 ## Peers

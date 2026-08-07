@@ -7,7 +7,12 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 CONF = yaml.safe_load((ROOT / "config" / "snowgloves.yaml").read_text())
 PC = CONF["paperclip"]
-BASE = f"http://{PC['host']}:{PC['port']}"
+# Target = future TN-owned paperclip instance. config/snowgloves.yaml carries the
+# placeholder host (paperclip.tn.local:3100) until phase T5 stands the instance up;
+# PAPERCLIP_HOST / PAPERCLIP_PORT env vars override config at runtime.
+PC_HOST = os.environ.get("PAPERCLIP_HOST", PC["host"])
+PC_PORT = int(os.environ.get("PAPERCLIP_PORT", PC["port"]))
+BASE = f"http://{PC_HOST}:{PC_PORT}"
 
 # tenant → paperclip company resolution (extendable per tenant manifest)
 DEFAULT_COMPANY = os.environ.get("SNOWGLOVES_DEFAULT_COMPANY", "")
@@ -49,7 +54,7 @@ def create_task(tenant: str, decision: dict, dry: bool = False) -> dict:
         "skills": skills,
         "all_routes": routing_list,
         "source": "snow-gloves-os",
-        "hermes_audit_ts": decision.get("audit", {}).get("ts"),
+        "sg_bus_audit_ts": decision.get("audit", {}).get("ts"),
     }
     if dry:
         return {"dry_run": True, "would_post": f"{BASE}/api/tasks", "payload": payload}
@@ -70,7 +75,7 @@ def create_task(tenant: str, decision: dict, dry: bool = False) -> dict:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--tenant", required=True)
-    ap.add_argument("--decision", help="JSON file with hermes /test/e2e response")
+    ap.add_argument("--decision", help="JSON file with sg-bus /test/e2e response")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--ping", action="store_true")
     a = ap.parse_args()

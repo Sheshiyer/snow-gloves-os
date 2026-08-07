@@ -1,0 +1,10 @@
+slug: chief-of-staff
+role: "Chief of Staff (Skill Orchestrator)"
+layer: CHIEF-OF-STAFF
+hermes_channel: snowgloves.events.v1
+paperclip_lane: chief-of-staff
+skills: []
+approvals_required:
+  - finance.write
+  - hr.write
+  - legal.write

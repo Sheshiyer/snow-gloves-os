@@ -6,7 +6,7 @@
 - **Knowledge Layer:** wiki/doc ingestion + vector retrieval
 - **Embedding Layer:** NVIDIA-compatible embedding abstraction
 - **Interpretation Layer:** entity/policy/confidence synthesis
-- **Orchestration Layer:** Hermes + Paperclip
+- **Orchestration Layer:** SG Bus + Paperclip
 - **Memory Layer:** wiki/audit/trace synchronization
 
 ## Why this works across businesses

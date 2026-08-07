@@ -35,7 +35,7 @@ Every business is different, but every business needs the same four primitives. 
 | 🔌 **Connector** | Scoped, signed integrations with 3rd-party tools. HMAC-verified webhooks. Per-capability risk + approval flags. | `connectors/g-stack/` |
 | 📚 **Knowledge** | Tenant-isolated ingestion → chunking → embedding (NVIDIA NIM) → retrieval. Disk-cached, retry-with-backoff. | `scripts/ingest.py` · `scripts/embed_worker.py` |
 | 🧠 **Interpretation** | A skill graph (60 skills today) that maps fuzzy event signals to specific agents via glob-matched hooks. Owned by the Chief of Staff. | `workflows/skill-hooks.yaml` · `agents/chief-of-staff/` |
-| 🛰 **Orchestration** | A minimal event bus (Hermes :4100) + a bridge into Paperclip (:3100) for task creation. Audit log on every hop. | `scripts/hermes.py` · `scripts/paperclip_bridge.py` |
+| 🛰 **Orchestration** | A minimal event bus (SG Bus :4100) + a bridge into Paperclip (:3100) for task creation. Audit log on every hop. | `scripts/sg_bus.py` · `scripts/paperclip_bridge.py` |
 
 ---
 
@@ -46,7 +46,7 @@ This is what happens when, say, a customer emails you a complaint:
 ```mermaid
 flowchart LR
   Ext["📡 External Event<br/>(Gmail, Slack, Cron, Wiki)"] --> Sig["🔐 G-Stack<br/>HMAC verify + scope"]
-  Sig --> Her["🛰 Hermes :4100<br/>append-only audit"]
+  Sig --> Her["🛰 SG Bus :4100<br/>append-only audit"]
   Her --> CoS["🧭 Chief of Staff<br/>skill-hooks.yaml"]
   CoS -->|glob match| Sk1["🎯 Skill Match A"]
   CoS -->|glob match| Sk2["🎯 Skill Match B"]
@@ -62,7 +62,7 @@ flowchart LR
 **Key properties:**
 
 - 🔐 **Nothing enters without a signature** — webhooks are HMAC-verified at the G-Stack edge
-- 📜 **Every event is auditable** — append-only log at `_audit/hermes-events.jsonl` (with PII redaction)
+- 📜 **Every event is auditable** — append-only log at `_audit/sg-bus-events.jsonl` (with PII redaction)
 - 🪂 **No event is lost** — unmatched events go to `default-fallback`; unreachable Paperclip writes queue to `bridge_outbox.jsonl`
 - 🤖 **Routing is fan-out** — one event can fire multiple skills on multiple agents
 
@@ -103,17 +103,17 @@ When you add a new skill to `skills/registry.yaml` and a hook to `workflows/skil
 
 ## 5 · Tenant isolation — one runtime, many businesses
 
-A single Snow Gloves OS install can run as many tenants as you want. The skill graph, the connector fabric, and Hermes are **shared**. The data, secrets, sources, memory, embeddings, and approvals are **strictly isolated** per tenant.
+A single Snow Gloves OS install can run as many tenants as you want. The skill graph, the connector fabric, and SG Bus are **shared**. The data, secrets, sources, memory, embeddings, and approvals are **strictly isolated** per tenant.
 
 ```mermaid
 flowchart LR
   subgraph Shared["🌐 Shared Platform (single repo, single runtime)"]
-    H[Hermes]
+    H[SG Bus]
     CoS[Chief of Staff]
     Hooks[skill-hooks.yaml]
     Caps[capabilities.yaml]
   end
-  subgraph T1["🧱 tenants/thoughtseed/"]
+  subgraph T1["🧱 tenants/acme/"]
     S1[sources.yaml]
     V1[vector-index.jsonl]
     A1[approvals/]
@@ -144,10 +144,10 @@ This is the loop that makes Snow Gloves OS get **better** the more you use it, n
 sequenceDiagram
   autonumber
   participant E as External Event
-  participant H as Hermes
+  participant H as SG Bus
   participant C as Chief of Staff
   participant A as Agent
-  participant L as _audit/hermes-events.jsonl
+  participant L as _audit/sg-bus-events.jsonl
   participant S as Sentinel (daily cron)
   participant V as agents/*/EVOLUTION.md
   E->>H: POST /publish
@@ -197,7 +197,7 @@ Read the full text: [`.specify/memory/constitution.md`](../.specify/memory/const
 ```bash
 make doctor               # pre-flight: ports, configs, NVIDIA key, paperclipai
 make tenant-new T=acme N="Acme Co"
-make hermes &             # start the bus
+make sg-bus &             # start the bus
 make smoke                # full end-to-end loop
 make app-dev              # native Tauri onboarding wizard
 make sentinel             # daily drift sweep

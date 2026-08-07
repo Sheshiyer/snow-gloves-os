@@ -7,7 +7,7 @@
 | chief-of-staff | Skill Orchestrator | Routing |
 | librarian | Knowledge + Embeddings | Knowledge |
 | interpreter | Interpretation Engine | Interpretation |
-| dispatcher | Hermes/Paperclip Bridge | Orchestration |
+| dispatcher | SG Bus/Paperclip Bridge | Orchestration |
 | sentinel | Audit & Risk | Governance |
 
 Each agent ships **at least 5 .md files**:

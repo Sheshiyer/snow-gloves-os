@@ -1,8 +1,8 @@
 SHELL := /bin/bash
 PYTHON ?= python3
-HERMES_PORT ?= 4100
+SG_BUS_PORT ?= 4100
 
-.PHONY: help install onboard hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay
+.PHONY: help install onboard sg-bus smoke embed sentinel kill-sg-bus clean doctor test tenant-new approvals replay
 
 help:
 	@echo "Snow Gloves OS — make targets"
@@ -10,14 +10,14 @@ help:
 	@echo "  make install               # bootstrap (paperclipai + python deps)"
 	@echo "  make onboard               # interactive tenant onboarding"
 	@echo "  make tenant-new T=<slug>   # scaffold a new tenant"
-	@echo "  make hermes                # run Hermes listener (foreground)"
+	@echo "  make sg-bus                # run SG Bus listener (foreground)"
 	@echo "  make smoke                 # full e2e smoke"
 	@echo "  make embed T=<tenant>      # NVIDIA embed worker (QUIET=1 for cron)"
 	@echo "  make sentinel              # daily drift sweep"
 	@echo "  make approvals T=<tenant>  # list pending approval tickets"
 	@echo "  make replay N=5            # replay last N events through current hooks"
 	@echo "  make test                  # pytest"
-	@echo "  make kill-hermes           # free port $(HERMES_PORT)"
+	@echo "  make kill-sg-bus           # free port $(SG_BUS_PORT)"
 
 doctor:
 	bash scripts/doctor.sh
@@ -32,17 +32,17 @@ tenant-new:
 	@if [ -z "$(T)" ]; then echo "usage: make tenant-new T=<slug> [N=\"Business Name\"]"; exit 1; fi
 	bash scripts/tenant_new.sh $(T) $(N)
 
-hermes:
-	$(PYTHON) scripts/hermes.py
+sg-bus:
+	$(PYTHON) scripts/sg_bus.py
 
-kill-hermes:
-	-@lsof -ti tcp:$(HERMES_PORT) | xargs kill -9 2>/dev/null; true
+kill-sg-bus:
+	-@lsof -ti tcp:$(SG_BUS_PORT) | xargs kill -9 2>/dev/null; true
 
-smoke: kill-hermes
-	@echo "==> [1/5] starting Hermes in background"
-	@$(PYTHON) scripts/hermes.py & echo $$! > .hermes.pid; sleep 0.5
+smoke: kill-sg-bus
+	@echo "==> [1/5] starting SG Bus in background"
+	@$(PYTHON) scripts/sg_bus.py & echo $$! > .sg-bus.pid; sleep 0.5
 	@echo "==> [2/5] firing e2e test event"
-	@curl -sS -X POST http://127.0.0.1:$(HERMES_PORT)/test/e2e -H 'Content-Type: application/json' -d '{}' > .e2e.json
+	@curl -sS -X POST http://127.0.0.1:$(SG_BUS_PORT)/test/e2e -H 'Content-Type: application/json' -d '{}' > .e2e.json
 	@cat .e2e.json | $(PYTHON) -m json.tool
 	@echo "==> [3/5] bridging decision to Paperclip (dry-run)"
 	@cat .e2e.json | $(PYTHON) scripts/paperclip_bridge.py --tenant _demo --dry-run
@@ -53,8 +53,8 @@ smoke: kill-hermes
 	@SNOWGLOVES_EMBED_BACKEND=stub $(PYTHON) scripts/embed_worker.py _demo
 	@echo "==> [5/5] sentinel sweep"
 	@$(PYTHON) scripts/sentinel_sweep.py
-	@echo "==> stopping Hermes"
-	@kill $$(cat .hermes.pid) 2>/dev/null; rm -f .hermes.pid .e2e.json
+	@echo "==> stopping SG Bus"
+	@kill $$(cat .sg-bus.pid) 2>/dev/null; rm -f .sg-bus.pid .e2e.json
 	@echo "==> smoke complete ✅"
 
 embed:
@@ -75,7 +75,7 @@ test:
 	$(PYTHON) -m pytest -q tests/
 
 clean:
-	rm -f .hermes.pid .e2e.json
+	rm -f .sg-bus.pid .e2e.json
 
 
 # ---- Onboarding app (Tauri v2) ----
