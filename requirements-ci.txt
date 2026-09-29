@@ -1,0 +1,3 @@
+# CI / catalog / pages / platform-release Python deps (not the full product install).
+pyyaml
+pytest

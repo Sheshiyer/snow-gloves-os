@@ -9,8 +9,8 @@ Platform version: `0.2.0` (unreleased; do **not** tag until PR is merged)
 ## Current Position
 
 Phase: v0.2.0 consolidation
-Status: Graph walk GREEN; inference-sh and Explee demoted to catalog packs
-Last activity: Core hooks native-only; catalog 132 cards
+Status: Ready to merge PR #10, then tag v0.2.0
+Last activity: CI pip-cache fix; README/docs/workflows for stable v0.2.0
 
 Progress: [█████████░] 90%
 

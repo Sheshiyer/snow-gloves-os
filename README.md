@@ -14,10 +14,9 @@
 <div align="center">
 
 ![Version](https://img.shields.io/badge/version-0.2.0-informational?style=for-the-badge)
-![Status](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge)
+![Status](https://img.shields.io/badge/status-stable-success?style=for-the-badge)
+![Release](https://img.shields.io/github/v/release/Sheshiyer/snow-gloves-os?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-private-lightgrey?style=for-the-badge)
-![Spec-Kit](https://img.shields.io/badge/spec--kit-v0.8.12-blue?style=for-the-badge&logo=github)
-![Paperclip](https://img.shields.io/badge/paperclip-3100-9cf?style=for-the-badge)
 ![Hermes](https://img.shields.io/badge/hermes-4100-blueviolet?style=for-the-badge)
 
 </div>
@@ -213,12 +212,12 @@ More detail: [`docs/architecture-overview.md`](./docs/architecture-overview.md).
 
 | Disposition | Count | Meaning |
 |---|---:|---|
-| `add` | 59 | Tenant can enable it |
+| `add` | 61 | Tenant can enable it |
 | `pointer` | 45 | Tenant can enable it as a reference; the host already provides it |
 | `hold` | 14 | Visible, not enableable until the founder picks it and it passes review |
 | `refuse` | 12 | Visible, never enableable |
 
-By category: skills 77, playbook 36, plugin 13, mcp 3, connector 1. Card schema and dispositions: [`docs/catalog.md`](./docs/catalog.md). Where the cards came from: [`docs/research/2026-09-29-ecosystem-review.md`](./docs/research/2026-09-29-ecosystem-review.md).
+By category: skills 79, playbook 36, plugin 13, mcp 3, connector 1. Optional packs `inference-sh-agent-skills` and `explee-skills` are `add` cards, not core hooks. Card schema: [`docs/catalog.md`](./docs/catalog.md). Harvest notes: [`docs/research/2026-09-29-ecosystem-review.md`](./docs/research/2026-09-29-ecosystem-review.md).
 
 ## 🔀 Runtime Adapters & Onboarding
 
@@ -264,7 +263,7 @@ make upgrade                # dry-run tenant migrations to VERSION
 make upgrade T=acme WRITE=1 # apply, rebuild catalog, re-render acme's adapters
 ```
 
-A release ships the signed Tauri installers with the OTA manifest, plus a platform job that attaches the source tarball, `modules.json`, the adapter bundle, and `SHA256SUMS`. See [`docs/RELEASING.md`](./docs/RELEASING.md) and [`docs/UPGRADING.md`](./docs/UPGRADING.md).
+A release ships the signed Tauri installers (draft until you publish), plus a platform job that attaches the source tarball, `modules.json`, the adapter bundle, and `SHA256SUMS`. **v0.2.0 is a reinstall** for 0.1.x (new bundle id). See [`docs/RELEASING.md`](./docs/RELEASING.md) and [`docs/UPGRADING.md`](./docs/UPGRADING.md).
 
 <!-- readme-gen:start:tree -->
 ## 📂 Project Structure
@@ -273,7 +272,7 @@ A release ships the signed Tauri installers with the OTA manifest, plus a platfo
 📦 snow-gloves-os
 ├── 📄 VERSION                  # platform version (0.2.0)
 ├── 📄 distribution.yaml        # what the platform owns vs what tenants own
-├── 📂 .github/workflows/       # ci.yml (pytest, version + catalog checks, smoke) · release.yml · pages.yml
+├── 📂 .github/workflows/       # ci.yml (pytest, catalog, walk, smoke) · release.yml · pages.yml
 ├── 📂 .specify/                # Spec-Kit templates + workflows
 ├── 📂 .planning/               # GSD state (STATE.md, PROJECT.md)
 ├── 📂 agents/                  # 7 agents, each with 8+ md files + MANIFEST
@@ -306,15 +305,15 @@ A release ships the signed Tauri installers with the OTA manifest, plus a platfo
 | Spec coverage | ████████████████████ | 100% |
 | Agents wired | ████████████████████ | 100% |
 | End-to-end smoke | ████████████████████ | 100% |
-| Tests / CI (119 pytest tests; CI runs pytest, version + catalog checks, smoke) | ████████████████░░░░ |  80% |
-| Catalog (132 cards, `--check` in CI) | ████████████████░░░░ |  80% |
+| Tests / CI (130 pytest; CI runs pytest, version + catalog, `make walk`, smoke) | ████████████████████ | 100% |
+| Catalog (132 cards, `--check` in CI) | ████████████████████ | 100% |
 | Runtime adapters (9 shipped; several fields still `verify: true`) | ██████████░░░░░░░░░░ |  50% |
-| Release + upgrade tooling (v0.2.0 not yet published) | ████████████░░░░░░░░ |  60% |
+| Release + upgrade tooling (v0.2.0 stable) | ████████████████░░░░ |  80% |
 | Real NVIDIA NIM integration | ████░░░░░░░░░░░░░░░░ |  20% |
 | Live Paperclip wiring | ████░░░░░░░░░░░░░░░░ |  20% |
 | Production hardening | ████░░░░░░░░░░░░░░░░ |  20% |
 
-> **Overall: 63%** — Functional alpha with real tests and CI. Before pilot: confirm the unverified adapter fields, publish v0.2.0, and wire real connectors, NIM, and Paperclip.
+> **Overall: 70%** — Stable v0.2.0 platform. Before a live pilot: confirm unverified adapter fields, and wire real connectors, NIM, and Paperclip.
 <!-- readme-gen:end:health -->
 
 ### Open items

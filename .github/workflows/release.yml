@@ -107,20 +107,21 @@ jobs:
         with:
           projectPath: apps/onboarding
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: "Snow Gloves Onboarding ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseName: "Snow Gloves OS ${{ github.event.inputs.tag || github.ref_name }}"
           releaseBody: |
-            ## Snow Gloves OS — Onboarding ${{ github.event.inputs.tag || github.ref_name }}
+            ## Snow Gloves OS ${{ github.event.inputs.tag || github.ref_name }}
 
-            Auto-updating, code-signed desktop wizard. See [README](https://github.com/Sheshiyer/snow-gloves-os#-quick-start) for setup.
+            Stable platform + onboarding app. User guide: [snow-gloves-wiki](https://snow-gloves-wiki.vercel.app). Catalog dashboard: https://sheshiyer.github.io/snow-gloves-os/
 
             **macOS:** open the `.dmg`, drag to Applications.
             **Windows:** run the `.msi` or `.exe` installer.
             **Linux:** install the `.deb`, `.rpm`, or use the AppImage.
 
-            Existing installs will receive this update automatically via the in-app updater.
+            **0.1.x users must reinstall.** Bundle id `com.tryambakam.snowgloves.onboarding` is a new app; OTA from 0.1.x will not find this release.
 
-            ### See what's new
-            See [full changelog](https://github.com/Sheshiyer/snow-gloves-os/blob/main/CHANGELOG.md).
+            Core routing is native `snowgloves:` skills only. inference-sh and Explee are optional catalog packs.
+
+            Changelog: [CHANGELOG.md](https://github.com/Sheshiyer/snow-gloves-os/blob/main/CHANGELOG.md).
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
@@ -143,10 +144,13 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
       - uses: actions/setup-python@v5
-        with: { python-version: "3.12", cache: pip }
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
 
       - name: Install deps
-        run: pip install pyyaml
+        run: pip install -r requirements-ci.txt
 
       - name: Verify VERSION matches tag
         run: python3 scripts/release.py --check --expect "$TAG"

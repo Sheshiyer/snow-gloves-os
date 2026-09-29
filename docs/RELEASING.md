@@ -125,11 +125,13 @@ Runs after `build` (even if a platform failed) and needs no Apple secrets:
 
 ### `ci.yml` (every push and PR to main)
 
-pytest, `release.py --check`, `build_catalog.py --check`, and `make smoke` (Hermes, e2e event, bridge dry-run, embed stub, sentinel).
+Python deps come from `requirements-ci.txt` (so `setup-python` pip cache has a lock file). Jobs: pytest, `release.py --check`, `build_catalog.py --check`, `make walk`, and `make smoke` (Hermes, e2e event, bridge dry-run, embed stub, sentinel).
 
 ### `pages.yml`
 
-Builds the static dashboard site (`make site`, i.e. `npm run build:site` in `apps/onboarding/`) and deploys it to https://sheshiyer.github.io/snow-gloves-os/.
+Builds the static dashboard site (`make site`, i.e. `npm run build:site` in `apps/onboarding/`) and deploys it to https://sheshiyer.github.io/snow-gloves-os/. Runs on `main` and on `v*` tags. Repo Settings → Pages must use **GitHub Actions** as the source.
+
+The GitHub Release for a tag starts as a **draft** (`releaseDraft: true`). Review assets, then publish. OTA clients only see a published release. **v0.2.0 does not OTA from 0.1.x** (new bundle id).
 
 ---
 

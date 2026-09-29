@@ -13,7 +13,7 @@ Goal: one repo, one version, one catalog, any runtime.
 | Research | `docs/research/2026-09-29-ecosystem-review.md` | done |
 | Adapters + onboarding | 9 adapters, plan-mode interview, `scripts/onboard.py` | done; several adapter fields unverified |
 | Dashboard | Tauri Modules dashboard + Pages site | in progress |
-| Release + upgrade | `VERSION`, `release.py`, `upgrade.py`, migrations, CI | done; v0.2.0 not published |
+| Release + upgrade | `VERSION`, `release.py`, `upgrade.py`, migrations, CI (`make walk`) | done; tag after merge |
 | Docs | README + architecture, catalog, adapters, onboarding, releasing, upgrading | done |
 
 ## After v0.2.0
