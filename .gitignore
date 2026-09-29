@@ -1,3 +1,6 @@
+__pycache__/
+*.pyc
+tenants/*/_embed_cache/
 
 # Tauri build artifacts
 apps/onboarding/src-tauri/target/

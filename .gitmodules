@@ -1,0 +1,3 @@
+[submodule "vendors/founders-kit"]
+	path = vendors/founders-kit
+	url = https://github.com/avinash201199/founders-kit.git
