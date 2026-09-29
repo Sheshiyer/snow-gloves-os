@@ -6,7 +6,7 @@ Human guide: [snow-gloves-wiki](https://snow-gloves-wiki.vercel.app). Catalog da
 
 ## What “the glove” means tomorrow
 
-The glove is: **your agent runtime in plan mode → harvest file → tenant on disk → one skill rendered into that runtime → Hermes listening so events have a bus.** Smoke passing without a harvest is only the plumbing.
+The glove is: **your agent runtime in plan mode → harvest file → tenant on disk → one skill rendered into that runtime → Hermes listening so events have a bus → `make walk` GREEN on the Chief of Staff graph.** Smoke passing without a harvest is only the plumbing. The Mini proof of the loop is `make walk`, then optional `make graph-upgrade` dry-run — not live Gmail.
 
 Skip live mail, live NVIDIA embeddings, and a real Paperclip host. Those are later.
 
@@ -76,6 +76,15 @@ Install **one** fully (signed in, can open a folder, can enter plan mode). Do no
    Doctor **warnings** you can ignore tomorrow: `paperclipai` until install finished; port 3100 not listening; `NVIDIA_API_KEY` unset. Doctor **failures** you cannot ignore: missing `python3` / `node` / `pyyaml` / repo files.
 
    Smoke starts Hermes, posts `/test/e2e`, dry-runs the Paperclip bridge, embeds a sample with **`SNOWGLOVES_EMBED_BACKEND=stub`**, runs Sentinel, then **stops** Hermes. That is correct. You will start Hermes again at the end and leave it up.
+
+   Then prove the skill graph with a program, not a live mailbox ([Hanako: loop vs graph](https://x.com/hanakoxbt/status/2091515787366306154)):
+
+   ```bash
+   make walk                 # GREEN = expected agent+hook, native skills on disk, inner loop max 3
+   make graph-upgrade        # optional dry-run: constraints + hook diffs (hooks are not auto-merged)
+   ```
+
+   `make walk` writes `tenants/_demo/audit/graph-walk.json`. `make graph-upgrade` does **not** apply hook diffs unless the tenant `approval_mode` is `allow-graph-write`; otherwise it queues an approvals ticket. `scripts/ingest.py` still only plans wiki files for the Librarian — it does not mutate hooks.
 
 5. Open the **same folder** in Cursor (or `cd` into it and run `claude`). Stay in **plan mode**. Print and paste the interview:
 

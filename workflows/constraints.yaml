@@ -1,0 +1,7 @@
+version: "1"
+description: >
+  Derived routing constraints. scripts/hermes.py route() loads this file first,
+  then workflows/skill-hooks.yaml. A constraint is a rule (glob → agent+hook),
+  not a full walk receipt. Empty until scripts/graph_upgrade.py --write.
+# Hanako: learning edge feeds the splitter; ingest.py does not write this file.
+constraints: []

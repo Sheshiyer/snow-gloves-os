@@ -1,0 +1,10 @@
+id: strategy
+family: strategy
+task:
+  title: "company strategy and mission"
+  tags: ["strategy"]
+  brief: "refine the mission and vision"
+expect:
+  agent: ceo
+  hook: strategy-and-vision
+  fallback: false

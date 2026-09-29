@@ -1,0 +1,10 @@
+id: gtm
+family: gtm
+task:
+  title: "refresh gtm brief for brand icp"
+  tags: ["gtm"]
+  brief: "synthesize icp from brand registration"
+expect:
+  agent: interpreter
+  hook: gtm-brief-synthesis
+  fallback: false

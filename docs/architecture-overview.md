@@ -5,11 +5,12 @@ Snow Gloves OS has two halves. The **runtime layer** is what runs a business day
 ## Core stack
 
 - **Connector layer:** G-Stack (secure, scoped connectors), gated per tenant by `skills/connector-gate`
-- **Knowledge layer:** wiki/doc ingestion + vector retrieval (`scripts/ingest.py`)
+- **Knowledge layer:** wiki/doc ingestion + vector retrieval (`scripts/ingest.py`). Ingest feeds workers (Librarian index). It does **not** mutate `workflows/skill-hooks.yaml`.
 - **Embedding layer:** NVIDIA-compatible embedding abstraction (`scripts/embed_worker.py`, stub backend offline)
-- **Interpretation layer:** entity/policy/confidence synthesis, skill routing in `workflows/skill-hooks.yaml`
+- **Interpretation layer:** entity/policy/confidence synthesis, skill routing in `workflows/skill-hooks.yaml` with `workflows/constraints.yaml` loaded first
 - **Orchestration layer:** Hermes (`scripts/hermes.py`, port 4100) + Paperclip bridge (port 3100)
 - **Memory layer:** wiki/audit/trace synchronization (`_audit/hermes-events.jsonl`, `agents/*/EVOLUTION.md`)
+- **Learning edge:** `scripts/graph_upgrade.py` (dry-run default) turns walk REDs, Sentinel drift, and tenant `enabled.yaml` (`add`/`pointer` only) into splitter **constraints**. Hook diffs for the shared skill graph are wide blast radius and need an approvals ticket unless `approval_mode: allow-graph-write`.
 - **Catalog layer:** `catalog/cards/*.md` compiled to `catalog/modules.json`
 - **Adapter layer:** `adapters/<runtime>/adapter.yaml`, rendered by `scripts/onboard.py`
 
@@ -19,7 +20,7 @@ Snow Gloves OS has two halves. The **runtime layer** is what runs a business day
 graph TD
   Ext[3rd-party app] -- signed webhook --> GS[G-Stack /webhook]
   GS -- normalized envelope --> Her[Hermes :4100]
-  Her --> CoS[Chief of Staff<br/>skill-hooks.yaml]
+  Her --> CoS[Chief of Staff<br/>constraints.yaml then skill-hooks.yaml]
   CoS -->|strategy| CEO
   CoS -->|technical| CTO
   CoS --> Lib[Librarian]
@@ -32,6 +33,11 @@ graph TD
   Her -- audit --> Log[(_audit/hermes-events.jsonl)]
   Log --> SS[Sentinel Sweep]
   SS --> Evo[(agents/*/EVOLUTION.md)]
+  Walk[make walk] --> Rec[(graph-walk.json)]
+  Rec --> GU[graph_upgrade.py]
+  Evo --> GU
+  GU -->|constraints| CoS
+  GU -->|wide hook diffs| Appr[tenant approvals]
 ```
 
 ## Catalog and adapter flow
@@ -76,6 +82,21 @@ Rules the flow enforces:
 - **One source of truth for options.** The interview, the dashboard, the Pages site, and `--enable` all read `modules.json`. CI fails if it is stale (`build_catalog.py --check`) or if its version differs from `VERSION` (`release.py --check`).
 - **Renders never clobber runtime config.** JSON MCP files are merged, TOML tables are appended only when missing, YAML config gets a sibling `.snowgloves` fragment, and markdown rules get a `<!-- snowgloves:start -->` … `<!-- snowgloves:end -->` block. Every render is a dry run unless `--write` is passed.
 - **Unverified adapter fields are loud.** Any field under `verify:` in an adapter is listed in the render notes and in `render.json`.
+
+## Graph and loop
+
+Routing is a **graph**. The loop lives **inside** a node. Mini proof is `make walk`, then optional `make graph-upgrade` (dry-run). Source: [hanakoxbt / Loops and Graphs](https://x.com/hanakoxbt/status/2091515787366306154).
+
+| Idea | In this repo |
+|---|---|
+| Splitter | `route()` in `scripts/hermes.py`: `workflows/constraints.yaml` first, then `workflows/skill-hooks.yaml` |
+| Loop | `scripts/graph_walk.py` inner loop: produce an artifact, machine-check it, retry **that unit** up to 3 times. No second model. |
+| Correction edge | RED is `UNIT` / `VERDICT` / `REASON` / `EVIDENCE` / `SCOPE` (unit, not batch rewind) |
+| Learning edge | `scripts/graph_upgrade.py` writes constraints (derived rules). Hook-file edits are wide blast radius → approvals ticket |
+| Report | Sentinel `EVOLUTION.md` drift that does not change what runs next |
+| Gate | `skills/connector-gate` plus tenant `approvals/` |
+
+`make upgrade` is still platform VERSION migrations. `make graph-upgrade` is the splitter learning path. Cards with `hold` / `refuse` never get hook diffs. inference-sh and Explee skills are pointers on a walk receipt, not a fake GREEN.
 
 ## Versioning and upgrade
 

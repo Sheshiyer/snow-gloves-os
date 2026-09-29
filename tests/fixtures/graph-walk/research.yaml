@@ -1,0 +1,10 @@
+id: research
+family: research
+task:
+  title: "audience research and persona"
+  tags: ["research"]
+  brief: "market gap and unmet need"
+expect:
+  agent: librarian
+  hook: research-and-discovery
+  fallback: false

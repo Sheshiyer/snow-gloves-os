@@ -14,6 +14,7 @@ Run:
   python3 scripts/hermes.py
   python3 scripts/hermes.py --test     # one-shot end-to-end smoke
 """
+from __future__ import annotations
 import json, os, sys, time, threading, http.server, socketserver, urllib.request
 sys_path_added = True
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
@@ -31,25 +32,65 @@ CHANNEL = CONF["hermes"]["channel"]
 LOG = ROOT / "_audit" / "hermes-events.jsonl"
 LOG.parent.mkdir(exist_ok=True)
 HOOKS = yaml.safe_load((ROOT / "workflows" / "skill-hooks.yaml").read_text())
+CONSTRAINTS_PATH = ROOT / "workflows" / "constraints.yaml"
 
-def route(task):
-    """Chief of Staff routing — match task to agent + hook + skills."""
+
+def load_constraints(path: Path | None = None):
+    """Derived splitter rules. Learning edge writes this file; ingest.py does not."""
+    p = path or CONSTRAINTS_PATH
+    if not p.is_file():
+        return []
+    data = yaml.safe_load(p.read_text()) or {}
+    return list(data.get("constraints") or [])
+
+
+def _task_text(task):
     contract = extract_variable_contract(task)
-    text = " ".join([
+    return " ".join([
         task.get("title", ""),
         " ".join(task.get("tags", []) or []),
         task.get("brief", ""),
         " ".join(contract_routing_terms(contract)),
     ]).lower()
+
+
+def route(task, constraints=None):
+    """Chief of Staff routing — constraints first, then skill-hooks globs."""
+    text = _task_text(task)
     matches = []
+    seen = set()
+    rules = constraints if constraints is not None else load_constraints()
+    for c in rules:
+        if not isinstance(c, dict):
+            continue
+        then = c.get("then") or {}
+        agent, hook = then.get("agent"), then.get("hook")
+        if not agent or not hook:
+            continue
+        for glob in c.get("when", {}).get("globs") or []:
+            if fnmatch.fnmatch(text, str(glob).lower()):
+                key = (agent, hook)
+                if key not in seen:
+                    seen.add(key)
+                    matches.append({
+                        "agent": agent, "hook": hook,
+                        "skills": then.get("skills") or [],
+                        "matched_glob": glob,
+                        "source": "constraint",
+                        "constraint_id": c.get("id"),
+                    })
+                break
     for agent, cfg in HOOKS["routing"].items():
         for hook in cfg.get("hooks", []) or []:
             for glob in hook.get("globs", []):
                 if fnmatch.fnmatch(text, glob.lower()):
-                    matches.append({
-                        "agent": agent, "hook": hook["id"],
-                        "skills": hook["skills"], "matched_glob": glob,
-                    })
+                    key = (agent, hook["id"])
+                    if key not in seen:
+                        seen.add(key)
+                        matches.append({
+                            "agent": agent, "hook": hook["id"],
+                            "skills": hook["skills"], "matched_glob": glob,
+                        })
                     break
     if not matches:
         # Fallback to CEO/CTO escalation rules

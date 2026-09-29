@@ -116,6 +116,8 @@ cd snow-gloves-os
 ./scripts/install.sh              # deps + print next steps (does not go live)
 make doctor                       # pre-flight
 make smoke                        # bus up, test event, stub embed, Sentinel
+make walk                         # machine-check CoS graph + native inner loops
+make graph-upgrade                # learning-edge dry-run (constraints; hooks gated)
 make onboard-prompt R=claude      # print the plan-mode interview for your runtime
 make test                         # pytest
 ```
@@ -136,13 +138,15 @@ make test                         # pytest
 | `make site` | Build the static dashboard site (`npm run build:site`) |
 | `make hermes` | Foreground Hermes listener on `:4100` |
 | `make smoke` | Hermes → e2e → bridge dry-run → embed stub → sentinel |
+| `make walk` | Route fixtures through CoS; native produce/check/correct; receipt JSON |
+| `make graph-upgrade [T=<slug>] [WRITE=1]` | Learning edge dry-run (or apply constraints; hook diffs need approval) |
 | `make embed T=<tenant>` | Run NVIDIA embed worker (`QUIET=1` for cron) |
 | `make sentinel` | Daily drift sweep |
 | `make release-dry V=x.y.z` | Preview a platform version bump |
 | `make release V=x.y.z` | Bump every version file, rebuild catalog, commit, tag (no push) |
 | `make release-push V=x.y.z` | Push HEAD + tag, which triggers the release workflow |
 | `make release-check` | Verify all version files agree with `VERSION` |
-| `make upgrade [T=<slug>] [WRITE=1]` | Dry-run (or apply) tenant migrations |
+| `make upgrade [T=<slug>] [WRITE=1]` | Dry-run (or apply) tenant **platform** migrations |
 | `make kill-hermes` | Free port 4100 |
 | `make app-install` / `app-dev` / `app-build` | Tauri onboarding app: npm install, `tauri dev` (GUI), release bundle |
 
