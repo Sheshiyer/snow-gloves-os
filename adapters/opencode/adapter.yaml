@@ -1,0 +1,25 @@
+schema: snowgloves.adapter.v1
+id: opencode
+name: OpenCode
+homepage: https://opencode.ai/docs
+question_tool: question
+plan_mode: "Press Tab to switch to the built-in `plan` agent (read-only)."
+paths:
+  skills: "{home}/.config/opencode/skills"  # <id>/SKILL.md. Project scope: {project}/.opencode/skills
+  mcp: "{home}/.config/opencode/opencode.json"  # "mcp": { "<id>": { "type": "local", "command": [...] } }
+  rules: "{project}/AGENTS.md"
+  plugins: "{home}/.config/opencode/plugins"
+formats:
+  skill: skill-md
+  mcp: opencode-json
+  mcp_key: mcp
+  rules: markdown-block
+install:
+  - "opencode mcp add"
+plugin_install: "add \"{id}\" to the `plugin` array in opencode.json"
+notes: |
+  The `question` tool is gated by `permission.question` in opencode.json. If it is denied, the
+  interview falls back to a numbered list. MCP entries use `command` as an array, not command+args.
+verify:
+  question_tool: true
+  plugin_install: true

@@ -4,9 +4,12 @@ platform:
   version: 0.1.0
 
 paperclip:
-  host: 127.0.0.1
+  # PLACEHOLDER (P-SEC-a2): future TN-owned paperclip instance. Not yet stood up —
+  # phase T5 recreates the TRY company there. Override at runtime via
+  # PAPERCLIP_HOST / PAPERCLIP_PORT env (see scripts/paperclip_bridge.py).
+  host: paperclip.tn.local
   port: 3100
-  instance: default
+  instance: tn
 
 hermes:
   host: 127.0.0.1

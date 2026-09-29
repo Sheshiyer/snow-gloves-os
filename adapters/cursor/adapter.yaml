@@ -1,0 +1,25 @@
+schema: snowgloves.adapter.v1
+id: cursor
+name: Cursor
+homepage: https://cursor.com/docs
+question_tool: AskQuestion
+plan_mode: "Switch the agent to Plan mode (mode picker or Shift+Tab); agents can also call SwitchMode to request it."
+paths:
+  skills: "{home}/.cursor/skills"          # <id>/SKILL.md. Project scope: {project}/.cursor/skills
+  mcp: "{project}/.cursor/mcp.json"        # user scope: {home}/.cursor/mcp.json
+  rules: "{project}/.cursor/rules/snowgloves.mdc"
+  plugins: "{home}/.cursor/plugins"
+formats:
+  skill: skill-md
+  mcp: json
+  mcp_key: mcpServers
+  rules: mdc
+install:
+  - "Settings > MCP, or edit .cursor/mcp.json"
+plugin_install: "Install {id} from the Cursor plugin marketplace ({repo})"
+notes: |
+  Rules are .mdc files with `description`, `globs`, and `alwaysApply` front matter. The Snow Gloves
+  rule file is owned by Snow Gloves and rewritten on every render.
+verify:
+  paths.plugins: true
+  plugin_install: true

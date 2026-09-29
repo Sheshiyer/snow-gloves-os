@@ -1,3 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+tenants/*/_embed_cache/
+tenants/_demo/audit/graph-walk.json
+tenants/_demo/audit/_walk_scratch/
+.DS_Store
+.bak-*/
+
+# smoke run artifacts
+.hermes.pid
+.e2e.json
 
 # Tauri build artifacts
 apps/onboarding/src-tauri/target/
@@ -6,3 +18,8 @@ apps/onboarding/dist/
 apps/onboarding/node_modules/
 apps/onboarding/demo/node_modules/
 apps/onboarding/demo/out/
+apps/onboarding/dist-site/
+
+# NotebookLM user kit: audio/video live on the wiki (Vercel). PDF + briefing stay here.
+docs/assets/user/*.mp3
+docs/assets/user/*.mp4

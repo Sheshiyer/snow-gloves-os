@@ -30,6 +30,20 @@ The deck lives at [`docs/assets/snowgloves-pitch.pdf`](../assets/snowgloves-pitc
 
 This drops a fresh PDF over the existing one, ready to commit. The notebook IDs in `notebook.json` / `sources.json` won't survive regeneration — that's expected; only `PROMPT.md` is meant to be stable input.
 
+## New-user kit (using the product)
+
+Audience is an operator in their first hour, not a contributor. Prompt: [`PROMPT-user.md`](./PROMPT-user.md). Script: [`regenerate-user.sh`](./regenerate-user.sh). Metadata: `user-notebook.json`, `user-sources.json`, `user-artifacts.json`.
+
+| Artifact | Local | Published |
+|---|---|---|
+| Slides | [`docs/assets/user/snowgloves-user.pdf`](../assets/user/snowgloves-user.pdf) | wiki `/user/` |
+| Briefing | [`docs/assets/user/snowgloves-user-briefing.md`](../assets/user/snowgloves-user-briefing.md) | wiki `/user/` |
+| Audio, video | generated locally; gitignored here | [snow-gloves-wiki](https://github.com/Sheshiyer/snow-gloves-wiki) `public/user/` |
+
+```bash
+./docs/notebooklm/regenerate-user.sh
+```
+
 ## Ideas for additional artifacts
 Same notebook, different `notebooklm generate` calls:
 | Command | Output |

@@ -131,6 +131,38 @@ fn list_tenants() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
+fn read_modules() -> Result<String, String> {
+    let p = repo_root().join("catalog").join("modules.json");
+    std::fs::read_to_string(&p)
+        .map_err(|e| format!("{}: {e} (run python3 scripts/build_catalog.py)", p.display()))
+}
+
+#[derive(Serialize)]
+struct TenantState { slug: String, path: String, enabled: Option<String>, runtime: Option<String> }
+
+#[tauri::command]
+fn read_tenant_states() -> Result<Vec<TenantState>, String> {
+    let dir = repo_root().join("tenants");
+    let mut out = Vec::new();
+    if !dir.exists() { return Ok(out); }
+    for e in std::fs::read_dir(&dir).map_err(|e| e.to_string())? {
+        let e = e.map_err(|e| e.to_string())?;
+        if !e.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
+        let Some(slug) = e.file_name().to_str().map(String::from) else { continue };
+        if slug.starts_with('_') { continue; }
+        let p = e.path();
+        out.push(TenantState {
+            enabled: std::fs::read_to_string(p.join("enabled.yaml")).ok(),
+            runtime: std::fs::read_to_string(p.join("runtime.yaml")).ok(),
+            path: p.display().to_string(),
+            slug,
+        });
+    }
+    out.sort_by(|a, b| a.slug.cmp(&b.slug));
+    Ok(out)
+}
+
+#[tauri::command]
 async fn run_smoke(app: AppHandle) -> Result<(), String> {
     use std::io::{BufRead, BufReader};
     use std::process::Stdio;
@@ -181,7 +213,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
-            run_doctor, create_tenant, list_tenants, run_smoke, open_repo, quit_app
+            run_doctor, create_tenant, list_tenants, read_modules, read_tenant_states,
+            run_smoke, open_repo, quit_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,27 +1,7 @@
 # Skills — Orchestration Dispatcher
 
-## Assigned skills (from snow gloves skill repository)
-- inference-sh/agent-skills@viral-campaign-ideator
-- inference-sh/agent-skills@referral-program-designer
-- inference-sh/agent-skills@business-network-expansion
+Core: `snowgloves:tn-seed` (community-seeding). Brand-enriched GTM uses `snowgloves:gtm-brief-synthesis` for the brief only.
 
-## Explee cluster (external source: `Sheshiyer/explee-skills@`)
-GTM / prospecting / partner-channel intelligence. **Entry point: `explee-orchestrator`** (routes internally to the spokes).
-- `explee-orchestrator` — hub / router
-- `explee-search` — companies / people / ICP → filters
-- `explee-enrichment` — email finding (paid)
-- `explee-agents` — agent runs (paid)
-- `explee-autogtm` — full GTM pipeline (paid)
-- `explee-auth-cookie` — cookie / `EXPLEE_SECRETS` KV auth model
-- `explee-api-core` — shared API reference
+Optional: catalog `explee-skills` (orchestrator + spokes) and `explee_proxy` connector. Paid search/enrich/autogtm wait for approval when that pack is enabled. Optional virality pack: `inference-sh-agent-skills`.
 
-Calls route through the `explee-proxy` G-Stack connector. Paid ops (`explee.paid_search`,
-`explee.enrichment`, `explee.autogtm`) are approval-gated (see `MANIFEST.yaml`). **Brand rule:**
-partner / channel intelligence only — never cold individual outreach.
-
-## Routing
-Routed via `workflows/skill-hooks.yaml` (Chief of Staff orchestrator).
-Hooks for this agent are defined under `routing.dispatcher.hooks`.
-
-## Escalation
-Falls back to chief-of-staff; technical issues escalate to cto, strategic to ceo.
+Routed via `workflows/skill-hooks.yaml` (`routing.dispatcher.hooks`).

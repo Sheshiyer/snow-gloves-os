@@ -1,0 +1,10 @@
+id: people-ops
+family: people-ops
+task:
+  title: "hr onboarding conflict and feedback"
+  tags: ["hr"]
+  brief: "workplace conflict during remote onboarding"
+expect:
+  agent: chief-of-staff
+  hook: people-ops
+  fallback: false

@@ -8,6 +8,4 @@ approvals_required:
   - finance.write
   - hr.write
   - legal.write
-  - explee.paid_search
-  - explee.enrichment
-  - explee.autogtm
+  # explee.paid_search / enrichment / autogtm apply only if catalog explee-skills is enabled

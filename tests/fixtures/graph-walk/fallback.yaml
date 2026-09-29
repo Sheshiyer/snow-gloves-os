@@ -1,0 +1,10 @@
+id: fallback
+family: fallback
+task:
+  title: "xyzzy plover"
+  tags: []
+  brief: ""
+expect:
+  agent: chief-of-staff
+  hook: default-fallback
+  fallback: true

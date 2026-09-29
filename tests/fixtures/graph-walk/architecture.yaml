@@ -1,0 +1,10 @@
+id: architecture
+family: architecture
+task:
+  title: "system architecture for the build"
+  tags: ["architecture"]
+  brief: "execution plan and deploy shape"
+expect:
+  agent: cto
+  hook: architecture-and-execution
+  fallback: false

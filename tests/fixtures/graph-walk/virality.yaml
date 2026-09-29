@@ -1,0 +1,10 @@
+id: virality
+family: virality
+task:
+  title: "viral referral growth loop"
+  tags: ["viral"]
+  brief: "share loop and invite program"
+expect:
+  agent: dispatcher
+  hook: virality-and-distribution
+  fallback: false

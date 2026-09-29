@@ -1,0 +1,10 @@
+id: audit
+family: audit
+task:
+  title: "compliance audit of financial risk"
+  tags: ["audit"]
+  brief: "portfolio return and yield check"
+expect:
+  agent: sentinel
+  hook: investment-and-financial-risk
+  fallback: false

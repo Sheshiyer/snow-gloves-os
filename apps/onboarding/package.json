@@ -1,12 +1,15 @@
 {
   "name": "snow-gloves-onboarding",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "dev:site": "vite --config vite.site.config.js",
+    "build:site": "vite build --config vite.site.config.js",
+    "preview:site": "vite preview --config vite.site.config.js",
     "tauri": "tauri"
   },
   "devDependencies": {

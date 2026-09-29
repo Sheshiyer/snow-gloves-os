@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Snow Gloves OS — bootstrap installer
-# Installs Paperclip, sets Hermes port, installs deps, runs onboarding.
+# Checks tools, installs paperclipai + Python deps, writes .snowgloves.env,
+# then prints the four onboarding steps. Does not start Hermes, Paperclip host,
+# or enable catalog modules. Legacy tenant prompt: make onboard.
 
 set -euo pipefail
 
@@ -19,6 +21,12 @@ need python3
 need git
 need curl
 [ "${MISSING:-0}" = "1" ] && { echo "Install missing tools and retry."; exit 1; }
+
+# Config parse needs PyYAML before the rest of the Python deps.
+if ! python3 -c "import yaml" 2>/dev/null; then
+  echo "==> Installing pyyaml (required to read config/snowgloves.yaml)"
+  python3 -m pip install --quiet pyyaml || python3 -m pip install --quiet --user pyyaml
+fi
 
 # --- 2. Read ports from config -------------------------------------------
 get_yaml() { python3 -c "import yaml,sys;print(yaml.safe_load(open('$CONF'))$1)"; }
@@ -52,6 +60,19 @@ SNOWGLOVES_ROOT=$ROOT
 ENV
 echo "    Wrote $ENV_FILE"
 
-# --- 6. Hand off to onboarding -------------------------------------------
-echo "==> Launching onboarding"
-bash "$ROOT/scripts/onboarding.sh"
+# --- 6. Print next steps (the glove is not live yet) ---------------------
+echo "==> Install finished: paperclipai CLI (if missing), Python deps, $ENV_FILE"
+echo "    Catalog modules are not enabled. Hermes is not a daemon"
+echo "    (run \`make hermes\` in the foreground when you need the bus)."
+echo "    Paperclip here is the npm CLI; the host instance is still a placeholder."
+echo "    Embeddings use the stub backend unless NVIDIA_API_KEY is set."
+echo
+echo "    First hour:"
+echo "      1. make doctor"
+echo "      2. make smoke"
+echo "      3. make onboard-prompt R=<runtime>   # claude, cursor, codex, hermes, grok, …"
+echo "      4. paste that prompt in plan mode, then apply / enable / render"
+echo
+echo "    Optional legacy tenant + sources prompt: make onboard"
+echo
+"${PYTHON:-python3}" "$ROOT/scripts/onboard.py" --steps

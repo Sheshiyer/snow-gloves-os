@@ -1,0 +1,26 @@
+schema: snowgloves.adapter.v1
+id: codex
+name: OpenAI Codex CLI
+homepage: https://developers.openai.com/codex
+question_tool: request_user_input
+plan_mode: "Type `/plan` (or pick Plan in the collaboration-mode picker). request_user_input is only offered in plan mode."
+paths:
+  skills: "{home}/.codex/skills"           # <id>/SKILL.md; newer builds also read {home}/.agents/skills
+  mcp: "{home}/.codex/config.toml"         # [mcp_servers.<id>] tables
+  rules: "{project}/AGENTS.md"             # Snow Gloves writes a marked block, never the whole file
+  plugins: null
+formats:
+  skill: skill-md
+  mcp: toml
+  mcp_key: mcp_servers
+  rules: markdown-block
+install:
+  - "codex mcp add <id> -- <command> [args...]"
+plugin_install: null
+notes: |
+  Codex has no plugin system; plugin cards render as install notes only. config.toml is shared
+  by every Codex session on this machine, so Snow Gloves appends missing tables and never rewrites
+  existing ones.
+verify:
+  plan_mode: true
+  paths.skills: true

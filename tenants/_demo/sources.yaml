@@ -1,0 +1,7 @@
+tenant: _demo
+sources:
+  - path: "tenants/_demo/wiki"
+    ingest: true
+    include_glob: ["**/*.md"]
+    exclude_glob: ["**/.git/**"]
+    max_file_bytes: 500000
