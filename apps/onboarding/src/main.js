@@ -91,7 +91,7 @@ const views = {
   paperclip: () => `
     <main><div class="card">
       <h2>Bind Paperclip company</h2>
-      <p class="sub">Optional. Paste the company UUID from your Paperclip instance running on <code>127.0.0.1:3100</code>. Leave empty to bind later.</p>
+      <p class="sub">Optional. Paste the company UUID from your Paperclip instance running on <code>paperclip.tn.local:3100</code> (placeholder — TN instance, phase T5). Leave empty to bind later.</p>
       <label>Paperclip company ID (UUID)</label>
       <input id="cid" value="${state.company_id}" placeholder="2f554495-a76c-4d5a-bec8-71be115bce76" data-input="company_id" />
       <div style="margin-top:14px"><span class="tag">Tip</span><span style="color:var(--muted)">Run <code>paperclipai companies list</code> in your terminal to retrieve IDs.</span></div>

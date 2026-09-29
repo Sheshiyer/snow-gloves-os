@@ -1,6 +1,13 @@
 __pycache__/
 *.pyc
+.pytest_cache/
 tenants/*/_embed_cache/
+.DS_Store
+.bak-*/
+
+# smoke run artifacts
+.hermes.pid
+.e2e.json
 
 # Tauri build artifacts
 apps/onboarding/src-tauri/target/

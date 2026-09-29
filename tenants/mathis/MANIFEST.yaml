@@ -1,0 +1,14 @@
+tenant_id: mathis
+sources: 
+  - type: wiki
+    path: listings/
+    description: Expert Property Asia current listings and market intel for Koh Samui luxury villas
+  - type: property-data
+    description: High-end private circles data for reskin of expertpropertyasia.com
+embeddings: nv-embedqa-e5-v5
+gtm: enabled
+agents: all
+paperclip_bridge: enabled
+created: 2026-06-09
+status: provisioned (simulated for onboarding)
+use_case: property listing portal - high-end private circles Koh Samui/Bangkok with increasing AI infusion

@@ -8,7 +8,12 @@ from lib.contract import extract_variable_contract
 ROOT = Path(__file__).resolve().parent.parent
 CONF = yaml.safe_load((ROOT / "config" / "snowgloves.yaml").read_text())
 PC = CONF["paperclip"]
-BASE = f"http://{PC['host']}:{PC['port']}"
+# Target = future TN-owned paperclip instance. config/snowgloves.yaml carries the
+# placeholder host (paperclip.tn.local:3100) until phase T5 stands the instance up;
+# PAPERCLIP_HOST / PAPERCLIP_PORT env vars override config at runtime.
+PC_HOST = os.environ.get("PAPERCLIP_HOST", PC["host"])
+PC_PORT = int(os.environ.get("PAPERCLIP_PORT", PC["port"]))
+BASE = f"http://{PC_HOST}:{PC_PORT}"
 
 # tenant → paperclip company resolution (extendable per tenant manifest)
 DEFAULT_COMPANY = os.environ.get("SNOWGLOVES_DEFAULT_COMPANY", "")

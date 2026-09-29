@@ -243,7 +243,7 @@ See [`.specify/memory/constitution.md`](./.specify/memory/constitution.md).
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=12,13,14&height=110&section=footer" width="100%" />
 
-**Built with ❤️ by [Mage Narayan](https://github.com/Sheshiyer) · Thoughtseed Labs**
+**Built with ❤️ by [Mage Narayan](https://github.com/Sheshiyer) · Tryambakam Noesis**
 
 </div>
 <!-- readme-gen:end:footer -->

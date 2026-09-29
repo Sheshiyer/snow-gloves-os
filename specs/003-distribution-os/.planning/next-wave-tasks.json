@@ -1,0 +1,14 @@
+[
+  {
+    "id": "T001",
+    "task": "Create `_distribution/` (`seeding-MOC.md`, `targets/`, `queue/`, `log/`, `_templates/`)\n\nSource: tasks.md\nPhase: Phase A — `_distribution/` scaffold (Content-Engine vault)\nRepo: /Volumes/madara/2026/Projects/thoughtseed/snow-gloves-os/specs/003-distribution-os",
+    "backend": "omniroute",
+    "model": "te-build"
+  },
+  {
+    "id": "T002",
+    "task": "Seed `targets/<sub>.md` from the community-seeding guide (Tier-1/2 subs, cadence, best-thread-types)\n\nSource: tasks.md\nPhase: Phase A — `_distribution/` scaffold (Content-Engine vault)\nRepo: /Volumes/madara/2026/Projects/thoughtseed/snow-gloves-os/specs/003-distribution-os",
+    "backend": "omniroute",
+    "model": "te-build"
+  }
+]

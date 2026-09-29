@@ -113,7 +113,7 @@ flowchart LR
     Hooks[skill-hooks.yaml]
     Caps[capabilities.yaml]
   end
-  subgraph T1["🧱 tenants/thoughtseed/"]
+  subgraph T1["🧱 tenants/acme/"]
     S1[sources.yaml]
     V1[vector-index.jsonl]
     A1[approvals/]

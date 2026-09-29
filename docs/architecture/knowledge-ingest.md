@@ -58,4 +58,4 @@ python3 scripts/ingest.py _demo
 SNOWGLOVES_EMBED_BACKEND=stub make embed T=_demo
 ```
 
-Implementation repo for this path: `snow-gloves-os-modular` (Hermes bus naming). Live Mac tree may still use SG Bus until reconciled.
+Implementation repo for this path: `snow-gloves-os` (Hermes bus naming).

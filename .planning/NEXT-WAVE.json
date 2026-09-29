@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-11T05:39:30.444Z",
+  "cwd": "/Volumes/madara/2026/Projects/thoughtseed/snow-gloves-os",
+  "github": null,
+  "gsd": {
+    "phase": "bootstrap",
+    "status": "Active",
+    "resume": null,
+    "focus": null,
+    "complete": false
+  },
+  "sources": [
+    {
+      "kind": "gsd",
+      "path": ".planning/STATE.md",
+      "weight": 100
+    },
+    {
+      "kind": "spec-kit",
+      "path": "specs/001-hand-in-glove-platform/tasks.md",
+      "weight": 85
+    },
+    {
+      "kind": "spec-kit",
+      "path": "specs/002-orchestration-wiring/tasks.md",
+      "weight": 85
+    },
+    {
+      "kind": "spec-kit",
+      "path": "specs/003-distribution-os/tasks.md",
+      "weight": 85
+    },
+    {
+      "kind": "spec-kit",
+      "path": "specs/004-brand-enriched-autogtm/tasks.md",
+      "weight": 85
+    },
+    {
+      "kind": "plan-doc",
+      "path": "tasks/lessons.md",
+      "weight": 45
+    },
+    {
+      "kind": "gsd",
+      "path": ".planning/PROJECT.md",
+      "weight": 40
+    }
+  ],
+  "progress": {
+    "open": 26,
+    "done": 0,
+    "source": "/Volumes/madara/2026/Projects/thoughtseed/snow-gloves-os/specs/001-hand-in-glove-platform/tasks.md"
+  },
+  "wave": {
+    "action": "execute_next",
+    "reason": "phase \"Foundation\" has 26 open tasks; take next batch",
+    "mode": "sequential-batch",
+    "phase": "Foundation",
+    "combo": "noesis-build",
+    "tasks": [
+      {
+        "id": "T001",
+        "parallel": false,
+        "desc": "Define tenant and connector schemas",
+        "phase": "Foundation",
+        "source": "specs/001-hand-in-glove-platform/tasks.md"
+      },
+      {
+        "id": "T002",
+        "parallel": false,
+        "desc": "Define interpreted-context schema",
+        "phase": "Foundation",
+        "source": "specs/001-hand-in-glove-platform/tasks.md"
+      }
+    ]
+  },
+  "agent_instruction": "NEXT-WAVE (auto from local planning — do NOT wait for user to say dispatch/proceed):\n  action=execute_next · phase \"Foundation\" has 26 open tasks; take next batch\n  gsd_phase=bootstrap status=Active\n  wave_mode=sequential-batch phase=\"Foundation\" open_total=26\n  - [ ] T001: Define tenant and connector schemas\n  - [ ] T002: Define interpreted-context schema\n  DO: execute the listed task(s) now on noesis-build (or noesis-execute if multi-file fleet).\n  SYNC: plan-issue-sync LaunchAgent promotes open plan docs → Sheshiyer/thoughtseed-vault issues hourly; run temperance-next-wave --sync to force."
+}
