@@ -17,3 +17,7 @@ apps/onboarding/node_modules/
 apps/onboarding/demo/node_modules/
 apps/onboarding/demo/out/
 apps/onboarding/dist-site/
+
+# NotebookLM user kit: audio/video live on the wiki (Vercel). PDF + briefing stay here.
+docs/assets/user/*.mp3
+docs/assets/user/*.mp4

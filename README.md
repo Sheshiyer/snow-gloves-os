@@ -41,6 +41,8 @@
 
 > **Run a business as if a senior team were watching it 24/7.** Snow Gloves OS is a reusable, tenant-scoped operations platform. It wraps your tools (G-Stack connectors), your knowledge (NVIDIA embeddings), your judgement (an interpretation layer), and your actions (Hermes + Paperclip orchestration), so events don't get dropped, decisions are auditable, and risky actions are gated. It is agent-agnostic: you pick the runtime (Claude Code, Codex, Cursor, OpenCode, Grok, Hermes, OpenClaw, or any other agent), and Snow Gloves renders its skills, MCP servers, and rules into that runtime's own format.
 
+**Docs for new users:** [snow-gloves-wiki](https://snow-gloves-wiki.vercel.app) — how to use the app and the ecosystem (install, pick a runtime, onboard, modules, a quiet week). Slides, audio, and video live there. The [modules dashboard](https://sheshiyer.github.io/snow-gloves-os/) is the catalog, not the human guide.
+
 <img src="https://capsule-render.vercel.app/api?type=rect&color=gradient&customColorList=12,13,14&height=2" width="100%" />
 
 ## ✨ Highlights

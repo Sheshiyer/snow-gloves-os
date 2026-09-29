@@ -1,5 +1,7 @@
 # Onboarding
 
+**New-user wiki:** [snow-gloves-wiki](https://snow-gloves-wiki.vercel.app) — first hour, runtimes, interview, modules, a quiet week, plus slides / audio / video.
+
 Onboarding turns a project the founder has been building into a Snow Gloves tenant. It runs as a **plan-mode interview** inside whatever agent runtime the founder already uses, then a few deterministic commands apply the result.
 
 The interview prompt is `prompts/onboard-interview.md`. The skill that drives it is `skills/sg-onboard/`. The commands are in `scripts/onboard.py` (`scripts/onboarding.sh` is a thin wrapper around it). `python3 scripts/onboard.py --steps` prints the short version of this page.

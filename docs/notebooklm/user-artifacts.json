@@ -1,0 +1,10 @@
+{
+  "notebook_id": "1566ac85-201c-4a9a-b7fc-0d0688280633",
+  "notebook_title": "Snow Gloves OS — New user",
+  "artifacts": [
+    {"id": "1d86c94f-cbd4-487c-bbef-2d6ce2e991d7", "type": "slide_deck", "file": "docs/assets/user/snowgloves-user.pdf"},
+    {"id": "187840d3-f6ef-4e94-9e8a-3c40ae2f2721", "type": "audio", "file": "docs/assets/user/snowgloves-user.mp3"},
+    {"id": "f247c3d8-563d-4ac5-8106-656f12af7ee8", "type": "report", "file": "docs/assets/user/snowgloves-user-briefing.md"},
+    {"id": "33e6333c-aba2-4f57-b51c-ec852f167d43", "type": "video", "file": "docs/assets/user/snowgloves-user.mp4"}
+  ]
+}
