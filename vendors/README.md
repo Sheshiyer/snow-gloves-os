@@ -13,4 +13,4 @@ Third-party markdown catalogs pinned for Snow Gloves tenant ingest. Not agent sk
 
 | Vendor | Path | Pin file | Role |
 |--------|------|----------|------|
-| founders-kit | `founders-kit/` | `founders-kit.pin` | Startup tools and playbooks directory (README, Product.md) |
+| — | — | — | **founders-kit** moved off-repo (2026-09-29); use Mac reference pin + FT harvest |

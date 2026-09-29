@@ -1,19 +1,5 @@
 tenant: _demo
 sources:
-  - path: "~/.fieldtheory/library"
-    ingest: true
-    include_glob: ["**/*.md"]
-    exclude_glob: ["**/node_modules/**", "**/.git/**", "**/bookmarks/**"]
-    max_file_bytes: 500000
-  - path: "~/.fieldtheory/library/taste/skills"
-    ingest: true
-    include_glob: ["**/SKILL.md"]
-    exclude_glob: ["**/.git/**"]
-    max_file_bytes: 200000
-  - path: "vendors/founders-kit"
-    ingest: true
-    include_glob: ["README.md", "Product.md", "PRODUCT_SUBMISSION.md"]
-    max_file_bytes: 500000
   - path: "tenants/_demo/wiki"
     ingest: true
     include_glob: ["**/*.md"]

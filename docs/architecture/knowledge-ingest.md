@@ -2,6 +2,8 @@
 
 Snow Gloves loads **read-only filesystem paths** into a tenant-scoped embedding index. No sync daemons, cookies, or auto-install inside this repo.
 
+**Tenant product only:** ingest paths must live under the tenant (e.g. `tenants/<slug>/wiki`). Field Theory, `~/.fieldtheory/library`, and founders-kit are **external** to Snow Gloves — harvest on the founder Mac and reference via the vault, not `sources.yaml`.
+
 ## Flow
 
 ```
@@ -26,20 +28,19 @@ Optional per source (backward compatible):
 
 `ingest-plan.json` includes `files[]` and `skipped[]` with reasons.
 
-## External inputs (_demo dry-run)
+## External inputs (out of scope for SG ingest)
 
-| Input | Path | Notes |
-|-------|------|-------|
-| Field Theory library | `~/.fieldtheory/library` | Markdown only; not bookmark jsonl |
-| FT taste packs | `~/.fieldtheory/library/taste/skills` | `SKILL.md` catalog |
-| founders-kit | `vendors/founders-kit` | Pinned submodule; **ReferenceCatalog** |
-| Tenant wiki | `tenants/_demo/wiki` | Vault harvest copies |
+| Input | Where it lives | Notes |
+|-------|----------------|-------|
+| Field Theory library | Founder Mac `~/.fieldtheory/library` | `ft sync` / `ft md` — not SG `ingest.py` |
+| founders-kit | Founder Mac reference git pin | MIT catalog; not `vendors/` in this repo |
+| Bookmark jsonl | `~/.fieldtheory/bookmarks/` | Never ingested here |
 
 Sync for FT and glam stays on the founder Mac outside Snow Gloves.
 
-## founders-kit role
+## founders-kit role (external)
 
-MIT tools/playbooks directory ([avinash201199/founders-kit](https://github.com/avinash201199/founders-kit)). Ingested markdown is for Librarian/CoS reference — **not** registered in `workflows/skill-hooks.yaml` without a Four-Signal founder pick.
+MIT tools/playbooks directory ([avinash201199/founders-kit](https://github.com/avinash201199/founders-kit)). Use as a **category index** on the Mac; Librarian may see tenant wiki copies only. **Not** registered in `workflows/skill-hooks.yaml` without a Four-Signal founder pick.
 
 ## Non-goals
 
@@ -47,6 +48,7 @@ MIT tools/playbooks directory ([avinash201199/founders-kit](https://github.com/a
 - Cloudflare Vectorize / Hermes Cortex mutation
 - `npx skills`, ClawHub, or MCP auto-install
 - EC2 `ft sync` from this pipeline
+- Founder `~/.fieldtheory` or `vendors/founders-kit` in `sources.yaml`
 
 ## Operator
 
