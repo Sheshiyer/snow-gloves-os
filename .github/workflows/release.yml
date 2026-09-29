@@ -91,6 +91,7 @@ jobs:
             build-essential
 
       - name: Import Apple Developer ID cert (macOS)
+        id: apple
         if: matrix.platform == 'macos-latest'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -99,8 +100,10 @@ jobs:
         run: |
           if [ -z "$APPLE_CERTIFICATE" ]; then
             echo "::warning::APPLE_CERTIFICATE not set — macOS build will be unsigned"
+            echo "skip_notarize=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          echo "skip_notarize=false" >> "$GITHUB_OUTPUT"
           echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/cert.p12
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
@@ -120,15 +123,12 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Updater signing (required for OTA)
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS code signing identity (only used if cert imported above)
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          # macOS notarization
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ steps.apple.outputs.skip_notarize == 'true' && '' || secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ steps.apple.outputs.skip_notarize == 'true' && '' || secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ steps.apple.outputs.skip_notarize == 'true' && '' || secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ steps.apple.outputs.skip_notarize == 'true' && '' || secrets.APPLE_TEAM_ID }}
         with:
           projectPath: apps/onboarding
           tagName: ${{ github.event.inputs.tag || github.ref_name }}

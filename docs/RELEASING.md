@@ -103,7 +103,7 @@ make release-dispatch V=0.2.1        # gh workflow run release.yml -f tag=v0.2.1
 ### `build` job (app, matrix)
 
 1. **Matrix builds:** macOS universal (`aarch64+x86_64`), Ubuntu 22.04, Windows latest
-2. **macOS:** imports your Developer ID cert into a temp keychain, codesigns, then notarizes via `notarytool` (unsigned with a warning if `APPLE_CERTIFICATE` is not set)
+2. **macOS:** imports your Developer ID cert into a temp keychain, codesigns, then notarizes via `notarytool`. If `APPLE_CERTIFICATE` is unset, Apple ID/password are **not** passed (so CI does not 401 on notarize) and the DMG is unsigned.
 3. **All platforms:** `tauri-action` builds:
    - `.dmg` (mac) / `.msi` + `.exe` (win) / `.deb` + `.rpm` + `.AppImage` (linux)
    - `.tar.gz` + `.tar.gz.sig` (mac updater archive)
