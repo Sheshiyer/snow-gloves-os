@@ -7,8 +7,8 @@ HERMES_PORT ?= 4100
 help:
 	@echo "Snow Gloves OS — make targets"
 	@echo "  make doctor                # pre-flight diagnostic"
-	@echo "  make install               # bootstrap (paperclipai + python deps)"
-	@echo "  make onboard               # interactive tenant onboarding"
+	@echo "  make install               # bootstrap deps; prints onboard steps (not live)"
+	@echo "  make onboard               # interactive tenant + sources prompt (legacy)"
 	@echo "  make onboard-prompt R=<rt> # print the plan-mode interview prompt for a runtime"
 	@echo "  make catalog               # rebuild catalog/modules.json"
 	@echo "  make catalog-check         # fail if catalog/modules.json is stale"

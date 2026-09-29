@@ -113,9 +113,10 @@ Daily aggregation of hook usage, fallbacks, escalations, and top skills per agen
 ```bash
 git clone https://github.com/Sheshiyer/snow-gloves-os.git
 cd snow-gloves-os
-./scripts/install.sh              # paperclipai + python deps
+./scripts/install.sh              # deps + print next steps (does not go live)
+make doctor                       # pre-flight
+make smoke                        # bus up, test event, stub embed, Sentinel
 make onboard-prompt R=claude      # print the plan-mode interview for your runtime
-make smoke                        # full end-to-end smoke test
 make test                         # pytest
 ```
 
