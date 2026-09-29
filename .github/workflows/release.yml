@@ -12,8 +12,33 @@ permissions:
   contents: write
 
 jobs:
+  prepare:
+    name: prepare-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - name: Ensure draft GitHub Release exists
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists"
+          else
+            gh release create "$TAG" --draft --verify-tag \
+              --title "Snow Gloves OS $TAG" \
+              --notes "Stable $TAG. User guide: https://snow-gloves-wiki.vercel.app — catalog: https://sheshiyer.github.io/snow-gloves-os/ — 0.1.x must reinstall."
+          fi
+
   build:
     name: ${{ matrix.platform }}
+    needs: prepare
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
