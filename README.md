@@ -120,6 +120,8 @@ make onboard-prompt R=claude      # print the plan-mode interview for your runti
 make test                         # pytest
 ```
 
+**New Mac Mini (use the product, do not compile Tauri):** [`docs/MAC-MINI-SETUP.md`](./docs/MAC-MINI-SETUP.md). Emulate the desktop wizard on a **dev** Mac with `make app-install` then `make app-dev` — [`apps/onboarding/README.md`](./apps/onboarding/README.md).
+
 <details>
 <summary><strong>Per-target Makefile</strong></summary>
 
@@ -142,6 +144,7 @@ make test                         # pytest
 | `make release-check` | Verify all version files agree with `VERSION` |
 | `make upgrade [T=<slug>] [WRITE=1]` | Dry-run (or apply) tenant migrations |
 | `make kill-hermes` | Free port 4100 |
+| `make app-install` / `app-dev` / `app-build` | Tauri onboarding app: npm install, `tauri dev` (GUI), release bundle |
 
 </details>
 

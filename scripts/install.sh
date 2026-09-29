@@ -22,6 +22,12 @@ need git
 need curl
 [ "${MISSING:-0}" = "1" ] && { echo "Install missing tools and retry."; exit 1; }
 
+# Config parse needs PyYAML before the rest of the Python deps.
+if ! python3 -c "import yaml" 2>/dev/null; then
+  echo "==> Installing pyyaml (required to read config/snowgloves.yaml)"
+  python3 -m pip install --quiet pyyaml || python3 -m pip install --quiet --user pyyaml
+fi
+
 # --- 2. Read ports from config -------------------------------------------
 get_yaml() { python3 -c "import yaml,sys;print(yaml.safe_load(open('$CONF'))$1)"; }
 PAPERCLIP_PORT=$(get_yaml "['paperclip']['port']")

@@ -2,7 +2,7 @@ SHELL := /bin/bash
 PYTHON ?= python3
 HERMES_PORT ?= 4100
 
-.PHONY: help install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade
+.PHONY: help install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade app-install app-dev app-build
 
 help:
 	@echo "Snow Gloves OS — make targets"
@@ -27,6 +27,9 @@ help:
 	@echo "  make replay N=5            # replay last N events through current hooks"
 	@echo "  make test                  # pytest"
 	@echo "  make kill-hermes           # free port $(HERMES_PORT)"
+	@echo "  make app-install           # npm install for the Tauri onboarding app"
+	@echo "  make app-dev               # tauri dev (GUI; do not leave running in agents)"
+	@echo "  make app-build             # tauri release bundle (needs signing identity)"
 
 doctor:
 	bash scripts/doctor.sh
