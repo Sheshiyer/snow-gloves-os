@@ -9,7 +9,7 @@ Goal: one repo, one version, one catalog, any runtime.
 | Area | Deliverable | Status |
 |---|---|---|
 | Merge | Modular clone merged; Hermes naming everywhere | done |
-| Catalog | `catalog/cards/` (130) → `modules.json`, `--check` in CI | done |
+| Catalog | `catalog/cards/` (132) → `modules.json`, `--check` in CI; inference-sh + Explee as packs | done |
 | Research | `docs/research/2026-09-29-ecosystem-review.md` | done |
 | Adapters + onboarding | 9 adapters, plan-mode interview, `scripts/onboard.py` | done; several adapter fields unverified |
 | Dashboard | Tauri Modules dashboard + Pages site | in progress |

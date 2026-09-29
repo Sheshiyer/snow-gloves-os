@@ -131,7 +131,7 @@ v0.1.x OTA **cannot** jump to 0.2.0. Identifier is `com.tryambakam.snowgloves.on
 | `paperclip.tn.local` is not a real host | Doctor warns port 3100 idle. Live `paperclip_bridge` without `--dry-run` cannot create tasks. | Accept the warning. Smoke already dry-runs. Do not bind a fake company UUID. |
 | NVIDIA embeddings | Without `NVIDIA_API_KEY`, doctor warns; smoke **forces the stub**. | Leave the key unset. Stub is the intended first-hour path. |
 | Live Gmail | G-Stack Gmail capabilities exist; there is no OAuth session on a blank Mini. | Do not enable Gmail. First job is a local skill, not mail. |
-| `inference-sh/agent-skills@…` | Agent `SKILLS.md` files point at that prefix; those packs are **not vendored** in this repo. Catalog cards are pointers. | Enable an `add` skill such as `ms-copywriting`. Render writes the card’s `SKILL.md`, not the upstream inference-sh tree. |
+| `inference-sh` / Explee | Optional catalog packs, not core hooks. They are **not vendored** in this repo. | Enable `ms-copywriting` first. Enable `inference-sh-agent-skills` or `explee-skills` only when you want those desks filled. |
 | Hermes is not launchd | `make hermes` is foreground. `make smoke` kills Hermes when it finishes. | Dedicated Terminal tab after smoke. Re-run `make hermes` after reboot. |
 | Desktop updater | 0.1.x will not see 0.2.0. | Fresh DMG only if you use the wizard. |
 

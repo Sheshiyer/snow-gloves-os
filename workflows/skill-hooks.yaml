@@ -1,160 +1,105 @@
 version: "1.0"
-description: "Snow Gloves — Chief of Staff skill graph. 60 skills routed to 7 platform agents via glob matching on task title/tags/brief."
-source_prefix: "inference-sh/agent-skills@"
+description: "Snow Gloves — Chief of Staff skill graph. Core skills are native snowgloves:* only. inference-sh and Explee are catalog packs, not wired here."
+source_prefix: "local:./skills/"
 
 routing:
   ceo:
-    default_skills:
-      - mission-vision-refiner
-      - core-values-designer
-      - business-foundations-audit
-      - specialization-vs-diversification-advisor
-      - public-image-presentation-advisor
-      - persuasion-strategy-coach
-      - recognition-rewards-system-designer
-      - leadership-development-coach
-      - team-building-strategist
-      - mental-health-workplace-conversation
+    default_skills: []
     hooks:
       - id: strategy-and-vision
         globs: ["*strategy*", "*mission*", "*vision*", "*core values*", "*business model*", "*positioning bet*"]
-        skills: [mission-vision-refiner, core-values-designer, business-foundations-audit, specialization-vs-diversification-advisor]
+        skills: []
       - id: leadership-and-culture
         globs: ["*leadership*", "*org design*", "*team strategy*", "*culture system*", "*recognition*", "*team building*"]
-        skills: [leadership-development-coach, team-building-strategist, recognition-rewards-system-designer, mental-health-workplace-conversation]
+        skills: []
       - id: persuasion-and-image
         globs: ["*public image*", "*persuasion*", "*pitch deck*", "*board narrative*"]
-        skills: [public-image-presentation-advisor, persuasion-strategy-coach]
+        skills: []
 
   cto:
-    default_skills:
-      - concept-to-realworld-application-coach
-      - five-whys-root-cause-analyzer
-      - project-management-execution-coach
-      - adaptability-coach
-      - creativity-innovation-work-coach
-      - skill-development-planner
-      - smart-goal-coach
-      - daily-priority-planner
+    default_skills: []
     hooks:
       - id: architecture-and-execution
         globs: ["*architecture*", "*build*", "*deploy*", "*execution*", "*project plan*", "*priorit*"]
-        skills: [concept-to-realworld-application-coach, project-management-execution-coach, daily-priority-planner, smart-goal-coach]
+        skills: []
       - id: diagnostics-and-quality
         globs: ["*root cause*", "*five whys*", "*failure analysis*", "*regression*", "*bug*"]
-        skills: [five-whys-root-cause-analyzer]
+        skills: []
       - id: innovation-and-adapt
         globs: ["*innovation*", "*r&d*", "*experiment*", "*adapt*", "*skill plan*"]
-        skills: [creativity-innovation-work-coach, adaptability-coach, skill-development-planner]
+        skills: []
 
   chief-of-staff:
     default_skills:
-      - corporate-communication-coach
-      - negotiation-skills-coach
-      - workplace-conflict-resolver
-      - performance-feedback-writer
-      - workplace-culture-onboarding
-      - remote-productivity-coach
-      - resilience-during-tough-periods
-      - work-life-balance-planner
-      - career-advancement-planner
-      - career-transition-roadmap
-      - interview-prep-coach
-      - job-search-strategy
-      - professional-networking-playbook
-      - professional-development-curator
-      - resume-enhancer
-      - portfolio-builder
-      - personal-brand-strategy
+      - snowgloves:sg-onboard
     hooks:
       - id: people-ops
-        globs: ["*hr*", "*onboarding*", "*conflict*", "*feedback*", "*burnout*", "*well-being*", "*resilience*", "*remote*"]
-        skills: [workplace-conflict-resolver, performance-feedback-writer, workplace-culture-onboarding, remote-productivity-coach, resilience-during-tough-periods, work-life-balance-planner]
+        globs: ["*hr*", "*conflict*", "*feedback*", "*burnout*", "*well-being*", "*resilience*", "*remote*"]
+        skills: []
       - id: career-and-coaching
         globs: ["*career*", "*promotion*", "*interview*", "*job search*", "*transition role*", "*resume*", "*portfolio*", "*personal brand*"]
-        skills: [career-advancement-planner, career-transition-roadmap, interview-prep-coach, job-search-strategy, professional-networking-playbook, professional-development-curator, resume-enhancer, portfolio-builder, personal-brand-strategy]
+        skills: []
       - id: comms-and-negotiation
         globs: ["*corporate communication*", "*negotiation*", "*stakeholder*", "*internal memo*"]
-        skills: [corporate-communication-coach, negotiation-skills-coach]
+        skills: []
+      - id: product-onboard
+        globs: ["*snowgloves harvest*", "*tenant onboard*", "*plan-mode interview*"]
+        skills: [snowgloves:sg-onboard]
 
   librarian:
-    default_skills:
-      - audience-segmentation-generator
-      - unmet-needs-analyzer
-      - startup-idea-generator
-      - content-marketing-leadgen
+    default_skills: []
     hooks:
       - id: research-and-discovery
         globs: ["*research*", "*audience segment*", "*persona*", "*market gap*", "*unmet need*", "*startup idea*"]
-        skills: [audience-segmentation-generator, unmet-needs-analyzer, startup-idea-generator]
+        skills: []
       - id: knowledge-leadgen
         globs: ["*leadgen*", "*content marketing*", "*knowledge base*"]
-        skills: [content-marketing-leadgen]
+        skills: []
 
   interpreter:
     default_skills:
-      - brand-story-builder
-      - value-proposition-crafter
-      - elevator-pitch-generator
-      - marketing-plan-generator
-      - headline-generator
-      - twitter-thread-aida-writer
-      - newsletter-pas-writer
-      - open-loop-social-writer
-      - fomo-copy-generator
-      - listicle-idea-generator
-      - engagement-question-writer
-      - writing-editor-proofreader
-      - sales-funnel-designer
-      - product-launch-strategy
-      - channel-prioritization-planner
-      - pricing-strategy-optimizer
       - snowgloves:gtm-brief-synthesis
     hooks:
       - id: narrative-and-brand
         globs: ["*brand story*", "*positioning*", "*value prop*", "*elevator pitch*"]
-        skills: [brand-story-builder, value-proposition-crafter, elevator-pitch-generator]
+        skills: []
       - id: funnel-and-launch
         globs: ["*funnel*", "*marketing plan*", "*launch*", "*channel*", "*pricing*"]
-        skills: [sales-funnel-designer, marketing-plan-generator, product-launch-strategy, channel-prioritization-planner, pricing-strategy-optimizer]
+        skills: []
       - id: editorial-and-social
         globs: ["*twitter thread*", "*newsletter*", "*headline*", "*listicle*", "*social hook*", "*proofread*", "*edit draft*", "*fomo*"]
-        skills: [twitter-thread-aida-writer, newsletter-pas-writer, headline-generator, open-loop-social-writer, fomo-copy-generator, listicle-idea-generator, engagement-question-writer, writing-editor-proofreader]
+        skills: []
       - id: gtm-brief-synthesis
         globs: ["*gtm brief*", "*brand icp*", "*synthesize icp*", "*refresh gtm*", "*brand registration*"]
         skills: [snowgloves:gtm-brief-synthesis]
 
   dispatcher:
     default_skills:
-      - viral-campaign-ideator
-      - referral-program-designer
-      - business-network-expansion
-      - explee:explee-orchestrator
       - snowgloves:tn-seed
     hooks:
       - id: virality-and-distribution
         globs: ["*viral*", "*share loop*", "*referral*", "*invite program*", "*growth loop*", "*partner outreach*", "*network expansion*"]
-        skills: [viral-campaign-ideator, referral-program-designer, business-network-expansion]
+        skills: []
       - id: gtm-and-prospecting
-        globs: ["*icp*", "*prospect*", "*find compan*", "*find people*", "*enrich email*", "*gtm*", "*lead list*", "*partner finder*"]
-        skills: [explee:explee-orchestrator]
+        globs: ["*prospect*", "*find compan*", "*find people*", "*enrich email*", "*lead list*", "*partner finder*"]
+        skills: []
       - id: community-seeding
         globs: ["*seed*", "*community*", "*reddit thread*", "*distribution run*"]
         skills: [snowgloves:tn-seed]
       - id: brand-enriched-autogtm
-        # brand_to_gtm(approved Brief) → Explee /search/companies + /search/people, approval-gated (spec 004).
-        # The brand-docs synthesize the Brief (Interpreter:gtm-brief-synthesis); the Dispatcher executes it.
         globs: ["*brand gtm*", "*enriched gtm*", "*partner list*", "*customer icp*", "*brand to gtm*"]
-        skills: [explee:explee-orchestrator]
+        skills: [snowgloves:gtm-brief-synthesis]
 
   sentinel:
     default_skills:
-      - passive-income-planner
-      - real-estate-investment-evaluator
+      - snowgloves:connector-gate
     hooks:
       - id: investment-and-financial-risk
         globs: ["*investment*", "*passive income*", "*real estate*", "*yield*", "*portfolio return*", "*financial risk*", "*compliance audit*"]
-        skills: [passive-income-planner, real-estate-investment-evaluator]
+        skills: []
+      - id: connector-gate
+        globs: ["*connector gate*", "*enabled.yaml*", "*approval ticket*"]
+        skills: [snowgloves:connector-gate]
 
 escalation:
   no_match:

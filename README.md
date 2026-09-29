@@ -58,7 +58,7 @@ Seven specialized agents (CEO, CTO, Chief of Staff, Librarian, Interpreter, Disp
 <td width="50%" valign="top">
 
 ### 🧭 Skill Orchestration
-A dedicated **Chief of Staff** routes 69 skills via glob-matched hooks so CEO/CTO stay strategic. Add a skill and it is callable across all agents.
+A dedicated **Chief of Staff** routes four native `snowgloves:` skills via glob-matched hooks so CEO/CTO stay strategic. inference-sh and Explee are catalog packs, not core. Enable a module and it is callable across agents.
 
 </td>
 </tr>
@@ -66,7 +66,7 @@ A dedicated **Chief of Staff** routes 69 skills via glob-matched hooks so CEO/CT
 <td width="50%" valign="top">
 
 ### 🗂 Modules & Catalog
-130 catalog cards (skills, MCP servers, plugins, playbooks, connectors) harvested from X, Instagram, Field Theory, founders-kit, and marketingskills. Every card is a pointer with a disposition: `add`, `pointer`, `hold`, or `refuse`.
+132 catalog cards (skills, MCP servers, plugins, playbooks, connectors) harvested from X, Instagram, Field Theory, founders-kit, and marketingskills — including optional inference-sh and Explee packs. Every card is a pointer with a disposition: `add`, `pointer`, `hold`, or `refuse`.
 
 </td>
 <td width="50%" valign="top">
@@ -278,13 +278,13 @@ A release ships the signed Tauri installers with the OTA manifest, plus a platfo
 ├── 📂 .planning/               # GSD state (STATE.md, PROJECT.md)
 ├── 📂 agents/                  # 7 agents, each with 8+ md files + MANIFEST
 ├── 📂 adapters/                # one adapter.yaml per runtime (9)
-├── 📂 catalog/                 # SCHEMA.md · cards/ (130) · registry.yaml · modules.json (generated)
+├── 📂 catalog/                 # SCHEMA.md · cards/ (132) · registry.yaml · modules.json (generated)
 ├── 📂 prompts/                 # onboard-interview.md (plan-mode interview template)
 ├── 📂 migrations/              # v0_1_to_v0_2.py (bus rename to Hermes)
 ├── 📂 apps/onboarding/         # Tauri v2 app: onboarding + Modules dashboard, Pages site
 ├── 📂 connectors/g-stack/      # Capability registry + auth + webhooks
 ├── 📂 scripts/                 # hermes · ingest · embed · bridge · sentinel · build_catalog · onboard · release · upgrade
-├── 📂 skills/                  # registry.yaml (69 routed skills) · connector-gate · sg-onboard · tn-seed · gtm-brief-synthesis
+├── 📂 skills/                  # registry.yaml (4 native skills) · connector-gate · sg-onboard · tn-seed · gtm-brief-synthesis
 ├── 📂 workflows/               # skill-hooks.yaml — Chief of Staff graph
 ├── 📂 specs/                   # Spec-Kit features
 ├── 📂 docs/                    # architecture, catalog, adapters, onboarding, releasing, upgrading, research, runbooks
@@ -307,7 +307,7 @@ A release ships the signed Tauri installers with the OTA manifest, plus a platfo
 | Agents wired | ████████████████████ | 100% |
 | End-to-end smoke | ████████████████████ | 100% |
 | Tests / CI (119 pytest tests; CI runs pytest, version + catalog checks, smoke) | ████████████████░░░░ |  80% |
-| Catalog (130 cards, `--check` in CI) | ████████████████░░░░ |  80% |
+| Catalog (132 cards, `--check` in CI) | ████████████████░░░░ |  80% |
 | Runtime adapters (9 shipped; several fields still `verify: true`) | ██████████░░░░░░░░░░ |  50% |
 | Release + upgrade tooling (v0.2.0 not yet published) | ████████████░░░░░░░░ |  60% |
 | Real NVIDIA NIM integration | ████░░░░░░░░░░░░░░░░ |  20% |

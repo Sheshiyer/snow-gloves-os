@@ -278,18 +278,19 @@
       ],
       "layer": "CEO",
       "role": "Chief Executive Agent",
-      "skill_count": 10,
+      "skill_count": 0,
       "slug": "ceo"
     },
     {
       "hooks": [
         "career-and-coaching",
         "comms-and-negotiation",
-        "people-ops"
+        "people-ops",
+        "product-onboard"
       ],
       "layer": "CHIEF-OF-STAFF",
       "role": "Chief of Staff (Skill Orchestrator)",
-      "skill_count": 17,
+      "skill_count": 1,
       "slug": "chief-of-staff"
     },
     {
@@ -300,7 +301,7 @@
       ],
       "layer": "CTO",
       "role": "Chief Technology Agent",
-      "skill_count": 8,
+      "skill_count": 0,
       "slug": "cto"
     },
     {
@@ -312,7 +313,7 @@
       ],
       "layer": "DISPATCHER",
       "role": "Orchestration Dispatcher",
-      "skill_count": 11,
+      "skill_count": 1,
       "slug": "dispatcher"
     },
     {
@@ -324,7 +325,7 @@
       ],
       "layer": "INTERPRETER",
       "role": "Interpretation Engine",
-      "skill_count": 17,
+      "skill_count": 1,
       "slug": "interpreter"
     },
     {
@@ -334,16 +335,17 @@
       ],
       "layer": "LIBRARIAN",
       "role": "Knowledge Librarian",
-      "skill_count": 4,
+      "skill_count": 0,
       "slug": "librarian"
     },
     {
       "hooks": [
+        "connector-gate",
         "investment-and-financial-risk"
       ],
       "layer": "SENTINEL",
       "role": "Audit & Risk Sentinel",
-      "skill_count": 2,
+      "skill_count": 1,
       "slug": "sentinel"
     }
   ],
@@ -736,6 +738,30 @@
       ],
       "source": "2029013122506223688",
       "summary": "Meeting prep, email drafting, action items, daily digest. Port the jobs as a private skill; sending waits for approval."
+    },
+    {
+      "agents": [
+        "dispatcher"
+      ],
+      "approval": "yes",
+      "body": "# Explee skills\n\nOptional module. Dispatcher GTM globs still exist; they do not list `explee:*` on the core graph. Enable this pack (and the `explee_proxy` G-Stack connector) when a tenant wants live prospecting. Paid ops stay approval-gated.\n\n## Provenance\n\n- Former core `dispatcher` registry entries and `skill-hooks.yaml` gtm/brand-enriched hooks\n- Connector remains in `connectors/g-stack/capabilities.yaml` as `explee_proxy`\n",
+      "category": "skills",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [
+        "dispatcher.brand-enriched-autogtm",
+        "dispatcher.gtm-and-prospecting"
+      ],
+      "id": "explee-skills",
+      "kind": "skill-pack",
+      "name": "Explee GTM skill pack",
+      "repo": "https://github.com/Sheshiyer/explee-skills",
+      "risk": "high",
+      "runtimes": [
+        "any"
+      ],
+      "source": "catalog-core-descope",
+      "summary": "Optional Explee orchestrator + spokes. Paid search/enrich/autogtm wait for approval. Not core routing."
     },
     {
       "agents": [
@@ -1683,6 +1709,41 @@
       ],
       "source": "2075536512024994039",
       "summary": "Anti-slop frontend vocabulary with DESIGN.md/PRODUCT.md and hooks. Held: overlaps the host design-core slop gate."
+    },
+    {
+      "agents": [
+        "ceo",
+        "chief-of-staff",
+        "cto",
+        "dispatcher",
+        "interpreter",
+        "librarian",
+        "sentinel"
+      ],
+      "approval": "no",
+      "body": "# inference-sh agent-skills\n\nOptional module. The core graph only routes native `snowgloves:*` skills. This pack is the old default `source_prefix` (mission-vision-refiner, viral-campaign-ideator, and the rest). Enable it when a tenant wants those desks filled; `graph-upgrade` may propose hook diffs, never auto-merge.\n\n## Provenance\n\n- Former core `skills/registry.yaml` `source_prefix: inference-sh/agent-skills@`\n- Not cloned into this repo\n",
+      "category": "skills",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [
+        "ceo.strategy-and-vision",
+        "chief-of-staff.people-ops",
+        "cto.architecture-and-execution",
+        "dispatcher.virality-and-distribution",
+        "interpreter.narrative-and-brand",
+        "librarian.research-and-discovery",
+        "sentinel.investment-and-financial-risk"
+      ],
+      "id": "inference-sh-agent-skills",
+      "kind": "skill-pack",
+      "name": "inference-sh agent-skills pack",
+      "repo": "https://github.com/inference-sh/agent-skills",
+      "risk": "low",
+      "runtimes": [
+        "any"
+      ],
+      "source": "catalog-core-descope",
+      "summary": "Optional coaching/GTM skill pack. Not core. Enable per tenant; do not vendor into skill-hooks.yaml by default."
     },
     {
       "agents": [
@@ -3466,15 +3527,15 @@
       "mcp": 3,
       "playbook": 36,
       "plugin": 13,
-      "skills": 77
+      "skills": 79
     },
     "by_disposition": {
-      "add": 59,
+      "add": 61,
       "hold": 14,
       "pointer": 45,
       "refuse": 12
     },
-    "total": 130
+    "total": 132
   },
   "schema": "snowgloves.modules.v1",
   "version": "0.2.0"

@@ -13,11 +13,11 @@ A card is a **pointer**: front matter plus a short body explaining why the card 
 
 ## Current contents (v0.2.0)
 
-130 cards.
+132 cards.
 
 | Disposition | Count | | Category | Count |
 |---|---:|---|---|---:|
-| `add` | 59 | | `skills` | 77 |
+| `add` | 61 | | `skills` | 79 |
 | `pointer` | 45 | | `playbook` | 36 |
 | `hold` | 14 | | `plugin` | 13 |
 | `refuse` | 12 | | `mcp` | 3 |

@@ -6,7 +6,7 @@
 
 The platform wraps your existing operating tools (via G-Stack connectors), tenant knowledge (via NVIDIA embeddings), domain judgment (an interpretation layer), and task orchestration (via Hermes event bus and Paperclip bridge). It is entirely **agent-agnostic**: operators can select their preferred agent runtime (such as Cursor, Claude Code, Codex, Hermes, Grok, or a generic fallback), and Snow Gloves renders its skills, Model Context Protocol (MCP) server configurations, and governance rules directly into that runtime’s native workspace format.
 
-Onboarding is structured as an interactive, plan-mode interview that gathers tenant context without guessing or injecting unverified data. Missing facts are explicitly tagged with `FILL:` tags rather than assumed. Operational capabilities are managed through a structured catalog of 130 catalog cards governed by strict dispositions (`add`, `pointer`, `hold`, `refuse`). High-risk actions and outbound write operations are strictly gated by human approval. Day-to-day operations follow a "quiet week" model: routine workflows execute silently, drafts wait for human inspection, and the Sentinel agent conducts automated end-of-day health and drift sweeps.
+Onboarding is structured as an interactive, plan-mode interview that gathers tenant context without guessing or injecting unverified data. Missing facts are explicitly tagged with `FILL:` tags rather than assumed. Operational capabilities are managed through a structured catalog of 132 catalog cards governed by strict dispositions (`add`, `pointer`, `hold`, `refuse`). High-risk actions and outbound write operations are strictly gated by human approval. Day-to-day operations follow a "quiet week" model: routine workflows execute silently, drafts wait for human inspection, and the Sentinel agent conducts automated end-of-day health and drift sweeps.
 
 ---
 
@@ -23,7 +23,7 @@ Snow Gloves OS does not force an operator into a specific AI tool. Each supporte
 *   **Native Rendering:** When rendered, the system updates the runtime's local configuration files (such as `CLAUDE.md`, `.cursor/mcp.json`, or root `AGENTS.md` blocks) so the agent operates directly within the user's existing development or management seat.
 
 ### 3. Governed Module Catalog & Dispositions
-The platform maintains a registry of 130 cards covering skills, playbooks, plugins, MCP servers, and connectors. To prevent operational drift or unauthorized tool installation, every card is classified under one of four non-negotiable dispositions:
+The platform maintains a registry of 132 cards covering skills, playbooks, plugins, MCP servers, and connectors. To prevent operational drift or unauthorized tool installation, every card is classified under one of four non-negotiable dispositions:
 *   **`add` (59 cards):** Approved modules ready for single-click enablement and local rendering.
 *   **`pointer` (45 cards):** Reference material or host-provided capabilities that are made visible to the runtime as documentation without duplicating code installation.
 *   **`hold` (14 cards):** Capabilities under review; visible on the dashboard but blocked from enablement until reviewed and explicitly promoted by the operator.
@@ -140,7 +140,7 @@ During normal operations, Snow Gloves OS operates unobtrusively:
 *   **Desk Breakdown:**
     *   **CEO Desk:** Defines top-level direction, approves strategic proposals, and reviews company positioning.
     *   **CTO Desk:** Handles technical infrastructure, codebase integrity, and architecture checks.
-    *   **Chief of Staff:** Coordinates task routing, maps skill hooks across 69 routed skills, and prevents senior desks from getting bogged down.
+    *   **Chief of Staff:** Coordinates task routing, maps skill hooks across four native skills, and prevents senior desks from getting bogged down.
     *   **Librarian:** Manages context intake, document chunking, and vector index searching via NVIDIA embeddings.
     *   **Interpreter:** Translates external incoming messages, webhooks, and events into categorized operational tasks.
     *   **Dispatcher:** Connects task definitions to execution runners and manages background jobs via Paperclip.
@@ -150,8 +150,8 @@ During normal operations, Snow Gloves OS operates unobtrusively:
 
 ### Slide 9: Modules & Gating
 *   **Header:** Catalog Dispositions & Safety Gates
-*   **Catalog Composition (130 Total Cards):**
-    *   `add` (59 cards): Ready to enable and render into your runtime.
+*   **Catalog Composition (132 Total Cards):**
+    *   `add` (61 cards): Ready to enable and render into your runtime.
     *   `pointer` (45 cards): Reference materials or pre-installed host features.
     *   `hold` (14 cards): Blocked on dashboard until manually reviewed and promoted.
     *   `refuse` (12 cards): Permanently rejected modules; cannot be turned on.

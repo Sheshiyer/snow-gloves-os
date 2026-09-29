@@ -91,10 +91,10 @@ flowchart TD
 **Skills are just globs**, e.g.:
 
 ```yaml
-- name: launch-viral-referral
-  match: "virality/* OR title:contains('referral')"
-  agents: [interpreter, dispatcher]
-  skill_source: "inference-sh/agent-skills@funnel-and-launch"
+- name: gtm-brief
+  match: "*gtm brief* OR title:contains('icp')"
+  agents: [interpreter]
+  skill_source: "snowgloves:gtm-brief-synthesis"
 ```
 
 When you add a new skill to `skills/registry.yaml` and a hook to `workflows/skill-hooks.yaml`, **every agent instantly knows how to call it.** No code changes.

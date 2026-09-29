@@ -40,9 +40,8 @@ def test_fixtures_route_to_expected_desks(tmp_path):
     assert by_id["strategy"]["expected"]["agent"] == "ceo"
     assert by_id["fallback"]["fallback"] is True
     assert by_id["fallback"]["silent_fallback"] is False
-    viral_kinds = {s["kind"] for s in by_id["virality"]["skills"]}
-    assert "pointer" in viral_kinds
-    assert all(s["status"] != "ok" or s["kind"] == "native" for s in by_id["virality"]["skills"] if s["kind"] == "pointer")
+    assert by_id["virality"]["skills"] == []
+    assert by_id["virality"]["pointers"] == []
     gtm_native = [s for s in by_id["gtm"]["skills"] if s["kind"] == "native"]
     assert any(s["skill"] == "snowgloves:gtm-brief-synthesis" and s["status"] == "ok" for s in gtm_native)
     assert {loop["unit"] for loop in data["loops"]} == set(gw.NATIVE_LOOP_UNITS)
@@ -112,6 +111,24 @@ def test_explee_is_pointer_not_green_file(tmp_path):
     assert row["kind"] == "pointer" and row["status"] == "pointer"
     row = gw.resolve_skill("inference-sh/agent-skills@viral-campaign-ideator", tmp_path)
     assert row["kind"] == "pointer"
+
+
+def test_core_hooks_do_not_wire_inference_or_explee():
+    hooks = yaml.safe_load((REPO / "workflows" / "skill-hooks.yaml").read_text())
+    named = []
+    for desk in (hooks.get("routing") or {}).values():
+        for skill in desk.get("default_skills") or []:
+            named.append(skill)
+        for hook in desk.get("hooks") or []:
+            named.extend(hook.get("skills") or [])
+    assert all(s.startswith("snowgloves:") for s in named)
+    assert not any("inference-sh" in s or s.startswith("explee:") for s in named)
+    registry = yaml.safe_load((REPO / "skills" / "registry.yaml").read_text())
+    assert registry["totals"]["all"] == 4
+    catalog = yaml.safe_load((REPO / "catalog" / "registry.yaml").read_text())
+    ids = {c["id"] for c in catalog["cards"]}
+    assert "inference-sh-agent-skills" in ids
+    assert "explee-skills" in ids
 
 
 def test_inner_loop_retries_unit_only_then_red(tmp_path):

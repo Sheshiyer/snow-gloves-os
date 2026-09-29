@@ -17,17 +17,17 @@ related:
 
 This review covers every harvested item: the X bookmark harvest, the Field Theory taste packs, the Instagram saved harvest, [founders-kit](https://github.com/avinash201199/founders-kit), and [marketingskills](https://github.com/coreyhaines31/marketingskills). Each item now has a pointer card in `catalog/cards/`, and this doc gives the recommended disposition for each one, with the reason, the target agent and hook, and the runtimes it fits.
 
-**Nothing is wired.** `workflows/skill-hooks.yaml` is unchanged. A card's `hooks:` field names the area the item *would* serve. Moving any item into routing takes a founder pick (see the end of this doc) and then a separate change.
+**Nothing is auto-wired.** Core `workflows/skill-hooks.yaml` lists native `snowgloves:*` only. A card's `hooks:` field names the area the item *would* serve. Moving any item into routing takes a founder pick (see the end of this doc) and then a separate change.
 
 ## Counts
 
 | | add | hold | refuse | pointer | total |
 |---|---:|---:|---:|---:|---:|
-| cards | 59 | 14 | 12 | 45 | 130 |
+| cards | 61 | 14 | 12 | 45 | 132 |
 
 | skills | mcp | connector | plugin | playbook |
 |---:|---:|---:|---:|---:|
-| 77 | 3 | 1 | 13 | 36 |
+| 79 | 3 | 1 | 13 | 36 |
 
 By source: X harvest 23, Field Theory taste packs (not already in the X harvest) 11, Instagram 12, founders-kit 34 (one index card plus 33 categories), and marketingskills 50.
 
@@ -261,7 +261,7 @@ These are the picks I recommend making first. None of them are enabled yet.
 
 1. **Interpreter conversion set:** `ms-product-marketing` first, because the other marketingskills read its context doc. Then `ms-copywriting`, `ms-cro`, `ms-pricing`, and `ms-launch`. All are low risk.
 2. **Librarian SEO set:** `ms-seo-audit`, `ms-ai-seo`, and `ms-customer-research`. All are low risk.
-3. **Dispatcher outbound:** `ms-cold-email` and `ms-prospecting`. Both are approval-gated, and they pair with the existing `explee:explee-orchestrator` gtm hook.
+3. **Dispatcher outbound:** `ms-cold-email` and `ms-prospecting`. Both are approval-gated. Pair them with catalog `explee-skills` only after that pack is enabled; it is not on the core graph.
 4. **CEO playbooks:** `fk-fundraising`, `fk-startup-programs-credits`, and `fk-key-articles-essays`. These are pointers only.
 5. **Chief of Staff:** `executive-assistant`. Port the meeting-prep and digest jobs, and keep sends approval-gated.
 6. **CTO:** `archify` and `graft`, both low risk.

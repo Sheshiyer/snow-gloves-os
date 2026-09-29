@@ -3,14 +3,14 @@
 schema: snowgloves.modules.v1
 version: 0.2.0
 counts:
-  total: 130
+  total: 132
   by_disposition:
-    add: 59
+    add: 61
     hold: 14
     refuse: 12
     pointer: 45
   by_category:
-    skills: 77
+    skills: 79
     mcp: 3
     connector: 1
     plugin: 13
@@ -312,6 +312,24 @@ cards:
   runtimes:
   - openclaw
   summary: Meeting prep, email drafting, action items, daily digest. Port the jobs as a private skill; sending waits for approval.
+  enableable: true
+- id: explee-skills
+  name: Explee GTM skill pack
+  category: skills
+  kind: skill-pack
+  disposition: add
+  repo: https://github.com/Sheshiyer/explee-skills
+  source: catalog-core-descope
+  risk: high
+  approval: 'yes'
+  agents:
+  - dispatcher
+  hooks:
+  - dispatcher.brand-enriched-autogtm
+  - dispatcher.gtm-and-prospecting
+  runtimes:
+  - any
+  summary: Optional Explee orchestrator + spokes. Paid search/enrich/autogtm wait for approval. Not core routing.
   enableable: true
 - id: fk-additional-learning-resources
   name: 'Founders Kit: Additional Learning Resources'
@@ -1022,6 +1040,35 @@ cards:
   - any
   summary: 'Anti-slop frontend vocabulary with DESIGN.md/PRODUCT.md and hooks. Held: overlaps the host design-core slop gate.'
   enableable: false
+- id: inference-sh-agent-skills
+  name: inference-sh agent-skills pack
+  category: skills
+  kind: skill-pack
+  disposition: add
+  repo: https://github.com/inference-sh/agent-skills
+  source: catalog-core-descope
+  risk: low
+  approval: 'no'
+  agents:
+  - ceo
+  - chief-of-staff
+  - cto
+  - dispatcher
+  - interpreter
+  - librarian
+  - sentinel
+  hooks:
+  - ceo.strategy-and-vision
+  - chief-of-staff.people-ops
+  - cto.architecture-and-execution
+  - dispatcher.virality-and-distribution
+  - interpreter.narrative-and-brand
+  - librarian.research-and-discovery
+  - sentinel.investment-and-financial-risk
+  runtimes:
+  - any
+  summary: Optional coaching/GTM skill pack. Not core. Enable per tenant; do not vendor into skill-hooks.yaml by default.
+  enableable: true
 - id: layers
   name: Layers (Jamie Mill)
   category: skills

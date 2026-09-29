@@ -18,4 +18,4 @@ Maps bookmark-ecosystem **decisions** to existing `workflows/skill-hooks.yaml` s
 | NousResearch/hermes-agent | refuse | `dispatcher` bridge | Not Thoughtseed Hermes |
 | Graft / brag / archify | candidate | `librarian` + `cto` diagnostics | Founder pick |
 
-Native routing authority remains `workflows/skill-hooks.yaml` (inference-sh/agent-skills@ prefixes).
+Native routing authority remains `workflows/skill-hooks.yaml` (native `snowgloves:*` only). inference-sh and Explee are catalog packs.

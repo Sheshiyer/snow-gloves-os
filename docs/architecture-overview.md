@@ -96,7 +96,7 @@ Routing is a **graph**. The loop lives **inside** a node. Mini proof is `make wa
 | Report | Sentinel `EVOLUTION.md` drift that does not change what runs next |
 | Gate | `skills/connector-gate` plus tenant `approvals/` |
 
-`make upgrade` is still platform VERSION migrations. `make graph-upgrade` is the splitter learning path. Cards with `hold` / `refuse` never get hook diffs. inference-sh and Explee skills are pointers on a walk receipt, not a fake GREEN.
+`make upgrade` is still platform VERSION migrations. `make graph-upgrade` is the splitter learning path. Cards with `hold` / `refuse` never get hook diffs. inference-sh and Explee live as catalog packs (`inference-sh-agent-skills`, `explee-skills`); if they appear on a walk receipt they are pointers, not a fake GREEN.
 
 ## Versioning and upgrade
 
