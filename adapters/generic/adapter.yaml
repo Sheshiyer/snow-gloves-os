@@ -1,0 +1,21 @@
+schema: snowgloves.adapter.v1
+id: generic
+name: Any agent (portable fallback)
+homepage: null
+question_tool: numbered-list
+plan_mode: "If your runtime has a plan or read-only mode, turn it on. Otherwise, do not write files until the interview ends."
+paths:
+  skills: "{tenant}/runtime/generic/skills"
+  mcp: "{tenant}/runtime/generic/mcp.json"
+  rules: "{tenant}/runtime/generic/AGENTS.md"
+  plugins: null
+formats:
+  skill: skill-md
+  mcp: json
+  mcp_key: mcpServers
+  rules: markdown-block
+install: []
+plugin_install: null
+notes: |
+  Everything renders inside the tenant folder. Copy or symlink the output into whatever runtime you
+  use. mcp.json uses the common `mcpServers` shape most clients accept.

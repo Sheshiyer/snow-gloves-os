@@ -1,0 +1,30 @@
+schema: snowgloves.adapter.v1
+id: openclaw
+name: OpenClaw
+homepage: https://github.com/openclaw/openclaw
+question_tool: numbered-list
+plan_mode: null
+paths:
+  skills: "{home}/.openclaw/skills"        # <id>/SKILL.md
+  mcp: "{home}/.openclaw/openclaw.json"    # `mcp.servers` (managed by `openclaw mcp`)
+  rules: "{home}/.openclaw/workspace/AGENTS.md"
+  plugins: "{home}/.openclaw/openclaw.json"  # plugins.entries
+formats:
+  skill: skill-md
+  mcp: json
+  mcp_key: mcp.servers
+  rules: markdown-block
+install:
+  - "openclaw mcp --help   # manage mcp.servers"
+  - "openclaw plugins list"
+plugin_install: "openclaw plugins install {id}"
+notes: |
+  OpenClaw is a gateway agent (channels, plugins, skills). No structured question tool is known,
+  so the interview asks each decision as a numbered list and waits for a number.
+verify:
+  homepage: true
+  question_tool: true
+  plan_mode: true
+  paths.mcp: true
+  paths.rules: true
+  plugin_install: true

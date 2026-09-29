@@ -1,0 +1,25 @@
+schema: snowgloves.adapter.v1
+id: grok
+name: Grok CLI
+homepage: https://x.ai
+question_tool: ask_user_question
+plan_mode: "Type `/plan` (or `/plan <description>`), or Shift+Tab from Normal to Plan."
+paths:
+  skills: "{home}/.grok/skills"            # <id>/SKILL.md. Project scope: {project}/.grok/skills
+  mcp: "{home}/.grok/config.toml"          # [mcp_servers.<id>] tables
+  rules: "{project}/AGENTS.md"             # global rules: {home}/.grok/AGENTS.md
+  plugins: "{home}/.grok/installed-plugins"
+formats:
+  skill: skill-md
+  mcp: toml
+  mcp_key: mcp_servers
+  rules: markdown-block
+install:
+  - "edit ~/.grok/config.toml and add a [mcp_servers.<id>] table"
+plugin_install: null
+notes: |
+  Paths and tool names come from the Grok CLI user guide (~/.grok/docs/user-guide). The question
+  card times out after 30 minutes by default ([toolset.ask_user_question]).
+verify:
+  homepage: true
+  paths.plugins: true

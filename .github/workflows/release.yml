@@ -125,3 +125,48 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           args: ${{ matrix.args }}
+
+  # Platform assets: source tarball, catalog/modules.json, adapter bundle.
+  # Runs after the app matrix (success or not) so it attaches to the draft
+  # release tauri-action created instead of racing it; needs no Apple secrets.
+  platform:
+    name: platform
+    needs: build
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+
+      - name: Install deps
+        run: pip install pyyaml
+
+      - name: Verify VERSION matches tag
+        run: python3 scripts/release.py --check --expect "$TAG"
+
+      - name: Build catalog
+        run: |
+          if [ -f scripts/build_catalog.py ]; then
+            python3 scripts/build_catalog.py
+          else
+            echo "::warning::scripts/build_catalog.py missing — modules.json not rebuilt"
+          fi
+
+      - name: Bundle platform assets
+        run: python3 scripts/release.py --bundle dist
+
+      - name: Attach to GitHub release
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --verify-tag \
+              --title "Snow Gloves OS $TAG" \
+              --notes "Platform release $TAG. See [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)."
+          fi
+          gh release upload "$TAG" dist/* --clobber

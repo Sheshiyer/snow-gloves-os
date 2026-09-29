@@ -1,0 +1,29 @@
+schema: snowgloves.adapter.v1
+id: muse
+name: Muse
+homepage: null
+question_tool: numbered-list
+plan_mode: null
+paths:
+  skills: "{home}/.muse/skills"
+  mcp: "{home}/.muse/mcp.json"
+  rules: "{project}/AGENTS.md"
+  plugins: null
+formats:
+  skill: skill-md
+  mcp: json
+  mcp_key: mcpServers
+  rules: markdown-block
+install: []
+plugin_install: null
+notes: |
+  Placeholder. No Muse CLI was found on this machine and its skill/MCP conventions are not
+  confirmed. Every path is a guess shaped like the other runtimes; confirm before using --write.
+verify:
+  homepage: true
+  question_tool: true
+  plan_mode: true
+  paths.skills: true
+  paths.mcp: true
+  paths.rules: true
+  formats.mcp: true

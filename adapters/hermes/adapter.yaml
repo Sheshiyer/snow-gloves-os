@@ -1,0 +1,31 @@
+schema: snowgloves.adapter.v1
+id: hermes
+name: Hermes Agent
+homepage: https://github.com/NousResearch/hermes-agent
+question_tool: clarify
+plan_mode: null
+paths:
+  skills: "{home}/.hermes/skills"          # default profile; named profiles live under the profile home
+  mcp: "{home}/.hermes/config.yaml"        # mcp_servers: mapping inside the main config
+  rules: "{project}/AGENTS.md"             # project context file; SOUL.md stays identity-only
+  plugins: "{home}/.hermes/plugins"
+formats:
+  skill: hermes-skill-md
+  mcp: yaml
+  mcp_key: mcp_servers
+  rules: markdown-block
+install:
+  - "hermes profile install <snow-gloves-os dir> --name snowgloves --alias"
+  - "hermes -p snowgloves config set skills.config.snowgloves.tenant_root <tenants/slug>"
+  - "hermes skills install <source>"
+  - "hermes skills trust <project>   # loads ./.hermes/skills and ./.agents/skills from that repo"
+plugin_install: null
+notes: |
+  Install shape follows Factor: SOUL.md, config.yaml, and skills/ install as a Hermes profile
+  distribution (distribution.yaml). config.yaml carries comments and secrets, so Snow Gloves never
+  rewrites it; MCP entries are written as a sibling fragment to merge by hand. Hermes has no plan
+  mode; the interview runs as plain turns and uses `clarify` for each decision.
+verify:
+  paths.rules: true
+  paths.plugins: true
+  install.1: true

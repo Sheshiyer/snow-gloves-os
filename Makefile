@@ -2,13 +2,22 @@ SHELL := /bin/bash
 PYTHON ?= python3
 HERMES_PORT ?= 4100
 
-.PHONY: help install onboard hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay
+.PHONY: help install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade
 
 help:
 	@echo "Snow Gloves OS — make targets"
 	@echo "  make doctor                # pre-flight diagnostic"
 	@echo "  make install               # bootstrap (paperclipai + python deps)"
 	@echo "  make onboard               # interactive tenant onboarding"
+	@echo "  make onboard-prompt R=<rt> # print the plan-mode interview prompt for a runtime"
+	@echo "  make catalog               # rebuild catalog/modules.json"
+	@echo "  make catalog-check         # fail if catalog/modules.json is stale"
+	@echo "  make legacy-check          # fail if pre-Hermes bus names remain (skips .bak-*)"
+	@echo "  make site                  # build the static Pages site"
+	@echo "  make release-dry V=x.y.z   # preview a platform version bump"
+	@echo "  make release V=x.y.z       # bump, commit, tag vX.Y.Z (no push)"
+	@echo "  make release-push V=x.y.z  # push HEAD + tag vX.Y.Z"
+	@echo "  make upgrade [T=<slug>]    # dry-run tenant migrations (WRITE=1 to apply)"
 	@echo "  make tenant-new T=<slug>   # scaffold a new tenant"
 	@echo "  make hermes                # run Hermes listener (foreground)"
 	@echo "  make smoke                 # full e2e smoke"
@@ -27,6 +36,27 @@ install:
 
 onboard:
 	bash scripts/onboarding.sh
+
+onboard-prompt:
+	@if [ -z "$(R)" ]; then echo "usage: make onboard-prompt R=<runtime>"; exit 1; fi
+	$(PYTHON) scripts/onboard.py --prompt $(R)
+
+catalog:
+	$(PYTHON) scripts/build_catalog.py
+
+catalog-check:
+	$(PYTHON) scripts/build_catalog.py --check
+
+legacy-check:
+	@! grep -rIl -e 'sg[_]bus' -e 'SG[ ]Bus' . --exclude-dir=.git --exclude-dir='.bak-*' \
+	  --exclude-dir=node_modules --exclude-dir=target || (echo "legacy bus names found (above)"; exit 1)
+	@echo "legacy-check: clean"
+
+site:
+	cd apps/onboarding && npm run build:site
+
+upgrade:
+	$(PYTHON) scripts/upgrade.py $(if $(T),--tenant $(T),) $(if $(WRITE),--write,)
 
 tenant-new:
 	@if [ -z "$(T)" ]; then echo "usage: make tenant-new T=<slug> [N=\"Business Name\"]"; exit 1; fi
@@ -89,7 +119,22 @@ app-build:
 	cd apps/onboarding && npm run tauri build
 
 # ---- release ----
-.PHONY: release-tag release-dispatch
+.PHONY: release release-dry release-check release-push release-tag release-dispatch
+release-dry:
+	@test -n "$(V)" || (echo "usage: make release-dry V=0.2.0"; exit 1)
+	$(PYTHON) scripts/release.py $(V) --dry-run
+
+release:
+	@test -n "$(V)" || (echo "usage: make release V=0.2.0"; exit 1)
+	$(PYTHON) scripts/release.py $(V) --commit --tag
+
+release-check:
+	$(PYTHON) scripts/release.py --check
+
+release-push:
+	@test -n "$(V)" || (echo "usage: make release-push V=0.2.0"; exit 1)
+	git push origin HEAD v$(V)
+
 release-tag:
 	@test -n "$(V)" || (echo "usage: make release-tag V=0.1.0"; exit 1)
 	@git tag -a v$(V) -m "release: v$(V)" && git push origin v$(V)

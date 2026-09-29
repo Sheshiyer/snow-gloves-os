@@ -16,3 +16,4 @@ apps/onboarding/dist/
 apps/onboarding/node_modules/
 apps/onboarding/demo/node_modules/
 apps/onboarding/demo/out/
+apps/onboarding/dist-site/

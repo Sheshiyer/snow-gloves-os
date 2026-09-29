@@ -1,0 +1,23 @@
+name: snow-gloves-os
+version: 0.2.0
+description: "Hand-in-glove agent OS: seven agents, a skill catalog, runtime adapters, Hermes event bus."
+author: Thoughtseed
+license: MIT
+distribution_owned:
+  - AGENTS.md
+  - agents
+  - skills
+  - workflows
+  - config
+  - catalog
+  - adapters
+  - prompts
+  - migrations
+  - distribution.yaml
+tenant_owned:
+  - tenants
+env_requires:
+  - name: NVIDIA_API_KEY
+    description: "NVIDIA embeddings for the Librarian. Unset falls back to SNOWGLOVES_EMBED_BACKEND=stub."
+    required: false
+    default: ""

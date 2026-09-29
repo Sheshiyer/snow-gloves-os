@@ -1,0 +1,26 @@
+schema: snowgloves.adapter.v1
+id: claude
+name: Claude Code
+homepage: https://docs.anthropic.com/en/docs/claude-code
+question_tool: AskUserQuestion
+plan_mode: "Shift+Tab until the mode reads 'plan mode', or start with `claude --permission-mode plan`."
+paths:
+  skills: "{home}/.claude/skills"          # one folder per skill: <id>/SKILL.md. Project scope: {project}/.claude/skills
+  mcp: "{project}/.mcp.json"               # project-scoped MCP servers; user scope lives in ~/.claude.json
+  rules: "{project}/CLAUDE.md"             # Snow Gloves writes a marked block, never the whole file
+  plugins: "{home}/.claude/plugins"
+formats:
+  skill: skill-md
+  mcp: json
+  mcp_key: mcpServers
+  rules: markdown-block
+install:
+  - "claude mcp add --scope project <id> -- <command> [args...]"
+  - "/plugin marketplace add <owner/repo>   # inside a Claude Code session"
+  - "/plugin install <plugin>@<marketplace>"
+plugin_install: "/plugin install {id}@{repo}"
+notes: |
+  Skills load from ~/.claude/skills and <project>/.claude/skills. SKILL.md needs `name` and
+  `description` front matter. `.mcp.json` is shared with the team; secrets go in env vars, not the file.
+verify:
+  plugin_install: true

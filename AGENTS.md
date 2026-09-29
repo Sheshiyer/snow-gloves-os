@@ -30,6 +30,14 @@ plus `MANIFEST.yaml`.
     +--> Sentinel
 ```
 
+Events reach the Chief of Staff through **Hermes** (`scripts/hermes.py`, port 4100).
+
+## Modules and runtimes
+
+- Agents pick up third-party modules only through a tenant's `tenants/<slug>/enabled.yaml`. Options come from `catalog/modules.json` (built from `catalog/cards/` by `scripts/build_catalog.py`); `hold` and `refuse` cards are never enabled. Load `skills/connector-gate` before any external tool call.
+- The runtime is the founder's choice. `adapters/<runtime>/adapter.yaml` says where that runtime keeps skills, MCP config, and rules; `scripts/onboard.py --render-adapter` writes them. Onboarding is the plan-mode interview in `skills/sg-onboard/`.
+- Docs: `docs/catalog.md`, `docs/adapters.md`, `docs/onboarding.md`.
+
 <!-- temperance:project-rail:start -->
 ## Temperance project rail
 

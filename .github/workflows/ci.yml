@@ -17,6 +17,15 @@ jobs:
         run: bash scripts/doctor.sh || true
       - name: Pytest
         run: pytest -q tests/
+      - name: Version consistency
+        run: python3 scripts/release.py --check
+      - name: Catalog staleness
+        run: |
+          if [ -f scripts/build_catalog.py ]; then
+            python3 scripts/build_catalog.py --check
+          else
+            echo "scripts/build_catalog.py not present; skipping"
+          fi
       - name: Smoke (background hermes, e2e, embed stub, sentinel)
         env:
           SNOWGLOVES_EMBED_BACKEND: stub
