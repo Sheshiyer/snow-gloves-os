@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.0 — Consolidated platform (unreleased)
+## v0.2.0 — Consolidated platform (2026-09-29)
 
 - **Modular merge + Hermes naming.** The modular clone and the local tree are one repo; the event bus is Hermes everywhere (`scripts/hermes.py`, `HERMES_PORT`, `_audit/hermes-events.jsonl`, `hermes_channel`).
 - **Catalog cards.** `catalog/` holds one card per harvested X/IG skill, founders-kit playbook, and marketingskills spoke, compiled to `catalog/modules.json` by `scripts/build_catalog.py` (132 cards). inference-sh and Explee are optional `add` packs, not core hooks.
