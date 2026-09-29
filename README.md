@@ -309,9 +309,8 @@ A release ships the signed Tauri installers with the OTA manifest, plus a platfo
 
 ### Open items
 
-- **Bundle id change.** The app id is now `com.tryambakam.snowgloves.onboarding` (was `com.thoughtseed.snowgloves.onboarding`). macOS treats that as a different app, so existing installs may not pick up the OTA update and may need a manual reinstall. Test with a v0.1.x install before publishing.
-- **Stale demo paths.** `tenants/_demo/ingest-plan.json` and `vector-index.jsonl` still contain absolute paths to the old `snow-gloves-os-modular` clone. Re-run the ingest for `_demo`.
-- **`distribution.yaml` lacks `hermes_requires`.** Nothing declares which Hermes version or port a distribution needs yet.
+- **Bundle id (decided).** The app id is `com.tryambakam.snowgloves.onboarding` (was `com.thoughtseed.snowgloves.onboarding`). v0.2.0 is a new app: existing 0.1.x users must reinstall from the DMG/MSI; OTA will not find 0.2.0.
+- **`distribution.yaml` lacks `hermes_requires`.** Nothing declares which Hermes version or port a distribution needs yet. Do not set it in this release.
 - **Unverified adapter fields.** Muse is a guess throughout; the OpenClaw question tool and plan mode, and Codex `/plan`, are unconfirmed. See [`docs/adapters.md`](./docs/adapters.md).
 
 ## 🧪 Spec-Driven Development

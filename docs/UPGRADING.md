@@ -47,11 +47,13 @@ To check that nothing in the repo still uses the old names: `make legacy-check` 
 3. Make it idempotent: running it on an already-migrated tenant changes nothing.
 4. Add a test in `tests/test_upgrade.py` with a fixture tenant, covering the dry-run diff and `--write`.
 
-## Before upgrading `_demo`
+## Regenerating `_demo` knowledge files
 
-`tenants/_demo/ingest-plan.json` and `tenants/_demo/vector-index.jsonl` still contain absolute paths to the old `snow-gloves-os-modular` clone. The migration does not rewrite them (they are historical data). Re-run the ingest and embed for `_demo` to regenerate them against this checkout:
+The bus-rename migration does not rewrite `ingest-plan.json` or `vector-index.jsonl` (they are generated data). After a clone move, re-run ingest and embed so paths match this checkout:
 
 ```bash
 python3 scripts/ingest.py _demo          # rewrites ingest-plan.json from tenants/_demo/sources.yaml
 SNOWGLOVES_EMBED_BACKEND=stub make embed T=_demo
 ```
+
+Those files currently point at `snow-gloves-os` (not the old `snow-gloves-os-modular` clone).

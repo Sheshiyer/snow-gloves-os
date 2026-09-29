@@ -160,11 +160,11 @@ sequenceDiagram
 
 ---
 
-## Bundle identifier (open item)
+## Bundle identifier (decided)
 
-The app bundle id is **`com.tryambakam.snowgloves.onboarding`** (`apps/onboarding/src-tauri/tauri.conf.json` → `identifier`), re-branded from the former `com.thoughtseed.snowgloves.onboarding`. The Apple signing team (`BS6SZR4929`) is unchanged and approved for Snow Gloves signing under owner ruling R3; the signing identity string above must stay byte-identical to the certificate CN in the keychain.
+The app bundle id is **`com.tryambakam.snowgloves.onboarding`** (`apps/onboarding/src-tauri/tauri.conf.json` → `identifier`), re-branded from the former `com.thoughtseed.snowgloves.onboarding`. Treat **v0.2.0 as a new app**. Existing **0.1.x** installs will not receive this release over OTA; users must download the new DMG/MSI and reinstall. Do not test-and-hope the updater.
 
-> ⚠️ **This change may break OTA for existing installs.** macOS treats a new bundle id as a different app (separate preferences, keychain items, and app data), and the updater replaces the bundle in place. Before publishing v0.2.0, install v0.1.1 on a test Mac, let it update, and confirm it relaunches and keeps its state. If it doesn't, tell v0.1.x users to reinstall from the DMG.
+macOS treats a new bundle id as a different app (separate preferences, keychain items, and app data). The Apple signing team (`BS6SZR4929`) is unchanged and approved for Snow Gloves signing under owner ruling R3; the signing identity string above must stay byte-identical to the certificate CN in the keychain.
 
 ---
 

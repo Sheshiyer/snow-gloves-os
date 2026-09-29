@@ -36,9 +36,8 @@ Progress: [████████░░] 80%
 
 ## Open items
 
-- Bundle id changed to `com.tryambakam.snowgloves.onboarding`; may break OTA for existing v0.1.x installs. Test an update from v0.1.1 before publishing.
-- `tenants/_demo/ingest-plan.json` and `vector-index.jsonl` still contain absolute paths to `snow-gloves-os-modular`; re-run ingest/embed for `_demo`.
-- `distribution.yaml` has no `hermes_requires`.
+- Bundle id is `com.tryambakam.snowgloves.onboarding`; v0.2.0 is a new app — 0.1.x users reinstall (no OTA).
+- `distribution.yaml` has no `hermes_requires` (intentionally unset for this release).
 
 ## Session Continuity
 
