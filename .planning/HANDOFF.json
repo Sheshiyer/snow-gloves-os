@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "direct-client-canary-running",
+  "status": "two-isolated-workers-running",
   "completed": [
     "Bootstrap, fleet, Session World and agent infrastructure plans committed locally",
     "GitHub issues 16-29 and Project 22 published",
@@ -20,11 +20,26 @@
   "decisions": [
     "Use explicit free rail first; no paid or Sol fallback",
     "Source-only synthetic implementation; no workstation installation or live provider activation",
-    "Preserve flow through durable files across runtime compaction"
+    "Preserve flow through durable files across runtime compaction",
+    "Direct Command Code free model used after tool-call canary; OmniRoute batch unavailable; no fallback"
   ],
   "uncommitted_files": [
     ".planning/HANDOFF.json",
     ".planning/bootstrap-wave-01.json"
   ],
-  "next_action": "Poll direct Command Code canary session 94608; if substantive file read is proven, run bootstrap-wave-01.json with concurrency 2 and isolated worktrees; disable all model fallback."
+  "next_action": "Inspect worker structured result and worktree changes; verify model/tool execution, review only owned files, run focused tests then full suite before integrating. Continue journal/doctor wave afterward.",
+  "workers": [
+    {
+      "id": "bootstrap-cli",
+      "pid": 7152,
+      "worktree": "/tmp/snowgloves-bootstrap-cli",
+      "receipt": "/tmp/snowgloves-bootstrap-cli.jsonl"
+    },
+    {
+      "id": "bootstrap-policy",
+      "pid": 7153,
+      "worktree": "/tmp/snowgloves-bootstrap-policy",
+      "receipt": "/tmp/snowgloves-bootstrap-policy.jsonl"
+    }
+  ]
 }
