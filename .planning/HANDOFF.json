@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "narrowed-workers-running",
+  "status": "source-review-repairs-running",
   "completed": [
     "Bootstrap, fleet, Session World and agent infrastructure plans committed locally",
     "GitHub issues 16-29 and Project 22 published",
@@ -25,19 +25,25 @@
   "uncommitted_files": [
     ".planning/HANDOFF.json"
   ],
-  "next_action": "Inspect worker structured result and worktree changes; verify model/tool execution, review only owned files, run focused tests then full suite before integrating. Continue journal/doctor wave afterward.",
+  "next_action": "Inspect repair receipts; rerun focused tests; adversarially review policy fixes and CLI DAG; integrate only owned files after passing full suite.",
   "workers": [
     {
       "id": "bootstrap-cli",
-      "pid": 86127,
+      "pid": 47302,
       "worktree": "/tmp/snowgloves-bootstrap-cli",
-      "receipt": "/tmp/snowgloves-bootstrap-cli-retry.jsonl"
+      "receipt": "/tmp/snowgloves-bootstrap-cli-repair.jsonl"
     },
     {
       "id": "bootstrap-policy",
-      "pid": 86128,
+      "pid": 47303,
       "worktree": "/tmp/snowgloves-bootstrap-policy",
-      "receipt": "/tmp/snowgloves-bootstrap-policy-retry.jsonl"
+      "receipt": "/tmp/snowgloves-bootstrap-policy-repair.jsonl"
     }
+  ],
+  "review_findings": [
+    "CLI invalid self-dependency test: 20 passed 1 failed",
+    "Policy missing mandatory approver verification and permission",
+    "Device scope and empty membership scope require denial",
+    "Canonical unambiguous digest encoding required"
   ]
 }
