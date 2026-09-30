@@ -1,0 +1,83 @@
+{
+  "project": 22,
+  "issues": [
+    {
+      "key": "R00",
+      "title": "Roadmap: Mac fleet, Axtech operations, and Session World",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/16",
+      "dependencies": "None"
+    },
+    {
+      "key": "R01",
+      "title": "Bootstrap: fresh Mac inspection, release manifest, and tooling",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/17",
+      "dependencies": "R00"
+    },
+    {
+      "key": "R02",
+      "title": "Identity: verified organization, brand RBAC, and action approvals",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/18",
+      "dependencies": "R00"
+    },
+    {
+      "key": "R03",
+      "title": "Secrets: encrypted dotenv sync and scoped device enrollment",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/19",
+      "dependencies": "R01,R02"
+    },
+    {
+      "key": "R04",
+      "title": "Runtime: Temperance, OmniRoute, remote access, and supervised services",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/20",
+      "dependencies": "R01,R02,R03"
+    },
+    {
+      "key": "R05",
+      "title": "Doctor: evidence-based diagnostics, repair plans, and debug bundles",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/21",
+      "dependencies": "R01,R02,R04"
+    },
+    {
+      "key": "R06",
+      "title": "Fleet: control plane, node agents, durable jobs, and streaming",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/22",
+      "dependencies": "R02,R04"
+    },
+    {
+      "key": "R07",
+      "title": "Sessions: runtime adapters, isolated workspaces, and verified handoffs",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/23",
+      "dependencies": "R03,R06"
+    },
+    {
+      "key": "R08",
+      "title": "Operator tooling: Codex app/CLI, Claude, Grok, and Orca evaluation",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/24",
+      "dependencies": "R01,R04"
+    },
+    {
+      "key": "R09",
+      "title": "Session World: playable 3D pixel-art fleet cockpit",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/25",
+      "dependencies": "R00; live telemetry R06; live controls R02,R07"
+    },
+    {
+      "key": "R10",
+      "title": "Axtech: source-backed brand map and lead/campaign connectors",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/26",
+      "dependencies": "R02,R03,R06"
+    },
+    {
+      "key": "R11",
+      "title": "Media: paid generation, artifact pipeline, and brand budgets",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/27",
+      "dependencies": "R02,R03,R06"
+    },
+    {
+      "key": "R12",
+      "title": "Acceptance: recovery and 50-session multi-Mac fleet soak",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/28",
+      "dependencies": "R05,R06,R07,R08,R09; campaign/media profiles R10,R11"
+    }
+  ]
+}

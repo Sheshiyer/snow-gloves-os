@@ -1,0 +1,52 @@
+{
+  "schema": "snowgloves.planning-handoff.v1",
+  "updated": "2026-09-30",
+  "status": "draft-plan-ready-for-review",
+  "scope": "fresh Mac mini bootstrap, doctor, debug, handoff, organization RBAC",
+  "entry": "specs/005-node-bootstrap/spec.md",
+  "plan": "specs/005-node-bootstrap/plan.md",
+  "tasks": "specs/005-node-bootstrap/tasks.md",
+  "start_prompt": "prompts/mac-mini-node-start.md",
+  "completed": [
+    "source inspection",
+    "layered onboarding design",
+    "bootstrap state machine",
+    "doctor evidence contract",
+    "RBAC and negative-test contract",
+    "handoff trust contract",
+    "implementation task sequence",
+    "distributed orchestration, visualization, and 50-session acceptance design",
+    "published 13 roadmap issues and Project22 with phase/readiness/status fields; preserved #8"
+  ],
+  "verified": [],
+  "pending": [
+    "spec and plan review",
+    "hardware inventory",
+    "identity issuer and canonical organization map",
+    "storage and crypto design",
+    "implementation",
+    "synthetic tests",
+    "fresh-machine pilot",
+    "live RBAC proof",
+    "control-plane backend selection",
+    "API/event and dashboard contracts",
+    "multi-node streaming and session capability proof",
+    "50-session measured soak",
+    "pinned Orca/OpenOrca adapter and visualization spike",
+    "playable 3D pixel-art synthetic session-world prototype and visual verification"
+  ],
+  "known_limits": [
+    "connector auth is a stub",
+    "local approval CLI lacks verified approver RBAC",
+    "legacy doctor does not verify service identity",
+    "bootstrap CLI is not implemented",
+    "routed planning attribution unresolved"
+  ],
+  "next": "Review issue #16 roadmap; resolve #17 bootstrap and #18 identity contracts before live activation",
+  "authority": "planning metadata only; grants no access or action approval",
+  "fleet_plan": "docs/FLEET-CONTROL-PLANE-PLAN.md",
+  "upstream_review": "docs/ORCA-OPENORCA-FIT-REVIEW.md",
+  "session_world_design": "docs/SESSION-WORLD-DESIGN.md",
+  "github_project": "https://github.com/users/Sheshiyer/projects/22",
+  "github_map": ".planning/NODE-BOOTSTRAP-GITHUB-MAP.json"
+}

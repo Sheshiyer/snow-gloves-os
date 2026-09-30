@@ -123,6 +123,8 @@ make test                         # pytest
 
 **New Mac Mini (use the product, do not compile Tauri):** [`docs/MAC-MINI-SETUP.md`](./docs/MAC-MINI-SETUP.md). Emulate the desktop wizard on a **dev** Mac with `make app-install` then `make app-dev` — [`apps/onboarding/README.md`](./apps/onboarding/README.md).
 
+**Planned fresh-node CLI onboarding:** [layered setup plan](./docs/MAC-MINI-NODE-ONBOARDING-PLAN.md) and [Claude start prompt](./prompts/mac-mini-node-start.md). This covers an always-on Mac mini workspace, developer tooling, Temperance/OmniRoute, secrets, and selected brand capabilities. It is a planning candidate; the node bootstrap CLI is not implemented yet.
+
 <details>
 <summary><strong>Per-target Makefile</strong></summary>
 

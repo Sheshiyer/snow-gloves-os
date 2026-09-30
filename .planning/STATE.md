@@ -1,5 +1,22 @@
 # Project State
 
+## 2026-09-30 — Mac fleet roadmap published
+
+- Source version: `VERSION` reads `0.2.1`; the older consolidation notes below are historical and have not been used to infer current PR/release state.
+- Active planning packet: `specs/005-node-bootstrap/{spec,plan,tasks}.md`.
+- Roadmap: `.planning/GITHUB_ROADMAP.md`; issue map: `.planning/NODE-BOOTSTRAP-GITHUB-MAP.json`.
+- GitHub Project: https://github.com/users/Sheshiyer/projects/22
+- Umbrella: https://github.com/Sheshiyer/snow-gloves-os/issues/16
+- Scope: layered CLI bootstrap, doctor/debug, verified org RBAC, secrets, remote runtime, distributed sessions, Session World, Axtech leads/campaigns/media, and 50-session acceptance.
+- Readiness: planning/backlog. No new CLI, service, RBAC, vault, visualization, or fleet runtime implemented or live-verified.
+- Existing Will-organ acceptance issue #8 is retained.
+- Next: review contracts and open identity/hardware/storage decisions; begin foundation tasks #17/#18 after spec/plan review.
+- Pickup: `.planning/NODE-BOOTSTRAP-HANDOFF.json`. No credential, deployment, paid-call, or external-send authority is implied.
+
+---
+
+# Historical consolidation checkpoint
+
 ## Project Reference
 
 Repository: `snow-gloves-os`
