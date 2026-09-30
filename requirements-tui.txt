@@ -1,0 +1,2 @@
+# Optional rich TUI (make tui). Headless agent runner does not need this.
+textual>=0.80

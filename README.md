@@ -138,6 +138,7 @@ make test                         # pytest
 | `make hermes` | Foreground Hermes listener on `:4100` |
 | `make smoke` | Hermes → e2e → bridge dry-run → embed stub → sentinel |
 | `make walk` | Route fixtures through CoS; native produce/check/correct; receipt JSON |
+| `make tui` | Onboarding TUI (agent vs manual; `--headless` for agents) |
 | `make graph-upgrade [T=<slug>] [WRITE=1]` | Learning edge dry-run (or apply constraints; hook diffs need approval) |
 | `make embed T=<tenant>` | Run NVIDIA embed worker (`QUIET=1` for cron) |
 | `make sentinel` | Daily drift sweep |

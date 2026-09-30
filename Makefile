@@ -2,7 +2,7 @@ SHELL := /bin/bash
 PYTHON ?= python3
 HERMES_PORT ?= 4100
 
-.PHONY: help install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade graph-upgrade walk app-install app-dev app-build
+.PHONY: help install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade graph-upgrade walk tui app-install app-dev app-build
 
 help:
 	@echo "Snow Gloves OS — make targets"
@@ -19,6 +19,7 @@ help:
 	@echo "  make release-push V=x.y.z  # push HEAD + tag vX.Y.Z"
 	@echo "  make upgrade [T=<slug>]    # dry-run tenant platform migrations (WRITE=1 to apply)"
 	@echo "  make walk                  # machine-check the CoS graph (produce/check/correct)"
+	@echo "  make tui                   # rich onboarding TUI (agent|TUI toggle; agents: --headless)"
 	@echo "  make graph-upgrade         # learning-edge dry-run (WRITE=1 applies constraints; hooks need approval)"
 	@echo "  make tenant-new T=<slug>   # scaffold a new tenant"
 	@echo "  make hermes                # run Hermes listener (foreground)"
@@ -65,6 +66,9 @@ upgrade:
 
 walk:
 	$(PYTHON) scripts/graph_walk.py
+
+tui:
+	$(PYTHON) scripts/tui_onboard.py $(ARGS)
 
 graph-upgrade:
 	$(PYTHON) scripts/graph_upgrade.py $(if $(T),--tenant $(T),) $(if $(WALK),--walk $(WALK),) $(if $(WRITE),--write,)

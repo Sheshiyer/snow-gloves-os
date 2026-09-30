@@ -115,6 +115,21 @@ Install **one** fully (signed in, can open a folder, can enter plan mode). Do no
 
 You are done when: harvest exists, `tenants/<slug>/enabled.yaml` lists the skill, the runtime folder has a `render.json`, and `lsof -i tcp:4100` shows Hermes.
 
+## Path T — onboarding TUI (optional, same steps)
+
+```bash
+pip install -r requirements-tui.txt    # Textual; skip for the numbered menu
+make tui                               # toggle agent vs manual TUI
+```
+
+Pick **agent** only if `claude`, `codex`, or `kimi` is installed; otherwise the app stays on the manual TUI. Agents:
+
+```bash
+python3 scripts/tui_onboard.py --headless --mode tui --tenant <slug> --harvest snowgloves-harvest.md
+```
+
+Do not use the TUI to enable `hold`/`refuse` cards or to start a live Paperclip host.
+
 ## Path B — DMG wizard (optional extra, not the glove)
 
 v0.1.x OTA **cannot** jump to 0.2.0. Identifier is `com.tryambakam.snowgloves.onboarding`. Trash any 0.1.x app first.
