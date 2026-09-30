@@ -1,0 +1,14 @@
+[
+  {
+    "id": "bootstrap-cli",
+    "backend": "command-code",
+    "model": "poolside/laguna-s-2.1-free",
+    "task": "You own only the files named below. You are not alone in the codebase; preserve others edits. Follow specs/005-node-bootstrap/spec.md and plan.md. Source-only synthetic work, no installations, credentials, network services, provider config or live APIs. Use Python standard library. Run focused pytest tests and return changed files, results, limitations and handoff. Own scripts/node_bootstrap.py and tests/test_node_bootstrap.py. Implement read-only inspect and plan subcommands with JSON output and explicit exit codes. Inspect tool availability without executing tools, platform and disk inventory. Plan emits deterministic six-layer dependency steps and held decisions, never claims ready from presence alone. Reject unknown options. Test deterministic plans, absent tools, no filesystem mutation and invalid inputs."
+  },
+  {
+    "id": "bootstrap-policy",
+    "backend": "command-code",
+    "model": "poolside/laguna-s-2.1-free",
+    "task": "You own only the files named below. You are not alone in the codebase; preserve others edits. Follow specs/005-node-bootstrap/spec.md and plan.md. Source-only synthetic work, no installations, credentials, network services, provider config or live APIs. Use Python standard library. Run focused pytest tests and return changed files, results, limitations and handoff. Own scripts/node_policy.py and tests/test_node_policy.py. Implement pure fail-closed membership and scope authorization with issuer+subject, active membership, org/brand/project scope, roles and revocation; implement high-risk approval digest/expiry/actor separation checks. Never claim authentication from caller-supplied membership: require explicit verifier dependency and deny absent verification. Test cross-org, expired, revoked, unverified and self-approval denial. No external identity integration."
+  }
+]
