@@ -1,0 +1,44 @@
+{
+  "schema": "snowgloves.source-worker-review.v1",
+  "provider": "command-code",
+  "model": "poolside/laguna-s-2.1-free",
+  "gateway_attribution": "not-applicable-direct-client",
+  "attempts": [
+    {
+      "id": "cli",
+      "model": "poolside/laguna-s-2.1-free",
+      "provider": "command-code",
+      "exit": 130,
+      "elapsed": 240.1,
+      "produced": [],
+      "error": "No terminal result"
+    },
+    {
+      "id": "journal",
+      "model": "poolside/laguna-s-2.1-free",
+      "provider": "command-code",
+      "exit": 130,
+      "elapsed": 240.1,
+      "produced": [],
+      "error": "No terminal result"
+    },
+    {
+      "id": "install",
+      "model": "poolside/laguna-s-2.1-free",
+      "provider": "command-code",
+      "exit": 130,
+      "elapsed": 240.1,
+      "produced": [],
+      "error": "No terminal result"
+    }
+  ],
+  "accepted_implementation": false,
+  "original_cli_tests": {
+    "passed": 20,
+    "failed": 1
+  },
+  "original_policy_tests": {
+    "passed": 42,
+    "adversarial_digest_collision": true
+  }
+}

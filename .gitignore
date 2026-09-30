@@ -10,6 +10,8 @@ tenants/_demo/audit/_walk_scratch/
 # smoke run artifacts
 .hermes.pid
 .e2e.json
+.snowgloves-local/
+dist/local-pilot/
 
 # Tauri build artifacts
 apps/onboarding/src-tauri/target/

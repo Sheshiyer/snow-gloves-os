@@ -1,20 +1,25 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "source-review-repairs-running",
+  "status": "pilot-route-decision-pending",
   "completed": [
     "Bootstrap, fleet, Session World and agent infrastructure plans committed locally",
     "GitHub issues 16-29 and Project 22 published",
     "Execution authorized by operator; parallel skill read; checkout clean",
-    "Existing test baseline: 138 passed"
+    "Existing test baseline: 138 passed",
+    "Reviewed late CLI/policy drafts; neither accepted",
+    "Fresh baseline 138 passed and catalog up to date",
+    "User selected one-mini local bootstrap/doctor/resume/rollback pilot for 1 October",
+    "Pilot source contract, ISA, draft runbook and controller tests prepared"
   ],
   "remaining": [
-    "Verify free rail tool loop and gateway attribution",
-    "Dispatch isolated CLI and policy foundation workers",
-    "Review diffs and run focused and existing tests",
-    "Persist continuation ledger and update GitHub evidence"
+    "Implement and test the agreed local pilot CLI and journal",
+    "Build and checksum a standalone kit",
+    "Run isolated installation lifecycle and update evidence",
+    "Perform physical Mac mini pilot on 1 October"
   ],
   "blockers": [
-    "Live identity issuer, Cloudflare account identity and disposable Mac pilot remain unresolved"
+    "Pinned free workers repeatedly failed bounded source generation; native routing override requested",
+    "Physical mini inventory and reboot/restore evidence pending"
   ],
   "decisions": [
     "Use explicit free rail first; no paid or Sol fallback",
@@ -22,28 +27,21 @@
     "Preserve flow through durable files across runtime compaction",
     "Direct Command Code free model used after tool-call canary; OmniRoute batch unavailable; no fallback"
   ],
-  "uncommitted_files": [
-    ".planning/HANDOFF.json"
-  ],
-  "next_action": "Inspect repair receipts; rerun focused tests; adversarially review policy fixes and CLI DAG; integrate only owned files after passing full suite.",
-  "workers": [
-    {
-      "id": "bootstrap-cli",
-      "pid": 47302,
-      "worktree": "/tmp/snowgloves-bootstrap-cli",
-      "receipt": "/tmp/snowgloves-bootstrap-cli-repair.jsonl"
-    },
-    {
-      "id": "bootstrap-policy",
-      "pid": 47303,
-      "worktree": "/tmp/snowgloves-bootstrap-policy",
-      "receipt": "/tmp/snowgloves-bootstrap-policy-repair.jsonl"
-    }
-  ],
+  "uncommitted_files": [],
+  "next_action": "Answer pending native-model routing override. If approved, implement and test PILOT-CONTRACT.md, promote drafts only after controller acceptance, then build and checksum the installation kit. Physical mini acceptance remains separate.",
+  "workers": [],
   "review_findings": [
     "CLI invalid self-dependency test: 20 passed 1 failed",
     "Policy missing mandatory approver verification and permission",
     "Device scope and empty membership scope require denial",
     "Canonical unambiguous digest encoding required"
-  ]
+  ],
+  "drafts": {
+    "contract": ".planning/PILOT-CONTRACT.md",
+    "runbook": ".planning/pilot-drafts/LOCAL-MINI-PILOT.md",
+    "controller_tests": ".planning/pilot-drafts/test_node_pilot_integration.py",
+    "review": ".planning/WORKER-REVIEW-2026-09-30.md",
+    "rail_receipt": ".planning/PILOT-RAIL-RECEIPT.json"
+  },
+  "checkpoint_branch": "codex/local-mini-pilot"
 }

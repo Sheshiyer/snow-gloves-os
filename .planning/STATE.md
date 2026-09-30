@@ -1,3 +1,17 @@
+# Current pickup — one-mini local pilot
+
+- User confirmed 1 October 2026 scope: one Mac mini local bootstrap, doctor, resume/rollback pilot.
+- Review: old CLI draft has 20 passing tests and 1 failure; old policy draft has 42 passing tests but a reproduced digest collision and optional approval verification. Neither integrated.
+- Pinned free generation repeatedly failed bounded runs; no active workers remain.
+- Implementation is pending an explicit native-model routing override requested in this chat.
+- Pilot contract: `.planning/PILOT-CONTRACT.md`; ISA: `ISA.md` (0/20 implementation criteria).
+- Prepared drafts: `.planning/pilot-drafts/LOCAL-MINI-PILOT.md` and controller tests beside it.
+- Current implementation remains the existing baseline: 138 passing tests; catalog up to date.
+- No installation kit, live activation, physical mini/reboot/restore proof, push, or deployment occurred.
+- Resume from `.planning/HANDOFF.json`; do not treat draft commands as available.
+
+---
+
 # Project State
 
 ## 2026-09-30 — Mac fleet roadmap published
