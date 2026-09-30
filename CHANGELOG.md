@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.1 — Onboarding TUI (unreleased)
+## v0.2.1 — Onboarding TUI (2026-09-30)
 
 - **TUI + headless runner.** `make tui` / `scripts/tui_onboard.py` walks doctor, smoke, walk, harvest apply, catalog enable, render, and graph-upgrade dry-run. Toggle agent vs manual TUI; agent needs `claude`, `codex`, or `kimi`/`kimi-cli` on PATH or it falls back. Agents: `--headless`. `hold`/`refuse` stay refused. Hermes is not started headless.
 - **macOS release.** CI skips Apple notarization when `APPLE_CERTIFICATE` is unset so the DMG can attach.
