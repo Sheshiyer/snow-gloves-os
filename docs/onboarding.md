@@ -6,6 +6,24 @@ Onboarding turns a project the founder has been building into a Snow Gloves tena
 
 The interview prompt is `prompts/onboard-interview.md`. The skill that drives it is `skills/sg-onboard/`. The commands are in `scripts/onboard.py` (`scripts/onboarding.sh` is a thin wrapper around it). `python3 scripts/onboard.py --steps` prints the short version of this page.
 
+## TUI and agent runner
+
+Same process as the four steps, as a stepper. Toggle **manual TUI** vs **agent interview**. Agent requires `claude`, `codex`, or `kimi`/`kimi-cli` on PATH; otherwise it falls back to the TUI. Agents can run the pipeline without a TTY:
+
+```bash
+pip install -r requirements-tui.txt    # optional Textual UI
+make tui                               # interactive
+python3 scripts/tui_onboard.py --simple
+python3 scripts/tui_onboard.py --detect
+python3 scripts/tui_onboard.py --headless --mode tui --skip smoke
+python3 scripts/tui_onboard.py --headless --mode agent --runtime claude \
+  --harvest snowgloves-harvest.md --tenant acme
+```
+
+`--enable` still refuses `hold` / `refuse`. Headless never starts Hermes (`make hermes` stays a separate process). `graph-upgrade` is dry-run only.
+
+Kimi CLI maps the printed interview prompt to the `generic` adapter (`--runtime generic` if you render there). Claude CLI → `claude`, Codex CLI → `codex`.
+
 ## The four steps
 
 ```bash

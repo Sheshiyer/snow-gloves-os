@@ -1,5 +1,5 @@
 name: snow-gloves-os
-version: 0.2.0
+version: 0.2.1
 description: "Hand-in-glove agent OS: seven agents, a skill catalog, runtime adapters, Hermes event bus."
 author: Thoughtseed
 license: MIT

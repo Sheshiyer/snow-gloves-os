@@ -73,6 +73,11 @@ echo "      2. make smoke"
 echo "      3. make onboard-prompt R=<runtime>   # claude, cursor, codex, hermes, grok, …"
 echo "      4. paste that prompt in plan mode, then apply / enable / render"
 echo
+echo "    Optional TUI (same steps, deterministic for agents):"
+echo "      pip install -r requirements-tui.txt   # Textual; otherwise a simple menu"
+echo "      make tui"
+echo "      python3 scripts/tui_onboard.py --headless --mode tui --skip hermes"
+echo
 echo "    Optional legacy tenant + sources prompt: make onboard"
 echo
 "${PYTHON:-python3}" "$ROOT/scripts/onboard.py" --steps

@@ -23,7 +23,7 @@ Do this in order. Stop if a step is missing — later steps fail in confusing wa
 | 5 | Node 20+ and npm | `paperclipai` CLI (`npm install -g paperclipai`). The CLI is not a running Paperclip *host*. | No. `install.sh` refuses to start without `node` / `npm`. |
 | 6 | curl | Smoke posts to Hermes. | Usually already on macOS. |
 | 7 | (Optional) GitHub Desktop / `gh` | Only if you prefer a GUI clone. | Yes. |
-| 8 | (Optional) v0.2.0 **DMG** from [GitHub Releases](https://github.com/Sheshiyer/snow-gloves-os/releases) | Desktop wizard: doctor, tenant folder, Paperclip UUID field, sources, `make smoke`. It does **not** replace the plan-mode interview. | Yes. Prefer clone + CLI for the first hour. |
+| 8 | (Optional) v0.2.1 **DMG** from [GitHub Releases](https://github.com/Sheshiyer/snow-gloves-os/releases) | Desktop wizard: doctor, tenant folder, Paperclip UUID field, sources, `make smoke`. It does **not** replace the plan-mode interview. | Yes. Prefer clone + CLI for the first hour. |
 
 **Do not install for the first hour:** Xcode, Rust, Apple Developer certs, NVIDIA NIM, a Gmail OAuth app, launchd plists, Docker, Paperclip server, inference-sh skill packs.
 
@@ -114,6 +114,21 @@ Install **one** fully (signed in, can open a folder, can enter plan mode). Do no
    Hermes is **not** a LaunchAgent. Closing that tab stops events. There is no `make hermes-stop` needed if you use Ctrl+C; `make kill-hermes` frees port 4100 if something else grabbed it.
 
 You are done when: harvest exists, `tenants/<slug>/enabled.yaml` lists the skill, the runtime folder has a `render.json`, and `lsof -i tcp:4100` shows Hermes.
+
+## Path T — onboarding TUI (optional, same steps)
+
+```bash
+pip install -r requirements-tui.txt    # Textual; skip for the numbered menu
+make tui                               # toggle agent vs manual TUI
+```
+
+Pick **agent** only if `claude`, `codex`, or `kimi` is installed; otherwise the app stays on the manual TUI. Agents:
+
+```bash
+python3 scripts/tui_onboard.py --headless --mode tui --tenant <slug> --harvest snowgloves-harvest.md
+```
+
+Do not use the TUI to enable `hold`/`refuse` cards or to start a live Paperclip host.
 
 ## Path B — DMG wizard (optional extra, not the glove)
 

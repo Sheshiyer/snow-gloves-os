@@ -1,6 +1,6 @@
 # Snow Gloves OS: Architecture Overview
 
-Snow Gloves OS has two halves. The **runtime layer** is what runs a business day to day: connectors, the Hermes event bus, seven agents, embeddings, and the audit trail. The **catalog and adapter layer** decides what a tenant is allowed to use and renders it into whichever agent runtime the founder picked. Current platform release: **v0.2.0**.
+Snow Gloves OS has two halves. The **runtime layer** is what runs a business day to day: connectors, the Hermes event bus, seven agents, embeddings, and the audit trail. The **catalog and adapter layer** decides what a tenant is allowed to use and renders it into whichever agent runtime the founder picked. Current platform release: **v0.2.1**.
 
 ## Core stack
 

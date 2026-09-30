@@ -1,6 +1,6 @@
 # Snow Gloves Onboarding (Tauri v2)
 
-Native desktop wrapper around repo scripts (`doctor.sh`, `tenant_new.sh`, `make smoke`). Identifier `com.tryambakam.snowgloves.onboarding`, version **0.2.0**. This is **not** the plan-mode interview (`make onboard-prompt`); that still happens in Cursor or Claude after the wizard (or instead of it). See [`docs/MAC-MINI-SETUP.md`](../../docs/MAC-MINI-SETUP.md) for using the product on a new Mini.
+Native desktop wrapper around repo scripts (`doctor.sh`, `tenant_new.sh`, `make smoke`). Identifier `com.tryambakam.snowgloves.onboarding`, version **0.2.1**. This is **not** the plan-mode interview (`make onboard-prompt`); that still happens in Cursor or Claude after the wizard (or instead of it). See [`docs/MAC-MINI-SETUP.md`](../../docs/MAC-MINI-SETUP.md) for using the product on a new Mini.
 
 v0.1.x OTA cannot update to 0.2.0 (new bundle id). New machines install a new DMG from GitHub Releases, or run from this repo as below.
 
