@@ -11,7 +11,7 @@ The catalog is the list of third-party skills, MCP servers, plugins, connectors,
 
 A card is a **pointer**: front matter plus a short body explaining why the card exists and where it came from. It never contains a copy of upstream code.
 
-## Current contents (v0.2.0)
+## Current contents (v0.2.1)
 
 132 cards.
 

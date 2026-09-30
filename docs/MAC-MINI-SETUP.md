@@ -23,7 +23,7 @@ Do this in order. Stop if a step is missing — later steps fail in confusing wa
 | 5 | Node 20+ and npm | `paperclipai` CLI (`npm install -g paperclipai`). The CLI is not a running Paperclip *host*. | No. `install.sh` refuses to start without `node` / `npm`. |
 | 6 | curl | Smoke posts to Hermes. | Usually already on macOS. |
 | 7 | (Optional) GitHub Desktop / `gh` | Only if you prefer a GUI clone. | Yes. |
-| 8 | (Optional) v0.2.0 **DMG** from [GitHub Releases](https://github.com/Sheshiyer/snow-gloves-os/releases) | Desktop wizard: doctor, tenant folder, Paperclip UUID field, sources, `make smoke`. It does **not** replace the plan-mode interview. | Yes. Prefer clone + CLI for the first hour. |
+| 8 | (Optional) v0.2.1 **DMG** from [GitHub Releases](https://github.com/Sheshiyer/snow-gloves-os/releases) | Desktop wizard: doctor, tenant folder, Paperclip UUID field, sources, `make smoke`. It does **not** replace the plan-mode interview. | Yes. Prefer clone + CLI for the first hour. |
 
 **Do not install for the first hour:** Xcode, Rust, Apple Developer certs, NVIDIA NIM, a Gmail OAuth app, launchd plists, Docker, Paperclip server, inference-sh skill packs.
 

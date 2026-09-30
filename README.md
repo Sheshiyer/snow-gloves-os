@@ -13,7 +13,7 @@
 <!-- readme-gen:start:badges -->
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.2.0-informational?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-0.2.1-informational?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-stable-success?style=for-the-badge)
 ![Release](https://img.shields.io/github/v/release/Sheshiyer/snow-gloves-os?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-private-lightgrey?style=for-the-badge)
@@ -254,7 +254,7 @@ See [its README](./apps/onboarding/README.md) for the IPC surface and capability
 
 ## 📦 Release & Upgrade
 
-The root `VERSION` file (currently `0.2.0`) is the platform version. The app's `package.json`, `tauri.conf.json`, `Cargo.toml`, both lockfiles, and `distribution.yaml` are kept in lockstep with it, and `catalog/modules.json` embeds it.
+The root `VERSION` file (currently `0.2.1`) is the platform version. The app's `package.json`, `tauri.conf.json`, `Cargo.toml`, both lockfiles, and `distribution.yaml` are kept in lockstep with it, and `catalog/modules.json` embeds it.
 
 ```bash
 make release-dry V=0.2.1    # show every file that would change
@@ -271,7 +271,7 @@ A release ships the signed Tauri installers (draft until you publish), plus a pl
 
 ```
 📦 snow-gloves-os
-├── 📄 VERSION                  # platform version (0.2.0)
+├── 📄 VERSION                  # platform version (0.2.1)
 ├── 📄 distribution.yaml        # what the platform owns vs what tenants own
 ├── 📂 .github/workflows/       # ci.yml (pytest, catalog, walk, smoke) · release.yml · pages.yml
 ├── 📂 .specify/                # Spec-Kit templates + workflows
@@ -309,12 +309,12 @@ A release ships the signed Tauri installers (draft until you publish), plus a pl
 | Tests / CI (130 pytest; CI runs pytest, version + catalog, `make walk`, smoke) | ████████████████████ | 100% |
 | Catalog (132 cards, `--check` in CI) | ████████████████████ | 100% |
 | Runtime adapters (9 shipped; several fields still `verify: true`) | ██████████░░░░░░░░░░ |  50% |
-| Release + upgrade tooling (v0.2.0 stable) | ████████████████░░░░ |  80% |
+| Release + upgrade tooling (v0.2.1 stable) | ████████████████░░░░ |  80% |
 | Real NVIDIA NIM integration | ████░░░░░░░░░░░░░░░░ |  20% |
 | Live Paperclip wiring | ████░░░░░░░░░░░░░░░░ |  20% |
 | Production hardening | ████░░░░░░░░░░░░░░░░ |  20% |
 
-> **Overall: 70%** — Stable v0.2.0 platform. Before a live pilot: confirm unverified adapter fields, and wire real connectors, NIM, and Paperclip.
+> **Overall: 70%** — Stable v0.2.1 platform. Before a live pilot: confirm unverified adapter fields, and wire real connectors, NIM, and Paperclip.
 <!-- readme-gen:end:health -->
 
 ### Open items
