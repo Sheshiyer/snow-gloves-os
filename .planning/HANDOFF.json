@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "two-isolated-workers-running",
+  "status": "narrowed-workers-running",
   "completed": [
     "Bootstrap, fleet, Session World and agent infrastructure plans committed locally",
     "GitHub issues 16-29 and Project 22 published",
@@ -14,8 +14,7 @@
     "Persist continuation ledger and update GitHub evidence"
   ],
   "blockers": [
-    "Live identity issuer, Cloudflare account identity and disposable Mac pilot remain unresolved",
-    "OmniRoute Laguna canary fails tool-loop gate; direct client canary pending"
+    "Live identity issuer, Cloudflare account identity and disposable Mac pilot remain unresolved"
   ],
   "decisions": [
     "Use explicit free rail first; no paid or Sol fallback",
@@ -24,22 +23,21 @@
     "Direct Command Code free model used after tool-call canary; OmniRoute batch unavailable; no fallback"
   ],
   "uncommitted_files": [
-    ".planning/HANDOFF.json",
-    ".planning/bootstrap-wave-01.json"
+    ".planning/HANDOFF.json"
   ],
   "next_action": "Inspect worker structured result and worktree changes; verify model/tool execution, review only owned files, run focused tests then full suite before integrating. Continue journal/doctor wave afterward.",
   "workers": [
     {
       "id": "bootstrap-cli",
-      "pid": 7152,
+      "pid": 86127,
       "worktree": "/tmp/snowgloves-bootstrap-cli",
-      "receipt": "/tmp/snowgloves-bootstrap-cli.jsonl"
+      "receipt": "/tmp/snowgloves-bootstrap-cli-retry.jsonl"
     },
     {
       "id": "bootstrap-policy",
-      "pid": 7153,
+      "pid": 86128,
       "worktree": "/tmp/snowgloves-bootstrap-policy",
-      "receipt": "/tmp/snowgloves-bootstrap-policy.jsonl"
+      "receipt": "/tmp/snowgloves-bootstrap-policy-retry.jsonl"
     }
   ]
 }
