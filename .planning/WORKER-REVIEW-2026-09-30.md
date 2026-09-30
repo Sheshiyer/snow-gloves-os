@@ -29,3 +29,18 @@ Direct Command Code receipts prove the selected client/model and tool calls;
 they do not claim OmniRoute gateway attribution.
 
 All acceptance happens after reviewing files and running controller tests.
+
+## Late repair receipts — 30 September pickup
+
+Direct Command Code / poolside/laguna-s-2.1-free CLI repair completed;
+controller rerun: 22 focused tests passed. The draft still lacks the selected
+apply/resume/rollback pilot contract and is not integrated.
+
+Policy repair reached its 14-turn cap. Controller rerun: 42 tests passed,
+but source still makes approval verification optional and does not authorize
+the approver capability at the requested scope. Canonical JSON digest repairs
+are present, but passing old tests does not certify the unfinished boundary.
+No policy implementation accepted.
+
+The newer pilot handoff wins: no further worker dispatch while its explicit
+routing decision remains pending. Original repair processes have exited.
