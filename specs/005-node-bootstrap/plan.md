@@ -11,6 +11,11 @@ Existing tenant enablement is admission policy, not server identity enforcement.
 
 ## Work packages and dependencies
 
+Persistent-agent lifecycle and initial handoff bindings:
+[Agents infrastructure handoff](../../docs/AGENTS-INFRA-HANDOFF-PLAN.md).
+Agent, environment, session, vault attachment, workflow, and artifact identities
+are separate resources admitted before first execution.
+
 Fleet orchestration and dashboard extension:
 [control-plane design](../../docs/FLEET-CONTROL-PLANE-PLAN.md).
 Its network-first protocol and 50-session load gates apply to the pilot.

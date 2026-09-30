@@ -33,3 +33,7 @@ Foundation → runtime → distributed fleet → live visualization → brand ca
 Orca is an evaluated workspace candidate; OpenOrca is an evaluated visualization candidate. Neither is approved as the org authorization backend. 3D Session World is a scoped synthetic nightly prototype before live controls.
 
 Installation, authentication, source tests, live behavior, paid calls, deployment, and campaign sends require their own receipts. Do not mark Done based on installed binaries or a listening port. No fabricated dates or completion percentage.
+
+## Persistent-agent extension
+
+[R13 — Agent definitions, environments, sessions, vaults, and initial handoff](https://github.com/Sheshiyer/snow-gloves-os/issues/29). Depends on #18/#19/#20/#22/#23; feeds #25 and #28. Provider resources do not replace fleet authority.

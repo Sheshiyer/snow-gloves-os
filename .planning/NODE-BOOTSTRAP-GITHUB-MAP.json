@@ -78,6 +78,12 @@
       "title": "Acceptance: recovery and 50-session multi-Mac fleet soak",
       "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/28",
       "dependencies": "R05,R06,R07,R08,R09; campaign/media profiles R10,R11"
+    },
+    {
+      "key": "R13",
+      "title": "Persistent agents infrastructure and handoff",
+      "url": "https://github.com/Sheshiyer/snow-gloves-os/issues/29",
+      "dependencies": "R02,R03,R04,R06,R07"
     }
   ]
 }

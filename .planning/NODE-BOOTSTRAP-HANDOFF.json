@@ -33,7 +33,8 @@
     "multi-node streaming and session capability proof",
     "50-session measured soak",
     "pinned Orca/OpenOrca adapter and visualization spike",
-    "playable 3D pixel-art synthetic session-world prototype and visual verification"
+    "playable 3D pixel-art synthetic session-world prototype and visual verification",
+    "managed-agent environment/session/vault lifecycle pilot and negative tests"
   ],
   "known_limits": [
     "connector auth is a stub",
@@ -48,5 +49,7 @@
   "upstream_review": "docs/ORCA-OPENORCA-FIT-REVIEW.md",
   "session_world_design": "docs/SESSION-WORLD-DESIGN.md",
   "github_project": "https://github.com/users/Sheshiyer/projects/22",
-  "github_map": ".planning/NODE-BOOTSTRAP-GITHUB-MAP.json"
+  "github_map": ".planning/NODE-BOOTSTRAP-GITHUB-MAP.json",
+  "agents_infra_plan": "docs/AGENTS-INFRA-HANDOFF-PLAN.md",
+  "agents_infra_issue": "https://github.com/Sheshiyer/snow-gloves-os/issues/29"
 }
