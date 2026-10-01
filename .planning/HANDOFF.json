@@ -1,47 +1,78 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "pilot-route-decision-pending",
+  "status": "profile-review-in-progress",
+  "active_task": "profile-and-site-refresh",
+  "updated": "2026-10-01",
   "completed": [
-    "Bootstrap, fleet, Session World and agent infrastructure plans committed locally",
-    "GitHub issues 16-29 and Project 22 published",
-    "Execution authorized by operator; parallel skill read; checkout clean",
-    "Existing test baseline: 138 passed",
-    "Reviewed late CLI/policy drafts; neither accepted",
-    "Fresh baseline 138 passed and catalog up to date",
-    "User selected one-mini local bootstrap/doctor/resume/rollback pilot for 1 October",
-    "Pilot source contract, ISA, draft runbook and controller tests prepared"
+    "User confirmed Personal + Thoughtseed + Tryambakam across planned channels",
+    "Inspected personal-site source registries, current branch, public GitHub profile and editorial planning locations",
+    "Read design-core and Tryambakam editorial skills; preserved unrelated dirty work"
   ],
   "remaining": [
-    "Implement and test the agreed local pilot CLI and journal",
-    "Build and checksum a standalone kit",
-    "Run isolated installation lifecycle and update evidence",
-    "Perform physical Mac mini pilot on 1 October"
+    "Review current site visuals and roadmap against current implementation",
+    "Create source-grounded canonical profile pack and channel adaptation copy",
+    "Wire canonical profile reference into local site and editorial planning surfaces",
+    "Verify exact owned changes, record source versus live state, and commit finished work"
   ],
-  "blockers": [
-    "Pinned free workers repeatedly failed bounded source generation; native routing override requested",
-    "Physical mini inventory and reboot/restore evidence pending"
-  ],
+  "blockers": [],
   "decisions": [
-    "Use explicit free rail first; no paid or Sol fallback",
-    "Source-only synthetic implementation; no workstation installation or live provider activation",
-    "Preserve flow through durable files across runtime compaction",
-    "Direct Command Code free model used after tool-call canary; OmniRoute batch unavailable; no fallback"
+    "Profile and personal-site refresh is now the active task before posting",
+    "Mac mini pilot remains at its saved source-only checkpoint",
+    "No social publication has been authorized for this task",
+    "Preserve existing assets and unrelated editorial changes in all checkouts"
   ],
-  "uncommitted_files": [],
-  "next_action": "Answer pending native-model routing override. If approved, implement and test PILOT-CONTRACT.md, promote drafts only after controller acceptance, then build and checksum the installation kit. Physical mini acceptance remains separate.",
-  "workers": [],
-  "review_findings": [
-    "CLI invalid self-dependency test: 20 passed 1 failed",
-    "Policy missing mandatory approver verification and permission",
-    "Device scope and empty membership scope require denial",
-    "Canonical unambiguous digest encoding required"
+  "uncommitted_files": [
+    ".planning/EDITORIAL-INTEGRATION-HANDOFF.json (other work; preserve)",
+    "docs/EDITORIAL-ORG-INTEGRATION.md (other work; preserve)",
+    "specs/006-editorial-steward-integration/ (other work; preserve)"
   ],
-  "drafts": {
-    "contract": ".planning/PILOT-CONTRACT.md",
-    "runbook": ".planning/pilot-drafts/LOCAL-MINI-PILOT.md",
-    "controller_tests": ".planning/pilot-drafts/test_node_pilot_integration.py",
-    "review": ".planning/WORKER-REVIEW-2026-09-30.md",
-    "rail_receipt": ".planning/PILOT-RAIL-RECEIPT.json"
+  "next_action": "Review focused 10869 roadmap and brand files plus Thoughtseed editorial radar and runtime sources; extract canonical identity, evidence-safe claims and visual direction; apply local profile and planning updates across the confirmed systems.",
+  "previous_task": {
+    "schema": "snowgloves.execution-handoff.v1",
+    "status": "pilot-route-decision-pending",
+    "completed": [
+      "Bootstrap, fleet, Session World and agent infrastructure plans committed locally",
+      "GitHub issues 16-29 and Project 22 published",
+      "Execution authorized by operator; parallel skill read; checkout clean",
+      "Existing test baseline: 138 passed",
+      "Reviewed late CLI/policy drafts; neither accepted",
+      "Fresh baseline 138 passed and catalog up to date",
+      "User selected one-mini local bootstrap/doctor/resume/rollback pilot for 1 October",
+      "Pilot source contract, ISA, draft runbook and controller tests prepared"
+    ],
+    "remaining": [
+      "Implement and test the agreed local pilot CLI and journal",
+      "Build and checksum a standalone kit",
+      "Run isolated installation lifecycle and update evidence",
+      "Perform physical Mac mini pilot on 1 October"
+    ],
+    "blockers": [
+      "Pinned free workers repeatedly failed bounded source generation; native routing override requested",
+      "Physical mini inventory and reboot/restore evidence pending"
+    ],
+    "decisions": [
+      "Use explicit free rail first; no paid or Sol fallback",
+      "Source-only synthetic implementation; no workstation installation or live provider activation",
+      "Preserve flow through durable files across runtime compaction",
+      "Direct Command Code free model used after tool-call canary; OmniRoute batch unavailable; no fallback"
+    ],
+    "uncommitted_files": [],
+    "next_action": "Answer pending native-model routing override. If approved, implement and test PILOT-CONTRACT.md, promote drafts only after controller acceptance, then build and checksum the installation kit. Physical mini acceptance remains separate.",
+    "workers": [],
+    "review_findings": [
+      "CLI invalid self-dependency test: 20 passed 1 failed",
+      "Policy missing mandatory approver verification and permission",
+      "Device scope and empty membership scope require denial",
+      "Canonical unambiguous digest encoding required"
+    ],
+    "drafts": {
+      "contract": ".planning/PILOT-CONTRACT.md",
+      "runbook": ".planning/pilot-drafts/LOCAL-MINI-PILOT.md",
+      "controller_tests": ".planning/pilot-drafts/test_node_pilot_integration.py",
+      "review": ".planning/WORKER-REVIEW-2026-09-30.md",
+      "rail_receipt": ".planning/PILOT-RAIL-RECEIPT.json"
+    },
+    "checkpoint_branch": "codex/local-mini-pilot"
   },
   "checkpoint_branch": "codex/local-mini-pilot"
 }
