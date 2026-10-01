@@ -1,32 +1,39 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "profile-review-in-progress",
+  "status": "profile-refresh-partially-applied",
   "active_task": "profile-and-site-refresh",
   "updated": "2026-10-01",
   "completed": [
-    "User confirmed Personal + Thoughtseed + Tryambakam across planned channels",
-    "Inspected personal-site source registries, current branch, public GitHub profile and editorial planning locations",
-    "Read design-core and Tryambakam editorial skills; preserved unrelated dirty work"
+    "Confirmed personal + Thoughtseed + Tryambakam across channels, including dedicated brand accounts",
+    "Personal-site source foundation integrated locally at 3491312; 224 tests and production build/guards passed",
+    "Thoughtseed canonical pointer committed db6d8024; Synchronocities pointer committed 57adcf3",
+    "GitHub Sheshiyer bio and website applied and independently API read back",
+    "LinkedIn mrhigh3r headline and About applied and fresh signed-in profile read back",
+    "Six-act visual upgrade plan and evidence-safe channel packet prepared"
   ],
   "remaining": [
-    "Review current site visuals and roadmap against current implementation",
-    "Create source-grounded canonical profile pack and channel adaptation copy",
-    "Wire canonical profile reference into local site and editorial planning surfaces",
-    "Verify exact owned changes, record source versus live state, and commit finished work"
+    "Verify and update remaining personal and dedicated brand profiles through authenticated supported surfaces",
+    "Reconcile LinkedIn Featured/contact links with current copy",
+    "Wire canonical profile context into existing editorial automation prompts without altering queue/schedules",
+    "Commit live readback receipts, status refinements and refreshed handoff"
   ],
-  "blockers": [],
+  "blockers": [
+    "Reddit identity unset; brand handles and remaining channel access need verification"
+  ],
   "decisions": [
     "Profile and personal-site refresh is now the active task before posting",
     "Mac mini pilot remains at its saved source-only checkpoint",
     "No social publication has been authorized for this task",
-    "Preserve existing assets and unrelated editorial changes in all checkouts"
+    "Preserve existing assets and unrelated editorial changes in all checkouts",
+    "Direct request authorizes routine profile edits; new posts remain separately gated",
+    "Dedicated brand accounts are explicitly included; never infer ownership from a public link"
   ],
   "uncommitted_files": [
     ".planning/EDITORIAL-INTEGRATION-HANDOFF.json (other work; preserve)",
     "docs/EDITORIAL-ORG-INTEGRATION.md (other work; preserve)",
     "specs/006-editorial-steward-integration/ (other work; preserve)"
   ],
-  "next_action": "Review focused 10869 roadmap and brand files plus Thoughtseed editorial radar and runtime sources; extract canonical identity, evidence-safe claims and visual direction; apply local profile and planning updates across the confirmed systems.",
+  "next_action": "Commit safe GitHub/LinkedIn readback receipts and current status; verify LinkedIn Thoughtseed admin page and remaining channels, wire existing automation context, preserve publication queue, record exact access blockers.",
   "previous_task": {
     "schema": "snowgloves.execution-handoff.v1",
     "status": "pilot-route-decision-pending",
