@@ -1,8 +1,8 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "profile-refresh-instagram-mobile-verification-pending",
+  "status": "profile-foundation-verified-complete",
   "active_task": "profile-and-site-refresh",
-  "updated": "2026-10-01T14:35:37.617656+00:00",
+  "updated": "2026-10-01T15:51:01.899151+00:00",
   "completed": [
     "Confirmed personal + Thoughtseed + Tryambakam scope, including dedicated brand accounts",
     "Personal-site shared identity and source-copy foundation locally integrated at 3491312; 224 tests and production build/guards passed",
@@ -36,15 +36,12 @@
     "Reddit public name, 200-character About and https://10869.space social link saved and independently reloaded; screenshot and receipt committed at bb423dd",
     "Founder clarified no additional dedicated brand social handles exist; known completed Thoughtseed LinkedIn page retained and two website positioning references preserved; scope receipt committed",
     "Substack owner editor disconnected stale X connection, removed its separate legacy link and saved witnessalchemst; independent public reload verifies exactly four links with a single https://x.com/witnessalchemst; screenshot and receipt committed at b054f83",
-    "Canonical/runtime context digests and eight profile payload hashes verified; acceptance 51/53; Labs pointer 181f9a3f and Synchronocities pointer 9b4f9dd reconciled without absorbing unrelated work"
+    "Canonical/runtime context digests and eight profile payload hashes verified; acceptance 51/53; Labs pointer 181f9a3f and Synchronocities pointer 9b4f9dd reconciled without absorbing unrelated work",
+    "Founder added Instagram website through mobile; independent public readback confirms 10869.space; decoded HTTP destination resolves to secure https://www.10869.space/ with expected title/rendered page; screenshot and final receipt committed at 917c00c",
+    "All 53/53 agreed profile-foundation criteria pass; eight hashed profile field sets, receipts, voice references, six-act plan and final runtime digest verified; Labs pointer 47470005 and blog pointer cea1331 reconciled."
   ],
-  "remaining": [
-    "Verify https://10869.space on Instagram after the founder adds it through the mobile app",
-    "Concrete six-act visual plan is complete; redesigned screens and site deployment remain a later separately authorized implementation slice"
-  ],
-  "blockers": [
-    "Instagram website requires mobile app; founder will add it, but public verification is still pending"
-  ],
+  "remaining": [],
+  "blockers": [],
   "decisions": [
     "Profile and personal-site review remains the active task before posting; Mac mini pilot remains nested at its saved source-only checkpoint",
     "Direct founder request authorizes routine profile edits; no second generic approval is required",
@@ -68,7 +65,8 @@
     "No source code changed in this checkpoint; existing source tests/build not rerun for documentation/account edits",
     "Substack supported Disconnect reduces the obsolete connection; no new OAuth scopes or credential values entered",
     "Separate stale legacy link survived disconnect; cleared through its visible owner field and Save; final four-link public reload is authoritative",
-    "Current refresh has one remaining account field: Instagram website; parent aggregate ISC-41 and website ISC-41.2 are both pending for that same field"
+    "Current refresh has one remaining account field: Instagram website; parent aggregate ISC-41 and website ISC-41.2 are both pending for that same field",
+    "Instagram field was added by the founder, not the agent. Its actual HTTP input and final HTTPS www landing URL are both recorded; raw tracking parameters are omitted. Previous pending account checkpoints are historical."
   ],
   "uncommitted_files": [
     "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/assets/ (pre-existing untracked assets; preserve)",
@@ -78,7 +76,7 @@
     "specs/006-editorial-steward-integration/ (other work; preserve)",
     "Other dirty Thoughtseed Labs and Synchronocities editorial/architecture files remain excluded from owned commits"
   ],
-  "next_action": "On fresh founder input confirming the Instagram mobile edit, reuse IAB browser 3 and tab 1; independently reload https://www.instagram.com/witnessalchemist/ and verify the external website destination is exactly https://10869.space (including decoding the visible Instagram redirect href if needed). Capture screenshot and update Instagram receipt, canonical fields/state, runtime digest and ISA 41/41.2 only after live verification. Reddit tab 4 and Substack tab 3 are completed deliverables; do not repeat edits. No additional dedicated brand handles exist; preserve known completed Thoughtseed LinkedIn company page. Current site head b054f83; acceptance 51/53. No redesigned screens/site deployment is claimed. Preserve nested Mac mini pilot and unrelated work; do not dispatch its old fleet.",
+  "next_action": "Profile foundation is complete at 53/53. No pending account edit or access request remains. Use the committed personal-site upgrade contract for the subsequent visual-build slice when that work is taken up; no publication or deployment is implied by profile completion. Preserve the nested Mac mini pilot checkpoint and unrelated WIP. Completed IAB Instagram tab 1, Substack tab 3 and Reddit tab 4 are deliverables; do not repeat profile edits.",
   "previous_task": {
     "schema": "snowgloves.execution-handoff.v1",
     "status": "pilot-route-decision-pending",
@@ -130,43 +128,45 @@
   "canonical_packet": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/README.md",
   "verification": {
     "site_source_commit": "3491312",
-    "latest_profile_receipts_commit": "b054f83",
+    "latest_profile_receipts_commit": "917c00c",
     "tests": "224 passed in 44 files after the two additional language corrections",
     "build": "typecheck, Vite, prerender, schema and retrievability passed",
-    "acceptance": "51/53; only Instagram aggregate/website remain pending for the same mobile-only website field",
-    "runtime_context_digest": "b8226954bf8a2b20a499d16fba10ea84cce0ae9c1747b3985acb3ac18e19be7c",
+    "acceptance": "53/53; all criteria pass for the defined profile-foundation and concrete-plan scope",
+    "runtime_context_digest": "1c2a420e860d8d9c599837566be15c1529fbc8769e0b21eb6360b1d924156e68",
     "latest_site_source_commit": "7fde439",
     "about": "Full About saved; fresh public reload exact body match, headings/links, original image/native subscription control; screenshot and rollback body captured",
-    "latest_site_head": "b054f83",
-    "labs_pointer_commit": "181f9a3f",
-    "blog_pointer_commit": "9b4f9dd",
+    "latest_site_head": "917c00c",
+    "labs_pointer_commit": "47470005",
+    "blog_pointer_commit": "cea1331",
     "voice_review": "Ten field scopes checked; no restricted terms in refreshed fields/About; current live About exact match; bounded manual tone review recorded",
     "cross_system_voice_references": "Explicit read-before-drafting instructions and real canonical voice file verified; instruction alignment, not automatic tone validation",
     "reddit": "Owner menu u/Mrhigh3r, saved/reopened About, independent public reload of name, 200-character About and website href, screenshot",
     "brand_inventory": "Direct founder confirmation: no additional dedicated handles; known Thoughtseed LinkedIn page retained",
-    "substack_x": "Independent public reload shows one https://x.com/witnessalchemst and preserved website, Instagram and LinkedIn destinations; screenshot and receipt captured"
+    "substack_x": "Independent public reload shows one https://x.com/witnessalchemst and preserved website, Instagram and LinkedIn destinations; screenshot and receipt captured",
+    "instagram": "Founder-added website; independent public profile link readback and decoded HTTP destination navigation to https://www.10869.space/; screenshot recorded"
   },
   "goal_audit": {
     "previous_turn_classification": "no progress",
-    "current_turn_classification": "progress",
+    "current_turn_classification": "complete",
     "current_authoritative_changes": [
-      "Applied and independently verified Reddit profile fields",
-      "Reconciled founder-confirmed absence of additional dedicated brand accounts in packet and ISA",
-      "Reconciled and independently verified Substack current X link; reconciled all three planning/runtime pointers"
+      "Independently verified founder-added Instagram website and secure landing page",
+      "Completed all 53/53 agreed criteria",
+      "Reconciled canonical/context/runtime and both system planning pointers"
     ],
-    "completion_proven": false,
+    "completion_proven": true,
     "native_goal_status_at_start": "blocked",
     "human_input_resumed_authorized_work": true,
     "fresh_resumed_audit_turns_with_same_account_input_gap": 0,
     "active_job_wait_claimed": false
   },
   "account_access_check": {
-    "observed_at": "2026-10-01T14:35:37.617656+00:00",
+    "observed_at": "2026-10-01T15:51:01.899151+00:00",
     "instagram": {
       "identity": "witnessalchemist",
-      "bio": "fresh public profile matches applied bio",
-      "website": "Latest independent public owner-profile reload still shows no external website link",
-      "required_action": "Founder adds https://10869.space through the Instagram mobile app"
+      "bio": "Fresh public profile matches applied bio",
+      "website": "Public link 10869.space; decoded http://10869.space/ reaches https://www.10869.space/",
+      "required_action": "Complete; no further mobile edit required",
+      "receipt": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/receipts/instagram-personal-2026-10-01.json"
     },
     "reddit": {
       "state": "Authenticated owner Mrhigh3r verified and profile fields applied",
@@ -185,9 +185,13 @@
       "identities": "Founder confirms no additional dedicated social handles exist; websites only, with known completed Thoughtseed LinkedIn page retained",
       "required_action": "Complete inventory; no account creation"
     },
-    "website_or_profile_mutation_this_check": true,
-    "pending_tabs_preserved": [
-      "Instagram profile mobile-edit verification handoff; Reddit and Substack completed tabs marked deliverables"
+    "website_or_profile_mutation_this_check": false,
+    "pending_tabs_preserved": [],
+    "completed_deliverable_tabs": [
+      "Instagram tab 1",
+      "Substack tab 3",
+      "Reddit tab 4"
     ]
-  }
+  },
+  "future_slice": "Implement and visually review the accepted six-act personal-site upgrade, then handle site release as its own work slice. The defined profile foundation is complete; no redesigned-screen or deployment acceptance is claimed."
 }
