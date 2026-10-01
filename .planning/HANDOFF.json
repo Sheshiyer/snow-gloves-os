@@ -1,8 +1,8 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "profile-refresh-awaiting-account-input",
+  "status": "profile-refresh-blocked-on-account-input",
   "active_task": "profile-and-site-refresh",
-  "updated": "2026-10-01T13:50:17.163394+00:00",
+  "updated": "2026-10-01T13:52:51.779213+00:00",
   "completed": [
     "Confirmed personal + Thoughtseed + Tryambakam scope, including dedicated brand accounts",
     "Personal-site shared identity and source-copy foundation locally integrated at 3491312; 224 tests and production build/guards passed",
@@ -73,7 +73,7 @@
     "specs/006-editorial-steward-integration/ (other work; preserve)",
     "Other dirty Thoughtseed Labs and Synchronocities editorial/architecture files remain excluded from owned commits"
   ],
-  "next_action": "The second resumed turn revalidated the unchanged account-input blockers and made no goal progress. Keep the exact-ID clarification pending. On the next continuation, revalidate the same blockers once; if no input or external account-state change enables a safe action, the third consecutive resumed-turn threshold is met and the native goal must be marked blocked. Do not manufacture progress by rechecking tests, adding more planning prose or redoing completed account edits. When account identifiers/sign-in, mobile Instagram website edit or Substack connection direction are supplied, resume from the canonical packet and verify the exact account before writing. Preserve the nested Mac mini checkpoint and unrelated WIP.",
+  "next_action": "The native profile goal is blocked after the three-turn fresh resumed audit. Resume only when the founder supplies exact Reddit and remaining dedicated Thoughtseed/Tryambakam account URLs/handles with owner/admin access, adds https://10869.space through the Instagram mobile app, or resolves/directs replacement of the old Substack X connection. Use the committed canonical packet, verify the affected identity and apply/read back its prepared fields. Acceptance remains 48/53. Existing live account changes, the verified publication About, Noesis voice instructions and the concrete six-act visual plan are preserved. Do not repeat unchanged readiness checks, create new unrelated work or dispatch the nested Mac mini pilot.",
   "previous_task": {
     "schema": "snowgloves.execution-handoff.v1",
     "status": "pilot-route-decision-pending",
@@ -139,20 +139,22 @@
     "cross_system_voice_references": "Explicit read-before-drafting instructions and real canonical voice file verified; instruction alignment, not automatic tone validation"
   },
   "goal_audit": {
-    "previous_turn_classification": "progress",
+    "previous_turn_classification": "no progress",
     "current_turn_classification": "no progress",
     "current_authoritative_changes": [],
     "completion_proven": false,
-    "native_goal_status": "active",
+    "native_goal_status": "blocked",
     "resumed_from_blocked": true,
-    "fresh_resumed_audit_turns_with_same_account_input_gap": 2,
+    "fresh_resumed_audit_turns_with_same_account_input_gap": 3,
     "blocking_condition": "Exact Reddit and remaining dedicated brand identities are unset; Instagram website needs mobile app; Substack stale connected X requires founder reconciliation or explicit replacement direction. Fresh IAB confirms the account gaps.",
     "meaningful_remaining_work_requires": "Account identifiers/sign-in, mobile Instagram website edit or existing X connection reconciliation",
     "active_job_wait_claimed": false,
-    "revalidated_evidence": "Fresh IAB Reddit Log In form remains signed out; Instagram witnessalchemist has no external website link; Substack author link menu still shows X mrhigh3r. No missing exact account identifiers were supplied. No new account mutation was attempted."
+    "revalidated_evidence": "Third consecutive resumed goal turn: canonical Reddit target remains null and unidentified brands remain unset; fresh Reddit Log In form is signed out, Instagram witnessalchemist has no external website link, and Substack author menu still shows connected X mrhigh3r. No new account input or external-state change enables a safe remaining action.",
+    "meaningful_progress_without_input_available": false,
+    "blocked_due_to_context_size": false
   },
   "account_access_check": {
-    "observed_at": "2026-10-01T13:50:17.163394+00:00",
+    "observed_at": "2026-10-01T13:52:51.779213+00:00",
     "instagram": {
       "identity": "witnessalchemist",
       "bio": "fresh public profile matches applied bio",
