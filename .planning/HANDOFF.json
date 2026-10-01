@@ -2,7 +2,7 @@
   "schema": "snowgloves.execution-handoff.v1",
   "status": "profile-refresh-partially-applied",
   "active_task": "profile-and-site-refresh",
-  "updated": "2026-10-01T12:08:50.645477+00:00",
+  "updated": "2026-10-01T12:31:38.502611+00:00",
   "completed": [
     "Confirmed personal + Thoughtseed + Tryambakam scope, including dedicated brand accounts",
     "Personal-site shared identity and source-copy foundation locally integrated at 3491312; 224 tests and production build/guards passed",
@@ -20,18 +20,23 @@
     "Instagram and social readiness receipts committed 7fffc3a; cross-system pointers reconciled at Labs 1cc6c658 and Synchronocities c4608da",
     "Removed residual fixed Selemene mirror count from site project registry; 224 tests and production build/guards passed again",
     "Three fresh public GitHub source receipts prepared: exact main commits and founder-attributed commits for Temperance Engine, Selemene Engine and Synchronocities; deployment/runtime acceptance not inferred",
-    "Source proof and planning refinement committed d9d6378 and integrated locally into primary site main; acceptance 44/49"
+    "Source proof and planning refinement committed d9d6378 and integrated locally into primary site main; acceptance 44/49",
+    "Founder expanded this refresh to https://thewhychromosome.substack.com/about; full prior body and owner editor inspected",
+    "The Why Chromosome full About revised and saved; independent public reload matches intended text, five headings and six text links; original portrait and native subscription control preserved",
+    "Publication About copy, screenshot, readback receipt and rollback HTML committed locally at 2d3f0c4; acceptance 47/52; runtime pointer digest reconciled",
+    "Publication archive and Synchronocities reader destinations loaded; old posts, schedules and payment/audience settings preserved",
+    "Thoughtseed Labs and Synchronocities planning pointers now include the verified About revision; original unrelated WIP excluded"
   ],
   "remaining": [
     "Add https://10869.space to Instagram website through its mobile app; desktop editor explicitly cannot edit links",
-    "Identify founder Reddit profile and complete its human verification through the saved IAB tab, then verify identity and apply prepared description",
+    "Identify founder Reddit profile and sign in through the saved IAB tab, then verify identity and apply prepared description",
     "Identify dedicated Tryambakam and any additional Thoughtseed accounts and verify their admin editing surfaces before applying prepared brand fields",
     "Reconcile Substack connected X account so public link points to witnessalchemst; manual X field did not persist or replace connected mrhigh3r link",
     "Next visual implementation remains a separate slice from the completed concrete plan: complete reader-flow/role/result evidence for selected case files, then hero/navigation desktop/mobile preview"
   ],
   "blockers": [
     "Instagram website editor explicitly requires mobile app",
-    "Reddit exact account unset; IAB presents human verification and no active Reddit connector is available",
+    "Reddit exact account unset; latest IAB home is anonymous with Log In; earlier challenge is no longer visible and no active Reddit connector is available",
     "Dedicated Tryambakam and additional Thoughtseed identities unset; managed-account selectors yielded no extra brand account",
     "Substack connected X link remains mrhigh3r; manual field attempt did not replace it; existing authentication connection preserved",
     "Pending founder question requests exact dedicated brand profile URLs/handles"
@@ -44,7 +49,10 @@
     "Preserve account handles, legal/export names, role dates/media/skills, portraits and company details",
     "Preserve unrelated repository work and original editorial automation/publication rules",
     "Tryambakam LinkedIn role initially contained old plus appended new text; explicitly cleared and replaced, saved and reopened with exact intended copy and Notify network off",
-    "All source commits are local; no push or site deployment performed"
+    "All source commits are local; no push or site deployment performed",
+    "Direct exact-URL About request authorizes this bounded copy/structure change; September About draft remains historical context",
+    "Living cosmology is stated as evolving authorial inquiry; historical quantum/biofield/healing promises removed from About",
+    "About verified at normal desktop viewport; no mobile acceptance or full publication-theme redesign is claimed"
   ],
   "uncommitted_files": [
     "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/assets/ (pre-existing untracked assets; preserve)",
@@ -54,7 +62,7 @@
     "specs/006-editorial-steward-integration/ (other work; preserve)",
     "Other dirty Thoughtseed Labs and Synchronocities editorial/architecture files remain excluded from owned commits"
   ],
-  "next_action": "Resume only remaining profile actions from canonical delivery-status.md when founder supplies Reddit/dedicated brand identities, completes Reddit human verification, updates Instagram website in mobile app or reconciles Substack connected X. Do not repeat completed profile writes. Verify current access/evidence before dependent changes. The concrete visual plan and three public source receipts are complete; full redesigned screens and deployment remain subsequent work. Keep the Mac mini pilot at its separate saved checkpoint.",
+  "next_action": "The full publication About is now applied and verified. Report the live About URL, canonical copy, screenshot and remaining account gaps. Resume remaining profile actions only when exact Reddit/dedicated brand identity and expected-account sign-in, the mobile Instagram website edit or connected Substack X reconciliation are available. Do not repeat completed profile writes. The personal-site visual upgrade remains a subsequent hero/navigation and case-proof slice; keep Mac mini pilot at its separate saved checkpoint.",
   "previous_task": {
     "schema": "snowgloves.execution-handoff.v1",
     "status": "pilot-route-decision-pending",
@@ -106,24 +114,25 @@
   "canonical_packet": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/README.md",
   "verification": {
     "site_source_commit": "3491312",
-    "latest_profile_receipts_commit": "7fffc3a",
+    "latest_profile_receipts_commit": "2d3f0c4",
     "tests": "224 passed in 44 files after residual metric removal",
     "build": "typecheck, Vite, prerender, schema and retrievability passed",
-    "acceptance": "44/49; Instagram website, Reddit, dedicated brand identity/access and connected Substack X link remain unchecked",
+    "acceptance": "47/52; Instagram website, Reddit, dedicated brand identity/access and connected Substack X link remain unchecked",
     "runtime_context_digest": "matches canonical profile-context.json",
-    "latest_site_source_commit": "d9d6378"
+    "latest_site_source_commit": "d9d6378",
+    "about": "Full About saved; fresh public reload exact body match, headings/links, original image/native subscription control; screenshot and rollback body captured"
   },
   "goal_audit": {
     "previous_turn_classification": "progress",
     "current_turn_classification": "progress",
     "current_authoritative_changes": [
-      "Instagram bio applied and read back",
-      "Substack Instagram link applied and read back",
-      "Source metric corrected; tests/build passed",
-      "Three current public source receipts committed"
+      "Directly requested publication About revision applied and independently read back",
+      "Canonical packet, runtime digest and cross-system pointers reconciled",
+      "Latest anonymous Reddit sign-in state corrects earlier challenge blocker"
     ],
     "completion_proven": false,
     "known_consecutive_goal_turns_with_unset_reddit_brand_identities": 2,
-    "meaningful_remaining_work_requires": "Exact founder-controlled accounts, mobile website edit and connected X reconciliation. No active job or process is being treated as a wait."
+    "meaningful_remaining_work_requires": "Exact founder-controlled accounts, mobile website edit and connected X reconciliation. No active job or process is being treated as a wait.",
+    "authorized_scope_extension": "User added exact Substack About URL during the active refresh; meaningful authorized work was completed, so the goal is not marked blocked during this turn."
   }
 }
