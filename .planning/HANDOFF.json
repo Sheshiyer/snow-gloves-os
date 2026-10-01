@@ -1,8 +1,8 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "profile-refresh-progress-after-founder-input",
+  "status": "profile-refresh-instagram-mobile-verification-pending",
   "active_task": "profile-and-site-refresh",
-  "updated": "2026-10-01T14:23:10.859885+00:00",
+  "updated": "2026-10-01T14:35:37.617656+00:00",
   "completed": [
     "Confirmed personal + Thoughtseed + Tryambakam scope, including dedicated brand accounts",
     "Personal-site shared identity and source-copy foundation locally integrated at 3491312; 224 tests and production build/guards passed",
@@ -34,10 +34,11 @@
     "Cross-system voice references made explicit: Labs preparation, Synchronocities adaptations and runtime profile pointer require reading the canonical voice contract before drafting; links and unchanged context digest verified. Local commits: site 0195777, Labs e5c92880, blog 72efb39.",
     "Founder supplied Reddit Mrhigh3r and signed-in access; owner menu independently confirmed u/Mrhigh3r",
     "Reddit public name, 200-character About and https://10869.space social link saved and independently reloaded; screenshot and receipt committed at bb423dd",
-    "Founder clarified no additional dedicated brand social handles exist; known completed Thoughtseed LinkedIn page retained and two website positioning references preserved; scope receipt committed"
+    "Founder clarified no additional dedicated brand social handles exist; known completed Thoughtseed LinkedIn page retained and two website positioning references preserved; scope receipt committed",
+    "Substack owner editor disconnected stale X connection, removed its separate legacy link and saved witnessalchemst; independent public reload verifies exactly four links with a single https://x.com/witnessalchemst; screenshot and receipt committed at b054f83",
+    "Canonical/runtime context digests and eight profile payload hashes verified; acceptance 51/53; Labs pointer 181f9a3f and Synchronocities pointer 9b4f9dd reconciled without absorbing unrelated work"
   ],
   "remaining": [
-    "Reconcile Substack X social link to founder-confirmed witnessalchemst through its owner editor; supported old connection removal and manual replacement are now within the clarified request",
     "Verify https://10869.space on Instagram after the founder adds it through the mobile app",
     "Concrete six-act visual plan is complete; redesigned screens and site deployment remain a later separately authorized implementation slice"
   ],
@@ -64,7 +65,10 @@
     "Latest founder clarification resolves the Reddit identity and additional brand-account inventory; do not ask for nonexistent handles or create new accounts",
     "Founder confirms witnessalchemst is the correct new X handle; reconcile the stale Substack link without asking the same generic permission again",
     "Reddit About was shortened to the observed 200-character limit; display name and common personal website were aligned within routine profile scope",
-    "No source code changed in this checkpoint; existing source tests/build not rerun for documentation/account edits"
+    "No source code changed in this checkpoint; existing source tests/build not rerun for documentation/account edits",
+    "Substack supported Disconnect reduces the obsolete connection; no new OAuth scopes or credential values entered",
+    "Separate stale legacy link survived disconnect; cleared through its visible owner field and Save; final four-link public reload is authoritative",
+    "Current refresh has one remaining account field: Instagram website; parent aggregate ISC-41 and website ISC-41.2 are both pending for that same field"
   ],
   "uncommitted_files": [
     "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/assets/ (pre-existing untracked assets; preserve)",
@@ -74,7 +78,7 @@
     "specs/006-editorial-steward-integration/ (other work; preserve)",
     "Other dirty Thoughtseed Labs and Synchronocities editorial/architecture files remain excluded from owned commits"
   ],
-  "next_action": "Continue immediately with Substack author X reconciliation. Current IAB browser is 3; Reddit owner tab 4 is verified deliverable with receipt/screenshot committed at bb423dd; do not redo Reddit. Substack author tab 3 still has X mrhigh3r in its 4-links menu; owner Edit profile previously exposed connected mrhigh3r + Disconnect and a separate manual X username field. Founder now confirms witnessalchemst as correct new handle, so use the supported owner controls to remove the stale connection and set the new manual link, then save, reopen/reload, verify exact public X URL and capture screenshot. Do not authorize new/broader OAuth scopes or alter other links. Instagram tab 1 remains pending founder mobile website edit; verify once after Substack. Then reconcile canonical context, digest/runtime receipt and Labs/blog pointers. Source main bb423dd, acceptance 50/53. Native goal tool was still blocked at start; do not create a replacement objective or falsely complete it. Preserve the nested Mac mini checkpoint and unrelated WIP.",
+  "next_action": "On fresh founder input confirming the Instagram mobile edit, reuse IAB browser 3 and tab 1; independently reload https://www.instagram.com/witnessalchemist/ and verify the external website destination is exactly https://10869.space (including decoding the visible Instagram redirect href if needed). Capture screenshot and update Instagram receipt, canonical fields/state, runtime digest and ISA 41/41.2 only after live verification. Reddit tab 4 and Substack tab 3 are completed deliverables; do not repeat edits. No additional dedicated brand handles exist; preserve known completed Thoughtseed LinkedIn company page. Current site head b054f83; acceptance 51/53. No redesigned screens/site deployment is claimed. Preserve nested Mac mini pilot and unrelated work; do not dispatch its old fleet.",
   "previous_task": {
     "schema": "snowgloves.execution-handoff.v1",
     "status": "pilot-route-decision-pending",
@@ -126,27 +130,29 @@
   "canonical_packet": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/README.md",
   "verification": {
     "site_source_commit": "3491312",
-    "latest_profile_receipts_commit": "bb423dd",
+    "latest_profile_receipts_commit": "b054f83",
     "tests": "224 passed in 44 files after the two additional language corrections",
     "build": "typecheck, Vite, prerender, schema and retrievability passed",
-    "acceptance": "50/53; Instagram aggregate/website and Substack X link remain pending",
-    "runtime_context_digest": "matches canonical profile-context.json",
+    "acceptance": "51/53; only Instagram aggregate/website remain pending for the same mobile-only website field",
+    "runtime_context_digest": "b8226954bf8a2b20a499d16fba10ea84cce0ae9c1747b3985acb3ac18e19be7c",
     "latest_site_source_commit": "7fde439",
     "about": "Full About saved; fresh public reload exact body match, headings/links, original image/native subscription control; screenshot and rollback body captured",
-    "latest_site_head": "bb423dd",
-    "labs_pointer_commit": "e5c92880",
-    "blog_pointer_commit": "72efb39",
+    "latest_site_head": "b054f83",
+    "labs_pointer_commit": "181f9a3f",
+    "blog_pointer_commit": "9b4f9dd",
     "voice_review": "Ten field scopes checked; no restricted terms in refreshed fields/About; current live About exact match; bounded manual tone review recorded",
     "cross_system_voice_references": "Explicit read-before-drafting instructions and real canonical voice file verified; instruction alignment, not automatic tone validation",
     "reddit": "Owner menu u/Mrhigh3r, saved/reopened About, independent public reload of name, 200-character About and website href, screenshot",
-    "brand_inventory": "Direct founder confirmation: no additional dedicated handles; known Thoughtseed LinkedIn page retained"
+    "brand_inventory": "Direct founder confirmation: no additional dedicated handles; known Thoughtseed LinkedIn page retained",
+    "substack_x": "Independent public reload shows one https://x.com/witnessalchemst and preserved website, Instagram and LinkedIn destinations; screenshot and receipt captured"
   },
   "goal_audit": {
     "previous_turn_classification": "no progress",
     "current_turn_classification": "progress",
     "current_authoritative_changes": [
       "Applied and independently verified Reddit profile fields",
-      "Reconciled founder-confirmed absence of additional dedicated brand accounts in packet and ISA"
+      "Reconciled founder-confirmed absence of additional dedicated brand accounts in packet and ISA",
+      "Reconciled and independently verified Substack current X link; reconciled all three planning/runtime pointers"
     ],
     "completion_proven": false,
     "native_goal_status_at_start": "blocked",
@@ -155,11 +161,11 @@
     "active_job_wait_claimed": false
   },
   "account_access_check": {
-    "observed_at": "2026-10-01T14:23:10.859885+00:00",
+    "observed_at": "2026-10-01T14:35:37.617656+00:00",
     "instagram": {
       "identity": "witnessalchemist",
       "bio": "fresh public profile matches applied bio",
-      "website": "Fresh confirmed owner profile has no external website link",
+      "website": "Latest independent public owner-profile reload still shows no external website link",
       "required_action": "Founder adds https://10869.space through the Instagram mobile app"
     },
     "reddit": {
@@ -169,20 +175,19 @@
       "credential_values_recorded": false
     },
     "substack_x": {
-      "public_menu": "Fresh Substack author link menu still shows X mrhigh3r",
-      "owner_editor": "Connected X account mrhigh3r has Disconnect only; no refresh or reconnect control exposed",
-      "connection_changed": false,
-      "required_action": "Replace stale link with founder-confirmed witnessalchemst through supported owner UI"
+      "public_menu": "Fresh independent public reload: four links; single X witnessalchemst with exact https://x.com/witnessalchemst href",
+      "owner_editor": "Disconnected stale connected mrhigh3r and saved manual current handle; removed separate legacy @mrhigh3r field",
+      "connection_changed": true,
+      "required_action": "Complete; do not repeat edit",
+      "receipt": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/receipts/substack-x-2026-10-01.json"
     },
     "dedicated_brands": {
       "identities": "Founder confirms no additional dedicated social handles exist; websites only, with known completed Thoughtseed LinkedIn page retained",
       "required_action": "Complete inventory; no account creation"
     },
-    "website_or_profile_mutation_this_check": false,
+    "website_or_profile_mutation_this_check": true,
     "pending_tabs_preserved": [
-      "Instagram profile handoff",
-      "Reddit login handoff",
-      "Substack author profile handoff"
+      "Instagram profile mobile-edit verification handoff; Reddit and Substack completed tabs marked deliverables"
     ]
   }
 }
