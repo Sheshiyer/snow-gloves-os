@@ -2,7 +2,7 @@
   "schema": "snowgloves.execution-handoff.v1",
   "status": "profile-refresh-partially-applied",
   "active_task": "profile-and-site-refresh",
-  "updated": "2026-10-01T12:34:51.218041+00:00",
+  "updated": "2026-10-01T12:49:15.556487+00:00",
   "completed": [
     "Confirmed personal + Thoughtseed + Tryambakam scope, including dedicated brand accounts",
     "Personal-site shared identity and source-copy foundation locally integrated at 3491312; 224 tests and production build/guards passed",
@@ -26,7 +26,11 @@
     "Publication About copy, screenshot, readback receipt and rollback HTML committed locally at 2d3f0c4; acceptance 47/52; runtime pointer digest reconciled",
     "Publication archive and Synchronocities reader destinations loaded; old posts, schedules and payment/audience settings preserved",
     "Thoughtseed Labs and Synchronocities planning pointers now include the verified About revision; original unrelated WIP excluded",
-    "Publication visual alignment checkpoint added at e47df8b: legible light header wordmark, contrast/focus checks and desktop/mobile review remain proposed; no theme change claimed"
+    "Publication visual alignment checkpoint added at e47df8b: legible light header wordmark, contrast/focus checks and desktop/mobile review remain proposed; no theme change claimed",
+    "Founder reaffirmed existing Noesis quantum/vocabulary/tone restrictions; current brand voice contract and writer context reviewed",
+    "Ten refreshed profile/publication field scopes pass restricted-term scan and scoped manual tone/AI-context review; fresh live About matches saved copy with zero restricted terms",
+    "Two remaining local portfolio phrases corrected and unverified travelogue duration/card counts removed; 224 tests and production build/guards passed",
+    "Voice contract, dated review receipt and canonical/runtime pointers committed and integrated locally at 7fde439; acceptance 48/53"
   ],
   "remaining": [
     "Add https://10869.space to Instagram website through its mobile app; desktop editor explicitly cannot edit links",
@@ -53,7 +57,11 @@
     "All source commits are local; no push or site deployment performed",
     "Direct exact-URL About request authorizes this bounded copy/structure change; September About draft remains historical context",
     "Living cosmology is stated as evolving authorial inquiry; historical quantum/biofield/healing promises removed from About",
-    "About verified at normal desktop viewport; no mobile acceptance or full publication-theme redesign is claimed"
+    "About verified at normal desktop viewport; no mobile acceptance or full publication-theme redesign is claimed",
+    "Quantum only in a specific physics explanation; energy/vibration/optimization and other context-locked terms retain their existing restrictions",
+    "No automatic tone certification claimed; manual register review is scoped to refreshed fields/About; older public essays and frozen manuscripts are not rewritten or newly certified",
+    "Factual studio AI workflows are infrastructure/role descriptions, not AI-as-selling-point for the inquiry",
+    "Internal witnessos compatibility type and source-of-truth code comment are not public copy; no unrelated API/type migration"
   ],
   "uncommitted_files": [
     "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/assets/ (pre-existing untracked assets; preserve)",
@@ -63,7 +71,7 @@
     "specs/006-editorial-steward-integration/ (other work; preserve)",
     "Other dirty Thoughtseed Labs and Synchronocities editorial/architecture files remain excluded from owned commits"
   ],
-  "next_action": "The full publication About is now applied and verified. Report the live About URL, canonical copy, screenshot and remaining account gaps. Resume remaining profile actions only when exact Reddit/dedicated brand identity and expected-account sign-in, the mobile Instagram website edit or connected Substack X reconciliation are available. Do not repeat completed profile writes. The personal-site visual upgrade remains a subsequent hero/navigation and case-proof slice; keep Mac mini pilot at its separate saved checkpoint.",
+  "next_action": "Report the completed live About revision and existing Noesis vocabulary/tone rules, the explicit voice-contract pointer and locally verified portfolio phrase corrections. Resume remaining account work when exact founder-controlled identities/sign-in, mobile Instagram website edit or connected Substack X reconciliation are available. Do not claim old public essays have passed this scoped audit or that local site corrections are deployed. The six-act visual upgrade and publication header-contrast/mobile review remain subsequent slices. Preserve the separate Mac mini pilot checkpoint.",
   "previous_task": {
     "schema": "snowgloves.execution-handoff.v1",
     "status": "pilot-route-decision-pending",
@@ -115,24 +123,25 @@
   "canonical_packet": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/README.md",
   "verification": {
     "site_source_commit": "3491312",
-    "latest_profile_receipts_commit": "2d3f0c4",
-    "tests": "224 passed in 44 files after residual metric removal",
+    "latest_profile_receipts_commit": "7fde439",
+    "tests": "224 passed in 44 files after the two additional language corrections",
     "build": "typecheck, Vite, prerender, schema and retrievability passed",
-    "acceptance": "47/52; Instagram website, Reddit, dedicated brand identity/access and connected Substack X link remain unchecked",
+    "acceptance": "48/53; the same five account criteria remain pending",
     "runtime_context_digest": "matches canonical profile-context.json",
-    "latest_site_source_commit": "d9d6378",
+    "latest_site_source_commit": "7fde439",
     "about": "Full About saved; fresh public reload exact body match, headings/links, original image/native subscription control; screenshot and rollback body captured",
-    "latest_site_head": "e47df8b",
+    "latest_site_head": "7fde439",
     "labs_pointer_commit": "116d169a",
-    "blog_pointer_commit": "c5f1937"
+    "blog_pointer_commit": "c5f1937",
+    "voice_review": "Ten field scopes checked; no restricted terms in refreshed fields/About; current live About exact match; bounded manual tone review recorded"
   },
   "goal_audit": {
     "previous_turn_classification": "progress",
     "current_turn_classification": "progress",
     "current_authoritative_changes": [
-      "Directly requested publication About revision applied and independently read back",
-      "Canonical packet, runtime digest and cross-system pointers reconciled",
-      "Latest anonymous Reddit sign-in state corrects earlier challenge blocker"
+      "Noesis voice/vocabulary review recorded against current sources",
+      "Two remaining source phrases corrected; tests/build passed",
+      "Voice contract and runtime context reconciled at 7fde439"
     ],
     "completion_proven": false,
     "known_consecutive_goal_turns_with_unset_reddit_brand_identities": 2,
