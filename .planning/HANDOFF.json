@@ -1,8 +1,8 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "profile-refresh-blocked-on-account-input",
+  "status": "profile-refresh-awaiting-account-input",
   "active_task": "profile-and-site-refresh",
-  "updated": "2026-10-01T13:03:04.812826+00:00",
+  "updated": "2026-10-01T13:47:24.026170+00:00",
   "completed": [
     "Confirmed personal + Thoughtseed + Tryambakam scope, including dedicated brand accounts",
     "Personal-site shared identity and source-copy foundation locally integrated at 3491312; 224 tests and production build/guards passed",
@@ -30,7 +30,8 @@
     "Founder reaffirmed existing Noesis quantum/vocabulary/tone restrictions; current brand voice contract and writer context reviewed",
     "Ten refreshed profile/publication field scopes pass restricted-term scan and scoped manual tone/AI-context review; fresh live About matches saved copy with zero restricted terms",
     "Two remaining local portfolio phrases corrected and unverified travelogue duration/card counts removed; 224 tests and production build/guards passed",
-    "Voice contract, dated review receipt and canonical/runtime pointers committed and integrated locally at 7fde439; acceptance 48/53"
+    "Voice contract, dated review receipt and canonical/runtime pointers committed and integrated locally at 7fde439; acceptance 48/53",
+    "Cross-system voice references made explicit: Labs preparation, Synchronocities adaptations and runtime profile pointer require reading the canonical voice contract before drafting; links and unchanged context digest verified. Local commits: site 0195777, Labs e5c92880, blog 72efb39."
   ],
   "remaining": [
     "Add https://10869.space to Instagram website through its mobile app; desktop editor explicitly cannot edit links",
@@ -61,7 +62,8 @@
     "Quantum only in a specific physics explanation; energy/vibration/optimization and other context-locked terms retain their existing restrictions",
     "No automatic tone certification claimed; manual register review is scoped to refreshed fields/About; older public essays and frozen manuscripts are not rewritten or newly certified",
     "Factual studio AI workflows are infrastructure/role descriptions, not AI-as-selling-point for the inquiry",
-    "Internal witnessos compatibility type and source-of-truth code comment are not public copy; no unrelated API/type migration"
+    "Internal witnessos compatibility type and source-of-truth code comment are not public copy; no unrelated API/type migration",
+    "The resumed goal starts a fresh blocked audit. This turn made a bounded cross-system instruction correction; acceptance remains 48/53, and no new account write or queue/schedule change was made."
   ],
   "uncommitted_files": [
     "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/assets/ (pre-existing untracked assets; preserve)",
@@ -71,7 +73,7 @@
     "specs/006-editorial-steward-integration/ (other work; preserve)",
     "Other dirty Thoughtseed Labs and Synchronocities editorial/architecture files remain excluded from owned commits"
   ],
-  "next_action": "Resume this goal when the founder supplies exact Reddit and remaining dedicated Thoughtseed/Tryambakam account URLs/handles with sign-in/admin access, adds the Instagram website through the mobile app, or resolves/authorizes replacing the stale Substack X connection. Start from the saved canonical packet and verify the affected account before applying its prepared fields. Acceptance remains 48/53. The Noesis vocabulary/tone review and two local portfolio corrections are complete at 7fde439; the public full About is verified. Do not redo completed account changes, infer a site deployment, certify historical essays, dispatch the nested Mac mini task, or resume while the same blocking conditions remain unchanged.",
+  "next_action": "Await the pending concise request for exact Reddit and dedicated Thoughtseed/Tryambakam account URLs/handles, including not-created channels. If supplied, verify owner/admin access and apply the corresponding prepared field set with readback. Otherwise revalidate the same account blockers without redoing completed edits or expanding the goal; use the fresh resumed blocked audit and mark blocked after three consecutive resumed turns at an impasse. Instagram website requires mobile app; Substack still shows connected mrhigh3r and needs founder reconciliation or explicit replacement direction. Canonical site/voice packet is at 0195777, Labs pointer e5c92880 and blog pointer 72efb39; new instructions are explicit, not an automatic tone validator. Preserve the nested Mac mini checkpoint and all unrelated WIP.",
   "previous_task": {
     "schema": "snowgloves.execution-handoff.v1",
     "status": "pilot-route-decision-pending",
@@ -123,48 +125,49 @@
   "canonical_packet": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/README.md",
   "verification": {
     "site_source_commit": "3491312",
-    "latest_profile_receipts_commit": "7fde439",
+    "latest_profile_receipts_commit": "0195777",
     "tests": "224 passed in 44 files after the two additional language corrections",
     "build": "typecheck, Vite, prerender, schema and retrievability passed",
     "acceptance": "48/53; the same five account criteria remain pending",
     "runtime_context_digest": "matches canonical profile-context.json",
     "latest_site_source_commit": "7fde439",
     "about": "Full About saved; fresh public reload exact body match, headings/links, original image/native subscription control; screenshot and rollback body captured",
-    "latest_site_head": "7fde439",
-    "labs_pointer_commit": "116d169a",
-    "blog_pointer_commit": "c5f1937",
-    "voice_review": "Ten field scopes checked; no restricted terms in refreshed fields/About; current live About exact match; bounded manual tone review recorded"
+    "latest_site_head": "0195777",
+    "labs_pointer_commit": "e5c92880",
+    "blog_pointer_commit": "72efb39",
+    "voice_review": "Ten field scopes checked; no restricted terms in refreshed fields/About; current live About exact match; bounded manual tone review recorded",
+    "cross_system_voice_references": "Explicit read-before-drafting instructions and real canonical voice file verified; instruction alignment, not automatic tone validation"
   },
   "goal_audit": {
-    "previous_turn_classification": "progress",
-    "current_turn_classification": "blocked",
+    "previous_turn_classification": "no progress",
+    "current_turn_classification": "progress",
     "current_authoritative_changes": [
-      "Fresh account-access check confirms remaining input/access gaps; no new live profile change"
+      "Explicit canonical voice-contract reference and read-before-drafting instruction added to Labs, Synchronocities and runtime pointer; links/digest verified and exact owned files committed"
     ],
     "completion_proven": false,
-    "known_consecutive_goal_turns_with_unset_reddit_brand_identities": 3,
-    "blocking_condition": "Exact founder-controlled Reddit and remaining dedicated brand identities remain unset across three consecutive goal turns. All currently accessible authorized profile/copy and planning work is complete. The remaining five criteria require founder input or an external account-state change.",
-    "meaningful_progress_without_input_available": false,
-    "native_goal_status": "blocked",
-    "blocked_due_to_context_size": false,
+    "native_goal_status": "active",
+    "resumed_from_blocked": true,
+    "fresh_resumed_audit_turns_with_same_account_input_gap": 1,
+    "blocking_condition": "Exact Reddit and remaining dedicated brand identities are unset; Instagram website needs mobile app; Substack stale connected X requires founder reconciliation or explicit replacement direction. Fresh IAB confirms the account gaps.",
+    "meaningful_remaining_work_requires": "Account identifiers/sign-in, mobile Instagram website edit or existing X connection reconciliation",
     "active_job_wait_claimed": false
   },
   "account_access_check": {
-    "observed_at": "2026-10-01T13:03:04.812826+00:00",
+    "observed_at": "2026-10-01T13:47:24.026170+00:00",
     "instagram": {
       "identity": "witnessalchemist",
       "bio": "fresh public profile matches applied bio",
-      "website": "no public external website link present",
+      "website": "Fresh confirmed owner profile has no external website link",
       "required_action": "Founder adds https://10869.space through the Instagram mobile app"
     },
     "reddit": {
-      "state": "Signed out; Log In dialog present",
+      "state": "Fresh IAB Reddit login page is signed out; Log In form present",
       "exact_profile": "unset",
       "required_action": "Founder identifies the intended Reddit profile and completes its sign-in",
       "credential_values_recorded": false
     },
     "substack_x": {
-      "public_menu": "X mrhigh3r",
+      "public_menu": "Fresh Substack author link menu still shows X mrhigh3r",
       "owner_editor": "Connected X account mrhigh3r has Disconnect only; no refresh or reconnect control exposed",
       "connection_changed": false,
       "required_action": "Founder reconciles the existing X connection or explicitly requests its replacement with the confirmed witnessalchemst link"
@@ -175,7 +178,6 @@
     },
     "website_or_profile_mutation_this_check": false,
     "pending_tabs_preserved": [
-      "Published About deliverable",
       "Instagram profile handoff",
       "Reddit login handoff",
       "Substack author profile handoff"
