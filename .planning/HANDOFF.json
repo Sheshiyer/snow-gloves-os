@@ -2,38 +2,53 @@
   "schema": "snowgloves.execution-handoff.v1",
   "status": "profile-refresh-partially-applied",
   "active_task": "profile-and-site-refresh",
-  "updated": "2026-10-01",
+  "updated": "2026-10-01T11:32:37.331835+00:00",
   "completed": [
-    "Confirmed personal + Thoughtseed + Tryambakam across channels, including dedicated brand accounts",
-    "Personal-site source foundation integrated locally at 3491312; 224 tests and production build/guards passed",
-    "Thoughtseed canonical pointer committed db6d8024; Synchronocities pointer committed 57adcf3",
-    "GitHub Sheshiyer bio and website applied and independently API read back",
-    "LinkedIn mrhigh3r headline and About applied and fresh signed-in profile read back",
-    "Six-act visual upgrade plan and evidence-safe channel packet prepared"
+    "Confirmed personal + Thoughtseed + Tryambakam scope, including dedicated brand accounts",
+    "Personal-site shared identity and source-copy foundation locally integrated at 3491312; 224 tests and production build/guards passed",
+    "Six-act personal-first visual upgrade contract and source/claim review prepared; redesigned screens not built or deployed",
+    "GitHub Sheshiyer bio and website applied; independent authenticated API readback",
+    "LinkedIn mrhigh3r headline, About, contact website, existing Featured title/description and two role descriptions applied; fresh signed-in readbacks",
+    "Thoughtseed LinkedIn company 72185351 tagline and Overview applied; admin access and member-facing readback verified",
+    "X witnessalchemst display name, bio and website applied; fresh profile readback",
+    "Substack occulturedfool author bio/website and The Why Chromosome short description applied; separate fresh readbacks",
+    "Both existing editorial automation prompts reference canonical packet; original prompts, models, cadence, notification policy, status and publication gates preserved",
+    "Runtime canonical pointer refreshed with final context digest; queue, frozen payloads, approval hashes and native schedules untouched",
+    "Current receipts, public screenshots, delivery state and acceptance committed at 10869 3b2907c; acceptance 41/44",
+    "Owned cross-system pointers reconciled and committed: Thoughtseed Labs f55be96a; Synchronocities 1ed4b75"
   ],
   "remaining": [
-    "Verify and update remaining personal and dedicated brand profiles through authenticated supported surfaces",
-    "Reconcile LinkedIn Featured/contact links with current copy",
-    "Wire canonical profile context into existing editorial automation prompts without altering queue/schedules",
-    "Commit live readback receipts, status refinements and refreshed handoff"
+    "Apply prepared Instagram fields after founder signs in to the expected account in IAB",
+    "Identify exact founder Reddit URL/handle, then verify account and apply prepared fields",
+    "Identify dedicated Tryambakam and any other Thoughtseed account URLs/handles, verify admin access and apply prepared fields",
+    "Reconcile existing Substack connected-social labels against current X/Instagram identities without inferring credential changes",
+    "Execute the next visual slice from the 10869 upgrade contract: refresh three public work receipts, then hero/navigation desktop and mobile preview; full redesign and deployment remain subsequent work"
   ],
   "blockers": [
-    "Reddit identity unset; brand handles and remaining channel access need verification"
+    "Instagram IAB is signed out; no active Instagram connector or supported profile-write tool was available",
+    "Reddit profile identity is unset",
+    "Dedicated Tryambakam and other Thoughtseed account identities are unset; known Thoughtseed LinkedIn page completed",
+    "Pending founder question requests exact dedicated brand profile URLs/handles"
   ],
   "decisions": [
-    "Profile and personal-site refresh is now the active task before posting",
-    "Mac mini pilot remains at its saved source-only checkpoint",
-    "No social publication has been authorized for this task",
-    "Preserve existing assets and unrelated editorial changes in all checkouts",
-    "Direct request authorizes routine profile edits; new posts remain separately gated",
-    "Dedicated brand accounts are explicitly included; never infer ownership from a public link"
+    "Profile and personal-site review remains the active task before posting; Mac mini pilot remains nested at its saved source-only checkpoint",
+    "Direct founder request authorizes routine profile edits; no second generic approval is required",
+    "No new social post, comment, pin or outreach was authorized or submitted by this refresh",
+    "Expected authenticated identity/admin scope and fresh saved-field readback are required for each account",
+    "Preserve account handles, legal/export names, role dates/media/skills, portraits and company details",
+    "Preserve unrelated repository work and original editorial automation/publication rules",
+    "Tryambakam LinkedIn role initially contained old plus appended new text; explicitly cleared and replaced, saved and reopened with exact intended copy and Notify network off",
+    "All source commits are local; no push or site deployment performed"
   ],
   "uncommitted_files": [
+    "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/assets/ (pre-existing untracked assets; preserve)",
     ".planning/EDITORIAL-INTEGRATION-HANDOFF.json (other work; preserve)",
     "docs/EDITORIAL-ORG-INTEGRATION.md (other work; preserve)",
-    "specs/006-editorial-steward-integration/ (other work; preserve)"
+    "docs/PORTFOLIO-ORG-MAP.md (other work; preserve)",
+    "specs/006-editorial-steward-integration/ (other work; preserve)",
+    "Other dirty Thoughtseed Labs and Synchronocities editorial/architecture files remain excluded from owned commits"
   ],
-  "next_action": "Commit safe GitHub/LinkedIn readback receipts and current status; verify LinkedIn Thoughtseed admin page and remaining channels, wire existing automation context, preserve publication queue, record exact access blockers.",
+  "next_action": "Read 10869 docs/profiles/delivery-status.md and current git state. Resume remaining profile fields when founder supplies exact Reddit/dedicated brand URLs or signs in to Instagram. Independently continue the visual plan with three current public project receipts before building the hero/navigation preview. Do not repeat completed profile writes or alter existing publication queue/schedules. Keep the Mac mini pilot at its separate saved checkpoint.",
   "previous_task": {
     "schema": "snowgloves.execution-handoff.v1",
     "status": "pilot-route-decision-pending",
@@ -81,5 +96,14 @@
     },
     "checkpoint_branch": "codex/local-mini-pilot"
   },
-  "checkpoint_branch": "codex/local-mini-pilot"
+  "checkpoint_branch": "codex/local-mini-pilot",
+  "canonical_packet": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/README.md",
+  "verification": {
+    "site_source_commit": "3491312",
+    "latest_profile_receipts_commit": "3b2907c",
+    "tests": "224 passed in 44 files",
+    "build": "typecheck, Vite, prerender, schema and retrievability passed",
+    "acceptance": "41/44; Instagram, Reddit and remaining dedicated brand identity/access criteria unchecked",
+    "runtime_context_digest": "matches canonical profile-context.json"
+  }
 }
