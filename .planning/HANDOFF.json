@@ -1,8 +1,8 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "profile-refresh-partially-applied",
+  "status": "profile-refresh-blocked-on-account-input",
   "active_task": "profile-and-site-refresh",
-  "updated": "2026-10-01T12:49:15.556487+00:00",
+  "updated": "2026-10-01T13:03:04.812826+00:00",
   "completed": [
     "Confirmed personal + Thoughtseed + Tryambakam scope, including dedicated brand accounts",
     "Personal-site shared identity and source-copy foundation locally integrated at 3491312; 224 tests and production build/guards passed",
@@ -71,7 +71,7 @@
     "specs/006-editorial-steward-integration/ (other work; preserve)",
     "Other dirty Thoughtseed Labs and Synchronocities editorial/architecture files remain excluded from owned commits"
   ],
-  "next_action": "Report the completed live About revision and existing Noesis vocabulary/tone rules, the explicit voice-contract pointer and locally verified portfolio phrase corrections. Resume remaining account work when exact founder-controlled identities/sign-in, mobile Instagram website edit or connected Substack X reconciliation are available. Do not claim old public essays have passed this scoped audit or that local site corrections are deployed. The six-act visual upgrade and publication header-contrast/mobile review remain subsequent slices. Preserve the separate Mac mini pilot checkpoint.",
+  "next_action": "Resume this goal when the founder supplies exact Reddit and remaining dedicated Thoughtseed/Tryambakam account URLs/handles with sign-in/admin access, adds the Instagram website through the mobile app, or resolves/authorizes replacing the stale Substack X connection. Start from the saved canonical packet and verify the affected account before applying its prepared fields. Acceptance remains 48/53. The Noesis vocabulary/tone review and two local portfolio corrections are complete at 7fde439; the public full About is verified. Do not redo completed account changes, infer a site deployment, certify historical essays, dispatch the nested Mac mini task, or resume while the same blocking conditions remain unchanged.",
   "previous_task": {
     "schema": "snowgloves.execution-handoff.v1",
     "status": "pilot-route-decision-pending",
@@ -137,15 +137,48 @@
   },
   "goal_audit": {
     "previous_turn_classification": "progress",
-    "current_turn_classification": "progress",
+    "current_turn_classification": "blocked",
     "current_authoritative_changes": [
-      "Noesis voice/vocabulary review recorded against current sources",
-      "Two remaining source phrases corrected; tests/build passed",
-      "Voice contract and runtime context reconciled at 7fde439"
+      "Fresh account-access check confirms remaining input/access gaps; no new live profile change"
     ],
     "completion_proven": false,
-    "known_consecutive_goal_turns_with_unset_reddit_brand_identities": 2,
-    "meaningful_remaining_work_requires": "Exact founder-controlled accounts, mobile website edit and connected X reconciliation. No active job or process is being treated as a wait.",
-    "authorized_scope_extension": "User added exact Substack About URL during the active refresh; meaningful authorized work was completed, so the goal is not marked blocked during this turn."
+    "known_consecutive_goal_turns_with_unset_reddit_brand_identities": 3,
+    "blocking_condition": "Exact founder-controlled Reddit and remaining dedicated brand identities remain unset across three consecutive goal turns. All currently accessible authorized profile/copy and planning work is complete. The remaining five criteria require founder input or an external account-state change.",
+    "meaningful_progress_without_input_available": false,
+    "native_goal_status": "blocked",
+    "blocked_due_to_context_size": false,
+    "active_job_wait_claimed": false
+  },
+  "account_access_check": {
+    "observed_at": "2026-10-01T13:03:04.812826+00:00",
+    "instagram": {
+      "identity": "witnessalchemist",
+      "bio": "fresh public profile matches applied bio",
+      "website": "no public external website link present",
+      "required_action": "Founder adds https://10869.space through the Instagram mobile app"
+    },
+    "reddit": {
+      "state": "Signed out; Log In dialog present",
+      "exact_profile": "unset",
+      "required_action": "Founder identifies the intended Reddit profile and completes its sign-in",
+      "credential_values_recorded": false
+    },
+    "substack_x": {
+      "public_menu": "X mrhigh3r",
+      "owner_editor": "Connected X account mrhigh3r has Disconnect only; no refresh or reconnect control exposed",
+      "connection_changed": false,
+      "required_action": "Founder reconciles the existing X connection or explicitly requests its replacement with the confirmed witnessalchemst link"
+    },
+    "dedicated_brands": {
+      "identities": "Additional Thoughtseed and dedicated Tryambakam account URLs/handles still unset",
+      "required_action": "Founder provides exact account URLs/handles and owner/admin access"
+    },
+    "website_or_profile_mutation_this_check": false,
+    "pending_tabs_preserved": [
+      "Published About deliverable",
+      "Instagram profile handoff",
+      "Reddit login handoff",
+      "Substack author profile handoff"
+    ]
   }
 }
