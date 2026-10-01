@@ -2,7 +2,7 @@
   "schema": "snowgloves.execution-handoff.v1",
   "status": "profile-refresh-partially-applied",
   "active_task": "profile-and-site-refresh",
-  "updated": "2026-10-01T12:31:38.502611+00:00",
+  "updated": "2026-10-01T12:34:51.218041+00:00",
   "completed": [
     "Confirmed personal + Thoughtseed + Tryambakam scope, including dedicated brand accounts",
     "Personal-site shared identity and source-copy foundation locally integrated at 3491312; 224 tests and production build/guards passed",
@@ -25,7 +25,8 @@
     "The Why Chromosome full About revised and saved; independent public reload matches intended text, five headings and six text links; original portrait and native subscription control preserved",
     "Publication About copy, screenshot, readback receipt and rollback HTML committed locally at 2d3f0c4; acceptance 47/52; runtime pointer digest reconciled",
     "Publication archive and Synchronocities reader destinations loaded; old posts, schedules and payment/audience settings preserved",
-    "Thoughtseed Labs and Synchronocities planning pointers now include the verified About revision; original unrelated WIP excluded"
+    "Thoughtseed Labs and Synchronocities planning pointers now include the verified About revision; original unrelated WIP excluded",
+    "Publication visual alignment checkpoint added at e47df8b: legible light header wordmark, contrast/focus checks and desktop/mobile review remain proposed; no theme change claimed"
   ],
   "remaining": [
     "Add https://10869.space to Instagram website through its mobile app; desktop editor explicitly cannot edit links",
@@ -120,7 +121,10 @@
     "acceptance": "47/52; Instagram website, Reddit, dedicated brand identity/access and connected Substack X link remain unchecked",
     "runtime_context_digest": "matches canonical profile-context.json",
     "latest_site_source_commit": "d9d6378",
-    "about": "Full About saved; fresh public reload exact body match, headings/links, original image/native subscription control; screenshot and rollback body captured"
+    "about": "Full About saved; fresh public reload exact body match, headings/links, original image/native subscription control; screenshot and rollback body captured",
+    "latest_site_head": "e47df8b",
+    "labs_pointer_commit": "116d169a",
+    "blog_pointer_commit": "c5f1937"
   },
   "goal_audit": {
     "previous_turn_classification": "progress",
