@@ -1,197 +1,47 @@
 {
   "schema": "snowgloves.execution-handoff.v1",
-  "status": "profile-foundation-verified-complete",
-  "active_task": "profile-and-site-refresh",
-  "updated": "2026-10-01T15:51:01.899151+00:00",
+  "status": "pilot-route-decision-pending",
   "completed": [
-    "Confirmed personal + Thoughtseed + Tryambakam scope, including dedicated brand accounts",
-    "Personal-site shared identity and source-copy foundation locally integrated at 3491312; 224 tests and production build/guards passed",
-    "Six-act personal-first visual upgrade contract and source/claim review prepared; redesigned screens not built or deployed",
-    "GitHub Sheshiyer bio and website applied; independent authenticated API readback",
-    "LinkedIn mrhigh3r headline, About, contact website, existing Featured title/description and two role descriptions applied; fresh signed-in readbacks",
-    "Thoughtseed LinkedIn company 72185351 tagline and Overview applied; admin access and member-facing readback verified",
-    "X witnessalchemst display name, bio and website applied; fresh profile readback",
-    "Substack occulturedfool author bio/website and The Why Chromosome short description applied; separate fresh readbacks",
-    "Both existing editorial automation prompts reference canonical packet; original prompts, models, cadence, notification policy, status and publication gates preserved",
-    "Runtime canonical pointer refreshed with final context digest; queue, frozen payloads, approval hashes and native schedules untouched",
-    "Instagram witnessalchemist bio applied through freshly authenticated owner editor; independent public profile readback; canonical full public name retained",
-    "Substack Instagram link corrected to witnessalchemist and fresh public link URL verified",
-    "Signed-in LinkedIn/X/Instagram account selectors inspected; no additional dedicated brand account identified",
-    "Instagram and social readiness receipts committed 7fffc3a; cross-system pointers reconciled at Labs 1cc6c658 and Synchronocities c4608da",
-    "Removed residual fixed Selemene mirror count from site project registry; 224 tests and production build/guards passed again",
-    "Three fresh public GitHub source receipts prepared: exact main commits and founder-attributed commits for Temperance Engine, Selemene Engine and Synchronocities; deployment/runtime acceptance not inferred",
-    "Source proof and planning refinement committed d9d6378 and integrated locally into primary site main; acceptance 44/49",
-    "Founder expanded this refresh to https://thewhychromosome.substack.com/about; full prior body and owner editor inspected",
-    "The Why Chromosome full About revised and saved; independent public reload matches intended text, five headings and six text links; original portrait and native subscription control preserved",
-    "Publication About copy, screenshot, readback receipt and rollback HTML committed locally at 2d3f0c4; acceptance 47/52; runtime pointer digest reconciled",
-    "Publication archive and Synchronocities reader destinations loaded; old posts, schedules and payment/audience settings preserved",
-    "Thoughtseed Labs and Synchronocities planning pointers now include the verified About revision; original unrelated WIP excluded",
-    "Publication visual alignment checkpoint added at e47df8b: legible light header wordmark, contrast/focus checks and desktop/mobile review remain proposed; no theme change claimed",
-    "Founder reaffirmed existing Noesis quantum/vocabulary/tone restrictions; current brand voice contract and writer context reviewed",
-    "Ten refreshed profile/publication field scopes pass restricted-term scan and scoped manual tone/AI-context review; fresh live About matches saved copy with zero restricted terms",
-    "Two remaining local portfolio phrases corrected and unverified travelogue duration/card counts removed; 224 tests and production build/guards passed",
-    "Voice contract, dated review receipt and canonical/runtime pointers committed and integrated locally at 7fde439; acceptance 48/53",
-    "Cross-system voice references made explicit: Labs preparation, Synchronocities adaptations and runtime profile pointer require reading the canonical voice contract before drafting; links and unchanged context digest verified. Local commits: site 0195777, Labs e5c92880, blog 72efb39.",
-    "Founder supplied Reddit Mrhigh3r and signed-in access; owner menu independently confirmed u/Mrhigh3r",
-    "Reddit public name, 200-character About and https://10869.space social link saved and independently reloaded; screenshot and receipt committed at bb423dd",
-    "Founder clarified no additional dedicated brand social handles exist; known completed Thoughtseed LinkedIn page retained and two website positioning references preserved; scope receipt committed",
-    "Substack owner editor disconnected stale X connection, removed its separate legacy link and saved witnessalchemst; independent public reload verifies exactly four links with a single https://x.com/witnessalchemst; screenshot and receipt committed at b054f83",
-    "Canonical/runtime context digests and eight profile payload hashes verified; acceptance 51/53; Labs pointer 181f9a3f and Synchronocities pointer 9b4f9dd reconciled without absorbing unrelated work",
-    "Founder added Instagram website through mobile; independent public readback confirms 10869.space; decoded HTTP destination resolves to secure https://www.10869.space/ with expected title/rendered page; screenshot and final receipt committed at 917c00c",
-    "All 53/53 agreed profile-foundation criteria pass; eight hashed profile field sets, receipts, voice references, six-act plan and final runtime digest verified; Labs pointer 47470005 and blog pointer cea1331 reconciled."
+    "Bootstrap, fleet, Session World and agent infrastructure plans committed locally",
+    "GitHub issues 16-29 and Project 22 published",
+    "Execution authorized by operator; parallel skill read; checkout clean",
+    "Existing test baseline: 138 passed",
+    "Reviewed late CLI/policy drafts; neither accepted",
+    "Fresh baseline 138 passed and catalog up to date",
+    "User selected one-mini local bootstrap/doctor/resume/rollback pilot for 1 October",
+    "Pilot source contract, ISA, draft runbook and controller tests prepared"
   ],
-  "remaining": [],
-  "blockers": [],
+  "remaining": [
+    "Implement and test the agreed local pilot CLI and journal",
+    "Build and checksum a standalone kit",
+    "Run isolated installation lifecycle and update evidence",
+    "Perform physical Mac mini pilot on 1 October"
+  ],
+  "blockers": [
+    "Pinned free workers repeatedly failed bounded source generation; native routing override requested",
+    "Physical mini inventory and reboot/restore evidence pending"
+  ],
   "decisions": [
-    "Profile and personal-site review remains the active task before posting; Mac mini pilot remains nested at its saved source-only checkpoint",
-    "Direct founder request authorizes routine profile edits; no second generic approval is required",
-    "No new social post, comment, pin or outreach was authorized or submitted by this refresh",
-    "Expected authenticated identity/admin scope and fresh saved-field readback are required for each account",
-    "Preserve account handles, legal/export names, role dates/media/skills, portraits and company details",
-    "Preserve unrelated repository work and original editorial automation/publication rules",
-    "Tryambakam LinkedIn role initially contained old plus appended new text; explicitly cleared and replaced, saved and reopened with exact intended copy and Notify network off",
-    "All source commits are local; no push or site deployment performed",
-    "Direct exact-URL About request authorizes this bounded copy/structure change; September About draft remains historical context",
-    "Living cosmology is stated as evolving authorial inquiry; historical quantum/biofield/healing promises removed from About",
-    "About verified at normal desktop viewport; no mobile acceptance or full publication-theme redesign is claimed",
-    "Quantum only in a specific physics explanation; energy/vibration/optimization and other context-locked terms retain their existing restrictions",
-    "No automatic tone certification claimed; manual register review is scoped to refreshed fields/About; older public essays and frozen manuscripts are not rewritten or newly certified",
-    "Factual studio AI workflows are infrastructure/role descriptions, not AI-as-selling-point for the inquiry",
-    "Internal witnessos compatibility type and source-of-truth code comment are not public copy; no unrelated API/type migration",
-    "The resumed goal starts a fresh blocked audit. This turn made a bounded cross-system instruction correction; acceptance remains 48/53, and no new account write or queue/schedule change was made.",
-    "Latest founder clarification resolves the Reddit identity and additional brand-account inventory; do not ask for nonexistent handles or create new accounts",
-    "Founder confirms witnessalchemst is the correct new X handle; reconcile the stale Substack link without asking the same generic permission again",
-    "Reddit About was shortened to the observed 200-character limit; display name and common personal website were aligned within routine profile scope",
-    "No source code changed in this checkpoint; existing source tests/build not rerun for documentation/account edits",
-    "Substack supported Disconnect reduces the obsolete connection; no new OAuth scopes or credential values entered",
-    "Separate stale legacy link survived disconnect; cleared through its visible owner field and Save; final four-link public reload is authoritative",
-    "Current refresh has one remaining account field: Instagram website; parent aggregate ISC-41 and website ISC-41.2 are both pending for that same field",
-    "Instagram field was added by the founder, not the agent. Its actual HTTP input and final HTTPS www landing URL are both recorded; raw tracking parameters are omitted. Previous pending account checkpoints are historical."
+    "Use explicit free rail first; no paid or Sol fallback",
+    "Source-only synthetic implementation; no workstation installation or live provider activation",
+    "Preserve flow through durable files across runtime compaction",
+    "Direct Command Code free model used after tool-call canary; OmniRoute batch unavailable; no fallback"
   ],
-  "uncommitted_files": [
-    "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/assets/ (pre-existing untracked assets; preserve)",
-    ".planning/EDITORIAL-INTEGRATION-HANDOFF.json (other work; preserve)",
-    "docs/EDITORIAL-ORG-INTEGRATION.md (other work; preserve)",
-    "docs/PORTFOLIO-ORG-MAP.md (other work; preserve)",
-    "specs/006-editorial-steward-integration/ (other work; preserve)",
-    "Other dirty Thoughtseed Labs and Synchronocities editorial/architecture files remain excluded from owned commits"
+  "uncommitted_files": [],
+  "next_action": "Answer pending native-model routing override. If approved, implement and test PILOT-CONTRACT.md, promote drafts only after controller acceptance, then build and checksum the installation kit. Physical mini acceptance remains separate.",
+  "workers": [],
+  "review_findings": [
+    "CLI invalid self-dependency test: 20 passed 1 failed",
+    "Policy missing mandatory approver verification and permission",
+    "Device scope and empty membership scope require denial",
+    "Canonical unambiguous digest encoding required"
   ],
-  "next_action": "Profile foundation is complete at 53/53. No pending account edit or access request remains. Use the committed personal-site upgrade contract for the subsequent visual-build slice when that work is taken up; no publication or deployment is implied by profile completion. Preserve the nested Mac mini pilot checkpoint and unrelated WIP. Completed IAB Instagram tab 1, Substack tab 3 and Reddit tab 4 are deliverables; do not repeat profile edits.",
-  "previous_task": {
-    "schema": "snowgloves.execution-handoff.v1",
-    "status": "pilot-route-decision-pending",
-    "completed": [
-      "Bootstrap, fleet, Session World and agent infrastructure plans committed locally",
-      "GitHub issues 16-29 and Project 22 published",
-      "Execution authorized by operator; parallel skill read; checkout clean",
-      "Existing test baseline: 138 passed",
-      "Reviewed late CLI/policy drafts; neither accepted",
-      "Fresh baseline 138 passed and catalog up to date",
-      "User selected one-mini local bootstrap/doctor/resume/rollback pilot for 1 October",
-      "Pilot source contract, ISA, draft runbook and controller tests prepared"
-    ],
-    "remaining": [
-      "Implement and test the agreed local pilot CLI and journal",
-      "Build and checksum a standalone kit",
-      "Run isolated installation lifecycle and update evidence",
-      "Perform physical Mac mini pilot on 1 October"
-    ],
-    "blockers": [
-      "Pinned free workers repeatedly failed bounded source generation; native routing override requested",
-      "Physical mini inventory and reboot/restore evidence pending"
-    ],
-    "decisions": [
-      "Use explicit free rail first; no paid or Sol fallback",
-      "Source-only synthetic implementation; no workstation installation or live provider activation",
-      "Preserve flow through durable files across runtime compaction",
-      "Direct Command Code free model used after tool-call canary; OmniRoute batch unavailable; no fallback"
-    ],
-    "uncommitted_files": [],
-    "next_action": "Answer pending native-model routing override. If approved, implement and test PILOT-CONTRACT.md, promote drafts only after controller acceptance, then build and checksum the installation kit. Physical mini acceptance remains separate.",
-    "workers": [],
-    "review_findings": [
-      "CLI invalid self-dependency test: 20 passed 1 failed",
-      "Policy missing mandatory approver verification and permission",
-      "Device scope and empty membership scope require denial",
-      "Canonical unambiguous digest encoding required"
-    ],
-    "drafts": {
-      "contract": ".planning/PILOT-CONTRACT.md",
-      "runbook": ".planning/pilot-drafts/LOCAL-MINI-PILOT.md",
-      "controller_tests": ".planning/pilot-drafts/test_node_pilot_integration.py",
-      "review": ".planning/WORKER-REVIEW-2026-09-30.md",
-      "rail_receipt": ".planning/PILOT-RAIL-RECEIPT.json"
-    },
-    "checkpoint_branch": "codex/local-mini-pilot"
+  "drafts": {
+    "contract": ".planning/PILOT-CONTRACT.md",
+    "runbook": ".planning/pilot-drafts/LOCAL-MINI-PILOT.md",
+    "controller_tests": ".planning/pilot-drafts/test_node_pilot_integration.py",
+    "review": ".planning/WORKER-REVIEW-2026-09-30.md",
+    "rail_receipt": ".planning/PILOT-RAIL-RECEIPT.json"
   },
-  "checkpoint_branch": "codex/local-mini-pilot",
-  "canonical_packet": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/README.md",
-  "verification": {
-    "site_source_commit": "3491312",
-    "latest_profile_receipts_commit": "917c00c",
-    "tests": "224 passed in 44 files after the two additional language corrections",
-    "build": "typecheck, Vite, prerender, schema and retrievability passed",
-    "acceptance": "53/53; all criteria pass for the defined profile-foundation and concrete-plan scope",
-    "runtime_context_digest": "1c2a420e860d8d9c599837566be15c1529fbc8769e0b21eb6360b1d924156e68",
-    "latest_site_source_commit": "7fde439",
-    "about": "Full About saved; fresh public reload exact body match, headings/links, original image/native subscription control; screenshot and rollback body captured",
-    "latest_site_head": "917c00c",
-    "labs_pointer_commit": "47470005",
-    "blog_pointer_commit": "cea1331",
-    "voice_review": "Ten field scopes checked; no restricted terms in refreshed fields/About; current live About exact match; bounded manual tone review recorded",
-    "cross_system_voice_references": "Explicit read-before-drafting instructions and real canonical voice file verified; instruction alignment, not automatic tone validation",
-    "reddit": "Owner menu u/Mrhigh3r, saved/reopened About, independent public reload of name, 200-character About and website href, screenshot",
-    "brand_inventory": "Direct founder confirmation: no additional dedicated handles; known Thoughtseed LinkedIn page retained",
-    "substack_x": "Independent public reload shows one https://x.com/witnessalchemst and preserved website, Instagram and LinkedIn destinations; screenshot and receipt captured",
-    "instagram": "Founder-added website; independent public profile link readback and decoded HTTP destination navigation to https://www.10869.space/; screenshot recorded"
-  },
-  "goal_audit": {
-    "previous_turn_classification": "no progress",
-    "current_turn_classification": "complete",
-    "current_authoritative_changes": [
-      "Independently verified founder-added Instagram website and secure landing page",
-      "Completed all 53/53 agreed criteria",
-      "Reconciled canonical/context/runtime and both system planning pointers"
-    ],
-    "completion_proven": true,
-    "native_goal_status_at_start": "blocked",
-    "human_input_resumed_authorized_work": true,
-    "fresh_resumed_audit_turns_with_same_account_input_gap": 0,
-    "active_job_wait_claimed": false
-  },
-  "account_access_check": {
-    "observed_at": "2026-10-01T15:51:01.899151+00:00",
-    "instagram": {
-      "identity": "witnessalchemist",
-      "bio": "Fresh public profile matches applied bio",
-      "website": "Public link 10869.space; decoded http://10869.space/ reaches https://www.10869.space/",
-      "required_action": "Complete; no further mobile edit required",
-      "receipt": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/receipts/instagram-personal-2026-10-01.json"
-    },
-    "reddit": {
-      "state": "Authenticated owner Mrhigh3r verified and profile fields applied",
-      "exact_profile": "https://www.reddit.com/user/Mrhigh3r/",
-      "required_action": "Complete; do not repeat edit",
-      "credential_values_recorded": false
-    },
-    "substack_x": {
-      "public_menu": "Fresh independent public reload: four links; single X witnessalchemst with exact https://x.com/witnessalchemst href",
-      "owner_editor": "Disconnected stale connected mrhigh3r and saved manual current handle; removed separate legacy @mrhigh3r field",
-      "connection_changed": true,
-      "required_action": "Complete; do not repeat edit",
-      "receipt": "/Volumes/madara/2026/Projects/tryambakam-noesis/10869-space-v1/docs/profiles/receipts/substack-x-2026-10-01.json"
-    },
-    "dedicated_brands": {
-      "identities": "Founder confirms no additional dedicated social handles exist; websites only, with known completed Thoughtseed LinkedIn page retained",
-      "required_action": "Complete inventory; no account creation"
-    },
-    "website_or_profile_mutation_this_check": false,
-    "pending_tabs_preserved": [],
-    "completed_deliverable_tabs": [
-      "Instagram tab 1",
-      "Substack tab 3",
-      "Reddit tab 4"
-    ]
-  },
-  "future_slice": "Implement and visually review the accepted six-act personal-site upgrade, then handle site release as its own work slice. The defined profile foundation is complete; no redesigned-screen or deployment acceptance is claimed."
+  "checkpoint_branch": "codex/local-mini-pilot"
 }
