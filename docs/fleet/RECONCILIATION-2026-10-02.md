@@ -190,3 +190,14 @@ Candidates named by the plan: `chore/consolidate-modular`, `chore/demo-ingest-fi
 - `config/snowgloves.yaml` `platform.version` 0.1.0 became 0.2.1 to match `VERSION`. No script reads `platform.version` (`scripts/hermes.py`, `scripts/embed_worker.py`, `scripts/paperclip_bridge.py` load the file but use other keys; `scripts/release.py` does not track it).
 - `.planning/PROJECT.md` current-milestone line updated; `.planning/NEXT-WAVE.json` gained a `superseded_by` note pointing at `.planning/HANDOFF.json` and `specs/007-fleet-wings/` with the schema and history left in place.
 - `.gitignore` gained `tenants/*/runtime/` for per-machine renders.
+
+## Archive receipt (2026-10-02 14:40 UTC)
+
+Founder approved the move ("archive the modular folder, go ahead"). Executed on the authoring seat:
+
+    mv /Volumes/madara/2026/Projects/thoughtseed/snow-gloves-os-modular \
+       /Volumes/madara/2026/Projects/thoughtseed/_archive/snow-gloves-os-modular-2026-10-02
+
+Pre-move check: HEAD still `ed59ab3 chore(de-scope): remove founders-kit submodule from tenant ingest`; working tree unchanged apart from the two approval lines already in canonical; no open
+files under the path. Post-move: source path absent; archive present with `.git` intact; size 149M. Deletion of the archive
+remains a separate founder decision; nothing in canonical refers to the old path.

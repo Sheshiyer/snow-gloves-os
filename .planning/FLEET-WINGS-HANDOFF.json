@@ -29,13 +29,14 @@
     "Seat DB mirrored (route A, 29 provider connections, 21 combos, 6 keys); route test from the seat: /v1/models 5380, noesis-fast -> GATEWAY-OK, /v1/messages via noesis-orchestrator -> MESSAGES-OK",
     "Claude Code 2.1.287, Codex 0.160.0, Tailscale 1.102.5 binary, Python 3.14 + PyYAML + pytest installed on the Coding Mac",
     "2026-10-02 13:35 UTC: both machines on tailnet tail32e298.ts.net; gateway bound to coding-mac (100.117.187.123) only; seat reaches it by name; overlay completion OVERLAY-OK",
-    "2026-10-02 14:10 UTC: cutover; seat clients -> coding-mac; seat LaunchAgent is a loopback forwarder (same label, self-heal safe); no omniroute serve on the seat"
+    "2026-10-02 14:10 UTC: cutover; seat clients -> coding-mac; seat LaunchAgent is a loopback forwarder (same label, self-heal safe); no omniroute serve on the seat",
+    "2026-10-02 14:40 UTC: snow-gloves-os-modular archived to _archive/snow-gloves-os-modular-2026-10-02 (git intact)"
   ],
   "remaining": [
     "Mint scoped API keys per machine/person; replace the mirrored seat key in the Coding Mac keychain",
     "Grok CLI and Cursor on the Coding Mac; Hermes on the coding wing; Marketing and Design minis",
     "Amend ACP rule #4 host-side; rotate dashboard password; fix omniroute CLI/MCP key scope (sync bundle returned 401)",
-    "Archive snow-gloves-os-modular (founder confirms); confirm parents for izzimo, iverif, savewatt, wave-concept"
+    "Founder: optionally delete _archive/snow-gloves-os-modular-2026-10-02 later (archive, not delete, was done)"
   ],
   "blockers": [],
   "decisions": [
