@@ -2,7 +2,7 @@
   "schema": "snowgloves.execution-handoff.v1",
   "track": "fleet-wings",
   "updated": "2026-10-02",
-  "status": "implemented-on-authoring-seat",
+  "status": "first-mini-gateway-live-on-lan",
   "spec": "specs/007-fleet-wings/spec.md",
   "entry": "docs/fleet/README.md",
   "relates_to": {
@@ -23,17 +23,20 @@
     "scripts/approvals.py --actor recorded as decided_by (default SNOWGLOVES_ACTOR); tests/test_approvals_actor.py",
     "Makefile: fleet-doctor, fleet-render, fleet-enable, fleet-connect, fleet-kit-export, fleet-remote-access",
     "docs/fleet/ (README, DECISIONS, runbooks), specs/007-fleet-wings/{spec,plan,tasks}.md, roadmap R14, STATE.md section, README fleet pointers",
-    "Test suite green on the authoring seat: 138 baseline plus the new fleet doctor and approvals actor tests"
+    "Test suite green on the authoring seat: 138 baseline plus the new fleet doctor and approvals actor tests",
+    "2026-10-02 13:00 UTC: Coding Mac (AXIO's Mac mini, M4 16GB, macOS 27.0.1) reached over SSH with the fleet key; repo mirrored by rsync at 7bcbbb9",
+    "Kit import --apply --bind-ip 192.168.0.35: omniroute@3.8.50 installed, LaunchAgent running, /healthz 200 on the LAN address",
+    "Seat DB mirrored (route A, 29 provider connections, 21 combos, 6 keys); route test from the seat: /v1/models 5380, noesis-fast -> GATEWAY-OK, /v1/messages via noesis-orchestrator -> MESSAGES-OK",
+    "Claude Code 2.1.287, Codex 0.160.0, Tailscale 1.102.5 binary, Python 3.14 + PyYAML + pytest installed on the Coding Mac"
   ],
   "remaining": [
-    "Founder: archive the modular clone",
-    "Founder: confirm the four brands' parent companies before enabling them on wings",
-    "Founder: install Tailscale on the authoring seat and the three Paris minis; join as marketing-mac, design-mac, coding-mac",
-    "Founder: amend Temperance ACP rule #4 to record shared subscription seats (provider terms confirmed later)",
-    "Founder: rotate the OmniRoute dashboard password",
-    "Founder: fix the omniroute MCP key scope so the configured token is accepted by the MCP endpoint",
-    "Founder: run the gateway kit import on the Paris Coding Mac and complete the provider OAuth sign-ins there",
-    "Physical acceptance: make fleet-doctor green on each wing, on-machine render per wing x brand x runtime, reboot continuity; separate from the one-mini pilot acceptance"
+    "Founder: tailscale up on the Coding Mac and the seat; then re-import with the Tailscale IP (or edit OMNIROUTE_SERVER_HOST) and switch gateway.url clients",
+    "Founder: sudo pmset -a sleep 0 displaysleep 10 autorestart 1 womp 1 on the Coding Mac; optional ComputerName rename",
+    "Decide cutover: Coding Mac as the only live gateway (point the seat's clients at it) to avoid duplicated OAuth refresh on two instances",
+    "Mint scoped API keys per machine/person; replace the mirrored seat key in the Coding Mac keychain",
+    "Grok CLI and Cursor on the Coding Mac; Hermes on the coding wing; Marketing and Design minis",
+    "Amend ACP rule #4 host-side; rotate dashboard password; fix omniroute CLI/MCP key scope (sync bundle returned 401)",
+    "Archive snow-gloves-os-modular (founder confirms); confirm parents for izzimo, iverif, savewatt, wave-concept"
   ],
   "blockers": [],
   "decisions": [
@@ -59,7 +62,7 @@
     ".planning/FLEET-WINGS-HANDOFF.json",
     "README.md"
   ],
-  "next_action": "Founder: install Tailscale here and on the three minis, run make fleet-kit-export on this seat, import the kit on the Paris Coding Mac, sign in to providers there, then run make fleet-doctor on each wing. Agents: leave .planning/HANDOFF.json's pilot status alone; the pilot apply consumes nodes/<wing>/node.yaml when it lands. Nothing is committed or pushed.",
+  "next_action": "Founder runs tailscale up on both Macs and confirms the cutover plan; then re-bind the gateway to the Tailscale IP, mint scoped keys, and bring up the Marketing and Design minis with the same kit.",
   "workers": [],
   "checkpoint_branch": "codex/local-mini-pilot"
 }

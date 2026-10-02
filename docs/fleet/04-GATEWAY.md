@@ -45,6 +45,10 @@ and wing defaults: [PROVIDERS.md](PROVIDERS.md).
   The host-side comment in `fleet.yaml` saying the host uses `127.0.0.1` needs updating by the inventory owner.
 - Proof: `lsof -nP -iTCP:20128 -sTCP:LISTEN` on the host shows `<tailscale-ip>:20128`, not `*:20128`.
 
+Consequence of the single-address bind, verified on the Coding Mac on 2026-10-02: `127.0.0.1:20128` is refused on the
+host itself. Clients running on the Coding Mac use its LAN or Tailscale address, not loopback, and the Temperance
+fleet sync script (which only addresses loopback) must be pointed at that address or run with a loopback alias.
+
 ## Keys
 
 - The admin key (the `Temperance Engine` row in `api_keys`, loaded by `~/.omniroute/export-api-key.sh`)

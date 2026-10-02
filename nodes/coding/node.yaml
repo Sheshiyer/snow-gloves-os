@@ -9,7 +9,7 @@ always_on: true
 services:
   - {id: omniroute, port: 20128}
   - {id: hermes, port: 4100}
-operator_user: mac-coding
+operator_user: axio
 primary: claude
 runtimes: [claude, codex, grok, opencode, cursor]
 modules:
@@ -35,4 +35,4 @@ gateway:
 remote_access:
   remote_management: on
   ssh: on
-  allowed_users: [mac-coding]
+  allowed_users: [axio]

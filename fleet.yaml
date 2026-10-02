@@ -34,7 +34,7 @@ wings:
     overlay: coding-mac
     location: paris-office
     always_on: true
-    operator_user: mac-coding          # user already created on the Coding Mac; fleet.yaml is the source of truth for user names
+    operator_user: axio                # macOS short name (home /Users/axio, admin); `mac-coding` is the LocalHostName and also works as an SSH login alias
     services:
       - {id: omniroute, port: 20128}
       - {id: hermes, port: 4100}

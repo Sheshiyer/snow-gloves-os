@@ -18,7 +18,7 @@ CONNECT = ROOT / "scripts" / "fleet" / "connect.sh"
 WINGS = [
     ("marketing", "marketing-mac", "sg-marketing"),
     ("design", "design-mac", "sg-design"),
-    ("coding", "coding-mac", "mac-coding"),
+    ("coding", "coding-mac", "axio"),
 ]
 
 
@@ -96,14 +96,14 @@ def test_remote_access_missing_fleet(tmp_path):
 def test_connect_print_screen(tmp_path):
     res = _run([CONNECT, "coding", "--print", "--fleet", FLEET], cwd=tmp_path)
     assert res.returncode == 0, res.stderr
-    assert "vnc://mac-coding@coding-mac" in res.stdout
+    assert "vnc://axio@coding-mac" in res.stdout
     assert res.stdout.strip().startswith("open ")
 
 
 def test_connect_print_ssh(tmp_path):
     res = _run([CONNECT, "coding", "ssh", "--print", "--fleet", FLEET], cwd=tmp_path)
     assert res.returncode == 0, res.stderr
-    assert res.stdout.strip() == "ssh mac-coding@coding-mac"
+    assert res.stdout.strip() == "ssh axio@coding-mac"
 
 
 @pytest.mark.parametrize("wing,hostname,operator", WINGS)
@@ -127,4 +127,4 @@ def test_connect_no_args(tmp_path):
 def test_connect_lan_uses_lan_host(tmp_path):
     res = _run([CONNECT, "coding", "ssh", "--print", "--lan", "--fleet", FLEET], cwd=tmp_path)
     assert res.returncode == 0, res.stderr
-    assert res.stdout.strip() == "ssh mac-coding@mac-coding.local"
+    assert res.stdout.strip() == "ssh axio@mac-coding.local"

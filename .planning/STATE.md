@@ -1,3 +1,9 @@
+## 2026-10-02 13:10 UTC — Coding Mac gateway live on the LAN
+
+- First physical mini accepted for the gateway role: see `docs/fleet/ACCEPTANCE-2026-10-02-coding-mac.md`.
+- OmniRoute 3.8.50 runs on AXIO's Mac mini bound to 192.168.0.35:20128; route test from the seat passed on both API styles.
+- Remaining founder steps: `tailscale up`, power policy (sudo), cutover decision, scoped keys.
+
 # 2026-10-02: Fleet wings implemented on the authoring seat
 
 - The fleet is three Paris Mac minis by function: marketing, design, coding (`fleet.yaml`, schema `snowgloves.fleet.v1`). The Coding Mac hosts OmniRoute :20128 and Hermes :4100 for the whole fleet over Tailscale. The founder's current mini is the authoring seat, not a wing.
