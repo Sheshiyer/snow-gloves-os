@@ -261,14 +261,31 @@ def plan_claude(path: Path, root_url: str) -> Plan:
     return Plan("claude", path, old, dump_json(data), notes)
 
 
+
+def rewrite_managed_urls(text: str, new_url: str) -> tuple[str, bool]:
+    """Inside our own managed block only, point every base_url at new_url. User-authored tables are never touched."""
+    if BLOCK_BEGIN not in text or BLOCK_END not in text:
+        return text, False
+    head, rest = text.split(BLOCK_BEGIN, 1)
+    block, tail = rest.split(BLOCK_END, 1)
+    new_block = re.sub(r'(?m)^(\s*base_url\s*=\s*")[^"]*(")', lambda m: m.group(1) + new_url + m.group(2), block)
+    if new_block == block:
+        return text, False
+    return head + BLOCK_BEGIN + new_block + BLOCK_END + tail, True
+
 def plan_codex(path: Path, v1_url: str, env_var: str) -> Plan:
     old = read_text(path)
     text = old or ""
     notes = []
     if toml_table_present(text, "model_providers.omniroute"):
         current = toml_table_value(text, "model_providers.omniroute", "base_url")
-        notes.append("present" if current == v1_url else f"present (base_url is {current}; not rewritten, edit by hand)")
-        new = text
+        if current == v1_url:
+            notes.append("present")
+            new = text
+        else:
+            new, moved = rewrite_managed_urls(text, v1_url)
+            notes.append(f"updated base_url {current} -> {v1_url} (managed block)" if moved
+                         else f"present (base_url is {current}; table is not in the managed block, not rewritten, edit by hand)")
     else:
         block = (
             f"\n{BLOCK_BEGIN}\n"
@@ -293,8 +310,13 @@ def plan_grok(path: Path, v1_url: str, env_var: str) -> Plan:
     notes = []
     if toml_table_present(text, GROK_MARKER_TABLE):
         current = toml_table_value(text, GROK_MARKER_TABLE, "base_url")
-        notes.append("present" if current == v1_url else f"present (base_url is {current}; not rewritten, edit by hand)")
-        return Plan("grok", path, old, text, notes)
+        if current == v1_url:
+            notes.append("present")
+            return Plan("grok", path, old, text, notes)
+        new, moved = rewrite_managed_urls(text, v1_url)
+        notes.append(f"updated base_url {current} -> {v1_url} (managed block)" if moved
+                     else f"present (base_url is {current}; table is not in the managed block, not rewritten, edit by hand)")
+        return Plan("grok", path, old, new, notes)
     tables = []
     for combo in GROK_COMBOS:
         tables.append(
