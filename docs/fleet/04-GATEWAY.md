@@ -110,24 +110,37 @@ On the authoring mini keep Codex native: pass `--surfaces claude,grok,opencode`.
 
 ## Paris handoff
 
-1. Authoring seat: `bash scripts/fleet/gateway_kit.sh export` (add `--tailscale-ip <ip>` if the Coding
-   Mac's address is already known). Note the tarball sha256 it prints. The kit holds `fleet.yaml`, `nodes/`,
-   a `host/` folder (lane template, phase combo core, the LaunchAgent plist with every KEY, TOKEN, SECRET,
-   PASSWORD value replaced by `REDACTED` and the bind host replaced by `${TAILSCALE_IP}`, `providers.txt`),
-   `client-templates/` and `README-IMPORT.md`. A leak guard aborts the export if anything secret-shaped is staged.
-2. Move it over the tailnet: Taildrop (Finder share sheet to the Coding Mac) or
-   `scp dist/fleet/gateway-kit-*.tar.gz sg-coding@coding-mac:~/`.
-3. Coding Mac, via Screen Sharing as `sg-coding`, with `~/.temperance_engine` already installed (the kit
-   does not carry the host runtime): `bash scripts/fleet/gateway_kit.sh verify <tar>`, then
-   `bash scripts/fleet/gateway_kit.sh import <tar>` (dry-run, read it), then the same with `--apply`.
-   Import renders the plist with the live `tailscale ip -4`, backs up any existing plist, bootstraps the
-   LaunchAgent, seeds the lane template only if the host has none, runs the fleet sync dry-run and asks
-   before `--apply`. It refuses while any `REDACTED` value remains and never writes a secret.
-4. Interactive sign-in checklist, on the Coding Mac, because OAuth tokens never travel in the kit:
-   Claude Code `claude` then `/login`; `codex login`; `grok` and complete its sign-in prompt; Cursor.app
-   sign-in; then in the OmniRoute dashboard re-authorize `codex`, `claude`, `cursor`, `antigravity`,
-   rotate the dashboard password (`omniroute reset-password`) and mint the scoped keys.
-5. Point each client with `gateway_client.py set-url ... --apply` and confirm with `status`.
+What the Coding Mac needs before anything else: macOS signed in, Remote Login (SSH) and Remote Management on,
+Homebrew and node installed. OmniRoute itself is an npm global package (`npm install -g omniroute@<version>`);
+the authoring seat runs 3.8.50 from Homebrew's node and the kit records that version.
+
+1. Authoring seat: `bash scripts/fleet/gateway_kit.sh export` (add `--bind-ip <ip>` when the Coding Mac's
+   Tailscale or LAN address is known). The kit holds `fleet.yaml`, `nodes/`, a `host/` folder (lane template,
+   phase combo core, the LaunchAgent plist with secret-shaped values replaced by `REDACTED` and the bind host
+   replaced by `${TAILSCALE_IP}`, `providers.txt`, `omniroute-version.txt`), `client-templates/` and
+   `README-IMPORT.md`. A leak guard aborts the export if anything secret-shaped is staged.
+2. Move it: `scp dist/fleet/gateway-kit-*.tar.gz coding-mac:~/` (the `coding-mac` SSH alias points at
+   `axios-mac-mini.local` today and at the Tailscale name later) or Taildrop once the tailnet is up.
+3. Coding Mac, over SSH or Screen Sharing as `mac-coding`: `verify <tar>`, then `import <tar>` (dry-run, read
+   it), then `import <tar> --apply --bind-ip <ip>`. Use the LAN address from `ipconfig getifaddr en0` until
+   Tailscale is installed, then re-run with the Tailscale IP. Import installs or aligns OmniRoute, writes a fresh
+   storage key, renders and bootstraps the LaunchAgent, seeds the lane template where absent, and prints the
+   configuration-transfer options. It never writes a secret.
+4. Configuration transfer, by you, over SSH, because providers, combos and keys are secret-bearing and never
+   live in the kit:
+   - Route A, mirror the seat: copy `~/.omniroute/storage.sqlite` (with `-wal` and `-shm`) and `~/.omniroute/.env`
+     from the seat to the Coding Mac, then `launchctl kickstart -k gui/$(id -u)/com.temperance.engine.omniroute`.
+     Exact copy of providers, combos, keys and OAuth seats. This is the founder's chosen posture (seats shared).
+   - Route B, bundle: on the seat `omniroute sync bundle gw.json --include settings,combos,policies,providers,keys`,
+     `scp` it, `omniroute sync import --dry-run gw.json`, then import, then `rm -P gw.json`. On 2026-10-02 the
+     seat's CLI key answered 401 to `sync bundle`; fix the key scope first (same runbook as the MCP 403).
+   The Temperance fleet sync script only addresses `127.0.0.1:20128`, so it runs on the gateway host, not remotely.
+5. Sign-in checklist on the Coding Mac for anything route A did not carry or that a provider re-challenges:
+   Claude Code `claude` then `/login`; `codex login`; `grok`; Cursor.app; then in the OmniRoute dashboard check
+   `codex`, `claude`, `cursor`, `antigravity`, rotate the dashboard password (`omniroute reset-password`) and mint
+   the scoped keys (one per wing, one per person).
+6. Point each client with `gateway_client.py set-url --host axios-mac-mini.local` now (`--host coding-mac` once
+   Tailscale resolves it) and confirm with `status`; `fleet.yaml` carries both as `gateway.url` and `gateway.lan_url`.
 
 ## Health checks
 

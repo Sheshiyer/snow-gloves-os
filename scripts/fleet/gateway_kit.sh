@@ -188,14 +188,18 @@ Verify, then import (dry-run first, then apply):
     bash scripts/fleet/gateway_kit.sh import $name.tar.gz --apply
 
 Import runs these host steps (apply) or prints them (dry-run):
-  1. ~/.temperance_engine/bin/te-install.sh if present, else prints the install pointer.
-  2. temperance-install-launchers --apply if present.
-  3. Renders host/$PLIST_LABEL.plist with \${TAILSCALE_IP} from \`tailscale ip -4\` and \${HOME},
+  1. OmniRoute: Homebrew + node present, then \`npm install -g omniroute@<seat version>\` (host/omniroute-version.txt).
+  2. ~/.omniroute/.env: a fresh STORAGE_ENCRYPTION_KEY unless you mirror the seat's database (route A below).
+  3. Renders host/$PLIST_LABEL.plist with the bind address (--bind-ip <ip>, else \`tailscale ip -4\`) and \${HOME},
      backs up any existing LaunchAgent plist, writes the new one. Refuses while any REDACTED value remains.
   4. launchctl bootout (ignored if absent) then bootstrap gui/\$(id -u) and kickstart -k.
   5. Copies lane-templates-from-live.json and phase-combo-core.v4.json only where the host has none.
-  6. sync-provider-fleet.py dry-run, then prompts before --apply. Never hand-edit combos.
-  7. curl http://<tailscale-ip>:20128/healthz, then the sign-in checklist below.
+  6. Configuration transfer, done by you over SSH because it carries secrets:
+       A) mirror the seat:  scp seat:~/.omniroute/storage.sqlite* ~/.omniroute/  and  scp seat:~/.omniroute/.env ~/.omniroute/.env
+          (stop the seat's agent first or accept a point-in-time copy), then launchctl kickstart -k gui/\$(id -u)/$PLIST_LABEL
+       B) bundle: on the seat  omniroute sync bundle gw.json --include settings,combos,policies,providers,keys
+          scp gw.json here;  omniroute sync import --dry-run gw.json;  omniroute sync import gw.json;  rm -P gw.json
+  7. curl http://<bind-ip>:20128/healthz (expect 200), then the sign-in checklist below.
 
 EOF
     signin_checklist
@@ -207,7 +211,7 @@ cmd_export() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --out) out="${2:?--out needs a dir}"; shift 2 ;;
-      --tailscale-ip) ts_ip="${2:?--tailscale-ip needs a value}"; shift 2 ;;
+      --tailscale-ip|--bind-ip) ts_ip="${2:?--tailscale-ip/--bind-ip needs a value}"; shift 2 ;;
       --repo) repo="${2:?--repo needs a dir}"; shift 2 ;;
       -h|--help) usage; return 0 ;;
       *) die "export: unknown option $1" 2 ;;
@@ -240,6 +244,9 @@ cmd_export() {
   [[ -f "$LANE_TEMPLATE" ]] && cp "$LANE_TEMPLATE" "$stage/host/lane-templates-from-live.json"
   [[ -f "$PHASE_CORE" ]] && cp "$PHASE_CORE" "$stage/host/phase-combo-core.v4.json"
   write_providers_txt "$LANE_TEMPLATE" "$stage/host/providers.txt"
+  if command -v omniroute >/dev/null 2>&1; then
+    omniroute --version 2>/dev/null | tail -1 | tr -d '[:space:]' >"$stage/host/omniroute-version.txt" || true
+  fi
 
   local gateway_url; gateway_url="$(gateway_url_from_fleet "$repo/fleet.yaml")"
   write_client_templates "$stage/client-templates" "$gateway_url"
@@ -330,11 +337,12 @@ run_or_print() {
 cmd_import() {
   local tar="${1:-}"; [[ -n "$tar" ]] || { usage; die "import needs <tar>" 2; }
   shift
-  local apply=0
+  local apply=0 bind_ip=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --apply) apply=1; shift ;;
       --dry-run) apply=0; shift ;;
+      --bind-ip) bind_ip="${2:?--bind-ip needs a value}"; shift 2 ;;
       *) die "import: unknown option $1" 2 ;;
     esac
   done
@@ -347,39 +355,51 @@ cmd_import() {
   log "extracted: $kit"
   log "mode: $([[ $apply == 1 ]] && echo APPLY || echo 'dry-run (pass --apply to run the steps)')"
 
-  # 1. host runtime
-  if [[ -x "$TE_ROOT/bin/te-install.sh" ]]; then
-    run_or_print "$apply" "Temperance host install/refresh" bash "$TE_ROOT/bin/te-install.sh"
+  # 1. OmniRoute itself: an npm global package (the authoring seat runs it from Homebrew's node), pinned to the seat's version
+  local want_ver="" have_ver=""
+  [[ -f "$kit/host/omniroute-version.txt" ]] && want_ver="$(tr -d '[:space:]' <"$kit/host/omniroute-version.txt")"
+  command -v omniroute >/dev/null 2>&1 && have_ver="$(omniroute --version 2>/dev/null | tail -1 | tr -d '[:space:]')"
+  command -v brew >/dev/null 2>&1 || log "plan: Homebrew is missing; install it first (https://brew.sh), then re-run this import."
+  command -v node >/dev/null 2>&1 || run_or_print "$apply" "install node (Homebrew)" brew install node || true
+  if [[ -z "$have_ver" ]]; then
+    run_or_print "$apply" "install omniroute${want_ver:+@$want_ver}" npm install -g "omniroute${want_ver:+@$want_ver}" || true
+  elif [[ -n "$want_ver" && "$have_ver" != "$want_ver" ]]; then
+    log "plan: omniroute $have_ver is installed, the authoring seat runs $want_ver; align with: npm install -g omniroute@$want_ver"
   else
-    log "plan: Temperance host runtime missing at $TE_ROOT. Install it first (clone the temperance_engine"
-    log "      repo to ~/.temperance_engine and run its install.sh), then re-run this import."
+    log "ok  : omniroute ${have_ver} present"
   fi
-  # 2. launchers
-  local launchers=""
-  if command -v temperance-install-launchers >/dev/null 2>&1; then launchers="$(command -v temperance-install-launchers)"
-  elif [[ -x "$TE_ROOT/bin/temperance-install-launchers" ]]; then launchers="$TE_ROOT/bin/temperance-install-launchers"; fi
-  if [[ -n "$launchers" ]]; then
-    run_or_print "$apply" "install local launchers" "$launchers" --apply || log "      (launchers reported a problem; continue manually)"
+  # 2. ~/.omniroute/.env storage key. Fresh gateway = fresh key. Mirroring the seat's storage.sqlite instead
+  #    (README-IMPORT route A) needs the SEAT's key, copied by hand over SSH; this script never carries it.
+  local envf="$HOME/.omniroute/.env"
+  if [[ -f "$envf" ]] && grep -q '^STORAGE_ENCRYPTION_KEY=' "$envf"; then
+    log "ok  : $envf has STORAGE_ENCRYPTION_KEY"
   else
-    log "plan: temperance-install-launchers not found; skipped"
+    log "plan: write $envf with a fresh STORAGE_ENCRYPTION_KEY (openssl rand -hex 32); skip when mirroring the seat's database"
+    if [[ $apply == 1 ]]; then
+      mkdir -p "$HOME/.omniroute"
+      ( umask 077; printf 'STORAGE_ENCRYPTION_KEY=%s\n' "$(openssl rand -hex 32)" >>"$envf" )
+      log "run : wrote $envf (value not shown)"
+    fi
   fi
   # 3. plist
   local plist_src="$kit/host/$PLIST_LABEL.plist" plist_dst="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
   local rendered="$kit/rendered.$PLIST_LABEL.plist"
   if [[ -f "$plist_src" ]]; then
-    local ts_ip=""
-    if command -v tailscale >/dev/null 2>&1; then ts_ip="$(tailscale ip -4 2>/dev/null | head -1 || true)"; fi
+    local ts_ip="$bind_ip"
+    if [[ -z "$ts_ip" ]] && command -v tailscale >/dev/null 2>&1; then ts_ip="$(tailscale ip -4 2>/dev/null | head -1 || true)"; fi
     if [[ -z "$ts_ip" ]]; then
-      log "plan: Tailscale IP unknown (tailscale missing or not signed in); plist keeps \${TAILSCALE_IP} until it is."
-      [[ $apply == 1 ]] && die "import --apply needs Tailscale installed and signed in on this Mac (tailscale ip -4)" 6
+      log "plan: bind address unknown (no --bind-ip, Tailscale missing or not signed in); plist keeps \${TAILSCALE_IP} until it is."
+      log "      LAN-only interim: re-run with --bind-ip \$(ipconfig getifaddr en0). Never 0.0.0.0."
+      [[ $apply == 1 ]] && die "import --apply needs --bind-ip <ip> or Tailscale signed in on this Mac (tailscale ip -4)" 6
     fi
-    sed -e "s#\${TAILSCALE_IP}#${ts_ip:-\${TAILSCALE_IP}}#g" -e "s#\${HOME}#$HOME#g" "$plist_src" >"$rendered"
+    local bind_show="$ts_ip"; [[ -z "$bind_show" ]] && bind_show='${TAILSCALE_IP}'
+    sed -e "s#\${TAILSCALE_IP}#${bind_show}#g" -e "s#\${HOME}#$HOME#g" "$plist_src" >"$rendered"
     if grep -q '<string>REDACTED</string>' "$rendered"; then
       log "plan: rendered plist still carries REDACTED values (keys were secrets on the authoring seat)."
       log "      Fill them on this host from Keychain in $rendered before bootstrap; import will not write secrets."
       [[ $apply == 1 ]] && die "import --apply refused: REDACTED values remain in $rendered" 6
     fi
-    log "plan: write $plist_dst (OMNIROUTE_SERVER_HOST=${ts_ip:-\${TAILSCALE_IP}}; backup kept if one exists)"
+    log "plan: write $plist_dst (OMNIROUTE_SERVER_HOST=$bind_show; backup kept if one exists)"
     if [[ $apply == 1 ]]; then
       mkdir -p "$(dirname "$plist_dst")"
       [[ -f "$plist_dst" ]] && cp -a "$plist_dst" "$plist_dst.bak.before-kit-$(date -u +%Y%m%dT%H%M%SZ)"
@@ -408,25 +428,18 @@ cmd_import() {
       run_or_print "$apply" "seed $base" bash -c "mkdir -p '$(dirname "$dst")' && cp '$src' '$dst'"
     fi
   done
-  # 6. fleet sync: dry-run, then prompt
+  # 6. configuration (providers, combos, keys): two routes, both secret-bearing, so neither travels in this kit
+  log "plan: transfer the gateway configuration (pick one; README-IMPORT.md has the commands):"
+  log "      A) mirror : seat -> this Mac over SSH: ~/.omniroute/storage.sqlite (+ -wal/-shm) and ~/.omniroute/.env, then kickstart the agent"
+  log "      B) bundle : on the seat 'omniroute sync bundle gw.json --include settings,combos,policies,providers,keys'; scp here;"
+  log "                  'omniroute sync import --dry-run gw.json', then without --dry-run; shred gw.json"
   if [[ -f "$SYNC_FLEET" ]]; then
-    run_or_print "$apply" "provider fleet sync (dry-run, writes nothing)" python3 "$SYNC_FLEET" || true
-    if [[ $apply == 1 ]]; then
-      if [[ -t 0 ]]; then
-        read -r -p "Apply the fleet sync shown above? [y/N] " answer
-        if [[ "$answer" == [yY] ]]; then python3 "$SYNC_FLEET" --apply; else log "run : sync --apply skipped"; fi
-      else
-        log "run : no TTY; run by hand when ready: python3 $SYNC_FLEET --apply"
-      fi
-    else
-      log "plan: then, after reading the dry-run: python3 $SYNC_FLEET --apply"
-    fi
-  else
-    log "plan: $SYNC_FLEET not found; skip fleet sync until the temperance-parallel-dispatch skill is installed"
+    log "plan: Temperance fleet sync is present on this Mac; after the transfer run python3 $SYNC_FLEET (dry-run) then --apply. It only addresses 127.0.0.1:$GATEWAY_PORT."
   fi
   # 7. health + sign-in
-  log "plan: curl -s -o /dev/null -w '%{http_code}\\n' http://\${TAILSCALE_IP}:$GATEWAY_PORT/healthz   (expect 200)"
-  log "plan: curl -s -o /dev/null -w '%{http_code}\\n' -H \"Authorization: Bearer \$OMNIROUTE_API_KEY\" http://\${TAILSCALE_IP}:$GATEWAY_PORT/v1/models   (expect 200; 401 without a key is healthy)"
+  local hc_host="${bind_ip:-}"; [[ -z "$hc_host" ]] && command -v tailscale >/dev/null 2>&1 && hc_host="$(tailscale ip -4 2>/dev/null | head -1 || true)"; [[ -z "$hc_host" ]] && hc_host='${TAILSCALE_IP}'
+  log "plan: curl -s -o /dev/null -w '%{http_code}\\n' http://$hc_host:$GATEWAY_PORT/healthz   (expect 200)"
+  log "plan: curl -s -o /dev/null -w '%{http_code}\\n' -H \"Authorization: Bearer \$OMNIROUTE_API_KEY\" http://$hc_host:$GATEWAY_PORT/v1/models   (expect 200; 401 without a key is healthy)"
   echo
   signin_checklist
 }
