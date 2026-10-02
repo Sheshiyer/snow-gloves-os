@@ -224,13 +224,13 @@ def test_bad_key_ref_and_surface_are_rejected(home, capsys):
 
 def test_host_change_rewrites_managed_blocks(home, capsys):
     run(capsys, *set_url(home, "--apply"))
-    args = [a if a != HOST else "coding-mac" for a in set_url(home, "--apply")]
+    args = [a if a != HOST else "100.117.187.123" for a in set_url(home, "--apply")]
     rc, out, _ = run(capsys, *args)
     assert rc == 0
     assert out.count("updated base_url") == 2  # codex + grok managed blocks move together
     files = surface_files(home)
     codex = tomllib.loads(files["codex"].read_text())
-    assert codex["model_providers"]["omniroute"]["base_url"] == "http://coding-mac:20128/v1"
+    assert codex["model_providers"]["omniroute"]["base_url"] == "http://100.117.187.123:20128/v1"
     grok = tomllib.loads(files["grok"].read_text())
-    assert grok["model"]["te-orchestrator"]["base_url"] == "http://coding-mac:20128/v1"
+    assert grok["model"]["te-orchestrator"]["base_url"] == "http://100.117.187.123:20128/v1"
     assert files["codex"].read_text().count("[model_providers.omniroute]") == 1
