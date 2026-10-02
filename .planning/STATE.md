@@ -1,3 +1,7 @@
+## 2026-10-02 14:10 UTC — Cutover complete, single live gateway
+
+- The Coding Mac is the only OmniRoute; the seat's clients target `coding-mac` and its loopback 20128 forwards there under the original LaunchAgent label. Rollback path recorded in docs/fleet/DECISIONS.md.
+
 ## 2026-10-02 13:35 UTC — Gateway live on the tailnet
 
 - `coding-mac` and `authoring-mini` are on tailnet `tail32e298.ts.net`; the gateway serves only on the Coding Mac's tailnet address; verified from the seat by name with a live completion.

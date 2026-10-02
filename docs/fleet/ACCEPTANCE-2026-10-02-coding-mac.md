@@ -44,10 +44,22 @@ Evidence is reported separately for the source tree, the local installation on t
 | Mini's own clients | Claude Code and Codex re-pointed to `http://coding-mac:20128`; `claude -p` → `TAILNET-CLAUDE-OK`; `codex exec` → `TAILNET-CODEX-OK` |
 | Seat on the tailnet | `authoring-mini` 100.77.42.94 joined the same tailnet (13:35 UTC). From the seat: `http://coding-mac:20128/healthz` 200, SSH to `axio@coding-mac` over the overlay, `POST /v1/chat/completions` model `noesis-fast` → `OVERLAY-OK` (served by `gemini-3.7-flash-low`, 2.0 s); LAN address 000; `doctor.py` reports tailscale running and the fleet gateway ok |
 
+## Cutover (same day, 14:10 UTC)
+
+| Item | Evidence |
+|---|---|
+| Seat clients | `gateway_client.py set-url --host coding-mac --apply`: Claude Code, Codex, Grok, OpenCode all report FLEET; the seat's own Codex `[model_providers.omniroute]` table (outside the managed block) edited by hand to `http://coding-mac:20128/v1` |
+| Seat gateway | LaunchAgent `com.temperance.engine.omniroute` now runs a loopback-only socat forwarder to 100.117.187.123:20128; no `omniroute serve` process on the seat; `launchctl enable` was needed before `bootstrap` (first attempt returned error 5) |
+| Loopback path | `127.0.0.1:20128/healthz` 200; `/v1/models` 5380; chat via `noesis-fast` → `CUTOVER-OK`; Temperance manifest bridge healthy |
+| Direct path | `coding-mac:20128` chat → `CUTOVER-OK` (2.4 s); `/v1/messages` 200 for `noesis-fast` and `noesis-orchestrator` |
+| Seat Claude Code | `claude -p` → `SEAT-CLAUDE-OK` and `SEAT-CLAUDE-DEFAULT-OK` with a clean environment. Note: a Claude Code *session* exports `ANTHROPIC_BASE_URL=https://api.anthropic.com`, which overrides settings.json for child processes, so tests must be run outside such a session |
+| Seat Codex | the user's omniroute provider table uses `env_key = "OPENAI_API_KEY"`; see the decision log for the verification line |
+| Backups | `~/.snowgloves-cutover-backup-20261002T140733Z/` holds the previous plist and the four client configs |
+
 ## Not yet done
 
 - Tailscale: done on the Coding Mac and the seat; the two other minis still have to join.
 - Power policy needs sudo on the mini: `sudo pmset -a sleep 0 displaysleep 10 autorestart 1 womp 1`.
-- Both machines now hold the same OAuth seats and both run a gateway. Providers that rotate refresh tokens can invalidate one side. Decide the cutover: make the Coding Mac the only live gateway and point the seat's clients at it, or stop the seat's agent.
+- Cutover done: the Coding Mac is the only live gateway; the seat forwards loopback to it.
 - Scoped keys per machine and per person are not minted yet; the mirrored seat client key is in use on the mini for the test (key file, not Keychain).
 - Hermes on the coding wing, the Coding Mac's own CLI configs, and the two other minis.

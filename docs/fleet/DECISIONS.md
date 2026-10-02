@@ -68,3 +68,20 @@ the host document must be amended by the operator; this log does not edit it.
 | at import | Rotate the OmniRoute dashboard password on the Coding Mac | gateway operator |
 | at import | Amend ACP rule #4 on the host; fix the `omniroute` MCP key scope (`mcp-connect`) | gateway operator |
 | before export | Install Tailscale on the authoring mini | founder |
+
+## 2026-10-02 14:10 UTC — Cutover: the Coding Mac is the only live gateway
+
+Decision (founder: "cut over"). The authoring seat stops running its own OmniRoute. Its clients (Claude Code, Codex, Grok,
+OpenCode) point at `http://coding-mac:20128`. Because Temperance on the seat hardwires `127.0.0.1:20128` in about 70
+scripts and `te-self-heal.sh` kickstarts the LaunchAgent labelled `com.temperance.engine.omniroute` whenever that port looks
+unhealthy, the seat's LaunchAgent keeps its label but now runs a loopback-only forwarder
+(`socat TCP4-LISTEN:20128,bind=127.0.0.1,fork,reuseaddr TCP4:100.117.187.123:20128`). Every loopback consumer (Temperance
+organs, the 20129 auto-proxy, the OmniRoute CLI and MCP on the seat) transparently reaches the Coding Mac; the seat's own
+`omniroute serve` process is gone, so OAuth seats refresh in one place only.
+
+Consequences: if the Coding Mac or the tailnet is down, the seat has no gateway (accepted; single-gateway posture). The seat's
+`~/.omniroute/storage.sqlite` is kept untouched as a cold copy.
+
+Rollback (one minute): restore `~/Library/LaunchAgents/com.temperance.engine.omniroute.plist` and the four client configs from
+`~/.snowgloves-cutover-backup-20261002T140733Z/`, then `launchctl bootout gui/$(id -u)/com.temperance.engine.omniroute` and
+`launchctl bootstrap gui/$(id -u) <plist>`.
