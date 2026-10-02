@@ -99,3 +99,10 @@ authorities"); a temporary local gateway is a stopgap, not a second seat.
 - Provider budgets and failover combos: host OmniRoute and `~/.temperance_engine` ([PROVIDERS.md](PROVIDERS.md)).
 - Brand approvals and campaign sends: the tenant's approvals queue (`make approvals T=<brand>`).
 - The physical minis before they exist: [RECONCILIATION-2026-10-02.md](RECONCILIATION-2026-10-02.md).
+
+## Changing the gateway bind address
+
+Edit `OMNIROUTE_SERVER_HOST` in `~/Library/LaunchAgents/com.temperance.engine.omniroute.plist` (or re-run
+`gateway_kit.sh import <tar> --apply --bind-ip <ip>`), then `launchctl bootout gui/$(id -u)/com.temperance.engine.omniroute`
+and `launchctl bootstrap gui/$(id -u) <plist>`. A bare `launchctl kickstart -k` restarts the process with the old
+environment and the bind does not move. Verified on the Coding Mac on 2026-10-02.

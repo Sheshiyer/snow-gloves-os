@@ -4,6 +4,7 @@ schema: snowgloves.fleet.v1
 company: "Thoughtseed Private Limited"
 portfolio_root: axtech
 overlay: tailscale
+tailnet: tail32e298.ts.net           # MagicDNS suffix; short names (coding-mac) resolve for every member
 admin_user: sg-admin                 # local admin on every mini; day-to-day work uses the wing operator user
 gateway:
   wing: coding                       # the Coding Mac hosts OmniRoute for the whole fleet

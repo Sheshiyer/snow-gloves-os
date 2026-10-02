@@ -34,9 +34,19 @@ Evidence is reported separately for the source tree, the local installation on t
 | Runtimes on the mini | Claude Code 2.1.287 and Codex 0.160.0 installed (npm globals); both pointed at `http://192.168.0.35:20128` by `gateway_client.py`; `claude -p` via `noesis-fast` → `NODE-CLAUDE-OK`; `codex exec -m noesis-fast` → `NODE-CODEX-OK`. Key lives in `~/.config/snowgloves/gateway.key` (600) and `~/.zshenv` exports it; the login keychain cannot be written over SSH (no GUI session) |
 | Fleet doctor on the mini | critical checks pass; warnings: ComputerName not renamed, Tailscale not installed, Hermes not running, the mini's own runtime configs not yet pointed at the gateway |
 
+## Tailnet milestone (same day, 13:20 UTC)
+
+| Item | Evidence |
+|---|---|
+| Tailscale on the mini | `tailscaled` installed as a system daemon (Homebrew formula 1.102.5), `tailscale up --hostname coding-mac`; device `coding-mac.tail32e298.ts.net`, 100.117.187.123, tailnet `heyzackai@gmail.com` |
+| Power policy | `pmset -a sleep 0 displaysleep 10 autorestart 1 womp 1` applied (`autorestart 1; sleep 0; displaysleep 10; womp 1`) |
+| Gateway rebind | plist `OMNIROUTE_SERVER_HOST` 192.168.0.35 → 100.117.187.123, LaunchAgent bootout + bootstrap (a bare `kickstart -k` keeps the old environment); `node 100.117.187.123:20128` listening; `/healthz` 200 via the IP and via `http://coding-mac:20128`; LAN address now 000 |
+| Mini's own clients | Claude Code and Codex re-pointed to `http://coding-mac:20128`; `claude -p` → `TAILNET-CLAUDE-OK`; `codex exec` → `TAILNET-CODEX-OK` |
+| Seat | Tailscale binary installed; daemon install + `tailscale up --hostname authoring-mini` pending the founder's sudo password and browser approval |
+
 ## Not yet done
 
-- Tailscale: binary installed on the Coding Mac this session; `tailscale up` is interactive and the founder's step. Until then the gateway is LAN-only (`gateway.lan_url`).
+- Tailscale: done on the Coding Mac (above); the seat and the two other minis still have to join.
 - Power policy needs sudo on the mini: `sudo pmset -a sleep 0 displaysleep 10 autorestart 1 womp 1`.
 - Both machines now hold the same OAuth seats and both run a gateway. Providers that rotate refresh tokens can invalidate one side. Decide the cutover: make the Coding Mac the only live gateway and point the seat's clients at it, or stop the seat's agent.
 - Scoped keys per machine and per person are not minted yet; the mirrored seat client key is in use on the mini for the test (key file, not Keychain).
