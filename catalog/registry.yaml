@@ -3,15 +3,15 @@
 schema: snowgloves.modules.v1
 version: 0.2.1
 counts:
-  total: 132
+  total: 135
   by_disposition:
-    add: 61
+    add: 64
     hold: 14
     refuse: 12
     pointer: 45
   by_category:
     skills: 79
-    mcp: 3
+    mcp: 6
     connector: 1
     plugin: 13
     playbook: 36
@@ -330,6 +330,30 @@ cards:
   runtimes:
   - any
   summary: Optional Explee orchestrator + spokes. Paid search/enrich/autogtm wait for approval. Not core routing.
+  enableable: true
+- id: figma-mcp
+  name: Figma Context MCP
+  category: mcp
+  kind: mcp-server
+  disposition: add
+  repo: https://github.com/GLips/Figma-Context-MCP
+  source: fleet-wings-2026-10-02
+  risk: medium
+  approval: 'no'
+  agents:
+  - interpreter
+  hooks: []
+  runtimes:
+  - any
+  summary: Read Figma files as structured layout data so the agent can implement a design from the source frame instead of a screenshot.
+  mcp:
+    command: npx
+    args:
+    - -y
+    - figma-developer-mcp
+    - --stdio
+    env:
+      FIGMA_API_KEY: ${FIGMA_API_KEY}
   enableable: true
 - id: fk-additional-learning-resources
   name: 'Founders Kit: Additional Learning Resources'
@@ -954,6 +978,29 @@ cards:
   - any
   summary: The frontend spoke of Addy Osmani's agent-skills. Held with the parent pack until the founder picks spokes.
   enableable: false
+- id: github-mcp
+  name: GitHub MCP Server
+  category: mcp
+  kind: mcp-server
+  disposition: add
+  repo: https://github.com/github/github-mcp-server
+  source: fleet-wings-2026-10-02
+  risk: medium
+  approval: 'no'
+  agents:
+  - cto
+  hooks: []
+  runtimes:
+  - any
+  summary: 'GitHub from the agent: issues, pull requests, code search, Actions. Writes still land as PRs and go through the repo''s own review.'
+  mcp:
+    command: npx
+    args:
+    - -y
+    - '@modelcontextprotocol/server-github'
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN}
+  enableable: true
 - id: godogen
   name: godogen
   category: plugin
@@ -2069,6 +2116,27 @@ cards:
   - any
   summary: Apple HIG and Material/web guideline skills for eight platforms. Held until a tenant ships native apps.
   enableable: false
+- id: playwright-mcp
+  name: Playwright MCP
+  category: mcp
+  kind: mcp-server
+  disposition: add
+  repo: https://github.com/microsoft/playwright-mcp
+  source: fleet-wings-2026-10-02
+  risk: low
+  approval: 'no'
+  agents:
+  - cto
+  hooks: []
+  runtimes:
+  - any
+  summary: 'Browser automation over the accessibility tree: navigate, click, fill, snapshot. Local browser only; no credentials pass through it.'
+  mcp:
+    command: npx
+    args:
+    - -y
+    - '@playwright/mcp@latest'
+  enableable: true
 - id: portless
   name: portless (OAuth local URLs)
   category: connector

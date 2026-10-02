@@ -121,7 +121,11 @@ make onboard-prompt R=claude      # print the plan-mode interview for your runti
 make test                         # pytest
 ```
 
-**New Mac Mini (use the product, do not compile Tauri):** [`docs/MAC-MINI-SETUP.md`](./docs/MAC-MINI-SETUP.md). Emulate the desktop wizard on a **dev** Mac with `make app-install` then `make app-dev` — [`apps/onboarding/README.md`](./apps/onboarding/README.md).
+### Fleet: three Mac minis
+
+Snow Gloves runs on three Paris Mac minis by function (marketing, design, coding) over Tailscale. The Coding Mac hosts OmniRoute `:20128` and Hermes `:4100` for the whole fleet. A brand (tenant) is enabled on a wing (node), and `make fleet-render W=<wing> T=<tenant> R=<runtime>` writes that brand's modules and the wing's MCPs into the runtime's own files. Start with [`docs/fleet/README.md`](./docs/fleet/README.md); `make fleet-doctor` tells a mini whether it is wired as its wing says.
+
+**New Mac Mini (use the product, do not compile Tauri):** [`docs/MAC-MINI-SETUP.md`](./docs/MAC-MINI-SETUP.md). Emulate the desktop wizard on a **dev** Mac with `make app-install` then `make app-dev` — [`apps/onboarding/README.md`](./apps/onboarding/README.md). The fleet inventory is [`fleet.yaml`](./fleet.yaml) and each wing's machine profile lives in [`nodes/`](./nodes) (`nodes/<wing>/node.yaml`).
 
 **Planned fresh-node CLI onboarding:** [layered setup plan](./docs/MAC-MINI-NODE-ONBOARDING-PLAN.md) and [Claude start prompt](./prompts/mac-mini-node-start.md). This covers an always-on Mac mini workspace, developer tooling, Temperance/OmniRoute, secrets, and selected brand capabilities. It is a planning candidate; the node bootstrap CLI is not implemented yet.
 
@@ -150,6 +154,7 @@ make test                         # pytest
 | `make release-check` | Verify all version files agree with `VERSION` |
 | `make upgrade [T=<slug>] [WRITE=1]` | Dry-run (or apply) tenant **platform** migrations |
 | `make kill-hermes` | Free port 4100 |
+| `make fleet-doctor [W=<wing>]` / `fleet-render W= T= R=` / `fleet-enable W= T=` / `fleet-connect W=` / `fleet-kit-export` / `fleet-remote-access W=` | Three-mini fleet: wing diagnostics, brand x wing x runtime render, enable, Tailscale shell, gateway kit, remote-access plan ([`docs/fleet/README.md`](./docs/fleet/README.md)) |
 | `make app-install` / `app-dev` / `app-build` | Tauri onboarding app: npm install, `tauri dev` (GUI), release bundle |
 
 </details>

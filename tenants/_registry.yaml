@@ -1,3 +1,13 @@
 tenants:
   - acme  # Acme Co
   - tryambakam-noesis  # Tryambakam Noesis (vocation org; specs/002-orchestration-wiring)
+  - _demo  # demo fixture tenant
+  - mathis  # legacy schema; see MANIFEST
+  - axtech  # Axtech
+  - heyzack  # HeyZack
+  - ecoled  # Ecoled
+  - kartezzi  # Kartezzi
+  - izzimo  # Izzimo
+  - iverif  # iVerif
+  - savewatt  # SaveWatt
+  - wave-concept  # Wave Concept

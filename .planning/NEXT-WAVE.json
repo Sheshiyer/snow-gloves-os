@@ -1,5 +1,13 @@
 {
   "schema_version": 1,
+  "superseded_by": {
+    "date": "2026-10-02",
+    "paths": [
+      ".planning/HANDOFF.json",
+      "specs/007-fleet-wings/"
+    ],
+    "note": "Historical snapshot from 2026-08-11, kept for provenance. Current planning authority is .planning/HANDOFF.json and specs/007-fleet-wings/. Do not execute the wave below."
+  },
   "generated_at": "2026-08-11T05:39:30.444Z",
   "cwd": "/Volumes/madara/2026/Projects/thoughtseed/snow-gloves-os",
   "github": null,

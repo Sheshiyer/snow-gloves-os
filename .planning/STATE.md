@@ -1,3 +1,16 @@
+# 2026-10-02: Fleet wings implemented on the authoring seat
+
+- The fleet is three Paris Mac minis by function: marketing, design, coding (`fleet.yaml`, schema `snowgloves.fleet.v1`). The Coding Mac hosts OmniRoute :20128 and Hermes :4100 for the whole fleet over Tailscale. The founder's current mini is the authoring seat, not a wing.
+- Two axes: tenant = brand (`tenants/<slug>/enabled.yaml`, still the connector-gate authority) and node = wing (`nodes/<wing>/node.yaml`). A render for brand x wing x runtime is enableable(enabled intersect node.modules) plus node.mcps, written into that runtime's adapter paths.
+- Landed this session: `fleet.yaml`; `nodes/<wing>/node.yaml` for the three wings; `scripts/lib/nodes.py`; `scripts/fleet/node_profile.py` (render, enable); `scripts/fleet/gateway_client.py`; `scripts/fleet/gateway_kit.sh` (export, verify); `scripts/fleet/remote_access.sh` (dry-run); `scripts/fleet/connect.sh`; `scripts/fleet/doctor.py`; `make fleet-doctor|fleet-render|fleet-enable|fleet-connect|fleet-kit-export|fleet-remote-access`; `scripts/approvals.py --actor` recorded as `decided_by`; `docs/fleet/`; `specs/007-fleet-wings/`.
+- Start reading at `docs/fleet/README.md`, then `docs/fleet/DECISIONS.md` and `specs/007-fleet-wings/spec.md`. Roadmap: R14 in `.planning/GITHUB_ROADMAP.md` (relates to #20; issue to be opened). Pickup: `.planning/FLEET-WINGS-HANDOFF.json`.
+- Founder decisions 2026-10-02: Tailscale overlay; the Coding Mac hosts the gateway and the authoring seat hands off a kit; one company Apple Account plus a shared `sg-<wing>` operator user per wing; subscription seats shared now with provider terms confirmed later (overrides Temperance ACP rule #4; recorded in `docs/fleet/DECISIONS.md`).
+- Verification: `python3 -m pytest -q tests/` green (138 baseline plus the fleet doctor and approvals actor tests). `make fleet-doctor W=coding` on this seat passes its critical checks (node profile, local gateway, tenants); Tailscale not installed and Hermes down show as warnings, as expected here.
+- Founder next: archive the modular clone; confirm the four brands' parent companies; install Tailscale on this seat and the three minis; amend ACP rule #4; rotate the OmniRoute dashboard password; fix the omniroute MCP key scope; `make fleet-kit-export` here, import on the Paris Coding Mac and do the provider OAuth sign-ins there; then `make fleet-doctor` on each wing for physical acceptance.
+- The one-mini pilot below is unchanged (`.planning/HANDOFF.json`, status `pilot-route-decision-pending`); its `apply` consumes `nodes/<wing>/node.yaml` when it lands. Nothing was committed, pushed, installed on a Paris mini, or signed in.
+
+---
+
 # Current pickup — one-mini local pilot
 
 - User confirmed 1 October 2026 scope: one Mac mini local bootstrap, doctor, resume/rollback pilot.

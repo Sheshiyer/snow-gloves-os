@@ -1,0 +1,49 @@
+{
+  "schema": "snowgloves.organization-proposal.v3",
+  "status": "axtech_only_review_candidate_not_provisioned",
+  "portfolio": "axtech",
+  "human_approver": "founder",
+  "branches": [
+    "heyzack",
+    "ecoled",
+    "kartezzi"
+  ],
+  "control_roles": [
+    "ceo",
+    "cto",
+    "chief-of-staff",
+    "librarian",
+    "interpreter",
+    "dispatcher",
+    "sentinel"
+  ],
+  "role_scope": "Reusable Snow Gloves roles instantiated only within admitted Axtech branch/project scopes. No automatic access.",
+  "desk_templates": [
+    {
+      "id": "editorial",
+      "status": "proposed",
+      "responsibility": "Branch-specific content planning and review"
+    },
+    {
+      "id": "creative-production",
+      "status": "proposed",
+      "responsibility": "Branch-specific media preparation and asset receipts"
+    },
+    {
+      "id": "delivery",
+      "status": "proposed",
+      "responsibility": "Branch project execution"
+    },
+    {
+      "id": "growth",
+      "status": "proposed",
+      "responsibility": "Branch campaign preparation; paid calls and delivery approval-gated"
+    }
+  ],
+  "assignment_rule": "Axtech \u2192 branch \u2192 project \u2192 workstream \u2192 scoped desk/job",
+  "activation": {
+    "snow_gloves_callable": false,
+    "cloud_agent": false,
+    "public_delivery": false
+  }
+}

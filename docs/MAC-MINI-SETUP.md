@@ -53,7 +53,7 @@ Install **one** fully (signed in, can open a folder, can enter plan mode). Do no
    ```bash
    git clone https://github.com/Sheshiyer/snow-gloves-os.git
    cd snow-gloves-os
-   git checkout chore/consolidate-modular   # until this lands on main
+   git checkout main   # consolidation landed on main (v0.2.1); the pilot branch is codex/local-mini-pilot
    ```
 
 3. Bootstrap. Expect printed steps, **not** a live system and **not** the old interactive tenant prompt:

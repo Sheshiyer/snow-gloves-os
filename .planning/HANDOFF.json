@@ -43,5 +43,8 @@
     "review": ".planning/WORKER-REVIEW-2026-09-30.md",
     "rail_receipt": ".planning/PILOT-RAIL-RECEIPT.json"
   },
-  "checkpoint_branch": "codex/local-mini-pilot"
+  "checkpoint_branch": "codex/local-mini-pilot",
+  "see_also": [
+    ".planning/FLEET-WINGS-HANDOFF.json"
+  ]
 }

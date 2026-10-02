@@ -133,8 +133,11 @@ def _skill_md(item: dict, body: str, fmt: str, tenant: str) -> str:
     return "\n".join(lines)
 
 
-def _mcp_entry(item: dict, fmt: str) -> dict:
-    spec = item.get("mcp") if isinstance(item.get("mcp"), dict) else None
+def _mcp_entry(item: dict, fmt: str, override: dict | None = None) -> dict:
+    """Launch spec precedence: node override > the card's mcp block > a FILL placeholder."""
+    spec = override if isinstance(override, dict) and override else None
+    if spec is None and isinstance(item.get("mcp"), dict) and item["mcp"]:
+        spec = item["mcp"]
     if spec:
         entry = dict(spec)
     else:
@@ -143,9 +146,13 @@ def _mcp_entry(item: dict, fmt: str) -> dict:
     if fmt == "opencode-json":
         command = entry.pop("command", "")
         args = entry.pop("args", []) or []
+        env = entry.pop("env", None)
         if "url" in entry:
             return {"type": "remote", "url": entry["url"], "enabled": True}
-        return {"type": "local", "command": [command, *args], "enabled": True}
+        out = {"type": "local", "command": [command, *args], "enabled": True}
+        if env:
+            out["environment"] = dict(env)
+        return out
     return entry
 
 
@@ -233,9 +240,18 @@ def _deep_merge(base: dict, extra: dict) -> None:
             base[k] = v
 
 
-def _rules_text(tenant: str, agents: list[str], items: list[dict], fmt: str) -> str:
-    lines = [
-        f"Snow Gloves tenant `{tenant}`.",
+def _rules_text(
+    tenant: str,
+    agents: list[str],
+    items: list[dict],
+    fmt: str,
+    wing: str | None = None,
+    context_links: list[Path] | None = None,
+) -> str:
+    lines = [f"Snow Gloves tenant `{tenant}`."]
+    if wing:
+        lines.append(f"Wing: `{wing}` (this machine renders only ids enabled for the tenant and listed by the wing).")
+    lines += [
         "",
         "Before any external tool call, check `enabled.yaml` in the tenant folder. "
         "An id that is not listed there is off. Hold and refused ids are never enabled by hand.",
@@ -247,6 +263,10 @@ def _rules_text(tenant: str, agents: list[str], items: list[dict], fmt: str) -> 
         lines.append("Enabled modules:")
         lines += [f"- {i['id']} ({i.get('category', '?')}, risk {i.get('risk', '?')})" for i in items]
         lines.append("")
+    if context_links:
+        lines.append("Brand context (read before writing for this brand):")
+        lines += [f"- {p}" for p in context_links]
+        lines.append("")
     text = "\n".join(lines)
     if fmt == "mdc":
         return (
@@ -256,14 +276,30 @@ def _rules_text(tenant: str, agents: list[str], items: list[dict], fmt: str) -> 
     return text
 
 
-def upsert_block(existing: str | None, body: str) -> str:
-    block = f"{BLOCK_START}\n{body.rstrip()}\n{BLOCK_END}\n"
+def block_markers(tag: str | None = None) -> tuple[str, str]:
+    """Untagged markers are the legacy single-tenant block; a tag scopes the block to one tenant."""
+    if not tag:
+        return BLOCK_START, BLOCK_END
+    return f"<!-- snowgloves:start tenant={tag} -->", f"<!-- snowgloves:end tenant={tag} -->"
+
+
+def _replace_block(existing: str, start: str, end: str, block: str) -> str:
+    head, rest = existing.split(start, 1)
+    _, tail = rest.split(end, 1)
+    return head + block + tail.lstrip("\n")
+
+
+def upsert_block(existing: str | None, body: str, tag: str | None = None) -> str:
+    """Replace our block in a user-owned file, or append it. With a tag, other tenants' blocks
+    are left alone; a legacy untagged block is migrated to the tagged form once."""
+    start, end = block_markers(tag)
+    block = f"{start}\n{body.rstrip()}\n{end}\n"
     if not existing:
         return block
-    if BLOCK_START in existing and BLOCK_END in existing:
-        head, rest = existing.split(BLOCK_START, 1)
-        _, tail = rest.split(BLOCK_END, 1)
-        return head + block + tail.lstrip("\n")
+    if start in existing and end in existing:
+        return _replace_block(existing, start, end, block)
+    if tag and BLOCK_START in existing and BLOCK_END in existing:
+        return _replace_block(existing, BLOCK_START, BLOCK_END, block)
     return existing.rstrip("\n") + "\n\n" + block
 
 
@@ -275,10 +311,19 @@ def render_plan(
     roots: dict[str, Path],
     card_bodies: dict[str, str] | None = None,
     in_sandbox: bool = False,
+    node: dict | None = None,
+    context_links: list[Path] | None = None,
 ) -> Plan:
-    """Build every file this runtime needs for the enabled items. Nothing is written."""
+    """Build every file this runtime needs for the enabled items. Nothing is written.
+
+    With `node` (a wing profile) the node's `mcps` override card launch specs, the rules
+    block is tagged per tenant and names the wing, and the manifest lands under
+    tenant/runtime/<wing>/<runtime>/. Without it every output is unchanged.
+    """
     card_bodies = card_bodies or {}
     runtime = adapter["id"]
+    wing = (node.get("wing") or "unknown") if node is not None else None
+    node_mcps = (node.get("mcps") or {}) if node is not None else {}
     plan = Plan(runtime=runtime)
     paths = adapter["paths"]
     formats = adapter["formats"]
@@ -301,7 +346,7 @@ def render_plan(
             path = skills_dir / item["id"] / "SKILL.md"
             plan.files[path] = _skill_md(item, card_bodies.get(item["id"], ""), formats["skill"], tenant)
         elif category in MCP_CATEGORIES:
-            mcp_entries[item["id"]] = _mcp_entry(item, formats["mcp"])
+            mcp_entries[item["id"]] = _mcp_entry(item, formats["mcp"], node_mcps.get(item["id"]))
         elif category in PLUGIN_CATEGORIES:
             template = adapter.get("plugin_install")
             if template:
@@ -329,29 +374,31 @@ def render_plan(
     rules_path = resolve(paths.get("rules"), roots)
     if rules_path is not None:
         fmt = formats.get("rules", "markdown-block")
-        text = _rules_text(tenant, agents, items, fmt)
+        text = _rules_text(tenant, agents, items, fmt, wing=wing, context_links=context_links)
         if fmt == "mdc":
             plan.files[rules_path] = text
         else:
             existing = rules_path.read_text(encoding="utf-8") if rules_path.is_file() else None
-            plan.files[rules_path] = upsert_block(existing, text)
+            plan.files[rules_path] = upsert_block(existing, text, tag=tenant if node is not None else None)
 
     tenant_dir = roots["tenant"]
+    out_dir = tenant_dir / "runtime" / wing / runtime if node is not None else tenant_dir / "runtime" / runtime
     if plugin_lines:
-        plan.files[tenant_dir / "runtime" / runtime / "plugins.md"] = (
+        plan.files[out_dir / "plugins.md"] = (
             f"# Plugins for {adapter['name']}\n\nSnow Gloves does not install plugins. Run these yourself:\n\n"
             + "\n".join(plugin_lines)
             + "\n"
         )
-    manifest = {
-        "schema": "snowgloves.render.v1",
-        "runtime": runtime,
-        "tenant": tenant,
+    manifest: dict = {"schema": "snowgloves.render.v1", "runtime": runtime, "tenant": tenant}
+    if node is not None:
+        manifest["wing"] = wing
+        manifest["effective"] = [i["id"] for i in items]
+    manifest.update({
         "files": sorted(str(p) for p in plan.files),
         "skipped": plan.skipped,
         "verify": verify_fields(adapter),
-    }
-    plan.files[tenant_dir / "runtime" / runtime / "render.json"] = json.dumps(manifest, indent=2) + "\n"
+    })
+    plan.files[out_dir / "render.json"] = json.dumps(manifest, indent=2) + "\n"
     fields = verify_fields(adapter)
     if fields:
         plan.notes.append(f"{runtime} adapter fields still marked verify: {', '.join(fields)}")

@@ -1,0 +1,59 @@
+{
+  "schema": "snowgloves.portfolio-proposal.v2",
+  "status": "axtech_only_review_candidate",
+  "authority": "planning_only",
+  "scope": "Axtech and its branches only",
+  "portfolio": {
+    "id": "axtech",
+    "name": "Axtech",
+    "legal_entity": null,
+    "parent": null,
+    "operational_parent_confirmed_by": "founder scope correction in this chat"
+  },
+  "branches": [
+    {
+      "id": "heyzack",
+      "name": "HeyZack",
+      "parent": "axtech",
+      "relationship": "operating_branch",
+      "legal_entity": null,
+      "status": "planning_not_provisioned",
+      "source": "docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md"
+    },
+    {
+      "id": "ecoled",
+      "name": "Ecoled",
+      "parent": "axtech",
+      "relationship": "operating_branch",
+      "legal_entity": null,
+      "status": "planning_not_provisioned",
+      "source": "docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md"
+    },
+    {
+      "id": "kartezzi",
+      "name": "Kartezzi",
+      "parent": "axtech",
+      "relationship": "operating_branch",
+      "legal_entity": null,
+      "status": "planning_not_provisioned",
+      "source": "docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md"
+    }
+  ],
+  "projects": [],
+  "project_rule": "Admit projects only beneath a named Axtech branch after source-backed intake. Repository location does not imply ownership.",
+  "desk_policy": {
+    "instances_scoped_per_branch_and_project": true,
+    "cross_branch_data_access": "explicit_named_sharing_only",
+    "automatic_grants": false
+  },
+  "unresolved": [
+    "Exact legal entities and branch relationships",
+    "Branch project inventory",
+    "Axtech tenant identity and authenticated dispatch"
+  ],
+  "activation": {
+    "tenant_provisioned": false,
+    "cloud_agent": false,
+    "public_delivery": false
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema": "snowgloves.axtech-readiness.v1",
+  "scope": "axtech_only",
+  "status": "planning",
+  "tenant_identity": "not_verified",
+  "branch_inventory": [
+    "heyzack",
+    "ecoled",
+    "kartezzi"
+  ],
+  "dispatch": "not_configured_by_this_packet",
+  "cloud_agent": "not_activated",
+  "external_calls": false,
+  "tenant_mutations": false
+}

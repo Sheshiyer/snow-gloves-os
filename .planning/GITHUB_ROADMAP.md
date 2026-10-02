@@ -37,3 +37,9 @@ Installation, authentication, source tests, live behavior, paid calls, deploymen
 ## Persistent-agent extension
 
 [R13 — Agent definitions, environments, sessions, vaults, and initial handoff](https://github.com/Sheshiyer/snow-gloves-os/issues/29). Depends on #18/#19/#20/#22/#23; feeds #25 and #28. Provider resources do not replace fleet authority.
+
+## Fleet wings extension
+
+R14: Fleet wings, ARD/Screen Sharing access, Paris gateway handoff. Relates to #20 (always-on mini with routing and remote access); spec `specs/007-fleet-wings/`. Issue: to be opened. Added 2026-10-02.
+
+Three Paris Mac minis by function (marketing, design, coding) over Tailscale. The Coding Mac hosts OmniRoute :20128 and Hermes :4100 for the whole fleet; the founder's current mini is the authoring seat and exports the gateway kit. Tenant stays the brand axis, `nodes/<wing>/node.yaml` is the machine axis, and `tenants/<slug>/enabled.yaml` remains the connector-gate authority. Implemented on the authoring seat with tests; physical acceptance on the Paris minis is its own receipt and does not close #20.

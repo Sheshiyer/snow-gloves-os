@@ -1,0 +1,8 @@
+tenant: heyzack
+sources:
+  - id: brand-pdf-skill
+    type: filesystem
+    path: "/Users/sheshnarayaniyer/.claude/skills/HeyZackBrandPdf"
+    include_glob: ["**/*.md"]
+    note: "brand PDF skill: typeface, palette, logo (external, do not copy)"
+# FILL: vault path to brand docs (heyzack/brand-system: tokens, BRAND-GUIDE.md, DESIGN.md)

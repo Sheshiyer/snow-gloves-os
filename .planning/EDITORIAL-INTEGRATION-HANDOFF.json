@@ -1,0 +1,11 @@
+{
+  "schema": "snowgloves.axtech-integration-handoff.v1",
+  "status": "axtech_only_review_candidate",
+  "scope": "Axtech and its branches only",
+  "spec": "specs/006-editorial-steward-integration/spec.md",
+  "organization": "specs/006-editorial-steward-integration/organization.json",
+  "portfolio_map": "specs/006-editorial-steward-integration/portfolio-map-proposal.json",
+  "next_action": "Gather HeyZack, Ecoled and Kartezzi project sources; resolve branch/company identities, then assign scoped desks. Do not import unrelated portfolio or private editorial state.",
+  "implementation_approval": "pending",
+  "scope_correction": "Founder explicitly replaced mixed-session portfolio scope with Axtech-only."
+}

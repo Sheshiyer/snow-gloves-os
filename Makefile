@@ -33,6 +33,12 @@ help:
 	@echo "  make app-install           # npm install for the Tauri onboarding app"
 	@echo "  make app-dev               # tauri dev (GUI; do not leave running in agents)"
 	@echo "  make app-build             # tauri release bundle (needs signing identity)"
+	@echo "  make fleet-doctor [W=<wing>]            # is this mini wired as its wing says (fleet.yaml)"
+	@echo "  make fleet-render W=<wing> T=<tenant> R=<rt>  # render brand x wing x runtime (WRITE=1 applies)"
+	@echo "  make fleet-enable W=<wing> T=<tenant>|all     # enable a brand on a wing"
+	@echo "  make fleet-connect W=<wing>             # open a shell on a wing over Tailscale"
+	@echo "  make fleet-kit-export                   # export the gateway kit from the authoring seat"
+	@echo "  make fleet-remote-access W=<wing>       # ARD / Screen Sharing / SSH plan (dry-run)"
 
 doctor:
 	bash scripts/doctor.sh
@@ -121,6 +127,30 @@ test:
 
 clean:
 	rm -f .hermes.pid .e2e.json
+
+# ---- fleet (three Mac minis by wing; see docs/fleet/README.md) ----
+.PHONY: fleet-doctor fleet-render fleet-enable fleet-connect fleet-kit-export fleet-remote-access
+fleet-doctor:
+	$(PYTHON) scripts/fleet/doctor.py $(if $(W),--wing $(W),)
+
+fleet-render:
+	@if [ -z "$(W)" ] || [ -z "$(T)" ] || [ -z "$(R)" ]; then echo "usage: make fleet-render W=<wing> T=<tenant> R=<runtime> [WRITE=1]"; exit 1; fi
+	$(PYTHON) scripts/fleet/node_profile.py render --tenant $(T) --node $(W) --runtime $(R) $(if $(WRITE),--write,)
+
+fleet-enable:
+	@if [ -z "$(W)" ] || [ -z "$(T)" ]; then echo "usage: make fleet-enable W=<wing> T=<tenant>|all"; exit 1; fi
+	$(PYTHON) scripts/fleet/node_profile.py enable --node $(W) $(if $(filter all,$(T)),--all-tenants,--tenant $(T))
+
+fleet-connect:
+	@if [ -z "$(W)" ]; then echo "usage: make fleet-connect W=<wing>"; exit 1; fi
+	bash scripts/fleet/connect.sh $(W)
+
+fleet-kit-export:
+	bash scripts/fleet/gateway_kit.sh export
+
+fleet-remote-access:
+	@if [ -z "$(W)" ]; then echo "usage: make fleet-remote-access W=<wing>"; exit 1; fi
+	bash scripts/fleet/remote_access.sh --wing $(W)
 
 
 # ---- Onboarding app (Tauri v2) ----

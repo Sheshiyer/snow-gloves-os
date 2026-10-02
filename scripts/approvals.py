@@ -1,6 +1,10 @@
-"""Approval inbox CLI."""
+"""Approval inbox CLI.
+
+approve/reject record who decided (``decided_by``) from ``--actor``, defaulting to the
+``SNOWGLOVES_ACTOR`` environment variable (set per wing operator user, e.g. sg-coding).
+"""
 from __future__ import annotations
-import argparse, json, sys, time
+import argparse, json, os, sys, time
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -15,12 +19,13 @@ def save(t, rows):
     f = qfile(t); f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text("\n".join(json.dumps(r) for r in rows) + ("\n" if rows else ""))
 
-def decide(t, ticket_id, status, reason=""):
+def decide(t, ticket_id, status, reason="", actor=""):
     rows = load(t); hit = None
     rows2 = []
     for r in rows:
         if r["id"] == ticket_id:
             r["status"] = status; r["decided_at"] = int(time.time()); r["reason"] = reason
+            r["decided_by"] = actor
             hit = r
         else:
             rows2.append(r)
@@ -29,17 +34,19 @@ def decide(t, ticket_id, status, reason=""):
     hfile(t).open("a").write(json.dumps(hit) + "\n")
     return {"ok": True, "ticket": hit}
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["list","approve","reject"])
     ap.add_argument("--tenant", required=True)
     ap.add_argument("--id")
     ap.add_argument("--reason", default="")
-    a = ap.parse_args()
+    ap.add_argument("--actor", default=os.environ.get("SNOWGLOVES_ACTOR", ""),
+                    help="recorded as decided_by on approve/reject (default: $SNOWGLOVES_ACTOR)")
+    a = ap.parse_args(argv)
     if a.cmd == "list":
         print(json.dumps(load(a.tenant), indent=2)); return
     if not a.id: sys.exit("--id required")
     print(json.dumps(decide(a.tenant, a.id,
-        "approved" if a.cmd == "approve" else "rejected", a.reason), indent=2))
+        "approved" if a.cmd == "approve" else "rejected", a.reason, a.actor), indent=2))
 
 if __name__ == "__main__": main()

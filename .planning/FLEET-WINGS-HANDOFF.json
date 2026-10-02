@@ -1,0 +1,65 @@
+{
+  "schema": "snowgloves.execution-handoff.v1",
+  "track": "fleet-wings",
+  "updated": "2026-10-02",
+  "status": "implemented-on-authoring-seat",
+  "spec": "specs/007-fleet-wings/spec.md",
+  "entry": "docs/fleet/README.md",
+  "relates_to": {
+    "issue": "#20 (always-on mini with routing and remote access)",
+    "roadmap": "R14 in .planning/GITHUB_ROADMAP.md (issue to be opened)",
+    "pilot": ".planning/HANDOFF.json (one-mini pilot, unchanged)",
+    "brands": "specs/006-editorial-steward-integration (tenant = brand)"
+  },
+  "completed": [
+    "fleet.yaml inventory (schema snowgloves.fleet.v1): three Paris wings, gateway on the coding wing, authoring seat recorded as staging",
+    "nodes/<wing>/node.yaml machine profiles for marketing, design, coding",
+    "scripts/lib/nodes.py: render = enableable(enabled intersect node.modules) + node.mcps; refuses a runtime not in node.runtimes",
+    "scripts/fleet/node_profile.py render and enable (enable idempotent; --all-tenants)",
+    "scripts/fleet/gateway_client.py status and doctor against the OmniRoute gateway",
+    "scripts/fleet/gateway_kit.sh export and verify for the authoring seat to Coding Mac handoff",
+    "scripts/fleet/remote_access.sh dry-run plan for ARD, Screen Sharing and SSH; scripts/fleet/connect.sh over Tailscale",
+    "scripts/fleet/doctor.py: wing identity, node profile, Tailscale, gateway (fleet and local), remote management, SSH, Hermes, tenants, runtime configs; tests/test_fleet_doctor.py",
+    "scripts/approvals.py --actor recorded as decided_by (default SNOWGLOVES_ACTOR); tests/test_approvals_actor.py",
+    "Makefile: fleet-doctor, fleet-render, fleet-enable, fleet-connect, fleet-kit-export, fleet-remote-access",
+    "docs/fleet/ (README, DECISIONS, runbooks), specs/007-fleet-wings/{spec,plan,tasks}.md, roadmap R14, STATE.md section, README fleet pointers",
+    "Test suite green on the authoring seat: 138 baseline plus the new fleet doctor and approvals actor tests"
+  ],
+  "remaining": [
+    "Founder: archive the modular clone",
+    "Founder: confirm the four brands' parent companies before enabling them on wings",
+    "Founder: install Tailscale on the authoring seat and the three Paris minis; join as marketing-mac, design-mac, coding-mac",
+    "Founder: amend Temperance ACP rule #4 to record shared subscription seats (provider terms confirmed later)",
+    "Founder: rotate the OmniRoute dashboard password",
+    "Founder: fix the omniroute MCP key scope so the configured token is accepted by the MCP endpoint",
+    "Founder: run the gateway kit import on the Paris Coding Mac and complete the provider OAuth sign-ins there",
+    "Physical acceptance: make fleet-doctor green on each wing, on-machine render per wing x brand x runtime, reboot continuity; separate from the one-mini pilot acceptance"
+  ],
+  "blockers": [],
+  "decisions": [
+    "Overlay: Tailscale with MagicDNS names marketing-mac, design-mac, coding-mac; no IPs or secrets in the repository",
+    "Gateway: the Coding Mac in Paris hosts OmniRoute :20128 and Hermes :4100 for the fleet; the founder's current mini is the authoring seat and hands off a kit",
+    "Accounts: one company Apple Account; local admin sg-admin plus one shared operator user per wing (sg-marketing, sg-design, sg-coding)",
+    "Seats: subscription seats shared across the fleet now, provider terms confirmed later; overrides Temperance ACP rule #4 and is recorded in docs/fleet/DECISIONS.md"
+  ],
+  "uncommitted_files": [
+    "fleet.yaml",
+    "nodes/",
+    "scripts/lib/nodes.py",
+    "scripts/fleet/",
+    "scripts/approvals.py",
+    "Makefile",
+    "tests/test_fleet_doctor.py",
+    "tests/test_approvals_actor.py",
+    "docs/fleet/",
+    "specs/007-fleet-wings/",
+    ".planning/GITHUB_ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/HANDOFF.json (see_also only)",
+    ".planning/FLEET-WINGS-HANDOFF.json",
+    "README.md"
+  ],
+  "next_action": "Founder: install Tailscale here and on the three minis, run make fleet-kit-export on this seat, import the kit on the Paris Coding Mac, sign in to providers there, then run make fleet-doctor on each wing. Agents: leave .planning/HANDOFF.json's pilot status alone; the pilot apply consumes nodes/<wing>/node.yaml when it lands. Nothing is committed or pushed.",
+  "workers": [],
+  "checkpoint_branch": "codex/local-mini-pilot"
+}

@@ -1,0 +1,38 @@
+# Coding wing (schema snowgloves.node.v1). Names and variable names only; no secrets.
+# A render = enabled.yaml[tenant] ∩ modules below. This file enables nothing.
+schema: snowgloves.node.v1
+wing: coding
+hostname: coding-mac
+overlay: coding-mac
+location: paris-office
+always_on: true
+services:
+  - {id: omniroute, port: 20128}
+  - {id: hermes, port: 4100}
+operator_user: mac-coding
+primary: claude
+runtimes: [claude, codex, grok, opencode, cursor]
+modules:
+  - superpowers        # pointer: the runtime installs it itself (see card)
+  - gsd                # pointer: already the planning spine
+  - taste-skill        # pointer: host design cluster
+  - github-mcp
+  - playwright-mcp
+mcps:
+  github-mcp:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+  playwright-mcp:
+    command: npx
+    args: ["-y", "@playwright/mcp@latest"]
+connectors: []
+tenants: all
+gateway:
+  url: "http://coding-mac:20128"          # this host itself uses http://127.0.0.1:20128
+  key_ref: "keychain:snowgloves-gateway-coding"
+remote_access:
+  remote_management: on
+  ssh: on
+  allowed_users: [mac-coding]

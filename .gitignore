@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 tenants/*/_embed_cache/
+# generated per-machine renders (fleet wing render); see docs/fleet/05-BRANDS.md
+tenants/*/runtime/
 tenants/_demo/audit/graph-walk.json
 tenants/_demo/audit/_walk_scratch/
 .DS_Store

@@ -1,0 +1,40 @@
+# Snow Gloves OS fleet inventory (schema snowgloves.fleet.v1).
+# Names only. No secrets, no API keys, no IP addresses that change. Tailscale MagicDNS resolves `overlay`.
+schema: snowgloves.fleet.v1
+company: "Thoughtseed Private Limited"
+portfolio_root: axtech
+overlay: tailscale
+admin_user: sg-admin                 # local admin on every mini; day-to-day work uses the wing operator user
+gateway:
+  wing: coding                       # the Coding Mac hosts OmniRoute for the whole fleet
+  port: 20128
+  url: "http://coding-mac:20128"     # clients over Tailscale; the host itself uses http://127.0.0.1:20128
+  lan_url: "http://axios-mac-mini.local:20128"   # before Tailscale: the Coding Mac on the office LAN
+authoring_seat:
+  role: staging                      # founder's current Mac mini: authors config, exports the gateway kit; not a wing
+  hostname: "Sheshnarayan’s Mac mini"
+wings:
+  marketing:
+    hostname: marketing-mac
+    overlay: marketing-mac
+    location: paris-office
+    always_on: false
+    operator_user: sg-marketing
+    services: []
+  design:
+    hostname: design-mac
+    overlay: design-mac
+    location: paris-office
+    always_on: false
+    operator_user: sg-design
+    services: []
+  coding:
+    hostname: coding-mac               # target name for Tailscale; the Mac is currently named "AXIO’s Mac mini" (rename is optional)
+    lan_host: axios-mac-mini.local     # Bonjour name on the office LAN today (192.168.0.x; do not pin the IP)
+    overlay: coding-mac
+    location: paris-office
+    always_on: true
+    operator_user: mac-coding          # user already created on the Coding Mac; fleet.yaml is the source of truth for user names
+    services:
+      - {id: omniroute, port: 20128}
+      - {id: hermes, port: 4100}

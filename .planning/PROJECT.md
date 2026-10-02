@@ -2,7 +2,7 @@
 
 Snow Gloves OS is a reusable, tenant-scoped business operations platform: seven agents (CEO, CTO, Chief of Staff, Librarian, Interpreter, Dispatcher, Sentinel), the Hermes event bus, G-Stack connectors, NVIDIA embeddings, and a Paperclip bridge. It is agent-agnostic: a catalog of third-party modules plus per-runtime adapters let the founder run it in Claude Code, Codex, Cursor, OpenCode, Grok, Hermes, OpenClaw, or any other agent.
 
-## Current milestone: v0.2.0 consolidation
+## Current milestone: v0.2.1 released; current work: one-mini pilot (ISA.md) + fleet wings (specs/007-fleet-wings)
 
 Goal: one repo, one version, one catalog, any runtime.
 
