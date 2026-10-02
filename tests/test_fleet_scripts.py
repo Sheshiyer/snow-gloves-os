@@ -127,4 +127,4 @@ def test_connect_no_args(tmp_path):
 def test_connect_lan_uses_lan_host(tmp_path):
     res = _run([CONNECT, "coding", "ssh", "--print", "--lan", "--fleet", FLEET], cwd=tmp_path)
     assert res.returncode == 0, res.stderr
-    assert res.stdout.strip() == "ssh mac-coding@axios-mac-mini.local"
+    assert res.stdout.strip() == "ssh mac-coding@mac-coding.local"
