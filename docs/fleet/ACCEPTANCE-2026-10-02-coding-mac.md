@@ -31,6 +31,7 @@ Evidence is reported separately for the source tree, the local installation on t
 | Kit import | `import --bind-ip 192.168.0.35 --apply`: `npm install -g omniroute@3.8.50` (1175 packages, 42 s), `.env` present (seat key), plist written, LaunchAgent bootstrapped, lane template + phase combo core seeded |
 | Service | `launchctl` state running; `node 192.168.0.35:20128` listening; `/healthz` 200 on the LAN address; loopback refused (single-address bind, by design) |
 | Route test from the seat | `GET /v1/models` 200 (5380 models, all 19 `noesis-*` combos); `POST /v1/chat/completions` model `noesis-fast` → `GATEWAY-OK` (served by `poolside/laguna-s-2.1-free`, 5.0 s); `POST /v1/messages` model `noesis-orchestrator` → `MESSAGES-OK` (served by `gpt-5.6-terra`, 2.8 s) |
+| Runtimes on the mini | Claude Code 2.1.287 and Codex 0.160.0 installed (npm globals); both pointed at `http://192.168.0.35:20128` by `gateway_client.py`; `claude -p` via `noesis-fast` → `NODE-CLAUDE-OK`; `codex exec -m noesis-fast` → `NODE-CODEX-OK`. Key lives in `~/.config/snowgloves/gateway.key` (600) and `~/.zshenv` exports it; the login keychain cannot be written over SSH (no GUI session) |
 | Fleet doctor on the mini | critical checks pass; warnings: ComputerName not renamed, Tailscale not installed, Hermes not running, the mini's own runtime configs not yet pointed at the gateway |
 
 ## Not yet done
@@ -38,5 +39,5 @@ Evidence is reported separately for the source tree, the local installation on t
 - Tailscale: binary installed on the Coding Mac this session; `tailscale up` is interactive and the founder's step. Until then the gateway is LAN-only (`gateway.lan_url`).
 - Power policy needs sudo on the mini: `sudo pmset -a sleep 0 displaysleep 10 autorestart 1 womp 1`.
 - Both machines now hold the same OAuth seats and both run a gateway. Providers that rotate refresh tokens can invalidate one side. Decide the cutover: make the Coding Mac the only live gateway and point the seat's clients at it, or stop the seat's agent.
-- Scoped keys per machine and per person are not minted yet; the mirrored admin/client keys are in use for the test.
+- Scoped keys per machine and per person are not minted yet; the mirrored seat client key is in use on the mini for the test (key file, not Keychain).
 - Hermes on the coding wing, the Coding Mac's own CLI configs, and the two other minis.

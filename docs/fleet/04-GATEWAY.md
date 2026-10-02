@@ -112,6 +112,10 @@ Codex, Grok and OpenCode read the key from the environment, so add to the shell 
 `export OMNIROUTE_API_KEY="$(security find-generic-password -s snowgloves-gateway-<wing> -w)"`.
 On the authoring mini keep Codex native: pass `--surfaces claude,grok,opencode`.
 
+Claude Code also wants `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` and `ANTHROPIC_MODEL=noesis-orchestrator` in its `env`, plus
+`"model": "noesis-orchestrator"`, so combo names resolve without an unknown-model warning; `gateway_client.py` does not write these yet.
+Over SSH the login Keychain is locked, so `keychain:` refs only resolve in a GUI session; a 600 key file plus an `export` in `~/.zshenv` is the interim.
+
 ## Paris handoff
 
 What the Coding Mac needs before anything else: macOS signed in, Remote Login (SSH) and Remote Management on,
