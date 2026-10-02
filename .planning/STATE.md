@@ -1,3 +1,8 @@
+## 2026-10-02 13:35 UTC — Gateway live on the tailnet
+
+- `coding-mac` and `authoring-mini` are on tailnet `tail32e298.ts.net`; the gateway serves only on the Coding Mac's tailnet address; verified from the seat by name with a live completion.
+- Next: founder's cutover decision, scoped keys, Marketing and Design minis.
+
 ## 2026-10-02 13:10 UTC — Coding Mac gateway live on the LAN
 
 - First physical mini accepted for the gateway role: see `docs/fleet/ACCEPTANCE-2026-10-02-coding-mac.md`.

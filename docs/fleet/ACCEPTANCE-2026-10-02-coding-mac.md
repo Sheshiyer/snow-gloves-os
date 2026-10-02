@@ -42,11 +42,11 @@ Evidence is reported separately for the source tree, the local installation on t
 | Power policy | `pmset -a sleep 0 displaysleep 10 autorestart 1 womp 1` applied (`autorestart 1; sleep 0; displaysleep 10; womp 1`) |
 | Gateway rebind | plist `OMNIROUTE_SERVER_HOST` 192.168.0.35 → 100.117.187.123, LaunchAgent bootout + bootstrap (a bare `kickstart -k` keeps the old environment); `node 100.117.187.123:20128` listening; `/healthz` 200 via the IP and via `http://coding-mac:20128`; LAN address now 000 |
 | Mini's own clients | Claude Code and Codex re-pointed to `http://coding-mac:20128`; `claude -p` → `TAILNET-CLAUDE-OK`; `codex exec` → `TAILNET-CODEX-OK` |
-| Seat | Tailscale binary installed; daemon install + `tailscale up --hostname authoring-mini` pending the founder's sudo password and browser approval |
+| Seat on the tailnet | `authoring-mini` 100.77.42.94 joined the same tailnet (13:35 UTC). From the seat: `http://coding-mac:20128/healthz` 200, SSH to `axio@coding-mac` over the overlay, `POST /v1/chat/completions` model `noesis-fast` → `OVERLAY-OK` (served by `gemini-3.7-flash-low`, 2.0 s); LAN address 000; `doctor.py` reports tailscale running and the fleet gateway ok |
 
 ## Not yet done
 
-- Tailscale: done on the Coding Mac (above); the seat and the two other minis still have to join.
+- Tailscale: done on the Coding Mac and the seat; the two other minis still have to join.
 - Power policy needs sudo on the mini: `sudo pmset -a sleep 0 displaysleep 10 autorestart 1 womp 1`.
 - Both machines now hold the same OAuth seats and both run a gateway. Providers that rotate refresh tokens can invalidate one side. Decide the cutover: make the Coding Mac the only live gateway and point the seat's clients at it, or stop the seat's agent.
 - Scoped keys per machine and per person are not minted yet; the mirrored seat client key is in use on the mini for the test (key file, not Keychain).

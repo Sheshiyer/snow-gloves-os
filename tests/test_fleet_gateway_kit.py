@@ -51,9 +51,11 @@ def fake(tmp_path):
     return SimpleNamespace(home=home, repo=repo, out=tmp_path / "out", tmp=tmp_path, plist=plist, lane=lane)
 
 
-def kit(fake, *args):
+def kit(fake, *args, path=None):
     env = {**os.environ, "HOME": str(fake.home)}
     env.pop("TEMPERANCE_ROOT", None)
+    if path is not None:
+        env["PATH"] = path  # hermetic: hide host tools such as a signed-in tailscale
     return subprocess.run(["bash", str(KIT), *args], env=env, capture_output=True, text=True,
                           timeout=120, stdin=subprocess.DEVNULL)
 
@@ -170,7 +172,7 @@ def test_import_dry_run_extracts_and_prints_steps_without_writing(fake):
 
 def test_import_apply_refuses_without_tailscale(fake):
     tar = export(fake)
-    r = kit(fake, "import", str(tar), "--apply")
+    r = kit(fake, "import", str(tar), "--apply", path="/usr/bin:/bin:/usr/sbin:/sbin")
     assert r.returncode != 0
     assert "Tailscale" in r.stdout + r.stderr
     assert fake.plist.read_text() == PLIST.format(key=FAKE_KEY, home=fake.home)
