@@ -116,6 +116,10 @@ Claude Code also wants `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` and `ANTHR
 `"model": "noesis-orchestrator"`, so combo names resolve without an unknown-model warning; `gateway_client.py` does not write these yet.
 Over SSH the login Keychain is locked, so `keychain:` refs only resolve in a GUI session; a 600 key file plus an `export` in `~/.zshenv` is the interim.
 
+Codex keeps whatever default provider it had (for most people the native ChatGPT login). The fleet gateway is then
+reachable per run with `codex -c 'model_provider="omniroute"' -m noesis-fast …` or a profile. Pass `--set-default-provider`
+to `gateway_client.py set-url` only on a machine whose shell exports the provider's `env_key` (the Coding Mac does).
+
 ## Paris handoff
 
 What the Coding Mac needs before anything else: macOS signed in, Remote Login (SSH) and Remote Management on,

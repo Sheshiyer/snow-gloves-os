@@ -53,7 +53,7 @@ Evidence is reported separately for the source tree, the local installation on t
 | Loopback path | `127.0.0.1:20128/healthz` 200; `/v1/models` 5380; chat via `noesis-fast` → `CUTOVER-OK`; Temperance manifest bridge healthy |
 | Direct path | `coding-mac:20128` chat → `CUTOVER-OK` (2.4 s); `/v1/messages` 200 for `noesis-fast` and `noesis-orchestrator` |
 | Seat Claude Code | `claude -p` → `SEAT-CLAUDE-OK` and `SEAT-CLAUDE-DEFAULT-OK` with a clean environment. Note: a Claude Code *session* exports `ANTHROPIC_BASE_URL=https://api.anthropic.com`, which overrides settings.json for child processes, so tests must be run outside such a session |
-| Seat Codex | the user's omniroute provider table uses `env_key = "OPENAI_API_KEY"`; see the decision log for the verification line |
+| Seat Codex | native default kept (`NATIVE-OK`); gateway on demand `codex -c model_provider="omniroute" -m noesis-fast` → `GATEWAY-ON-DEMAND-OK` with `OPENAI_API_KEY` (the table's `env_key`) exported; the top-level default the tool had added was reverted because the login shell does not export that variable |
 | Backups | `~/.snowgloves-cutover-backup-20261002T140733Z/` holds the previous plist and the four client configs |
 
 ## Not yet done

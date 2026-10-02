@@ -62,7 +62,7 @@ def test_apply_writes_each_surface_with_the_right_url_shape(home, capsys):
 
     codex_text = files["codex"].read_text()
     codex = tomllib.loads(codex_text)
-    assert codex["model_provider"] == "omniroute"
+    assert "model_provider" not in codex  # default provider is opt-in (--set-default-provider)
     assert codex["model_providers"]["omniroute"]["base_url"] == f"http://{HOST}:20128/v1"
     assert codex["model_providers"]["omniroute"]["env_key"] == "FAKE_KEY"
     assert gc.BLOCK_BEGIN in codex_text and gc.BLOCK_END in codex_text
@@ -88,7 +88,7 @@ def test_second_apply_is_idempotent(home, capsys):
     assert before == after
     assert after["codex"].count("[model_providers.omniroute]") == 1
     assert after["grok"].count("[model.te-orchestrator]") == 1
-    assert after["codex"].count('model_provider = "omniroute"') == 1
+    assert after["codex"].count('model_provider = "omniroute"') == 0  # default provider is opt-in
     assert list(home.rglob("*.bak.*")) == [], "unchanged files must not be backed up again"
 
 
@@ -115,7 +115,7 @@ def test_apply_backs_up_existing_files_and_keeps_unrelated_keys(home, capsys):
     codex_text = files["codex"].read_text()
     assert 'model = "gpt-6.1-sol"' in codex_text and "[desktop]" in codex_text
     codex = tomllib.loads(codex_text)
-    assert codex["desktop"]["foo"] == 1 and codex["model_provider"] == "omniroute"
+    assert codex["desktop"]["foo"] == 1 and "model_provider" not in codex
     assert "\n\n\n" not in codex_text, "top-level insert must not leave double blank lines"
 
 
@@ -234,3 +234,15 @@ def test_host_change_rewrites_managed_blocks(home, capsys):
     grok = tomllib.loads(files["grok"].read_text())
     assert grok["model"]["te-orchestrator"]["base_url"] == "http://100.117.187.123:20128/v1"
     assert files["codex"].read_text().count("[model_providers.omniroute]") == 1
+
+
+def test_set_default_provider_is_opt_in(home, capsys):
+    run(capsys, *set_url(home, "--apply"))
+    files = surface_files(home)
+    assert 'model_provider = "omniroute"' not in files["codex"].read_text()
+    rc, out, _ = run(capsys, *set_url(home, "--apply", "--set-default-provider"))
+    assert rc == 0
+    text = files["codex"].read_text()
+    assert text.count('model_provider = "omniroute"') == 1
+    rc, out, _ = run(capsys, *set_url(home, "--apply", "--set-default-provider"))
+    assert files["codex"].read_text().count('model_provider = "omniroute"') == 1

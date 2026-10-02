@@ -273,7 +273,7 @@ def rewrite_managed_urls(text: str, new_url: str) -> tuple[str, bool]:
         return text, False
     return head + BLOCK_BEGIN + new_block + BLOCK_END + tail, True
 
-def plan_codex(path: Path, v1_url: str, env_var: str) -> Plan:
+def plan_codex(path: Path, v1_url: str, env_var: str, set_default: bool = False) -> Plan:
     old = read_text(path)
     text = old or ""
     notes = []
@@ -297,10 +297,14 @@ def plan_codex(path: Path, v1_url: str, env_var: str) -> Plan:
             f"{BLOCK_END}\n"
         )
         new = ensure_nl(text) + block
-    if toml_toplevel_present(text, "model_provider"):
-        notes.append("model_provider already set at top level (left unchanged)")
+    if set_default:
+        if toml_toplevel_present(text, "model_provider"):
+            notes.append("model_provider already set at top level (left unchanged)")
+        else:
+            new = toml_insert_toplevel(new, 'model_provider = "omniroute"  # snowgloves fleet gateway default')
     else:
-        new = toml_insert_toplevel(new, 'model_provider = "omniroute"  # snowgloves fleet gateway default')
+        notes.append("default provider left as is (pass --set-default-provider to make omniroute the default; "
+                     "it then needs the provider's env_key exported in the shell)")
     return Plan("codex", path, old, new, notes)
 
 
@@ -364,7 +368,7 @@ def plan_opencode(path: Path, v1_url: str, env_var: str) -> Plan:
     return Plan("opencode", path, old, dump_json(data), notes)
 
 
-def build_plans(home: Path, surfaces: list[str], host: str, port: int, env_var: str) -> list[Plan]:
+def build_plans(home: Path, surfaces: list[str], host: str, port: int, env_var: str, set_default: bool = False) -> list[Plan]:
     root_url = f"http://{host}:{port}"
     v1_url = root_url + "/v1"
     plans = []
@@ -373,7 +377,7 @@ def build_plans(home: Path, surfaces: list[str], host: str, port: int, env_var: 
         if s == "claude":
             plans.append(plan_claude(path, root_url))
         elif s == "codex":
-            plans.append(plan_codex(path, v1_url, env_var))
+            plans.append(plan_codex(path, v1_url, env_var, set_default=set_default))
         elif s == "grok":
             plans.append(plan_grok(path, v1_url, env_var))
         elif s == "opencode":
@@ -498,14 +502,14 @@ def run_doctor(home: Path, surfaces: list[str], host: str, port: int, probe: boo
 
 # ----------------------------------------------------------------------------- set-url
 
-def run_set_url(home: Path, surfaces: list[str], host: str, port: int, key_ref: str, apply: bool) -> int:
+def run_set_url(home: Path, surfaces: list[str], host: str, port: int, key_ref: str, apply: bool, set_default: bool = False) -> int:
     kind, name = parse_key_ref(key_ref)
     env_var = env_var_for(kind, name)
     print(f"mode: {'APPLY' if apply else 'dry-run (pass --apply to write)'}")
     print(f"gateway: http://{host}:{port}  key_ref: {key_ref}  env var written to TOML/JSON references: {env_var}")
     if kind == "keychain":
         print(f'shell profile line (no secret shown): export {env_var}="$(security find-generic-password -s {name} -w)"')
-    plans = build_plans(home, surfaces, host, port, env_var)
+    plans = build_plans(home, surfaces, host, port, env_var, set_default=set_default)
     secret = resolve_key(kind, name) if apply else None
     rc = 0
     for plan in plans:
@@ -536,6 +540,8 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--host", help="gateway overlay name or IP (default: fleet.yaml gateway.url)")
     common.add_argument("--port", type=int, help="gateway port (default: fleet.yaml, else 20128)")
     common.add_argument("--surfaces", default=",".join(SURFACES), help="comma list of claude,codex,grok,opencode")
+    common.add_argument("--set-default-provider", action="store_true",
+                        help="codex: also set top-level model_provider = omniroute (changes the default away from native login; needs the env_key exported)")
     common.add_argument("--no-probe", action="store_true", help="skip the /healthz probe")
 
     ap = argparse.ArgumentParser(prog="gateway_client.py", description=__doc__,
@@ -568,7 +574,7 @@ def main(argv: list[str] | None = None) -> int:
     host, port = resolve_target(args)
     home = args.home.expanduser()
     if args.cmd == "set-url":
-        return run_set_url(home, surfaces, host, port, args.key_ref, args.apply)
+        return run_set_url(home, surfaces, host, port, args.key_ref, args.apply, set_default=bool(getattr(args, 'set_default_provider', False)))
     if args.cmd == "status":
         return run_status(home, surfaces, host, port, not args.no_probe)
     if args.cmd == "doctor":
