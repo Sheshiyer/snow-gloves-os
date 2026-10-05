@@ -287,3 +287,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-05 restore-intent candidate: first producer rejected; retry API/descriptor defects narrowly repaired. Ten Linux probes pass including actual SIGKILL after durable mutation intent. Added directory-fsync fault reproduces false prepare acknowledgment:11 total,10 pass,1 fail. Candidate private/unpromoted; publication/root/foreign-cleanup review remains open.25/51 unchanged.
 
 - 2026-10-05 restore-intent durability refinement: directory-fsync false acknowledgment narrowly repaired;11 Linux probes pass0.164s. Added canonical-root replacement probe reproduces another false acknowledgment:12 total,11 pass,1 fail0.166s. Candidate remains private; root/publication ownership repair is next.25/51 unchanged.
+
+- 2026-10-05 restore-intent ownership refinement: canonical root identity rechecked; foreign matching-byte scratch publication and foreign scratch deletion after fsync failure reproduced and narrowly repaired.14 Linux probes pass0.174s. Private/unpromoted pending record path stability, nonblocking contention and expanded transition SIGKILL probes;25/51 unchanged.
