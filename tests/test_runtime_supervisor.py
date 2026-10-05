@@ -659,3 +659,49 @@ class RecoveryReview(ReviewFixture):
             with self.assertRaises(RuntimeError): s.restore(self.incoming())
         self.assertIs(s._child, leader)
         self.assertEqual((self.data / "storage.sqlite").read_bytes(), before)
+
+
+class TestBackupQuota(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name).resolve()
+        self.db = self.root / "storage.sqlite"
+        with sqlite3.connect(self.db) as connection:
+            connection.execute("CREATE TABLE fixture(value BLOB)")
+            connection.execute("INSERT INTO fixture VALUES ('original')")
+        self.supervisor = Supervisor(str(self.root), [sys.executable, "-c", "pass"], TEST_KEY, TEST_SECRET)
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def enlarge(self):
+        with sqlite3.connect(self.db) as connection:
+            connection.execute("INSERT INTO fixture VALUES (zeroblob(?))", (65 * 1024 * 1024,))
+
+    def test_oversized_backup_denied_without_artifact(self):
+        self.enlarge()
+        before = set(self.root.iterdir())
+        with self.assertRaises(RuntimeError):
+            self.supervisor.backup()
+        self.assertEqual(before, set(self.root.iterdir()))
+
+    def test_restore_preserves_oversized_current_state(self):
+        incoming = self.supervisor.backup()
+        self.enlarge()
+        with mock.patch.object(self.supervisor, "_stop_impl") as stop:
+            with self.assertRaises(RuntimeError):
+                self.supervisor.restore(incoming)
+            stop.assert_not_called()
+        with sqlite3.connect(self.db) as connection:
+            self.assertEqual(connection.execute("SELECT count(*) FROM fixture").fetchone()[0], 2)
+
+    def test_deadline_after_integrity_check_denied(self):
+        now = [100.0]
+        check = self.supervisor._sqlite_quick_check
+        def slow_check(path):
+            result = check(path)
+            now[0] = 111.0
+            return result
+        with mock.patch("lib.runtime_supervisor.time.monotonic", side_effect=lambda: now[0]), mock.patch.object(self.supervisor, "_sqlite_quick_check", side_effect=slow_check):
+            with self.assertRaises(RuntimeError):
+                self.supervisor.backup()

@@ -236,29 +236,47 @@ class Supervisor:
         self._preflight()
         if not os.path.exists(self._db_path):
             raise FileNotFoundError("no storage.sqlite")
+        cap = 64 * 1024 * 1024
+        deadline = time.monotonic() + 10.0
         tmp = tempfile.NamedTemporaryFile(dir=self._data_dir, suffix=".sqlite", delete=False)
         tmp_path = tmp.name
         tmp.close()
         try:
-            deadline = time.monotonic() + 10.0
-            def progress(status, remaining, total):
-                if time.monotonic() >= deadline:
-                    raise RuntimeError("SQLite backup deadline exceeded")
             src = sqlite3.connect(f"file:{quote(self._db_path, safe='/')}?mode=ro", uri=True)
             try:
+                cur = src.cursor()
+                page_size = cur.execute("PRAGMA page_size").fetchone()[0]
+                page_count = cur.execute("PRAGMA page_count").fetchone()[0]
+                cur.close()
+                if page_count * page_size > cap:
+                    raise RuntimeError("backup size exceeds quota")
+                def progress(status, remaining, total):
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError("SQLite backup deadline exceeded")
+                    if total * page_size > cap:
+                        raise RuntimeError("backup size exceeds quota")
                 dst = sqlite3.connect(tmp_path)
                 try:
-                    src.backup(dst, pages=64, progress=progress, sleep=0.01)
+                    src.backup(dst, pages=16, progress=progress, sleep=0.01)
                 finally:
                     dst.close()
             finally:
                 src.close()
+            st_size = os.path.getsize(tmp_path)
+            if st_size < 1 or st_size > cap:
+                raise RuntimeError("invalid backup file size")
             if not self._sqlite_quick_check(tmp_path):
                 raise RuntimeError("backup validation failed")
             with open(tmp_path, "rb") as f:
-                return f.read()
+                data = f.read(cap + 1)
+            if len(data) != st_size or len(data) > cap:
+                raise RuntimeError("backup data size mismatch or quota exceeded")
+            if time.monotonic() >= deadline:
+                raise RuntimeError("SQLite backup deadline exceeded")
+            return data
         finally:
-            os.unlink(tmp_path)
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     # --- Restore ---
 
