@@ -181,6 +181,11 @@ until the actual mini supplies evidence.
   learned: monitor and shutdown must share management ownership; validate config and resource identity before startup, and confirm initial health before binding. Repaired candidate passes 24 host and 24 Linux checks plus exact-source actual OmniRoute fresh/existing checkpoint and restore.
   criterion now: ISC-47..51 remain open; interrupted initialization, image binding, storage budgets, remote recovery and physical fleet acceptance remain unproved.
 
+- 2026-10-06 | conjectured: the service stop event would terminate stalled fresh initialization promptly.
+  refuted by: owned Linux Node fixture remained alive 3.005 seconds after SIGTERM because initialization ignored cancellation.
+  learned: initializer now checks an optional Event before launch, during readiness polling and before acknowledgment; owned child cancellation passes in 0.033 seconds.14host initializer tests,38combined Linux checks and exact actual OmniRoute lifecycle pass;449platform passes90Linux skips12subtests54.10s/catalogcurrent.
+  criterion now: ISC-47..51 remain open; initializer repair is source-integrated, managed entrypoint remains private pending cleanup containment, production image binding, storage budgets, remote recovery and physical acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.

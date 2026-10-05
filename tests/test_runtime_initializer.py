@@ -1,5 +1,5 @@
 """Explicit fresh initialization checks with owned SQLite/HTTP child fixtures."""
-import unittest,tempfile,pathlib,socket,sys,shutil,time
+import unittest,tempfile,pathlib,socket,sys,shutil,time,threading
 from scripts.lib import runtime_initializer as module
 
 class Review(unittest.TestCase):
@@ -55,4 +55,32 @@ class Review(unittest.TestCase):
   self.supervisor._check_http_health=changed_root
   with self.assertRaisesRegex(RuntimeError,'^Runtime initialization failed$'):self.supervisor.initialize_fresh(authorized=True,timeout=1.5)
   self.assertIsNone(self.supervisor._child);self.assertTrue((self.parent/'data-original/storage.sqlite').exists())
+ def test_preexisting_cancellation_denied_without_spawn(self):
+  event=threading.Event();event.set()
+  with self.assertRaisesRegex(RuntimeError,'^Runtime initialization failed$'):self.supervisor.initialize_fresh(authorized=True,cancel_event=event)
+  self.assertIsNone(self.supervisor.child_pid);self.assertEqual(list(self.data.iterdir()),[])
+ def test_invalid_cancellation_type_denied_without_spawn(self):
+  for value in [True,False,object(),1,'cancel']:
+   with self.assertRaisesRegex(RuntimeError,'^Runtime initialization failed$'):self.supervisor.initialize_fresh(authorized=True,cancel_event=value)
+  self.assertIsNone(self.supervisor.child_pid);self.assertEqual(list(self.data.iterdir()),[])
+ def test_cancellation_stops_stalled_initialization_preserves_state(self):
+  event=threading.Event();self.supervisor._check_http_health=lambda:False
+  def cancel_after_state():
+   deadline=time.monotonic()+2
+   while not (self.data/'storage.sqlite').exists() and time.monotonic()<deadline:time.sleep(0.01)
+   event.set()
+  worker=threading.Thread(target=cancel_after_state);worker.start();start=time.monotonic()
+  try:
+   with self.assertRaisesRegex(RuntimeError,'^Runtime initialization failed$'):self.supervisor.initialize_fresh(authorized=True,timeout=10,cancel_event=event)
+  finally:worker.join(3)
+  self.assertLess(time.monotonic()-start,3);self.assertIsNone(self.supervisor.child_pid);self.assertTrue((self.data/'storage.sqlite').exists());self.assertFalse(self.supervisor.ready)
+ def test_cancellation_at_health_cannot_acknowledge_success(self):
+  event=threading.Event();original=self.supervisor._check_http_health
+  def cancelled_health():
+   ready=original()
+   if ready:event.set()
+   return ready
+  self.supervisor._check_http_health=cancelled_health
+  with self.assertRaisesRegex(RuntimeError,'^Runtime initialization failed$'):self.supervisor.initialize_fresh(authorized=True,timeout=1.5,cancel_event=event)
+  self.assertIsNone(self.supervisor.child_pid);self.assertFalse(self.supervisor.ready)
 if __name__=='__main__':unittest.main(verbosity=2)

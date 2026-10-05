@@ -9,6 +9,7 @@ import os
 import sqlite3
 import subprocess
 import time
+import threading
 import urllib.parse
 from scripts.lib.runtime_supervisor import Supervisor
 
@@ -113,13 +114,13 @@ class InitializingSupervisor(Supervisor):
                 except Exception:
                     pass
 
-    def initialize_fresh(self, *, authorized=False, timeout=60.0):
+    def initialize_fresh(self, *, authorized=False, timeout=60.0, cancel_event=None):
         try:
-            return self._initialize_fresh_impl(authorized=authorized, timeout=timeout)
+            return self._initialize_fresh_impl(authorized=authorized, timeout=timeout, cancel_event=cancel_event)
         except Exception:
             raise RuntimeError("Runtime initialization failed") from None
 
-    def _initialize_fresh_impl(self, *, authorized=False, timeout=60.0):
+    def _initialize_fresh_impl(self, *, authorized=False, timeout=60.0, cancel_event=None):
         if authorized is not True:
             raise RuntimeError("Unauthorized initialization")
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
@@ -127,7 +128,14 @@ class InitializingSupervisor(Supervisor):
         if not math.isfinite(timeout) or timeout <= 0.0 or timeout > 120.0:
             raise RuntimeError("Invalid timeout range")
 
+        if cancel_event is not None and type(cancel_event) is not threading.Event:
+            raise RuntimeError("Invalid cancellation event")
+        if cancel_event is not None and cancel_event.is_set():
+            raise RuntimeError("Runtime initialization cancelled")
+
         with self._lock:
+            if cancel_event is not None and cancel_event.is_set():
+                raise RuntimeError("Runtime initialization cancelled")
             if self._init_attempted:
                 raise RuntimeError("Initialization already attempted on this instance")
             if self._child is not None or self._pgid is not None:
@@ -166,6 +174,8 @@ class InitializingSupervisor(Supervisor):
             success = False
             try:
                 while time.monotonic() < deadline:
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise RuntimeError("Runtime initialization cancelled")
                     # Verify child is alive
                     if self._child.poll() is not None:
                         raise RuntimeError("Process exited prematurely")
@@ -199,7 +209,8 @@ class InitializingSupervisor(Supervisor):
                             if (final_root.st_dev != root_dev or final_root.st_ino != root_ino or
                                     final_root.st_uid != os.geteuid() or final_root.st_mode & 0o077):
                                 raise RuntimeError("Runtime initialization failed")
-                            if time.monotonic() >= deadline:
+                            if (time.monotonic() >= deadline or
+                                    (cancel_event is not None and cancel_event.is_set())):
                                 raise RuntimeError("Runtime initialization failed")
                             success = True
                             break
