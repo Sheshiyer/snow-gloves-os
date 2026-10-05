@@ -224,9 +224,11 @@ class LocalJobJournal:
             if total != expected_size or hasher.hexdigest() != expected_sha:
                 raise RuntimeError("Local job held")
             st2 = os.fstat(fd)
-            if (st1.st_ino, st1.st_size, st1.st_mtime_ns, st1.st_ctime_ns) != (
-                st2.st_ino, st2.st_size, st2.st_mtime_ns, st2.st_ctime_ns
-            ):
+            named = os.stat(leaf, dir_fd=root_fd, follow_symlinks=False)
+            def signature(value):
+                return (value.st_dev, value.st_ino, value.st_mode, value.st_uid,
+                        value.st_nlink, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+            if signature(st1) != signature(st2) or signature(named) != signature(st2):
                 raise RuntimeError("Local job held")
         finally:
             os.close(fd)
@@ -416,6 +418,26 @@ class LocalJobJournal:
             except Exception:
                 raise RuntimeError("Local job held")
             return json.loads(json.dumps(new_rec))
+
+        return self._run_op(_op)
+
+    def lookup(self, job_id: str, request_digest: str) -> dict[str, object] | None:
+        _validate_job_id(job_id)
+        _validate_digest(request_digest)
+
+        def _op(root_fd: int) -> dict[str, object] | None:
+            jname = f"sg-job-{job_id}.json"
+            existing = self._read_journal(root_fd, jname)
+            if existing is None:
+                return None
+            rec, _ = existing
+            if rec["job_id"] != job_id or rec["request_digest"] != request_digest:
+                raise RuntimeError("Local job held")
+            if rec["state"] == "artifact-verified":
+                art = rec["artifact"]
+                self._verify_artifact_file(root_fd, art["leaf"], art["bytes"], art["sha256"])
+            self._verify_root_unmoved(root_fd)
+            return json.loads(json.dumps(rec))
 
         return self._run_op(_op)
 

@@ -376,6 +376,24 @@ class RestoreIntentStore:
             finally:
                 self._close_root(rfd)
 
+    def lookup(self, payload):
+        with self._locked():
+            v_payload = self._validate(payload)
+            job_id = v_payload["restore_job_id"]
+            filename = f"sg-restore-{job_id}.json"
+            rfd, r_dev, r_ino = self._open_root()
+            try:
+                rec, _, _ = self._read_existing(rfd, filename, r_dev, r_ino, v_payload)
+                if rec is None:
+                    return None
+                if rec["state"] == "mutation-intent":
+                    _hold()
+                if rec["payload"] != v_payload:
+                    _hold()
+                return rec
+            finally:
+                self._close_root(rfd)
+
     def reconcile(self, payload):
         with self._locked():
             v_payload = self._validate(payload)

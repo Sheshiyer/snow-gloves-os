@@ -16,6 +16,15 @@ CHECKPOINT_BYTE_RES = 134217728 + 4136 + 32768
 RESTORE_BYTE_RES = 268435456 + 32768
 PROJECTED_ENTRIES_RES = 8
 
+_STAGE_SPECS = {
+    "checkpoint": (134217728 + 4136 + 32768, 8, 1, 1, 0, 0, 1, 0),
+    "checkpoint_snapshot": (134217728 + 4136 + 32768, 7, 1, 1, 0, 0, 0, 0),
+    "checkpoint_encrypt": (67108864 + 4136 + 32768, 4, 0, 1, 0, 0, 0, 0),
+    "restore": (268435456 + 32768, 8, 0, 0, 1, 1, 0, 1),
+    "restore_decrypt": (268435456 + 32768, 7, 0, 0, 1, 1, 0, 0),
+    "restore_mutate": (201326592 + 32768, 6, 0, 0, 0, 1, 0, 0),
+}
+
 
 @dataclass(frozen=True)
 class StorageBudget:
@@ -66,7 +75,7 @@ def _preflight(root: str, expected_identity: tuple, operation: str, budget: Stor
     if type(budget) is not StorageBudget:
         raise RuntimeError("Storage admission held")
     budget._validate()
-    if operation not in ("checkpoint", "restore"):
+    if operation not in _STAGE_SPECS:
         raise RuntimeError("Storage admission held")
     if type(expected_identity) is not tuple or len(expected_identity) != 4:
         raise RuntimeError("Storage admission held")
@@ -142,7 +151,7 @@ def _preflight(root: str, expected_identity: tuple, operation: str, budget: Stor
         _check_exact_int(vfs.f_bavail, 0)
         avail_bytes = vfs.f_bavail * vfs.f_frsize
 
-        req_res_bytes = CHECKPOINT_BYTE_RES if operation == "checkpoint" else RESTORE_BYTE_RES
+        req_res_bytes, req_entries_res, d_snap, d_enc, d_plain, d_rec, d_jrnl, d_int = _STAGE_SPECS[operation]
         if avail_bytes < budget.min_free_bytes + req_res_bytes:
             raise RuntimeError("Storage admission held")
 
@@ -315,20 +324,12 @@ def _preflight(root: str, expected_identity: tuple, operation: str, budget: Stor
                 if parent != root_fd:
                     os.close(parent)
 
-        if operation == "checkpoint":
-            proj_snapshots = class_counts["snapshots"] + 1
-            proj_encrypted = class_counts["encrypted"] + 1
-            proj_plain = class_counts["plain_restores"]
-            proj_recovery = class_counts["recovery"]
-            proj_journals = class_counts["journals"] + 1
-            proj_intents = class_counts["intents"]
-        else:
-            proj_snapshots = class_counts["snapshots"]
-            proj_encrypted = class_counts["encrypted"]
-            proj_plain = class_counts["plain_restores"] + 1
-            proj_recovery = class_counts["recovery"] + 1
-            proj_journals = class_counts["journals"]
-            proj_intents = class_counts["intents"] + 1
+        proj_snapshots = class_counts["snapshots"] + d_snap
+        proj_encrypted = class_counts["encrypted"] + d_enc
+        proj_plain = class_counts["plain_restores"] + d_plain
+        proj_recovery = class_counts["recovery"] + d_rec
+        proj_journals = class_counts["journals"] + d_jrnl
+        proj_intents = class_counts["intents"] + d_int
 
         if proj_snapshots > budget.max_snapshots or \
            proj_encrypted > budget.max_encrypted or \
@@ -338,7 +339,7 @@ def _preflight(root: str, expected_identity: tuple, operation: str, budget: Stor
            proj_intents > budget.max_intents:
             raise RuntimeError("Storage admission held")
 
-        if total_entries + PROJECTED_ENTRIES_RES > budget.max_entries:
+        if total_entries + req_entries_res > budget.max_entries:
             raise RuntimeError("Storage admission held")
 
         if total_counted_bytes + req_res_bytes > budget.max_root_bytes:

@@ -201,6 +201,11 @@ until the actual mini supplies evidence.
   learned: corrected bounded FD inventory with actual artifact patterns, conservative sparse bytes, current ownership, final metadata/root checks and redacted faults passes25Linux checks. Guard creates/deletes no files and is source-only, not yet coordinator-wired or image-bundled.
   criterion now: ISC-47..51 remain open; management quota ordering/replay integration, retained-file reconciliation, hard filesystem capacity, remote recovery and physical fleet acceptance remain unproved.
 
+- 2026-10-06 | conjectured: stage-aware storage admission could guard new management allocations while allowing validated completed replay.
+  refuted by: first generated fixtures were invalid; independent Linux regression intermittently accepted a replaced artifact name because journal verification checked only its descriptor/timestamps.
+  learned: corrected real SQLite/Node fixtures and added full final named/descriptor artifact comparison.107Linux checks8.987s pass, including prepared last-slot replay and corrupt-artifact denial; actual bundled candidate image passes fresh/existing encrypted checkpoint/restore and clean exits with zero providers.
+  criterion now: ISC-47..51 remain open; preflight is not a hard filesystem quota, retained-file reconciliation, remote encrypted custody, deployed gateway and physical acceptance remain unproved.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -356,3 +361,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-06 generic managed listener integrated:19hostchecks15.662s and43Linuxchecks31.538s pass including admission exceptions/revocation, malformed SSE no second response, backpressure reader cleanup and24management regressions. Fullpytest445passed90Linuxskips12subtests52.48s;catalogcurrent. Source/module/tests integrated only; image/entrypoint/digest/quota/remote andphysical acceptance remain pending;25/51 unchanged.
 
 - 2026-10-06 managed entrypoint first Build draft rejected: valid config fails real operation identity due backupKeyId/keyId mismatch, reproduced1testerror0.002s. Static review identifies restore health-monitor interference, false-success exits and partial shutdown deadlock risks. Rejectedsource preserved privately; no image/entrypoint promotion;25/51 unchanged.
+
+- Storage coordinator integration checkpoint:107 owned Linux checks8.987s, actual bundled fresh/existing image lifecycle and476platformpasses128Linuxskips12subtests56.24s;catalogcurrent. ISC-47..51 remain open.

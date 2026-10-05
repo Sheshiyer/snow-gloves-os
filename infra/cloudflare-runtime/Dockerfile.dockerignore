@@ -20,3 +20,4 @@
 !infra/cloudflare-runtime/entrypoint.py
 !infra/cloudflare-runtime/backup_crypto.mjs
 !infra/cloudflare-runtime/backup_file_cli.mjs
+!scripts/lib/runtime_storage_guard.py

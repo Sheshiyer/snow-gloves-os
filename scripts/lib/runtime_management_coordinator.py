@@ -4,13 +4,14 @@ from lib.runtime_operation_identity import checkpoint_digest, validate_checkpoin
 from lib.runtime_snapshot import write_bounded_snapshot
 from lib.runtime_job_journal import LocalJobJournal
 from lib.runtime_restore_intent import RestoreIntentStore
+from lib.runtime_storage_guard import StorageBudget, preflight
 
 SQLITE_HEADER = b"SQLite format 3\x00"
 MAX_SNAPSHOT_BYTES = 64 * 1024 * 1024
 MAX_ENCRYPTED_BYTES = MAX_SNAPSHOT_BYTES + 4136
 
 class RuntimeManagementCoordinator:
-    def __init__(self, supervisor, context, backup_key_base64, node_executable, backup_cli_path):
+    def __init__(self, supervisor, context, backup_key_base64, node_executable, backup_cli_path, storage_budget=None):
         self._lock = threading.Lock()
         try:
             if not isinstance(context, dict):
@@ -62,6 +63,13 @@ class RuntimeManagementCoordinator:
             self._root = root
             self._journal = LocalJobJournal(str(root))
             self._intents = RestoreIntentStore(str(root), self._context)
+            if storage_budget is None:
+                self._storage_budget = StorageBudget()
+            elif type(storage_budget) is StorageBudget:
+                storage_budget._validate()
+                self._storage_budget = storage_budget
+            else:
+                raise ValueError("invalid storage budget")
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception:
@@ -84,6 +92,10 @@ class RuntimeManagementCoordinator:
                     raise ValueError("Executable resource changed")
         except Exception:
             raise RuntimeError("Management operation held") from None
+
+    def _storage_preflight(self, stage):
+        self._verify_resources()
+        preflight(self._root, self._root_identity, stage, self._storage_budget)
 
     def _run_cli(self, mode, in_leaf, out_leaf):
         self._verify_resources()
@@ -115,11 +127,19 @@ class RuntimeManagementCoordinator:
             val = validate_checkpoint(self._context, payload)
             self._verify_resources()
             job_id, digest = val["job_id"], val["request_digest"]
+            existing = self._journal.lookup(job_id, digest)
+            if existing is not None and existing.get("state") == "artifact-verified":
+                return existing
+            if existing is not None and existing.get("state") == "prepared":
+                self._storage_preflight("checkpoint_snapshot")
+            else:
+                self._storage_preflight("checkpoint")
             rec = self._journal.prepare(job_id, digest)
             if rec.get("state") == "artifact-verified":
                 return rec
             if rec.get("state") != "prepared":
                 raise RuntimeError("journal prepare failed")
+            self._storage_preflight("checkpoint_snapshot")
             enc_leaf = f"sg-encrypted-{job_id}.bin"
             r_fd = os.open(self._root, os.O_RDONLY | os.O_DIRECTORY)
             try:
@@ -134,6 +154,7 @@ class RuntimeManagementCoordinator:
             snap_meta = write_bounded_snapshot(self._supervisor, snap_leaf, max_bytes=MAX_SNAPSHOT_BYTES, timeout=10)
             if snap_meta.get("leaf") != snap_leaf:
                 raise RuntimeError("snapshot leaf mismatch")
+            self._storage_preflight("checkpoint_encrypt")
             cli_res = self._run_cli("encrypt", snap_leaf, enc_leaf)
             return self._journal.record_artifact(job_id, digest, enc_leaf, cli_res["bytes"], cli_res["sha256"])
         except (KeyboardInterrupt, SystemExit):
@@ -157,11 +178,19 @@ class RuntimeManagementCoordinator:
             if (art.get("leaf") != v["leaf"] or art.get("bytes") != v["bytes"] or
                 art.get("sha256") != v["sha256"] or s_dig != checkpoint_digest(self._context, s_id)):
                 raise RuntimeError("source artifact mismatch")
+            existing_intent = self._intents.lookup(payload)
+            if existing_intent is not None and existing_intent.get("state") == "completed-local":
+                return {**existing_intent, "historical": True}
+            if existing_intent is not None and existing_intent.get("state") == "prepared":
+                self._storage_preflight("restore_decrypt")
+            else:
+                self._storage_preflight("restore")
             st = self._intents.prepare(payload)
             if st.get("state") == "completed-local":
                 return {**st, "historical": True}
             if st.get("state") != "prepared":
                 raise RuntimeError("intent prepare held")
+            self._storage_preflight("restore_decrypt")
             plain_leaf = f"sg-restore-plain-{v['restore_job_id']}-{secrets.token_hex(8)}.sqlite"
             cli_res = self._run_cli("decrypt", v["leaf"], plain_leaf)
             r_fd = os.open(self._root, os.O_RDONLY | os.O_DIRECTORY)
@@ -200,7 +229,7 @@ class RuntimeManagementCoordinator:
             rec2 = self._journal.reconcile(s_id, s_dig)
             if rec2.get("state") != "artifact-verified" or rec2.get("artifact") != art:
                 raise RuntimeError("source changed during decrypt")
-            self._verify_resources()
+            self._storage_preflight("restore_mutate")
             tok = self._intents.begin_mutation(payload)
             self._supervisor.restore(raw_bytes)
             health_deadline = time.monotonic() + 10.0
