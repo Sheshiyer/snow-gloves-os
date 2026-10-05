@@ -247,6 +247,24 @@ class TestRuntimeStorageIntegration(unittest.TestCase):
             crypto.assert_not_called()
         self.assertEqual(before, self._snapshot_root())
 
+    def test_17_record_path_replaced_during_parse_lookup_held(self):
+        import lib.runtime_job_journal as module
+        c = self._make_coord()
+        job = "f" * 32
+        dig = checkpoint_digest(self.ctx, job)
+        c._journal.prepare(job, dig)
+        target = self.root / ("sg-job-" + job + ".json")
+        original = module._parse_and_validate_record
+        def replace_record(raw):
+            result = original(raw)
+            target.rename(self.root / "retained-original-record")
+            target.write_bytes(raw)
+            target.chmod(0o600)
+            return result
+        with patch.object(module, "_parse_and_validate_record", side_effect=replace_record):
+            with self.assertRaises(RuntimeError):
+                c._journal.lookup(job, dig)
+
     def test_13_preflight_exact_stage_projected_and_counted_bytes(self):
         st = os.stat(self.root)
         ident = (st.st_dev, st.st_ino, st.st_uid, 0o700)

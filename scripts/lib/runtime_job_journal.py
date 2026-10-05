@@ -191,7 +191,14 @@ class LocalJobJournal:
             ):
                 raise RuntimeError("Local job held")
             rec = _parse_and_validate_record(raw)
-            return rec, st2
+            named = os.stat(jname, dir_fd=root_fd, follow_symlinks=False)
+            final = os.fstat(fd)
+            def signature(value):
+                return (value.st_dev, value.st_ino, value.st_mode, value.st_uid,
+                        value.st_nlink, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+            if signature(st1) != signature(final) or signature(named) != signature(final):
+                raise RuntimeError("Local job held")
+            return rec, final
         finally:
             os.close(fd)
 

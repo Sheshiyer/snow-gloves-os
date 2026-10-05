@@ -206,6 +206,11 @@ until the actual mini supplies evidence.
   learned: corrected real SQLite/Node fixtures and added full final named/descriptor artifact comparison.107Linux checks8.987s pass, including prepared last-slot replay and corrupt-artifact denial; actual bundled candidate image passes fresh/existing encrypted checkpoint/restore and clean exits with zero providers.
   criterion now: ISC-47..51 remain open; preflight is not a hard filesystem quota, retained-file reconciliation, remote encrypted custody, deployed gateway and physical acceptance remain unproved.
 
+- 2026-10-06 | conjectured: existing strict journal record parsing preserved named-record identity through lookup.
+  refuted by: actual Linux regression replaces named record during parsing; detached original was returned as valid.
+  learned: final full descriptor/named signature comparison now rejects replaced records;108Linux checks8.676s pass.
+  criterion now: ISC-47..51 remain open; source namespace repair does not upgrade deployed image or physical acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
