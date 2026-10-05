@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 17/51
+progress: 20/51
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-05
@@ -101,10 +101,10 @@ until the actual mini supplies evidence.
 - [x] ISC-35: Relative ingestion sources resolve through the configured private-data root in the CLI regression.
 - [x] ISC-36: The unchanged public/default data-path contract passes its regression suite.
 - [x] ISC-37: Every admitted HeyZack wing/runtime combination has a validated sandbox render receipt.
-- [ ] ISC-38: Each wing has an explicit cluster binding record that distinguishes host tier from device deployment.
-- [ ] ISC-39: Host pointer-capability checks prove the referenced files exist at the inspected host.
+- [x] ISC-38: Each wing has an explicit cluster binding record that distinguishes host tier from device deployment.
+- [x] ISC-39: Host pointer-capability checks prove the referenced files exist at the inspected host.
 - [ ] ISC-40: Selected admitted MCP read operations return actual scoped capability evidence.
-- [ ] ISC-41: Coding-wing doctor evidence is collected on the identified physical Coding Mac.
+- [x] ISC-41: Coding-wing doctor evidence is collected on the identified physical Coding Mac.
 - [ ] ISC-42: An admitted coding-wing job returns a source-scoped artifact and execution receipt on its physical device.
 - [ ] ISC-43: An admitted marketing-wing job returns a source-scoped artifact and execution receipt on its physical device.
 - [ ] ISC-44: An admitted design-wing job returns a source-scoped artifact and execution receipt on its physical device.
@@ -187,3 +187,7 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - ISC-33: hash audit — five matching-brand snapshots, each original dossier and evidence file byte-identical to its tenant-local copy.
 - ISC-34: manifest readback — external HeyZack brand-pdf-skill reference now has ingest: false.
 - ISC-37: render manifest/hash audit — all twelve admitted HeyZack wing/runtime combinations match enabled intersections in isolated sandbox outputs.
+
+- ISC-38: indexed binding readback — twenty explicit wing-to-cluster entries retain host tier and node-deployment status; deferred clusters are not claimed deployed.
+- ISC-39: canonical pointer paths — superpowers, gsd and taste-skill host SKILL.md references all exist. This proves host file presence only.
+- ISC-41: physical SSH doctor — source 7bcbbb9 on Coding Mac; doctor exit 1 after 35.83 seconds. Tailscale, node profile and eleven manifests pass; gateway/Hermes fail. Collection is complete, operational acceptance is not.
