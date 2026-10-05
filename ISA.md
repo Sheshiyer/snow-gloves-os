@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 23/51
+progress: 24/51
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-05
@@ -105,7 +105,7 @@ until the actual mini supplies evidence.
 - [x] ISC-39: Host pointer-capability checks prove the referenced files exist at the inspected host.
 - [x] ISC-40: Selected admitted MCP read operations return actual scoped capability evidence.
 - [x] ISC-41: Coding-wing doctor evidence is collected on the identified physical Coding Mac.
-- [ ] ISC-42: An admitted coding-wing job returns a source-scoped artifact and execution receipt on its physical device.
+- [x] ISC-42: An admitted coding-wing job returns a source-scoped artifact and execution receipt on its physical device.
 - [ ] ISC-43: An admitted marketing-wing job returns a source-scoped artifact and execution receipt on its physical device.
 - [ ] ISC-44: An admitted design-wing job returns a source-scoped artifact and execution receipt on its physical device.
 - [ ] ISC-45: A supervised Hermes round trip records interpretation, dispatch and artifact-linked completion.
@@ -197,3 +197,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - ISC-20: full current regression suite — 305 passed in 11.65s; catalog up to date. This does not prove the missing historical pilot implementation.
 - ISC-40: admitted GitHub connector returned exact repository metadata and VERSION content/blob SHA; host connector transport recorded separately from the device npm server.
 - ISC-46: Cloudflare-only guard passed authenticated pinned identity/account/active-zone readback; 15 rejection/secret-suppression tests pass. Target and guard receipt stay private. Deployment/runtime acceptance remains ISC-47.
+
+- ISC-42: physical mac-coding.local executed admitted github-mcp over stdio without credentials, retrieved VERSION and two source files with verified Git blob hashes, wrote source-audit.json and receipt.json in its isolated proof directory. Independent SSH artifact readback matches SHA256 beb423008d4af43b26fd1def5af1270bd4ea738905ac50279e044413b7c29912. Deprecated npm server and unpublished main-branch ingestion defect remain recorded findings; gateway/agent-model execution is not claimed.
