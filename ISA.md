@@ -211,6 +211,11 @@ until the actual mini supplies evidence.
   learned: final full descriptor/named signature comparison now rejects replaced records;108Linux checks8.676s pass.
   criterion now: ISC-47..51 remain open; source namespace repair does not upgrade deployed image or physical acceptance.
 
+- 2026-10-06 | conjectured: retained-file inspection could classify existing records without mutation.
+  refuted by: Plan invented lock/API contracts; first Build misses post-parse namespace changes, total deadlines and fault redaction; additional parser chain probe reproduced diagnostic leakage.
+  learned: corrected own root FD lock, bounded pure parsing/hash, final namespace checks and redacted exceptions pass20actualLinuxchecks0.588s, including maximum ciphertext and interrupted/unbound evidence.
+  criterion now: ISC-47..51 remain open; inspector is standalone source-only and cannot authorize deletion, remote custody or physical recovery.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
