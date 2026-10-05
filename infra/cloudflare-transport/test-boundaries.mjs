@@ -211,7 +211,7 @@ test('health endpoint: wrong status, 17-byte overflow, slow read timeout (50ms o
   assert.equal(wrongStatus.status, 503);
 
   const over16Bytes = await handleGateway(new Request('https://gateway.test/_management/ready', authHeaders), cfg, {
-    fetch: async () => new Response('12345678901234567'),
+    fetch: async () => new Response('12345678901234567', {headers: {'content-type':'application/json'}}),
   });
   assert.equal(over16Bytes.status, 503);
 
@@ -223,12 +223,12 @@ test('health endpoint: wrong status, 17-byte overflow, slow read timeout (50ms o
   const timeoutRes = await handleGateway(
     new Request('https://gateway.test/_management/ready', authHeaders),
     cfg,
-    { fetch: async (_, init) => new Response(slowStream, { status: 200 }) },
+    { fetch: async (_, init) => new Response(slowStream, { status: 200, headers: {'content-type':'application/json'} }) },
     { adminReadyTimeoutMs: 50 }
   );
   assert.equal(timeoutRes.status, 503);
   const readyOk = await handleGateway(new Request('https://gateway.test/_management/ready', authHeaders), cfg, {
-    fetch: async () => new Response('ok\n', { status: 200 }),
+    fetch: async () => new Response('{"ready":true}', { status: 200, headers: {'content-type':'application/json'} }),
   });
   assert.equal(readyOk.status, 200);
   assert.deepEqual(await readyOk.json(), { status: 'ready', lifecycle: 'running' });

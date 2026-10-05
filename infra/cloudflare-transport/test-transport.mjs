@@ -137,11 +137,12 @@ test('inference POST replaces authorization, strips headers, and prevents origin
   assert.ok(interceptedReq.init.headers.get('x-request-id'));
 });
 
-test('admin readiness check uses /healthz and limits output', async () => {
+test('admin readiness check uses authenticated management JSON and limits output', async () => {
   const backendFetcher = {
-    fetch: async (url) => {
-      assert.equal(url, 'http://container/healthz');
-      return new Response('ok\n', { status: 200 });
+    fetch: async (url, init) => {
+      assert.equal(url, 'http://container/_management/ready');
+      assert.equal(init.headers.Authorization, `Bearer ${rawAdminKey}`);
+      return new Response('{"ready":true}', { status: 200, headers: {'content-type':'application/json'} });
     },
   };
 

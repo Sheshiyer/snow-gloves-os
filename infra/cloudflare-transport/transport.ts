@@ -1,4 +1,4 @@
-import { checkPortHealth } from './lifecycle.ts';
+import { checkManagedReady } from './lifecycle.ts';
 
 export interface ScopedKeyEntry {
   sha256: string;
@@ -343,7 +343,8 @@ export async function authorizeGateway(
     rawPath !== '/v1/models' &&
     rawPath !== '/v1/chat/completions' &&
     rawPath !== '/v1/responses'
-  ) {
+  )
+  {
     return { response: JSON_ERROR(404, 'not_found') };
   }
 
@@ -390,7 +391,11 @@ export async function authorizeGateway(
     };
   }
 
-  if (rawPath === '/v1/chat/completions' || rawPath === '/v1/responses') {
+  if (rawPath === '/v1/responses') {
+    return { response: REDACTED_503() };
+  }
+
+  if (rawPath === '/v1/chat/completions') {
     if (request.method !== 'POST') {
       return { response: JSON_ERROR(405, 'method_not_allowed') };
     }
@@ -478,8 +483,8 @@ export async function handleGateway(
 
   if (authorized.kind === 'management') {
     const timeout = overrides?.adminReadyTimeoutMs ?? ADMIN_READY_TIMEOUT_MS;
-    const ready = await checkPortHealth(backendFetcher, timeout, request.signal);
-    return ready ? Response.json({status: 'ready', lifecycle: 'running'}) : JSON_ERROR(503, 'not_ready');
+    const ready = await checkManagedReady(backendFetcher, config.MANAGEMENT_KEY, timeout, request.signal);
+    return ready ? Response.json({ status: 'ready', lifecycle: 'running' }) : JSON_ERROR(503, 'not_ready');
   }
 
   if (authorized.kind === 'models' && authorized.matchedKey) {

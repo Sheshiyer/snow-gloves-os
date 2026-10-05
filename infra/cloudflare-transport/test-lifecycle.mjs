@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   ContainerLifecycleManager,
   checkPortHealth,
+  checkManagedReady,
   readLimitedBody,
   LIFECYCLE_OVERALL_TIMEOUT_MS,
   LIFECYCLE_HEALTH_TIMEOUT_MS,
@@ -21,19 +22,40 @@ function makeStream(chunks, delayMs = 0) {
   });
 }
 
-const validEnv = { STORAGE_ENCRYPTION_KEY: 'a'.repeat(32), GATEWAY_START_ALLOWED: 'true' };
+const validPinnedImage = 'registry.example/owned/runtime@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+const validEnv = {
+  MANAGEMENT_KEY: 'm'.repeat(32),
+  BACKEND_API_KEY: 'b'.repeat(32),
+  STORAGE_ENCRYPTION_KEY: 's'.repeat(32),
+  SG_BACKUP_KEY: btoa('k'.repeat(32)),
+  SG_BACKUP_KEY_ID: 'backup-key-01',
+  GATEWAY_INSTANCE_ID: 'instance-01',
+  GATEWAY_START_ALLOWED: 'true'
+};
 
 test('preconditions: missing container, hold gate, short key, missing image', async () => {
   const mgr = new ContainerLifecycleManager();
   await assert.rejects(() => mgr.ensureReady(undefined, validEnv), /CONTAINER_UNAVAILABLE/);
-  await assert.rejects(() => mgr.ensureReady({}, { ...validEnv, GATEWAY_START_ALLOWED: 'false' }), /GATEWAY_START_HOLD/);
-  await assert.rejects(() => mgr.ensureReady({ images: { base: 'img' } }, { ...validEnv, STORAGE_ENCRYPTION_KEY: 'short' }), /INVALID_STORAGE_ENCRYPTION_KEY/);
-  await assert.rejects(() => mgr.ensureReady({}, validEnv), /CONTAINER_IMAGE_NOT_FOUND/);
+  await assert.rejects(() => mgr.ensureReady({ images: { base: validPinnedImage } }, { ...validEnv, GATEWAY_START_ALLOWED: 'false' }), /GATEWAY_START_HOLD/);
+  await assert.rejects(() => mgr.ensureReady({ images: { base: validPinnedImage } }, { ...validEnv, STORAGE_ENCRYPTION_KEY: 'short' }), /INVALID_STORAGE_ENCRYPTION_KEY/);
+  await assert.rejects(() => mgr.ensureReady({}, validEnv), /INVALID_CONTAINER_IMAGE/);
 });
 
 test('overrides validation: malicious values rejected', async () => {
   const mgr = new ContainerLifecycleManager();
-  const container = { images: { base: 'img' }, running: true, getTcpPort: () => ({ fetch: async () => ({ status: 200, body: makeStream(['ok\n']) }) }) };
+  const container = {
+    images: { base: validPinnedImage },
+    running: true,
+    inspect: async () => ({ image: validPinnedImage }),
+    getTcpPort: () => ({
+      fetch: async () => ({
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        body: makeStream(['{"ready":true}'])
+      })
+    })
+  };
   await assert.rejects(() => mgr.ensureReady(container, validEnv, undefined, { overallTimeoutMs: -1 }), /INVALID_OVERRIDE/);
   await assert.rejects(() => mgr.ensureReady(container, validEnv, undefined, { overallTimeoutMs: 60000 }), /INVALID_OVERRIDE/);
   await assert.rejects(() => mgr.ensureReady(container, validEnv, undefined, { maxAttempts: 0 }), /INVALID_OVERRIDE/);
@@ -46,14 +68,22 @@ test('start options accurate and single start call on concurrent invocations', a
   const startCalls = [];
   let isRunning = false;
   const container = {
-    images: { base: 'cf-image-candidate' },
+    images: { base: validPinnedImage },
     get running() { return isRunning; },
+    inspect: async () => ({ image: validPinnedImage }),
     start(opts) {
       startCalls.push(opts);
       isRunning = true;
     },
     getTcpPort: (p) => ({
-      fetch: async () => ({ status: 200, body: makeStream(['ok\n']) })
+      fetch: async (url, init) => {
+        assert.equal(init?.headers?.Authorization, `Bearer ${validEnv.MANAGEMENT_KEY}`);
+        return {
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          body: makeStream(['{"ready":true}'])
+        };
+      }
     })
   };
 
@@ -63,8 +93,17 @@ test('start options accurate and single start call on concurrent invocations', a
   ]);
   assert.equal(startCalls.length, 1);
   assert.deepEqual(startCalls[0], {
-    image: 'cf-image-candidate',
-    env: { STORAGE_ENCRYPTION_KEY: validEnv.STORAGE_ENCRYPTION_KEY },
+    image: validPinnedImage,
+    env: {
+      SG_MANAGEMENT_KEY: validEnv.MANAGEMENT_KEY,
+      SG_BACKEND_KEY: validEnv.BACKEND_API_KEY,
+      STORAGE_ENCRYPTION_KEY: validEnv.STORAGE_ENCRYPTION_KEY,
+      SG_BACKUP_KEY: validEnv.SG_BACKUP_KEY,
+      SG_BACKUP_KEY_ID: validEnv.SG_BACKUP_KEY_ID,
+      SG_INSTANCE_ID: validEnv.GATEWAY_INSTANCE_ID,
+      DATA_DIR: '/data',
+      SG_IMAGE_DIGEST: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    },
     enableInternet: false,
     instance: 'standard-1'
   });
@@ -74,19 +113,28 @@ test('start options accurate and single start call on concurrent invocations', a
 test('already running fastpath reprobes and rejects wrong/oversized health or stale cache', async () => {
   const mgr = new ContainerLifecycleManager();
   let probeCount = 0;
+  let isRunning = false;
+  let currentResponse = { status: 200, headers: new Headers({ 'content-type': 'application/json' }), body: makeStream(['{"ready":true}']) };
   const container = {
-    images: { base: 'img' },
-    running: true,
-    start: () => {},
+    images: { base: validPinnedImage },
+    get running() { return isRunning; },
+    inspect: async () => ({ image: validPinnedImage }),
+    start: () => { isRunning = true; },
     getTcpPort: () => ({
       fetch: async () => {
         probeCount++;
-        return { status: 200, body: makeStream(['wrong\n']) };
+        return currentResponse;
       }
     })
   };
-  await assert.rejects(() => mgr.ensureReady(container, validEnv, undefined, { overallTimeoutMs: 200, healthTimeoutMs: 50, maxAttempts: 2 }), /CONTAINER_START_TIMEOUT/);
-  assert.ok(probeCount >= 2);
+
+  const initialPort = await mgr.ensureReady(container, validEnv, undefined, { overallTimeoutMs: 1000, healthTimeoutMs: 100, maxAttempts: 3 });
+  assert.ok(initialPort);
+  assert.equal(probeCount, 1);
+
+  currentResponse = { status: 200, headers: new Headers({ 'content-type': 'application/json' }), body: makeStream(['wrong']) };
+  await assert.rejects(() => mgr.ensureReady(container, validEnv, undefined, { overallTimeoutMs: 200, healthTimeoutMs: 50, maxAttempts: 1 }), /RUNNING_CONTAINER_NOT_READY/);
+  assert.equal(probeCount, 2);
 });
 
 test('oversized body read reject <= 16 bytes', async () => {
@@ -97,7 +145,19 @@ test('oversized body read reject <= 16 bytes', async () => {
 test('already aborted signal rejects immediately without starting', async () => {
   const mgr = new ContainerLifecycleManager();
   let started = false;
-  const container = { images: { base: 'img' }, running: false, start: () => { started = true; }, getTcpPort: () => ({ fetch: async () => ({ status: 200, body: makeStream(['ok\n']) }) }) };
+  const container = {
+    images: { base: validPinnedImage },
+    running: false,
+    inspect: async () => ({ image: validPinnedImage }),
+    start: () => { started = true; },
+    getTcpPort: () => ({
+      fetch: async () => ({
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        body: makeStream(['{"ready":true}'])
+      })
+    })
+  };
   const ac = new AbortController();
   ac.abort();
   await assert.rejects(() => mgr.ensureReady(container, validEnv, ac.signal), /ABORTED/);
@@ -107,18 +167,21 @@ test('already aborted signal rejects immediately without starting', async () => 
 test('cancellation of one waiter does not poison or abort others', async () => {
   const mgr = new ContainerLifecycleManager();
   let fetchCount = 0;
+  let isRunning = false;
   const container = {
-    images: { base: 'img' },
-    running: false,
-    start: () => {},
+    images: { base: validPinnedImage },
+    get running() { return isRunning; },
+    inspect: async () => ({ image: validPinnedImage }),
+    start: () => { isRunning = true; },
     getTcpPort: () => ({
       fetch: async () => {
         fetchCount++;
         if (fetchCount < 2) {
           await new Promise((r) => setTimeout(r, 100));
-          return { status: 503, body: makeStream(['bad']) };
+          return { status: 503, headers: new Headers({ 'content-type': 'application/json' }), body: makeStream(['bad']) };
         }
-        return { status: 200, body: makeStream(['ok\n']) };
+        return { status: 200, headers: new Headers({ 'content-type': 'application/json' }), body: makeStream(['{"ready":true}'])
+        };
       }
     })
   };
@@ -160,10 +223,19 @@ test('health body never finish is bounded by deadline and releases reader', asyn
 
 test('listener cleanup on signal after successful resolve and aborted resolve', async () => {
   const mgr = new ContainerLifecycleManager();
+  let isRunning = false;
   const container = {
-    images: { base: 'img' },
-    running: true,
-    getTcpPort: () => ({ fetch: async () => ({ status: 200, body: makeStream(['ok\n']) }) })
+    images: { base: validPinnedImage },
+    get running() { return isRunning; },
+    inspect: async () => ({ image: validPinnedImage }),
+    start: () => { isRunning = true; },
+    getTcpPort: () => ({
+      fetch: async () => ({
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        body: makeStream(['{"ready":true}'])
+      })
+    })
   };
   const ac = new AbortController();
   const port = await mgr.ensureReady(container, validEnv, ac.signal, { overallTimeoutMs: 500, healthTimeoutMs: 100, maxAttempts: 2 });

@@ -8,6 +8,9 @@ export interface SecretEnv {
   MANAGEMENT_KEY: string;
   BACKEND_API_KEY: string;
   STORAGE_ENCRYPTION_KEY: string;
+  SG_BACKUP_KEY: string;
+  SG_BACKUP_KEY_ID: string;
+  GATEWAY_INITIALIZE_FRESH?: string;
 }
 
 export type RuntimeEnv = Cloudflare.Env & SecretEnv;
@@ -30,8 +33,14 @@ export class Gateway extends DurableObject<RuntimeEnv> {
         const port = await this.lifecycleManager.ensureReady(
           this.ctx.container,
           {
+            MANAGEMENT_KEY: this.env.MANAGEMENT_KEY,
+            BACKEND_API_KEY: this.env.BACKEND_API_KEY,
             STORAGE_ENCRYPTION_KEY: this.env.STORAGE_ENCRYPTION_KEY,
+            SG_BACKUP_KEY: this.env.SG_BACKUP_KEY,
+            SG_BACKUP_KEY_ID: this.env.SG_BACKUP_KEY_ID,
+            GATEWAY_INSTANCE_ID: this.env.GATEWAY_INSTANCE_ID,
             GATEWAY_START_ALLOWED: this.env.GATEWAY_START_ALLOWED,
+            ...(this.env.GATEWAY_INITIALIZE_FRESH !== undefined ? { GATEWAY_INITIALIZE_FRESH: this.env.GATEWAY_INITIALIZE_FRESH } : {}),
           },
           init?.signal ?? request.signal
         );

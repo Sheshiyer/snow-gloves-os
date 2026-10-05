@@ -191,6 +191,11 @@ until the actual mini supplies evidence.
   learned: expanded only the owned proof disk, moved launcher HOME to /tmp, and supplied the probe through stdin. Actual immutable image passes fresh/existing encrypted checkpoint/restore, historical replay, role rejection, held chat, zero-provider integrity and clean exits; five startup denials pass. Cleanup-timeout containment removes all original tini/Python/OmniRoute identities.473platform tests90Linux skips12subtests pass.
   criterion now: ISC-47..51 remain open; local image evidence does not prove Cloudflare integration, storage budgets, remote recovery, provider admission or physical fleet acceptance.
 
+- 2026-10-06 | conjectured: the reviewed image could use the earlier Cloudflare transport contract unchanged.
+  refuted by: installed source retained raw port8081/storage-only injection; Plan draft repeated those errors, and Build candidate tests reproduced wrong env/digest, fabricated inspection, config drift, cancellation and late ownership acceptance.
+  learned: matched generic adapter now uses managed8080/full independent role keys, selected digest plus actual inspection, authenticated exact readiness and unknown-running holds; unsupported responses stays held.55transport tests/generatedtypes/strictcompile and12actual localHTTPS boundary probes pass;473platform tests90Linux skips12subtests54.51s/catalogcurrent. Local Worker created no container; start remainsfalse.
+  criterion now: ISC-47..51 remain open; company registry/deployment, durable running-config recovery, remote encrypted checkpoint custody/acknowledgment, owned retention/storage budgets, provider admission and physical acceptance remain unproved.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.

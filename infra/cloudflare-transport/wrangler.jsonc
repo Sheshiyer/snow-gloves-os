@@ -27,7 +27,7 @@
       "images": {
         "base": {
           "dockerfile": "../cloudflare-runtime/Dockerfile",
-          "build_context": "../cloudflare-runtime"
+          "build_context": "../.."
         }
       }
     }
