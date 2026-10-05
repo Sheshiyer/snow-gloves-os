@@ -126,3 +126,5 @@ make fleet-doctor
   (`specs/005-node-bootstrap/spec.md`). Brand permissions come from the tenant, never from the box.
 
 Note on names: the Coding Mac already exists as "AXIO’s Mac mini" with operator user `mac-coding`; `fleet.yaml` records that (`lan_host`, `operator_user`) and is the source of truth. The `sg-<wing>` convention applies to the two new minis. Until Tailscale is up, pass `--lan` to `connect.sh` and use `gateway.lan_url`.
+
+Pickup for a new session: [HANDOFF-2026-10-05.md](HANDOFF-2026-10-05.md).

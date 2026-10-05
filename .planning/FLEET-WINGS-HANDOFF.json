@@ -2,7 +2,7 @@
   "schema": "snowgloves.execution-handoff.v1",
   "track": "fleet-wings",
   "updated": "2026-10-02",
-  "status": "cut-over-complete-single-gateway",
+  "status": "two-gateways-architecture-decision-pending",
   "spec": "specs/007-fleet-wings/spec.md",
   "entry": "docs/fleet/README.md",
   "relates_to": {
@@ -30,9 +30,12 @@
     "Claude Code 2.1.287, Codex 0.160.0, Tailscale 1.102.5 binary, Python 3.14 + PyYAML + pytest installed on the Coding Mac",
     "2026-10-02 13:35 UTC: both machines on tailnet tail32e298.ts.net; gateway bound to coding-mac (100.117.187.123) only; seat reaches it by name; overlay completion OVERLAY-OK",
     "2026-10-02 14:10 UTC: cutover; seat clients -> coding-mac; seat LaunchAgent is a loopback forwarder (same label, self-heal safe); no omniroute serve on the seat",
-    "2026-10-02 14:40 UTC: snow-gloves-os-modular archived to _archive/snow-gloves-os-modular-2026-10-02 (git intact)"
+    "2026-10-02 14:40 UTC: snow-gloves-os-modular archived to _archive/snow-gloves-os-modular-2026-10-02 (git intact)",
+    "2026-10-05: Temperance quick task 261005-omr restored the seat's local OmniRoute as primary (coding-mac = promotable peer); seat CLIs still target coding-mac; handoff written at docs/fleet/HANDOFF-2026-10-05.md"
   ],
   "remaining": [
+    "Founder: decide the standing gateway architecture (Coding Mac only + seat forwarder, or seat primary + peer) and whether seat CLIs point at loopback or coding-mac",
+    "Founder: push policy (public repo; unpushed range carries tailnet/LAN/account names)",
     "Mint scoped API keys per machine/person; replace the mirrored seat key in the Coding Mac keychain",
     "Grok CLI and Cursor on the Coding Mac; Hermes on the coding wing; Marketing and Design minis",
     "Amend ACP rule #4 host-side; rotate dashboard password; fix omniroute CLI/MCP key scope (sync bundle returned 401)",
@@ -62,7 +65,10 @@
     ".planning/FLEET-WINGS-HANDOFF.json",
     "README.md"
   ],
-  "next_action": "Mint scoped keys per machine/person (Coding Mac dashboard or CLI with the management token); then Marketing and Design minis with the same kit; archive the modular clone; confirm the four brand parents.",
+  "next_action": "Read docs/fleet/HANDOFF-2026-10-05.md section 5; get the founder's answer to decision 1; then follow section 6 in order.",
   "workers": [],
-  "checkpoint_branch": "codex/local-mini-pilot"
+  "checkpoint_branch": "codex/local-mini-pilot",
+  "see_also": [
+    "docs/fleet/HANDOFF-2026-10-05.md"
+  ]
 }

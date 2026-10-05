@@ -85,3 +85,10 @@ Consequences: if the Coding Mac or the tailnet is down, the seat has no gateway 
 Rollback (one minute): restore `~/Library/LaunchAgents/com.temperance.engine.omniroute.plist` and the four client configs from
 `~/.snowgloves-cutover-backup-20261002T140733Z/`, then `launchctl bootout gui/$(id -u)/com.temperance.engine.omniroute` and
 `launchctl bootstrap gui/$(id -u) <plist>`.
+
+## 2026-10-05 07:56 UTC — Seat restored as local primary; Coding Mac becomes a promotable peer (supersedes the 2026-10-02 cutover)
+
+Recorded from the Temperance quick task `261005-omr-local-omniroute-primary` (operator-authorized 2026-10-02): after the seat
+rebooted, its LaunchAgent was restored to `omniroute serve` on 127.0.0.1 and the socat forwarder plist was parked in
+`~/Library/LaunchAgents/.attic/`. The seat's four client CLIs were left pointing at `coding-mac`, so two gateways run and the
+two stores drift. Standing architecture to be confirmed by the founder; see docs/fleet/HANDOFF-2026-10-05.md section 5.

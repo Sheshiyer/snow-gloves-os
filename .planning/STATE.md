@@ -1,3 +1,8 @@
+## 2026-10-05 08:15 UTC — Session checklist + handoff written
+
+- `docs/fleet/HANDOFF-2026-10-05.md` is the pickup point: checklist of everything done 2026-10-02 → 2026-10-05, verified current state, gotchas, open founder decisions, ordered next steps, rollbacks.
+- Current gateway state is mixed: the seat's local OmniRoute is primary again (quick task 261005-omr) while the seat's four CLIs still point at `coding-mac`. Decision 1 in the handoff resolves it.
+
 ## 2026-10-05 — Branches reconciled locally; Axtech brand map confirmed by the founder
 
 - Local `main` is the single head (fast-forwarded to the fleet work at 58e77d8); nine merged local branches deleted (restore SHAs kept in the session scratchpad); `codex/local-mini-pilot` kept as an alias until push. The founder deleted six merged remote branches; PR #9 closed with them. Three remote branches remain for review: `ecc-tools/…` (PR #6, closed unmerged) and two `local-004-seed-briefs-dispatcher-*` backups.
