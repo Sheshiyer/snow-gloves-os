@@ -1,5 +1,6 @@
 """Authenticated local management HTTP listener with OperationGate concurrency control."""
 from __future__ import annotations
+from lib.runtime_operation_identity import checkpoint_digest, validate_checkpoint, validate_restore
 
 import hmac
 import json
@@ -83,8 +84,9 @@ class _ManagementServer(ThreadingHTTPServer):
 
     def __init__(self, server_address: tuple[str, int], RequestHandlerClass: type,
                  checkpoint_cb: Callable[[dict], dict], restore_cb: Callable[[dict], dict],
-                 management_key: str, max_conn: int, conn_timeout: float, gate: OperationGate) -> None:
+                 management_key: str, max_conn: int, conn_timeout: float, gate: OperationGate, operation_context: dict) -> None:
         super().__init__(server_address, RequestHandlerClass)
+        self.operation_context = operation_context
         self.checkpoint_cb = checkpoint_cb
         self.restore_cb = restore_cb
         self.management_key = management_key
@@ -253,32 +255,12 @@ class _ManagementHandler(BaseHTTPRequestHandler):
             self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
             return None
 
-        expected_keys = {"job_id", "request_digest"}
-        if is_restore:
-            expected_keys |= {"leaf", "bytes", "sha256"}
-        if set(data.keys()) != expected_keys:
+        try:
+            validator = validate_restore if is_restore else validate_checkpoint
+            return validator(self.server.operation_context, data)
+        except ValueError:
             self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
             return None
-
-        if not isinstance(data.get("job_id"), str) or not HEX32_RE.fullmatch(data["job_id"]):
-            self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
-            return None
-        if not isinstance(data.get("request_digest"), str) or not HEX64_RE.fullmatch(data["request_digest"]):
-            self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
-            return None
-
-        if is_restore:
-            if not isinstance(data.get("leaf"), str) or not LEAF_RE.fullmatch(data["leaf"]):
-                self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
-                return None
-            b_val = data.get("bytes")
-            if not isinstance(b_val, int) or isinstance(b_val, bool) or b_val <= 0 or b_val > MAX_RESTORE_BYTES:
-                self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
-                return None
-            if not isinstance(data.get("sha256"), str) or not HEX64_RE.fullmatch(data["sha256"]):
-                self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
-                return None
-        return data
 
     def do_POST(self) -> None:
         if not self._validate_auth():
@@ -337,9 +319,11 @@ class _ManagementHandler(BaseHTTPRequestHandler):
 
 def create_management_server(checkpoint: Callable[[dict], dict], restore: Callable[[dict], dict],
                              management_key: str, backend_key: str, storage_key: str, *,
-                             host: str = "127.0.0.1", port: int = 0,
+                             operation_context: dict, host: str = "127.0.0.1", port: int = 0,
                              max_connections: int = 8, connection_timeout: float = 1.0,
                              gate: OperationGate | None = None) -> ThreadingHTTPServer:
+    checkpoint_digest(operation_context, "0" * 32)
+    trusted_context = dict(operation_context)
     if not callable(checkpoint) or not callable(restore):
         raise ValueError("Callbacks must be callable")
     for name, k in [("management_key", management_key), ("backend_key", backend_key), ("storage_key", storage_key)]:
@@ -357,4 +341,4 @@ def create_management_server(checkpoint: Callable[[dict], dict], restore: Callab
         raise ValueError("connection_timeout must be float in 0.05..5.0")
     server_gate = gate if gate is not None else OperationGate()
     return _ManagementServer((host, port), _ManagementHandler, checkpoint, restore,
-                           management_key, max_connections, float(connection_timeout), server_gate)
+                           management_key, max_connections, float(connection_timeout), server_gate, trusted_context)

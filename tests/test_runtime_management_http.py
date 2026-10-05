@@ -1,10 +1,11 @@
+from lib.runtime_operation_identity import checkpoint_digest, restore_digest
 import unittest,threading,http.client,json,socket,time
 from lib.runtime_management_http import create_management_server,OperationGate
 class Review(unittest.TestCase):
  def setUp(self):
-  self.calls=[];self.key='m'*40;self.payload={'job_id':'a'*32,'request_digest':'b'*64}
+  self.calls=[];self.key='m'*40;self.context={'instanceId':'heyzack','runtimeVersion':'3.8.50','imageDigest':'a'*64,'keyId':'fixture-key'};self.payload={'job_id':'a'*32,'request_digest':checkpoint_digest(self.context,'a'*32)}
   def callback(value):self.calls.append(value);return {'state':'local-only'}
-  self.server=create_management_server(callback,callback,self.key,'b'*40,'s'*40,connection_timeout=0.2);self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start();self.port=self.server.server_address[1]
+  self.server=create_management_server(callback,callback,self.key,'b'*40,'s'*40,connection_timeout=0.2,operation_context=self.context);self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start();self.port=self.server.server_address[1]
  def tearDown(self):self.server.shutdown();self.server.server_close();self.thread.join(2)
  def request(self,body=None,key=None,path='/_management/checkpoint',method='POST',headers=None):
   raw=json.dumps(self.payload if body is None else body).encode();c=http.client.HTTPConnection('127.0.0.1',self.port,timeout=2);h={'Authorization':'Bearer '+(self.key if key is None else key),'Content-Type':'application/json'};h.update(headers or {});c.request(method,path,raw,h);r=c.getresponse();value=(r.status,r.read());c.close();return value
@@ -28,7 +29,7 @@ class Review(unittest.TestCase):
   self.assertEqual(self.request()[0],409);self.server.gate.end_mutation();self.assertEqual(self.request()[0],200)
  def test_restore_requires_exact_artifact_fields(self):
   self.assertEqual(self.request(path='/_management/restore')[0],400)
-  value={**self.payload,'leaf':'sg-encrypted-'+'c'*32+'.bin','bytes':32,'sha256':'d'*64};self.assertEqual(self.request(body=value,path='/_management/restore')[0],200)
+  art={'leaf':'sg-encrypted-'+'c'*32+'.bin','bytes':32,'sha256':'d'*64};value={'restore_job_id':'d'*32,'source_checkpoint_job_id':'c'*32,'source_request_digest':'e'*64,**art};value['request_digest']=restore_digest(self.context,'d'*32,'c'*32,'e'*64,art);self.assertEqual(self.request(body=value,path='/_management/restore')[0],200)
  def test_body_length_over_limit_never_mutates(self):
   self.assertEqual(self.request(headers={'Content-Length':'2049'})[0],400);self.assertEqual(self.calls,[])
  def raw(self,request):
@@ -83,4 +84,10 @@ class Review(unittest.TestCase):
   time.sleep(0.3);self.assertEqual(self.request()[0],200)
  def test_oversized_requestline_generic_denial(self):
   r=self.raw(b'POST /'+b'fixture-secret-'*2600+b' HTTP/1.1\r\n\r\n');self.assertIn(b'431',r);self.assertNotIn(b'fixture-secret',r);self.assertEqual(self.calls,[])
+ def test_changed_digest_rejected_before_callback(self):
+  self.assertEqual(self.request(body={**self.payload,'request_digest':'0'*64})[0],400);self.assertEqual(self.calls,[])
+ def test_context_copy_isolated_from_callers(self):
+  self.context['instanceId']='other-company';self.assertEqual(self.request()[0],200)
+ def test_checkpoint_payload_cannot_replay_as_restore(self):
+  self.assertEqual(self.request(path='/_management/restore')[0],400);self.assertEqual(self.calls,[])
 if __name__=='__main__':unittest.main(verbosity=2)
