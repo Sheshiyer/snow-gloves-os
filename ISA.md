@@ -7,7 +7,7 @@ phase: execute
 progress: 25/51
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-05
+updated: 2026-10-06
 ---
 
 ## Problem
@@ -175,6 +175,11 @@ until the actual mini supplies evidence.
   refuted by: CLI regression reproduces NameError for a relative source path.
   learned: root resolution was lost at the public/private split and helper-only tests did not exercise the entrypoint.
   criterion now: ISC-35 requires a real CLI regression across the private-data seam.
+
+- 2026-10-06 | conjectured: the revised managed entrypoint could coordinate child health, restore and signal cleanup.
+  refuted by: owned fixture tests reproduced restore termination, premature child stop, nonboolean initialization, post-stop listener binding, special directory bits and late executable validation.
+  learned: monitor and shutdown must share management ownership; validate config and resource identity before startup, and confirm initial health before binding. Repaired candidate passes 24 host and 24 Linux checks plus exact-source actual OmniRoute fresh/existing checkpoint and restore.
+  criterion now: ISC-47..51 remain open; interrupted initialization, image binding, storage budgets, remote recovery and physical fleet acceptance remain unproved.
 
 ## Verification
 
