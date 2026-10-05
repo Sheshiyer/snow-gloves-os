@@ -994,10 +994,9 @@ cards:
   - any
   summary: 'GitHub from the agent: issues, pull requests, code search, Actions. Writes still land as PRs and go through the repo''s own review.'
   mcp:
-    command: npx
+    command: github-mcp-server
     args:
-    - -y
-    - '@modelcontextprotocol/server-github'
+    - stdio
     env:
       GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN}
   enableable: true

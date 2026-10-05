@@ -60,8 +60,8 @@ The card's block is the upstream default; the node's block is the machine's over
 ```yaml
 mcps:
   github-mcp:
-    command: npx
-    args: ["-y", "@modelcontextprotocol/server-github"]
+    command: github-mcp-server
+    args: ["stdio"]
     env:
       GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_PERSONAL_ACCESS_TOKEN}"
 ```

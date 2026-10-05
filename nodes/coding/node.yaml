@@ -21,8 +21,8 @@ modules:
   - playwright-mcp
 mcps:
   github-mcp:
-    command: npx
-    args: ["-y", "@modelcontextprotocol/server-github"]
+    command: github-mcp-server
+    args: ["stdio"]
     env:
       GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_PERSONAL_ACCESS_TOKEN}"
   playwright-mcp:
