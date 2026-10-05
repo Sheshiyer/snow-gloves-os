@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 24/51
+progress: 25/51
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-05
@@ -108,7 +108,7 @@ until the actual mini supplies evidence.
 - [x] ISC-42: An admitted coding-wing job returns a source-scoped artifact and execution receipt on its physical device.
 - [ ] ISC-43: An admitted marketing-wing job returns a source-scoped artifact and execution receipt on its physical device.
 - [ ] ISC-44: An admitted design-wing job returns a source-scoped artifact and execution receipt on its physical device.
-- [ ] ISC-45: A supervised Hermes round trip records interpretation, dispatch and artifact-linked completion.
+- [x] ISC-45: A supervised Hermes round trip records interpretation, dispatch and artifact-linked completion.
 - [x] ISC-46: The Cloudflare gateway plan passes scoped HeyZack account/domain isolation guards; AWS is deferred.
 - [ ] ISC-47: The company cloud gateway passes real scoped-key and streaming acceptance from a fleet device.
 - [ ] ISC-48: A physical recovery drill restores the reviewed configuration and owned artifacts.
@@ -211,3 +211,9 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-05 supervisor candidate: isolated producer created real SQLite lifecycle source. Five independent rejection/liveness/environment tests failed before small reviewer fixes and passed afterwards; current combined suite reports 31 passed in 5.000s. Candidate is preserved privately and unaccepted: forced-stop safety, WAL-consistent rollback, sidecar/backup ownership and path confinement remain unresolved. No actual OmniRoute image/cloud/device streaming acceptance is claimed; ISC-47..49 remain open and progress stays 24/51.
 
 - 2026-10-05 recovery candidate: four additional defects reproduced and repaired; 40 unique SQLite/owned-fixture tests pass in 5.752s. Consistent WAL backup, failed-stop denial, owned sidecars and canonical paths now have targeted coverage. Candidate remains private and unaccepted pending orphan-descendant process-group shutdown and actual OmniRoute/runtime integration. ISC-47..49 stay open; progress remains 24/51.
+
+- ISC-45: supervised real round trip — job hermes-source-d1ae619fba7d4050 carried seven HeyZack context hashes through deterministic Librarian interpretation, pre-execution SSH dispatch and artifact-linked completion on mac-coding.local. Independent artifact SHA256 bbd5e8e2bc3158c0af407c5fa4604dfed4529be820d20ab5bd93dbebfd134f88 matches physical readback; every event preserves the complete source contract. Built-in file reads only, no agent-model or autonomous-dispatch claim. ISC-49 remains open.
+
+- 2026-10-05 redaction regression: supervised audit exposed phone-pattern corruption of structured SHA256 digests. New regression failed before a narrow exact-digest-field repair; ordinary PII and malformed digest-field secrets remain redacted. Public regression reports 307 passed in 17.63s; catalog current. The first round-trip receipt is held and retained; corrected second job provides acceptance.
+
+- 2026-10-05 process-group revision: real orphan descendant shutdown and nonquiescent-group restore rejection now pass; 43 unique SQLite/owned-process checks pass in 12.887s. Source candidate remains private, with actual runtime HTTP readiness/image/cloud/physical acceptance open.
