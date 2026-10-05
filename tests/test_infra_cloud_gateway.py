@@ -74,3 +74,10 @@ def test_tailnet_join_consumes_its_key_and_serves_on_the_tailnet_only(rendered):
     assert 'aws ssm delete-parameter --region eu-west-3 --name "$param"' in script
     assert "tailscale serve --bg --http 20128 http://127.0.0.1:20128" in script
     assert "--advertise-tags=tag:gateway" in script
+
+
+def test_tailnet_join_deletes_the_key_on_every_exit_and_keeps_it_off_argv(rendered):
+    script = files(rendered["doc"])["/usr/local/sbin/sg-gw-tailnet"]
+    assert "trap cleanup EXIT" in script
+    assert '--auth-key "file:$keyfile"' in script
+    assert 'key="$(aws ssm' not in script

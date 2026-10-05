@@ -5,8 +5,8 @@ variable "name" {
 }
 
 variable "aws_region" {
-  type    = string
-  default = "eu-west-3"
+  description = "From fleet.yaml cloud_gateway.region (the private data repo); no default."
+  type        = string
 }
 
 variable "aws_profile" {

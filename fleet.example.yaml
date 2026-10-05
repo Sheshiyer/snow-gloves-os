@@ -19,7 +19,7 @@ gateway:
 # and add the cloud_gateway block below (doctor.py fleet-boundary and cloud_guard.py read it).
 # cloud_gateway:
 #   name: snowgloves-gw
-#   region: eu-west-3
+#   region: <aws-region>
 #   hostname: gw.<zone>
 #   zone: <zone>
 #   aws_profile: <company-profile>          # never `default`

@@ -24,7 +24,6 @@ import importlib.util
 import json
 import shlex
 import shutil
-import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -55,12 +54,7 @@ def load_fleet(path: Path) -> dict:
     return data
 
 
-def run(cmd: list[str], timeout: float = 30.0) -> tuple[int | None, str, str]:
-    try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-        return p.returncode, p.stdout, p.stderr
-    except (OSError, subprocess.SubprocessError) as exc:
-        return None, "", str(exc)
+run = doctor.run  # (returncode | None, stdout, stderr); tests stub this name
 
 
 def keychain_secret(service: str) -> str | None:
@@ -95,7 +89,7 @@ def check_aws(cg: dict) -> tuple[bool, str]:
     profile, want = str(cg.get("aws_profile") or ""), str(cg.get("aws_account_id") or "")
     if not shutil.which("aws"):
         return False, "aws CLI not installed"
-    rc, out, err = run(["aws", "sts", "get-caller-identity", "--profile", profile, "--output", "json"])
+    rc, out, err = run(["aws", "sts", "get-caller-identity", "--profile", profile, "--output", "json"], timeout=30)
     if rc != 0:
         first = (err.strip().splitlines() or ["no output"])[0]
         return False, f"profile {profile}: sts failed ({first}); run `aws sso login --profile {profile}`"
@@ -133,7 +127,7 @@ def check_cloudflare(cg: dict, token: str | None = None) -> tuple[bool, str]:
 def tfvars(fleet: dict, stack: str) -> dict:
     cg = fleet["cloud_gateway"]
     name = str(cg.get("name") or "snowgloves-gw")
-    common = {"name": name, "aws_region": cg.get("region") or "eu-west-3", "aws_profile": cg["aws_profile"]}
+    common = {"name": name, "aws_region": str(cg["region"]), "aws_profile": cg["aws_profile"]}
     if stack == "aws":
         out = {
             **common,
@@ -167,7 +161,7 @@ def shell_env(fleet: dict) -> str:
     account = str(cg["aws_account_id"])
     values = {
         "SG_NAME": name,
-        "SG_REGION": str(cg.get("region") or "eu-west-3"),
+        "SG_REGION": str(cg["region"]),
         "SG_PROFILE": str(cg["aws_profile"]),
         "SG_ACCOUNT": account,
         "SG_STATE_BUCKET": str(cg.get("state_bucket") or f"{name}-tfstate-{account}"),

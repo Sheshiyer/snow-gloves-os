@@ -305,3 +305,16 @@ def test_fleet_yaml_cloud_url_and_tailnet_fallback(tmp_path, home, capsys):
 def test_url_and_host_together_are_rejected(home):
     with pytest.raises(SystemExit):
         gc.main(["status", "--home", str(home), "--url", CLOUD, "--host", HOST])
+
+
+@pytest.mark.parametrize("url,want", [
+    ("coding-mac:8080", "gateway: http://coding-mac:8080\n"),        # no scheme, explicit port: kept
+    ("http://coding-mac", "gateway: http://coding-mac:20128\n"),     # bare http host: OmniRoute default
+    ("coding-mac", "gateway: http://coding-mac:20128\n"),
+    ("https://gw.example.com", "gateway: https://gw.example.com\n"),  # https default port stays 443
+])
+def test_fleet_yaml_port_resolution(tmp_path, home, capsys, url, want):
+    fleet = tmp_path / "fleet.yaml"
+    fleet.write_text(f'schema: snowgloves.fleet.v1\ngateway:\n  url: "{url}"\n')
+    _, out, _ = run(capsys, "status", "--home", str(home), "--fleet", str(fleet), "--no-probe")
+    assert want in out

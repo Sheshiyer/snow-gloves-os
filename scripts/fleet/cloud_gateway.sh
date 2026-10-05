@@ -41,11 +41,14 @@ cf_token() {
   export CLOUDFLARE_API_TOKEN="$t"
 }
 
+# Per-backend tofu working data. Keyed by account, profile and state bucket as well as name, so
+# pointing fleet.yaml at another account can never reuse a backend initialised for the old one.
+tf_dir() { echo "${XDG_CACHE_HOME:-$HOME/.cache}/snowgloves/tofu/$SG_ACCOUNT/$SG_PROFILE/$SG_STATE_BUCKET/$SG_NAME/$1"; }
+
 tofu_in() {  # tofu_in <stack> <tofu args...>
   local stack="$1"; shift
   command -v tofu >/dev/null || die "OpenTofu not installed (brew install opentofu)"
-  TF_DATA_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/snowgloves/tofu/$SG_NAME/$stack" \
-    tofu -chdir="$REPO/infra/$stack-gateway" "$@"
+  TF_DATA_DIR="$(tf_dir "$stack")" tofu -chdir="$REPO/infra/$stack-gateway" "$@"
 }
 
 tofu_init() {
@@ -64,7 +67,7 @@ run_stack() {  # run_stack <aws|cloudflare> <action> [args]
   case "$action" in init|plan|apply|destroy|output) ;; *) die "unknown action '$action' (init|plan|apply|destroy|output)";; esac
   if [[ "$stack" == cloudflare ]]; then guard all; cf_token; else guard aws; fi
   if [[ "$action" == init ]]; then tofu_init "$stack"; return; fi
-  [[ -d "${XDG_CACHE_HOME:-$HOME/.cache}/snowgloves/tofu/$SG_NAME/$stack" ]] || tofu_init "$stack"
+  [[ -d "$(tf_dir "$stack")" ]] || tofu_init "$stack"
   if [[ "$action" == output ]]; then tofu_in "$stack" output "$@"; return; fi
   local tmp vars; tmp="$(mktemp -d)"; vars="$tmp/$stack.tfvars.json"
   trap 'rm -rf "$tmp"' RETURN
@@ -72,7 +75,7 @@ run_stack() {  # run_stack <aws|cloudflare> <action> [args]
   local extra=()
   if [[ "$stack" == cloudflare ]]; then
     local ip
-    [[ -d "${XDG_CACHE_HOME:-$HOME/.cache}/snowgloves/tofu/$SG_NAME/aws" ]] || tofu_init aws >/dev/null
+    [[ -d "$(tf_dir aws)" ]] || tofu_init aws >/dev/null
     ip="$(tofu_in aws output -raw elastic_ip 2>/dev/null)" || die "apply the aws stack first (no elastic_ip output)"
     extra+=(-var "origin_ip=$ip")
   fi
@@ -102,8 +105,12 @@ bootstrap_state() {
     log "state bucket $SG_STATE_BUCKET exists"
   else
     log "creating state bucket $SG_STATE_BUCKET in $SG_REGION"
-    aws s3api create-bucket --bucket "$SG_STATE_BUCKET" \
-      --create-bucket-configuration "LocationConstraint=$SG_REGION" >/dev/null
+    if [[ "$SG_REGION" == us-east-1 ]]; then  # S3 rejects an explicit LocationConstraint for us-east-1
+      aws s3api create-bucket --bucket "$SG_STATE_BUCKET" >/dev/null
+    else
+      aws s3api create-bucket --bucket "$SG_STATE_BUCKET" \
+        --create-bucket-configuration "LocationConstraint=$SG_REGION" >/dev/null
+    fi
   fi
   aws s3api put-public-access-block --bucket "$SG_STATE_BUCKET" --public-access-block-configuration \
     BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true

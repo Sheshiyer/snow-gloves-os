@@ -105,17 +105,22 @@ write_files:
     permissions: "0750"
     content: |
       #!/usr/bin/env bash
-      # One-shot tailnet join. The operator puts a single-use, tagged auth key in SSM; we read it,
-      # join, delete it, then expose 127.0.0.1:20128 on the tailnet only (tailscale serve).
+      # One-shot tailnet join. The operator puts a single-use, tagged auth key in SSM; we read it into
+      # a 0600 file (never argv), join, and delete the parameter on every exit, success or failure.
+      # Then expose 127.0.0.1:20128 on the tailnet only (tailscale serve).
       set -euo pipefail
       param="${ssm_prefix}/tailscale/authkey"
+      keyfile="$(mktemp)"
+      cleanup() {
+        rm -f "$keyfile"
+        aws ssm delete-parameter --region ${region} --name "$param" >/dev/null 2>&1 || true
+      }
+      trap cleanup EXIT
       if ! tailscale status >/dev/null 2>&1; then
-        key="$(aws ssm get-parameter --region ${region} --with-decryption --name "$param" \
-          --query Parameter.Value --output text)"
-        tailscale up --auth-key "$key" --hostname "${tailnet_hostname}" --ssh --advertise-tags=tag:gateway
-        unset key
+        aws ssm get-parameter --region ${region} --with-decryption --name "$param" \
+          --query Parameter.Value --output text > "$keyfile"
+        tailscale up --auth-key "file:$keyfile" --hostname "${tailnet_hostname}" --ssh --advertise-tags=tag:gateway
       fi
-      aws ssm delete-parameter --region ${region} --name "$param" >/dev/null 2>&1 || true
       tailscale serve --bg --http 20128 http://127.0.0.1:20128
       tailscale status --self --peers=false
 

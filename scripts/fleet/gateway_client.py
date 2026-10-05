@@ -46,6 +46,7 @@ except ImportError:  # pragma: no cover - 3.10 fallback uses regex detection
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from lib import paths  # noqa: E402
+from lib.gateway_url import has_explicit_port, parse_gateway_url  # noqa: E402,F401  (parse_gateway_url is re-exported)
 
 DEFAULT_FLEET = paths.fleet_file()  # $SNOWGLOVES_DATA/fleet.yaml when set, else this checkout's
 SURFACES = ("claude", "codex", "grok", "opencode")
@@ -104,17 +105,6 @@ def fleet_gateway_url(fleet_path: Path, via: str = "primary") -> str | None:
     except Exception:
         return None
     return str(url) if url else None
-
-
-def parse_gateway_url(url: str | None) -> tuple[str | None, str | None, int | None]:
-    """(scheme, host, port). No scheme means http. Default port: 443 for https, 80 for http."""
-    if not url:
-        return None, None, None
-    m = re.match(r"^\s*(?:(https?)://)?([^:/\s]+)(?::(\d+))?", url, re.I)
-    if not m:
-        return None, None, None
-    scheme = (m.group(1) or "http").lower()
-    return scheme, m.group(2), int(m.group(3) or (443 if scheme == "https" else 80))
 
 
 def split_host_port(url: str | None) -> tuple[str | None, int | None]:
@@ -605,8 +595,8 @@ def resolve_target(args: argparse.Namespace) -> str:
     scheme, host, port = parse_gateway_url(url)
     if args.port:
         port = args.port
-    elif not re.search(r"://[^/]+:\d+", url) and scheme == "http":
-        port = 20128  # bare http://name in fleet.yaml means the OmniRoute default port
+    elif scheme == "http" and not has_explicit_port(url):
+        port = 20128  # a bare http host in fleet.yaml means the OmniRoute default port
     return root_url_for(scheme, host, port)
 
 

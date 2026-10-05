@@ -229,6 +229,7 @@ def test_missing_fleet_yaml_is_warn_with_explicit_wing(tmp_path, capsys):
 # ---------------------------------------------------------------- cloud gateway boundary
 
 CLOUD_BLOCK = {
+    "region": "us-east-2",
     "hostname": "gw.example.com",
     "zone": "example.com",
     "aws_profile": "company",
@@ -270,6 +271,9 @@ def test_boundary_passes_for_a_clean_cloud_gateway(tmp_path, capsys):
     (None, {"aws_profile": "default"}, "aws_profile default is denied"),
     (None, {"aws_profile": "personal"}, "aws_profile personal is denied"),
     (None, {"cf_zone_id": "<cf-zone-id>"}, "cf_zone_id unset"),
+    (None, {"region": ""}, "cloud_gateway.region unset"),
+    (None, {"aws_account_id": 111122223333}, "must be a quoted 12-digit string"),     # unquoted in YAML
+    (None, {"aws_account_id": "11112222333"}, "must be a quoted 12-digit string"),    # 11 digits
     ({"kind": "cloud", "url": "http://gw.example.com"}, {}, "must be https"),
     ({"kind": "cloud", "url": "https://gw2.example.com"}, {}, "differs from cloud_gateway.hostname"),
     ({"kind": "cloud", "url": "https://gw.example.com", "tailnet_url": "http://personal-team-gw:20128"}, {},
@@ -280,3 +284,22 @@ def test_boundary_fails_closed(tmp_path, capsys, gateway, cloud, needle):
     rc, by = run_json(root, home, capsys, "--wing", "coding")
     assert by["fleet-boundary"]["ok"] is False and needle in by["fleet-boundary"]["detail"]
     assert rc == 1
+
+
+def test_boundary_fails_for_an_empty_cloud_block(tmp_path, capsys):
+    root, home = seed_root(tmp_path)
+    fleet = json.loads(json.dumps(FLEET))
+    fleet["cloud_gateway"] = {}
+    (root / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
+    rc, by = run_json(root, home, capsys, "--wing", "coding")
+    assert by["fleet-boundary"]["ok"] is False and "zone unset" in by["fleet-boundary"]["detail"]
+    assert rc == 1
+
+
+def test_boundary_reports_a_scalar_gateway_instead_of_crashing(tmp_path, capsys):
+    root, home = seed_cloud(tmp_path)
+    fleet = yaml.safe_load((root / "fleet.yaml").read_text(encoding="utf-8"))
+    fleet["gateway"] = "https://gw.example.com"
+    (root / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
+    rc, by = run_json(root, home, capsys, "--wing", "coding")
+    assert "fleet-boundary" in by

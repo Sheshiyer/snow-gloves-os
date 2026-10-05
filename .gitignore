@@ -32,3 +32,12 @@ docs/assets/user/*.mp4
 # .planning is a local symlink into it; fleet.yaml is the real inventory (template: fleet.example.yaml).
 /.planning
 /fleet.yaml
+
+# OpenTofu / Terraform working files: provider binaries, local state, variable files.
+# State lives only in the private S3 backend (scripts/fleet/cloud_gateway.sh); lock files are committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log

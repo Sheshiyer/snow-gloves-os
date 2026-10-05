@@ -50,7 +50,7 @@ gateway:
   tailnet_url: "http://<tailnet_hostname>:20128"   # fallback; gateway_client.py --via tailnet
 cloud_gateway:
   name: snowgloves-gw                    # resource prefix and SSM path /<name>/...
-  region: eu-west-3
+  region: <aws-region>                  # required; no default in the platform
   hostname: gw.<zone>
   zone: <zone>
   aws_profile: <company-profile>         # never `default`
@@ -140,3 +140,13 @@ Steps 1 and 2 are done by a person in the AWS and Cloudflare consoles. The agent
 - **Rollback.** Point clients back at the Mac gateway with `set-url --host <mac> --port 20128`.
   `cloud_gateway.sh cloudflare destroy` then `aws destroy` removes everything. The backups bucket refuses to
   delete while it holds objects, which is intended.
+
+## Known limits
+
+- **Cloudflare ranges on the instance.** The security group follows Cloudflare's published ranges on every
+  `aws apply`, but Caddy's `trusted_proxies` list is written once at first boot (`user_data` changes are
+  ignored so the instance is never replaced). If Cloudflare adds a range, re-run the Caddyfile step by hand
+  until a refresh job exists.
+- **Storage key in the backup.** Each nightly archive carries the database and its `.env` storage key together;
+  whoever can read the backups bucket can open the provider credentials. Keep bucket access to the instance role
+  and the operator; moving the key to its own SSM parameter is a planned change.

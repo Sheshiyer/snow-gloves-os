@@ -34,6 +34,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 from lib import paths  # noqa: E402
+from lib.gateway_url import parse_gateway_url  # noqa: E402
 SCHEMA = "snowgloves.fleet-doctor.v1"
 DEFAULT_GATEWAY_PORT = 20128
 DEFAULT_HERMES_PORT = 4100
@@ -120,6 +121,8 @@ def wings_of(fleet: dict | None) -> dict:
 
 def gateway_of(fleet: dict | None) -> tuple[str, int]:
     gw = (fleet or {}).get("gateway") or {}
+    if not isinstance(gw, dict):
+        gw = {}  # a malformed gateway entry reads as "no gateway" instead of crashing the doctor
     try:
         port = int(gw.get("port") or DEFAULT_GATEWAY_PORT)
     except (TypeError, ValueError):
@@ -133,9 +136,9 @@ def gateway_field(fleet: dict | None, key: str) -> str:
 
 
 def url_parts(url: str) -> tuple[str, str]:
-    """(scheme, host) of a URL; empty strings when it does not parse."""
-    m = re.match(r"^\s*(?:(https?)://)?([^:/\s]+)", url or "", re.I)
-    return ((m.group(1) or "http").lower(), m.group(2).lower()) if m else ("", "")
+    """(scheme, host) of a URL, host lowercased; empty strings when it does not parse."""
+    scheme, host, _ = parse_gateway_url(url)
+    return scheme or "", (host or "").lower()
 
 
 def under(host: str, domain: str) -> bool:
@@ -253,7 +256,7 @@ def check_fleet_boundary(fleet: dict | None) -> dict:
     checks (sts identity, Cloudflare zone ownership) are scripts/fleet/cloud_guard.py.
     """
     cg = (fleet or {}).get("cloud_gateway") if isinstance(fleet, dict) else None
-    if not cg:
+    if cg is None:  # absent, or a key whose children are all commented out (a staged block)
         return check("fleet-boundary", True, "no cloud_gateway in fleet.yaml; nothing to guard")
     if not isinstance(cg, dict):
         c = check("fleet-boundary", False, "cloud_gateway is not a mapping")
@@ -271,7 +274,7 @@ def check_fleet_boundary(fleet: dict | None) -> dict:
         problems.append(f"hostname {hostname} is not under zone {zone}")
     url = gateway_field(fleet, "url")
     scheme, host = url_parts(url)
-    if str((fleet.get("gateway") or {}).get("kind") or "") == "cloud":
+    if gateway_field(fleet, "kind") == "cloud":
         if scheme != "https":
             problems.append(f"gateway.url must be https for a cloud gateway (got {url or 'nothing'})")
         if hostname and host != hostname:
@@ -287,9 +290,14 @@ def check_fleet_boundary(fleet: dict | None) -> dict:
         problems.append("cloud_gateway.aws_profile unset (a named profile is required)")
     elif profile in deny_profiles:
         problems.append(f"aws_profile {profile} is denied")
-    for key in ("aws_account_id", "cf_account_id", "cf_zone_id"):
+    for key in ("region", "aws_account_id", "cf_account_id", "cf_zone_id"):
         if not str(cg.get(key) or "").strip() or str(cg.get(key)).startswith("<"):
             problems.append(f"cloud_gateway.{key} unset")
+    account = cg.get("aws_account_id")
+    if account and not str(account).startswith("<") and not (
+            isinstance(account, str) and re.fullmatch(r"\d{12}", account.strip())):
+        # an unquoted id parses as an int (octal with a leading 0), which never equals STS's string
+        problems.append("cloud_gateway.aws_account_id must be a quoted 12-digit string")
     detail = "; ".join(problems) if problems else (
         f"{hostname} under {zone}; profile {profile}; {len(deny)} denied domains clear")
     c = check("fleet-boundary", not problems, detail)
