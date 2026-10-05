@@ -186,6 +186,11 @@ until the actual mini supplies evidence.
   learned: initializer now checks an optional Event before launch, during readiness polling and before acknowledgment; owned child cancellation passes in 0.033 seconds.14host initializer tests,38combined Linux checks and exact actual OmniRoute lifecycle pass;449platform passes90Linux skips12subtests54.10s/catalogcurrent.
   criterion now: ISC-47..51 remain open; initializer repair is source-integrated, managed entrypoint remains private pending cleanup containment, production image binding, storage budgets, remote recovery and physical acceptance.
 
+- 2026-10-06 | conjectured: the managed image could launch the verified service with strict fresh-data validation.
+  refuted by: owned disk exhaustion blocked layer unpack, and emulation created HOME=/data/.cache before fresh validation; Docker cp also failed against the intended read-only root filesystem.
+  learned: expanded only the owned proof disk, moved launcher HOME to /tmp, and supplied the probe through stdin. Actual immutable image passes fresh/existing encrypted checkpoint/restore, historical replay, role rejection, held chat, zero-provider integrity and clean exits; five startup denials pass. Cleanup-timeout containment removes all original tini/Python/OmniRoute identities.473platform tests90Linux skips12subtests pass.
+  criterion now: ISC-47..51 remain open; local image evidence does not prove Cloudflare integration, storage budgets, remote recovery, provider admission or physical fleet acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
