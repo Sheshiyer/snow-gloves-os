@@ -23,6 +23,7 @@ def main() -> None:
 
     tenant = sys.argv[1]
 
+    root = paths.data_root()
     tdir = paths.tenants_dir() / tenant
     manifest = tdir / "sources.yaml"
     if not manifest.exists():
