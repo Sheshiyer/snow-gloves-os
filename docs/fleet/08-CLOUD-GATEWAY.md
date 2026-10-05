@@ -1,3 +1,19 @@
+# 08. Company gateway — Cloudflare-only active lane
+
+AWS is deferred by the founder decision of 2026-10-05. The EC2 design below is historical; its commands are not the active execution queue.
+
+Use the named company Wrangler authentication and private target pins to verify read-only scope:
+
+```sh
+python3 scripts/fleet/cloudflare_scope.py --target "$SNOWGLOVES_DATA/specs/008-heyzack-cloud-gateway/cloudflare-target.json"
+```
+
+The guard clears inherited credential overrides, validates the named identity and account membership, and reads the pinned active zone. It performs no AWS call or cloud mutation and never emits tokens. Actual deployment tooling must retain these account/domain checks. A passing read-only guard is not streaming, persistence or recovery acceptance.
+
+The installed OmniRoute 3.8.50 source uses SQLite for the normal Node runtime; its cloud path creates an in-memory database. Running it unchanged as a Worker does not prove durable company credentials. Containers also require a verified persistent state/restore strategy. Select and test the runtime before staging a gateway cutover.
+
+## Deferred EC2 architecture
+
 # 08. Cloud gateway: OmniRoute on EC2 behind Cloudflare
 
 An alternative to [04-GATEWAY.md](04-GATEWAY.md)'s Coding Mac host. One OmniRoute instance runs on a small EC2

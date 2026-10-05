@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 20/51
+progress: 23/51
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-05
@@ -12,7 +12,7 @@ updated: 2026-10-05
 
 ## Problem
 
-Current continuation: imported tenant context is not yet bound into verified source plans; host catalog availability has not become per-wing runtime proof; physical fleet, cloud and capacity acceptance remain open. The September pilot below is retained as a historical delivery lane, not evidence that the broader fleet works.
+Current continuation: tenant contexts and matching research are bound into verified source plans; sandbox renders, selected host connector reads and company Cloudflare scope are verified. Physical wing jobs, gateway runtime, eventing, recovery and capacity acceptance remain open. The September pilot below is retained as a historical delivery lane, not evidence that the broader fleet works.
 
 
 Two attempts at the foundation workers produced no implementation. The legacy
@@ -82,7 +82,7 @@ until the actual mini supplies evidence.
 - [ ] ISC-17: Local installer supports a dry-run that creates no files.
 - [ ] ISC-18: An isolated temporary installation executes the CLI lifecycle.
 - [ ] ISC-19: The distributable bundle passes its checksum verifier.
-- [ ] ISC-20: Existing tests and catalog consistency checks pass after integration.
+- [x] ISC-20: Existing tests and catalog consistency checks pass after integration.
 
 - [x] ISC-21: axio has a verified ingestion plan containing its existing tenant context.
 - [x] ISC-22: axtech has a verified ingestion plan containing its existing tenant context.
@@ -103,13 +103,13 @@ until the actual mini supplies evidence.
 - [x] ISC-37: Every admitted HeyZack wing/runtime combination has a validated sandbox render receipt.
 - [x] ISC-38: Each wing has an explicit cluster binding record that distinguishes host tier from device deployment.
 - [x] ISC-39: Host pointer-capability checks prove the referenced files exist at the inspected host.
-- [ ] ISC-40: Selected admitted MCP read operations return actual scoped capability evidence.
+- [x] ISC-40: Selected admitted MCP read operations return actual scoped capability evidence.
 - [x] ISC-41: Coding-wing doctor evidence is collected on the identified physical Coding Mac.
 - [ ] ISC-42: An admitted coding-wing job returns a source-scoped artifact and execution receipt on its physical device.
 - [ ] ISC-43: An admitted marketing-wing job returns a source-scoped artifact and execution receipt on its physical device.
 - [ ] ISC-44: An admitted design-wing job returns a source-scoped artifact and execution receipt on its physical device.
 - [ ] ISC-45: A supervised Hermes round trip records interpretation, dispatch and artifact-linked completion.
-- [ ] ISC-46: The Cloudflare gateway plan passes scoped HeyZack account/domain isolation guards; AWS is deferred.
+- [x] ISC-46: The Cloudflare gateway plan passes scoped HeyZack account/domain isolation guards; AWS is deferred.
 - [ ] ISC-47: The company cloud gateway passes real scoped-key and streaming acceptance from a fleet device.
 - [ ] ISC-48: A physical recovery drill restores the reviewed configuration and owned artifacts.
 - [ ] ISC-49: A durable session handoff survives interruption and resumes the same job identity.
@@ -193,3 +193,7 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - ISC-38: indexed binding readback — twenty explicit wing-to-cluster entries retain host tier and node-deployment status; deferred clusters are not claimed deployed.
 - ISC-39: canonical pointer paths — superpowers, gsd and taste-skill host SKILL.md references all exist. This proves host file presence only.
 - ISC-41: physical SSH doctor — source 7bcbbb9 on Coding Mac; doctor exit 1 after 35.83 seconds. Tailscale, node profile and eleven manifests pass; gateway/Hermes fail. Collection is complete, operational acceptance is not.
+
+- ISC-20: full current regression suite — 305 passed in 11.65s; catalog up to date. This does not prove the missing historical pilot implementation.
+- ISC-40: admitted GitHub connector returned exact repository metadata and VERSION content/blob SHA; host connector transport recorded separately from the device npm server.
+- ISC-46: Cloudflare-only guard passed authenticated pinned identity/account/active-zone readback; 15 rejection/secret-suppression tests pass. Target and guard receipt stay private. Deployment/runtime acceptance remains ISC-47.
