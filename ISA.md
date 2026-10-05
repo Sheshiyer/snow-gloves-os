@@ -166,7 +166,7 @@ until the actual mini supplies evidence.
 - 2026-09-30: Native routing override remains pending. Draft runbook/tests moved under .planning/pilot-drafts; inactive Make targets removed. All source jobs stopped; no accepted implementation.
 
 - 2026-10-05: refined: active user goal extends acceptance to source binding, capability proof and measured fleet acceptance. ISC-1..20 remain unchanged; new scope is ISC-21..51. Private execution contract is specs/009-source-capability-fleet-acceptance in the instance checkout.
-- 2026-10-05: Interview intake reused the explicit three-part objective and prior review. No further scope choice is needed for local source binding or sandbox proof; company gateway domain/account and new enablements remain pending inputs.
+- 2026-10-05: Interview intake reused the explicit three-part objective and prior review. No further scope choice is needed for local source binding or sandbox proof. Company domain/account inputs were subsequently resolved by the Cloudflare-only decision and pinned guard readback; new enablements and live runtime activation retain their own gates.
 - 2026-10-05: Ingestion checkpoint: undefined relative-path root is the data seam defect. Resolve through data_root rather than patching each manifest with host-specific absolute paths.
 
 ## Changelog
