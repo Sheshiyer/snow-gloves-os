@@ -37,3 +37,5 @@ The online backup uses the documented [SQLite backup semantics](https://www.sqli
 ### Legacy byte-returning recovery bound
 
 The byte-returning supervisor backup method now limits source logical size, backup progress and returned bytes to 64 MiB. Restore uses this method for its pre-replacement recovery copy, and holds before stopping the child or replacing storage when current state exceeds that quota. The existing 256 MiB incoming restore limit remains separate. A final deadline check rejects late acknowledgment after validation/read. Management integration must still use the Linux owned snapshot/file interfaces and verify authenticated transfer, journal reconciliation and remote acknowledgment.
+
+Linux service execution must retain an init/reaper such as the image’s existing `tini` entrypoint. A direct Python PID1 test left a terminated orphan as a zombie and correctly held process-group shutdown; do not reinterpret that hold as verified absence. Test the complete service under its intended init boundary.
