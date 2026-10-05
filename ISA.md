@@ -216,6 +216,11 @@ until the actual mini supplies evidence.
   learned: corrected own root FD lock, bounded pure parsing/hash, final namespace checks and redacted exceptions pass20actualLinuxchecks0.588s, including maximum ciphertext and interrupted/unbound evidence.
   criterion now: ISC-47..51 remain open; inspector is standalone source-only and cannot authorize deletion, remote custody or physical recovery.
 
+- 2026-10-06 | conjectured: a source-only R2 helper could record immutable checkpoint commitment with bounded streaming.
+  refuted by: Plan invented conditional/checksum semantics; actual localR2 rejects genericstreams. Build probes reject validjournal/admitmissingschema, hangcancel, acceptwrongkey/metadata/version, accumulate792listeners and performlateclockeffects.
+  learned: exactschema/nativeFixedLengthStream, strictobject/commitverification, cancellation/uncertainlatewrite semantics, listenercleanup andmonotonicdeadline nowpass60transporttests/strictcompile plusactual localR2newcommit/replay/4adverseholds. Helperremainsunwired withnobucketbinding.
+  criterion now: ISC-47..51 remain open; component commitment doesnotproveencryptedproducerexport, recoverablekeys, actualcompanycustody, providerdurability orphysicalrecovery.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
