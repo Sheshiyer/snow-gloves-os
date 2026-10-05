@@ -5,7 +5,7 @@ HERMES_PORT ?= 4100
 # the private data checkout, so they drop SNOWGLOVES_DATA (see scripts/lib/paths.py).
 FIXTURE_ENV := env -u SNOWGLOVES_DATA
 
-.PHONY: help test-runtime-crypto test-cloud-transport cloud-transport-check install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade graph-upgrade walk tui app-install app-dev app-build
+.PHONY: help test-runtime-files test-runtime-crypto test-cloud-transport cloud-transport-check install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade graph-upgrade walk tui app-install app-dev app-build
 
 help:
 	@echo "Snow Gloves OS — make targets"
@@ -33,6 +33,7 @@ help:
 	@echo "  make replay N=5            # replay last N events through current hooks"
 	@echo "  make test                  # pytest"
 	@echo "  make test-runtime-crypto   # Node 24+ backup crypto checks; Python3 fixture"
+	@echo "  make test-runtime-files    # Linux Node 24+ owned-file backup checks"
 	@echo "  make test-cloud-transport  # Node 24+ transport boundary tests"
 	@echo "  make cloud-transport-check # generated types + strict compilation; npm ci first"
 	@echo "  make kill-hermes           # free port $(HERMES_PORT)"
@@ -213,3 +214,7 @@ test-cloud-transport:
 
 cloud-transport-check:
 	cd infra/cloudflare-transport && npm run typecheck
+
+# Linux-only /proc/self/fd confinement and actual CLI checks.
+test-runtime-files:
+	node --test infra/cloudflare-runtime/test-backup-files.mjs
