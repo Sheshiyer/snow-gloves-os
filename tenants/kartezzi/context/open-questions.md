@@ -1,6 +1,6 @@
 # Open questions
 
-Every FILL line from the other context files, collected on 2026-10-02. Answer in the file named by `docs/fleet/05-BRANDS.md` (Founder FILL list), then remove the line here.
+Every FILL line from the other context files, collected on 2026-10-05. Answer in the file named by `docs/fleet/05-BRANDS.md` (Founder FILL list), then remove the line here.
 
 - FILL: confirm the spelling "Kartezzi".
 - FILL: legal entity behind Kartezzi, registration country, and its legal relationship to Axtech.

@@ -1,4 +1,5 @@
 """tenants/ hygiene: registry, manifests, portfolio blocks, and context files stay consistent."""
+import json
 from pathlib import Path
 
 import pytest
@@ -8,7 +9,15 @@ ROOT = Path(__file__).resolve().parents[1]
 TENANTS = ROOT / "tenants"
 REGISTRY = TENANTS / "_registry.yaml"
 
-BRAND_TENANTS = ("axtech", "heyzack", "ecoled", "kartezzi", "izzimo", "iverif", "savewatt", "wave-concept")
+# Portfolio confirmed by the founder on 2026-10-05: specs/006-editorial-steward-integration/founder-intake-2026-10-05.md.
+AXTECH_BRANCHES = (
+    "heyzack", "ecoled", "kartezzi", "izzimo", "wave-concept",
+    "sunfeed", "cee-management", "china-sourcing", "metagration",
+)
+NESTED_BRANDS = {"axio": "metagration"}  # tenant -> parent tenant below Axtech
+BRAND_TENANTS = ("axtech", *AXTECH_BRANCHES, *NESTED_BRANDS)
+# Removed 2026-10-05: savewatt (dropped by the founder), iverif (now a project under cee-management).
+RETIRED_TENANTS = ("savewatt", "iverif")
 CONTEXT_FILES = ("company", "customer", "offer", "voice", "proof", "owner", "open-questions")
 
 # _demo is a fixture tenant (sources.yaml, wiki, approvals) that predates MANIFEST.yaml; the registry says so.
@@ -67,11 +76,36 @@ def test_brand_tenant_has_portfolio_block(slug: str):
 
 
 def test_axtech_branches_point_at_root():
-    for slug in ("heyzack", "ecoled", "kartezzi"):
+    for slug in AXTECH_BRANCHES:
         data = yaml.safe_load((TENANTS / slug / "MANIFEST.yaml").read_text(encoding="utf-8"))
         assert data["portfolio"] == {"root": "axtech", "parent": "axtech"}, slug
     axtech = yaml.safe_load((TENANTS / "axtech" / "MANIFEST.yaml").read_text(encoding="utf-8"))
     assert axtech["portfolio"] == {"root": "axtech", "parent": None}
+
+
+@pytest.mark.parametrize("slug,parent", sorted(NESTED_BRANDS.items()))
+def test_nested_brands_point_at_their_parent(slug: str, parent: str):
+    data = yaml.safe_load((TENANTS / slug / "MANIFEST.yaml").read_text(encoding="utf-8"))
+    assert data["portfolio"] == {"root": "axtech", "parent": parent}, slug
+    assert parent in BRAND_TENANTS
+
+
+@pytest.mark.parametrize("slug", RETIRED_TENANTS)
+def test_retired_tenants_are_gone(slug: str):
+    assert not (TENANTS / slug).exists(), f"tenants/{slug} was retired on 2026-10-05"
+    assert slug not in registry_slugs()
+
+
+def test_portfolio_proposal_matches_tenants():
+    proposal = json.loads(
+        (ROOT / "specs/006-editorial-steward-integration/portfolio-map-proposal.json").read_text(encoding="utf-8")
+    )
+    branches = {b["id"]: b["parent"] for b in proposal["branches"]}
+    expected = {slug: "axtech" for slug in AXTECH_BRANCHES} | NESTED_BRANDS
+    assert branches == expected
+    for project in proposal["projects"]:
+        assert project["parent"] in BRAND_TENANTS, project["id"]
+        assert project["id"] not in BRAND_TENANTS, f"{project['id']} is a project, not a tenant"
 
 
 @pytest.mark.parametrize("slug", BRAND_TENANTS)

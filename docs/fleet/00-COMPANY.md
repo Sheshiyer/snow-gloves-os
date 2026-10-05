@@ -11,27 +11,27 @@ as `company`. Operating a brand's agents is not the same as owning the brand (ne
 
 ## Portfolio
 
-Axtech is the operational portfolio root (`portfolio_root: axtech` in `fleet.yaml`). The branches
-with a source-backed parent come from `specs/006-editorial-steward-integration/` and
-`docs/PORTFOLIO-ORG-MAP.md`:
+Axtech is the operational portfolio root (`portfolio_root: axtech` in `fleet.yaml`). The founder
+confirmed every branch on 2026-10-05 (`specs/006-editorial-steward-integration/founder-intake-2026-10-05.md`);
+the map is in `docs/PORTFOLIO-ORG-MAP.md`:
 
-| Tenant slug | Name | Parent | Source |
+| Tenant slug | Name | Parent | Legal entity |
 |---|---|---|---|
-| `axtech` | Axtech | (root) | specs/006 organization.json |
-| `heyzack` | HeyZack | axtech | specs/006 portfolio-map-proposal.json |
-| `ecoled` | Ecoled | axtech | specs/006 portfolio-map-proposal.json |
-| `kartezzi` | Kartezzi | axtech | specs/006 portfolio-map-proposal.json |
+| `axtech` | Axtech | (root) | FILL |
+| `heyzack` | HeyZack | axtech | FILL |
+| `ecoled` | Ecoled | axtech | FILL |
+| `kartezzi` | Kartezzi | axtech | FILL |
+| `izzimo` | Izzimo | axtech | FILL |
+| `wave-concept` | Wave | axtech | FILL |
+| `sunfeed` | Sunfeed | axtech | FILL |
+| `cee-management` | CEE Management | axtech | FILL |
+| `china-sourcing` | China Sourcing | axtech | FILL |
+| `metagration` | Metagration | axtech | FILL |
+| `axio` | AXIO | metagration | FILL |
 
-Four more brands get tenants but have **no source-backed parent yet**. The founder completes this
-table; until then their `parent` stays `FILL` in [05-BRANDS.md](05-BRANDS.md) and nothing is
-inferred from where a repo lives or who signs in.
-
-| Tenant slug | Name | Parent | Legal entity | Completed by |
-|---|---|---|---|---|
-| `izzimo` | Izzimo | FILL | FILL | founder |
-| `iverif` | Iverif | FILL | FILL | founder |
-| `savewatt` | Savewatt | FILL | FILL | founder |
-| `wave-concept` | Wave Concept | FILL | FILL | founder |
+Three projects sit inside tenants rather than in their own folders: `axtech-shop` and `safvr-channel`
+under Axtech, `iverif` under CEE Management. SaveWatt was dropped. Legal entities stay `FILL` until the
+founder supplies them, and nothing is inferred from where a repo lives or who signs in.
 
 The rule, quoted from `specs/006-editorial-steward-integration/spec.md`: "Axtech is the
 operational root; legal ownership is not inferred." And from `docs/MAC-MINI-NODE-ONBOARDING-PLAN.md`:

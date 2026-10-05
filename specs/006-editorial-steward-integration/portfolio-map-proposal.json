@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.portfolio-proposal.v2",
-  "status": "axtech_only_review_candidate",
+  "status": "axtech_founder_confirmed_2026-10-05",
   "authority": "planning_only",
   "scope": "Axtech and its branches only",
   "portfolio": {
@@ -36,10 +36,98 @@
       "relationship": "operating_branch",
       "legal_entity": null,
       "status": "planning_not_provisioned",
-      "source": "docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md"
+      "source": "docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md; specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    },
+    {
+      "id": "izzimo",
+      "name": "Izzimo",
+      "parent": "axtech",
+      "relationship": "operating_branch",
+      "legal_entity": null,
+      "status": "planning_not_provisioned",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    },
+    {
+      "id": "wave-concept",
+      "name": "Wave",
+      "parent": "axtech",
+      "relationship": "operating_branch",
+      "legal_entity": null,
+      "status": "planning_not_provisioned",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    },
+    {
+      "id": "sunfeed",
+      "name": "Sunfeed",
+      "parent": "axtech",
+      "relationship": "operating_branch",
+      "legal_entity": null,
+      "status": "planning_not_provisioned",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    },
+    {
+      "id": "cee-management",
+      "name": "CEE Management",
+      "parent": "axtech",
+      "relationship": "operating_branch",
+      "legal_entity": null,
+      "status": "planning_not_provisioned",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    },
+    {
+      "id": "china-sourcing",
+      "name": "China Sourcing",
+      "parent": "axtech",
+      "relationship": "operating_branch",
+      "legal_entity": null,
+      "status": "planning_not_provisioned",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    },
+    {
+      "id": "metagration",
+      "name": "Metagration",
+      "parent": "axtech",
+      "relationship": "operating_branch",
+      "legal_entity": null,
+      "status": "planning_not_provisioned",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    },
+    {
+      "id": "axio",
+      "name": "AXIO",
+      "parent": "metagration",
+      "relationship": "product_wing",
+      "legal_entity": null,
+      "status": "planning_not_provisioned",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
     }
   ],
-  "projects": [],
+  "projects": [
+    {
+      "id": "axtech-shop",
+      "name": "Axtech Shop",
+      "parent": "axtech",
+      "description": "Storefront listing all products sold under the group's brand names, heat pumps included; Sunfeed installs, the shop sells.",
+      "status": "planning_not_provisioned",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    },
+    {
+      "id": "safvr-channel",
+      "name": "SAFVR channel",
+      "parent": "axtech",
+      "description": "Pitch safvr.com (a separate project: safety management, video intelligence, reporting) to B2B companies and for pilots.",
+      "status": "planning_not_provisioned",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    },
+    {
+      "id": "iverif",
+      "name": "iVerif",
+      "parent": "cee-management",
+      "description": "The system CEE Management uses to process CEE documents with the obligé; one part of CEE Management.",
+      "status": "planning_not_provisioned",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    }
+  ],
   "project_rule": "Admit projects only beneath a named Axtech branch after source-backed intake. Repository location does not imply ownership.",
   "desk_policy": {
     "instances_scoped_per_branch_and_project": true,
@@ -48,12 +136,64 @@
   },
   "unresolved": [
     "Exact legal entities and branch relationships",
-    "Branch project inventory",
+    "Domains for every brand except heyzack.ai",
+    "The 'C…lia?, OEM content' box on the founder's sketch",
+    "'Symphonie Électricité?' under HeyZack",
+    "Numbers 2, 6, 25 and the note '500R' on the sketch",
+    "Cross-brand flows are proposals until the founder approves each one",
     "Axtech tenant identity and authenticated dispatch"
   ],
   "activation": {
     "tenant_provisioned": false,
     "cloud_agent": false,
     "public_delivery": false
-  }
+  },
+  "retired": [
+    {
+      "id": "savewatt",
+      "reason": "dropped by the founder",
+      "date": "2026-10-05",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    },
+    {
+      "id": "iverif",
+      "reason": "tenant became a project under cee-management",
+      "date": "2026-10-05",
+      "source": "specs/006-editorial-steward-integration/founder-intake-2026-10-05.md"
+    }
+  ],
+  "cross_brand_flows": [
+    {
+      "id": "heat-pump-chain",
+      "status": "proposed_not_approved",
+      "participants": [
+        "cee-management",
+        "axtech",
+        "sunfeed"
+      ],
+      "description": "CEE Management checks CEE eligibility, the Axtech shop sells the heat pump, Sunfeed installs, iVerif processes the CEE documents. Assumed from the founder's descriptions; the founder has not confirmed this chain.",
+      "shared": "FILL: which records cross which boundary"
+    },
+    {
+      "id": "axtech-shop-catalog",
+      "status": "proposed_not_approved",
+      "participants": [
+        "axtech",
+        "heyzack",
+        "ecoled",
+        "wave-concept"
+      ],
+      "description": "The Axtech shop reads product catalogs from the brands it lists.",
+      "shared": "product catalog data only; no customer or contact data"
+    },
+    {
+      "id": "china-sourcing-intent",
+      "status": "proposed_not_approved",
+      "participants": [
+        "china-sourcing"
+      ],
+      "description": "China Sourcing routes purchase intent to sales; which brands may receive it is not decided.",
+      "shared": "FILL: recipients and fields"
+    }
+  ]
 }

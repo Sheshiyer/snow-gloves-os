@@ -1,14 +1,16 @@
 # Open questions
 
-Every FILL line from the other context files, collected on 2026-10-02. Answer in the file named by `docs/fleet/05-BRANDS.md` (Founder FILL list), then remove the line here.
+Every FILL line from the other context files, collected on 2026-10-05. Answer in the file named by `docs/fleet/05-BRANDS.md` (Founder FILL list), then remove the line here.
 
 - FILL: legal entity name, registration country, and registration number for Axtech.
-- FILL: does Axtech trade under its own name, or only through its branches?
+- FILL: is the Axtech shop live, and at which domain?
 - FILL: Axtech domain (`brand.domain` in `MANIFEST.yaml`).
-- FILL: are there branches beyond HeyZack, Ecoled and Kartezzi? The proposal's branch project inventory is listed as unresolved.
-- FILL: does Axtech sell to anyone directly, or is it an operating scope over its branches only?
+- FILL: the "C…lia?, OEM content" box on the sketch (number 2 above it): its name and where it belongs.
+- FILL: the relationship with safvr.com (partner, referral, reseller) and what Axtech earns on a deal.
+- FILL: who buys from the Axtech shop directly (segment, geography), and who the SAFVR channel targets.
 - FILL: portfolio-wide contact-frequency and suppression rules the founder wants applied before any brand outreach.
-- FILL: portfolio-level offers, if any, that are sold under the Axtech name.
+- FILL: the Axtech shop's product range, brands listed, and pricing.
+- FILL: SAFVR offers Axtech may pitch, and the pilot terms.
 - FILL: which branch offers may be combined in a cross-brand campaign (the draft requires each such campaign to name participating brands, lead-sharing rules, selected offer, sending identity, budget and owner approval).
 - FILL: Axtech voice and tone, and the languages it communicates in.
 - FILL: is there an Axtech visual identity (typeface, palette, logo), and where does it live?

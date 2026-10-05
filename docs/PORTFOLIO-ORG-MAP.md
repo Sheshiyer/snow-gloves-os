@@ -1,22 +1,38 @@
-# Axtech portfolio organization — corrected scope
+# Axtech portfolio organization
 
-This organization covers only Axtech and its operating branches. Initial branches from the existing workspace draft are HeyZack, Ecoled and Kartezzi. Legal company names, exact ownership links and branch project inventories remain source-backed intake decisions.
+This organization covers Axtech and its branches only. The founder confirmed the branch list on 2026-10-05
+(`specs/006-editorial-steward-integration/founder-intake-2026-10-05.md`). Legal company names, domains and
+ownership links remain intake decisions; a position on this map is an operating scope, not a cap table.
 
 ```mermaid
 flowchart TD
-  A[Axtech] --> H[HeyZack]
-  A --> E[Ecoled]
+  A[Axtech] --> H[HeyZack<br/>home automation]
+  A --> E[Ecoled<br/>B2B / B2C]
   A --> K[Kartezzi]
-  H --> HP[Admitted projects and workstreams]
-  E --> EP[Admitted projects and workstreams]
-  K --> KP[Admitted projects and workstreams]
-  HP --> D[Scoped agent desks and jobs]
-  EP --> D
-  KP --> D
+  A --> I[Izzimo]
+  A --> W[Wave<br/>B2B mobile accessories]
+  A --> S[Sunfeed<br/>renovation and installation]
+  A --> C[CEE Management]
+  A --> CS[China Sourcing<br/>vendor network and intent routing]
+  A --> M[Metagration<br/>AI website and answering for hospitality]
+  M --> X[AXIO<br/>B2B AI training]
+  A -.-> SHOP([project: Axtech Shop])
+  A -.-> SAF([project: SAFVR channel])
+  C -.-> IV([project: iVerif])
 ```
 
-The common desk box represents reusable definitions; each admitted instance has separate branch/project authority. Mapping sequence: Axtech → branch → project → workstream → desk/job. Editorial, creative-production, delivery and growth are proposed desks. CEO, CTO, Chief of Staff, Librarian, Interpreter, Dispatcher and Sentinel remain reusable Snow Gloves control roles scoped to the admitted operation.
+Solid lines are tenants (`tenants/<slug>/`, isolation strict). Dotted lines are projects inside a tenant
+(`projects` in `specs/006-editorial-steward-integration/portfolio-map-proposal.json`). A unit gets its own
+tenant when it has its own customers or holds data that must be walled off; China Sourcing is a tenant for
+that second reason.
 
-The founder's correction replaces the earlier mixed-session portfolio map. No unrelated business, brand inventory or private editorial job belongs in this packet. Existing independent systems are outside this organization scope.
+Cross-brand work is allowed only through a named rule. Three flows are proposed, none approved
+(`cross_brand_flows` in the proposal): the heat-pump chain (CEE Management, Axtech Shop, Sunfeed, iVerif),
+the shop reading brand product catalogs, and China Sourcing routing purchase intent.
 
-Review packet: specs/006-editorial-steward-integration/{spec,plan,tasks}.md, organization.json and portfolio-map-proposal.json. The directory name is retained for continuity; its active contents now specify Axtech-only integration. No runtime or tenant activation occurred.
+Mapping sequence: Axtech → branch → project → workstream → desk/job. Editorial, creative-production,
+delivery and growth are proposed desks. CEO, CTO, Chief of Staff, Librarian, Interpreter, Dispatcher and
+Sentinel remain reusable Snow Gloves control roles scoped to the admitted operation.
+
+Review packet: `specs/006-editorial-steward-integration/{spec,plan,tasks}.md`, `organization.json`,
+`portfolio-map-proposal.json` and `founder-intake-2026-10-05.md`. No runtime or tenant activation occurred.

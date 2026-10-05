@@ -4,7 +4,7 @@ Status: review candidate. The founder corrected mixed-session continuity: this p
 
 ## Outcome
 
-Map Axtech → branch → project → workstream → agent job. Initial branches are HeyZack, Ecoled and Kartezzi from docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md. Confirm branch legal identities and project intake before provisioning. portfolio-map-proposal.json and organization.json are planning records, not IAM grants.
+Map Axtech → branch → project → workstream → agent job. Initial branches were HeyZack, Ecoled and Kartezzi from docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md; on 2026-10-05 the founder confirmed the full branch list and three projects (founder-intake-2026-10-05.md). Confirm branch legal identities and project intake before provisioning. portfolio-map-proposal.json and organization.json are planning records, not IAM grants.
 
 ## Agent structure
 

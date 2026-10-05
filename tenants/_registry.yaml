@@ -8,6 +8,9 @@ tenants:
   - ecoled  # Ecoled
   - kartezzi  # Kartezzi
   - izzimo  # Izzimo
-  - iverif  # iVerif
-  - savewatt  # SaveWatt
   - wave-concept  # Wave Concept
+  - sunfeed  # Sunfeed
+  - cee-management  # CEE Management
+  - china-sourcing  # China Sourcing
+  - metagration  # Metagration
+  - axio  # AXIO

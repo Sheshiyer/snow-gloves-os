@@ -107,8 +107,9 @@ serves them.
 
 ## Open items
 
-- Parent companies of the four brands flagged in the founder decisions are not
-  confirmed; see `docs/fleet/05-BRANDS.md`.
+- Brand parents were confirmed by the founder on 2026-10-05 (SaveWatt dropped, iVerif
+  folded into CEE Management); legal entities and domains are still open; see
+  `docs/fleet/05-BRANDS.md`.
 - Provider terms for shared subscription seats are to be confirmed; until then the
   recorded decision stands.
 - Apple Business Manager and managed Apple IDs come later; one company Apple

@@ -4,27 +4,40 @@ A brand is a tenant. `tenants/<slug>/` holds everything a wing may know about on
 
 ## Portfolio
 
-The parent column comes from `specs/006-editorial-steward-integration/portfolio-map-proposal.json` and `docs/PORTFOLIO-ORG-MAP.md`. That proposal covers Axtech and its three operating branches only. Legal ownership is not inferred: `legal_entity` is `null` for all four, and the proposal's rule reads "Repository location does not imply ownership." Four further brands have tenant folders because the founder named them, but no file in this repository mentions them (repo-wide grep, 2026-10-02), so their parent is a FILL.
+The parent column comes from `specs/006-editorial-steward-integration/portfolio-map-proposal.json` and `docs/PORTFOLIO-ORG-MAP.md`. The founder confirmed every parent on 2026-10-05 (`specs/006-editorial-steward-integration/founder-intake-2026-10-05.md`): SaveWatt was dropped, and iVerif became a project under CEE Management, so both tenant folders were removed. Legal ownership is not inferred: `legal_entity` is `null` for every branch, and the proposal's rule reads "Repository location does not imply ownership."
 
-| Slug | Display name | Parent | Status | Sources present? |
+| Slug | Display name | What it does (founder, 2026-10-05) | Parent | Sources present? |
 |---|---|---|---|---|
-| `axtech` | Axtech | none (portfolio root) | planning_not_provisioned | no (FILL) |
-| `heyzack` | HeyZack | `axtech` | planning_not_provisioned | partial: external brand PDF skill, linked not copied; vault path FILL |
-| `ecoled` | Ecoled | `axtech` | planning_not_provisioned | no (FILL) |
-| `kartezzi` | Kartezzi | `axtech` | planning_not_provisioned | no (FILL) |
-| `izzimo` | Izzimo | FILL | planning_not_provisioned | no (FILL) |
-| `iverif` | iVerif | FILL | planning_not_provisioned | no (FILL) |
-| `savewatt` | SaveWatt | FILL | planning_not_provisioned | no (FILL) |
-| `wave-concept` | Wave Concept | FILL | planning_not_provisioned | no (FILL) |
+| `axtech` | Axtech | portfolio root; sells through the Axtech shop | none (portfolio root) | no (FILL) |
+| `heyzack` | HeyZack | home automation | `axtech` | partial: external brand PDF skill, linked not copied; vault path FILL |
+| `ecoled` | Ecoled | B2B / B2C (sketch) | `axtech` | no (FILL) |
+| `kartezzi` | Kartezzi | FILL | `axtech` | no (FILL) |
+| `izzimo` | Izzimo | FILL | `axtech` | no (FILL) |
+| `wave-concept` | Wave | B2B mobile accessories | `axtech` | no (FILL) |
+| `sunfeed` | Sunfeed | renovation, construction; installs heat pumps, plumbing, electrical | `axtech` | no (FILL) |
+| `cee-management` | CEE Management | CEE eligibility and processing with the obligé | `axtech` | no (FILL) |
+| `china-sourcing` | China Sourcing | vendor network curation; routes purchase intent for a margin | `axtech` | no (FILL) |
+| `metagration` | Metagration | AI website, calling and answering for restaurants, hotels, parlours | `axtech` | no (FILL) |
+| `axio` | AXIO | Metagration's B2B AI wing with on-site training | `metagration` | no (FILL) |
 
-Status is `brand.status` in each `MANIFEST.yaml`. The `status: active` line at the top of the manifest is the scaffold default written by `scripts/tenant_new.sh` and means the folder is live for planning; it does not mean the brand is provisioned. The other entries in `tenants/_registry.yaml` (`acme`, `tryambakam-noesis`, `mathis`, `_demo`) are not brands in this portfolio.
+Projects live inside a tenant, not in their own folder (`projects` in the proposal):
+
+| Project | Parent tenant | What it is |
+|---|---|---|
+| `axtech-shop` | `axtech` | storefront for all products sold under the group's brand names, heat pumps included |
+| `safvr-channel` | `axtech` | pitch safvr.com's safety management and video intelligence to B2B companies and for pilots |
+| `iverif` | `cee-management` | the system CEE Management uses to process CEE documents |
+
+Cross-brand flows are proposed in `cross_brand_flows` and are not approved: the heat-pump chain, the shop reading brand catalogs, and China Sourcing routing purchase intent. Until the founder approves one, no tenant reads another's folder.
+
+Status is `brand.status` in each `MANIFEST.yaml`; every brand is `planning_not_provisioned`. The `status: active` line at the top of the manifest is the scaffold default written by `scripts/tenant_new.sh` and means the folder is live for planning; it does not mean the brand is provisioned. The other entries in `tenants/_registry.yaml` (`acme`, `tryambakam-noesis`, `mathis`, `_demo`) are not brands in this portfolio.
 
 The manifest block that records the position (added after the scaffold, which is otherwise untouched):
 
 ```yaml
 portfolio:
   root: axtech
-  parent: axtech        # null for axtech itself; "FILL: confirm with founder" for the four unmapped brands
+  parent: axtech        # null for axtech itself; metagration for axio
 brand:
   domain: heyzack.ai    # FILL for the others
   status: planning_not_provisioned
@@ -64,27 +77,28 @@ HeyZack's only source today is the brand PDF skill at `/Users/sheshnarayaniyer/.
 
 - The approver is the founder for every brand (`specs/006-editorial-steward-integration/organization.json`, `human_approver: founder`); each `context/owner.md` says so.
 - No external send without an approved ticket in `tenants/<slug>/approvals/`: public post, email, DM, SMS, money, hiring or personal data, legal commitments (`skills/connector-gate/SKILL.md`, step 5).
-- Nothing is enabled until `tenants/<slug>/enabled.yaml` exists (`python3 scripts/onboard.py --tenant <slug> --enable <id>`). None of the eight brands has one yet.
-- `tests/test_tenants_registry.py` keeps the registry, manifests, portfolio blocks, and context files consistent: every directory under `tenants/` is registered, every manifest names its directory, the eight brands carry `portfolio` and `brand` blocks, and no `context/*.md` is empty.
+- Nothing is enabled until `tenants/<slug>/enabled.yaml` exists (`python3 scripts/onboard.py --tenant <slug> --enable <id>`). Only `heyzack` has one: written on 2026-10-02 by `scripts/onboard.py`, 57 modules, 13 of them approval-gated (`approval: 'yes'`, including ads, cold email, SMS, PR and influencer outreach).
+- `tests/test_tenants_registry.py` keeps the registry, manifests, portfolio blocks, and context files consistent: every directory under `tenants/` is registered, every manifest names its directory, the eleven brand tenants carry `portfolio` and `brand` blocks, every parent matches the proposal, the retired `savewatt` and `iverif` folders stay gone, and no `context/*.md` is empty.
 
 ## Founder FILL list
 
 Answer once; each item names the file that receives the answer.
 
-Parents (write into `portfolio.root` and `portfolio.parent` in `MANIFEST.yaml`, and into `context/company.md`):
+Parents: answered on 2026-10-05 (`specs/006-editorial-steward-integration/founder-intake-2026-10-05.md`). Still open from the sketch (write into `context/company.md` of the tenant named):
 
-- `izzimo`: which portfolio or legal entity owns Izzimo? Under Axtech, another root, or standalone?
-- `iverif`: which portfolio or legal entity owns iVerif? Confirm the spelling.
-- `savewatt`: which portfolio or legal entity owns SaveWatt? Confirm the spelling.
-- `wave-concept`: which portfolio or legal entity owns Wave Concept?
+- `axtech`: the "C…lia?, OEM content" box, its name and where it belongs.
+- `heyzack`: what "Symphonie Électricité?" under HeyZack is.
+- `ecoled`, `sunfeed`, `cee-management`: what the numbers 25 and 6 and the note "500R" mean.
+- `wave-concept`: is the trading name "Wave" or "Wave Concept"?
+- `axio`: an uncommitted 2026-09-30 interview on the Coding Mac described Axio as lead generation via getleads.io; is that still part of AXIO?
 
-Domains (`brand.domain` in `MANIFEST.yaml`): `axtech`, `ecoled`, `kartezzi`, `izzimo`, `iverif`, `savewatt`, `wave-concept`. Only `heyzack.ai` is recorded.
+Domains (`brand.domain` in `MANIFEST.yaml`): every brand except HeyZack. Only `heyzack.ai` is recorded.
 
 Vault paths (`sources.yaml`):
 
-- all eight: the vault path to the brand documents (positioning, offer, voice, visual identity)
+- all eleven: the vault path to the brand documents (positioning, offer, voice, visual identity)
 - `heyzack`: the path to `heyzack/brand-system` (tokens, BRAND-GUIDE.md, DESIGN.md), which the PDF skill says it was derived from
 
-Legal entities (`context/company.md`): the proposal records `legal_entity: null` for Axtech, HeyZack, Ecoled and Kartezzi. Confirm each, and whether Axtech trades directly or only through branches.
+Legal entities (`context/company.md`): the proposal records `legal_entity: null` for Axtech and every branch. Confirm each, and whether Axtech trades directly or only through branches.
 
 Everything else is listed per brand in `tenants/<slug>/context/open-questions.md`.

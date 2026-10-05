@@ -1,10 +1,11 @@
 # Open questions
 
-Every FILL line from the other context files, collected on 2026-10-02. Answer in the file named by `docs/fleet/05-BRANDS.md` (Founder FILL list), then remove the line here.
+Every FILL line from the other context files, collected on 2026-10-05. Answer in the file named by `docs/fleet/05-BRANDS.md` (Founder FILL list), then remove the line here.
 
 - FILL: legal entity behind HeyZack, registration country, and its relationship to Axtech in legal terms.
 - FILL: vault path to `heyzack/brand-system` so the tokens and BRAND-GUIDE.md can be ingested.
 - FILL: founding date and team.
+- FILL: what "Symphonie Électricité" under HeyZack on the sketch is (spelling, and whether it is a brand, a product line or a partner).
 - FILL: customer segment (B2C, B2B, or both) and the problem HeyZack solves for them.
 - FILL: geography beyond France, if any.
 - FILL: the ideal customer profile the founder wants used for prospecting briefs.

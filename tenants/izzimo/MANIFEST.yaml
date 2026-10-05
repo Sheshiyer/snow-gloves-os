@@ -8,8 +8,8 @@ isolation: strict
 status: active
 # portfolio position: specs/006-editorial-steward-integration/portfolio-map-proposal.json (legal ownership is not inferred; see docs/fleet/05-BRANDS.md)
 portfolio:
-  root: "FILL: confirm with founder"
-  parent: "FILL: confirm with founder"
+  root: axtech
+  parent: axtech
 brand:
   domain: "FILL: confirm brand domain with founder"
   status: planning_not_provisioned

@@ -1,3 +1,11 @@
+## 2026-10-05 — Branches reconciled locally; Axtech brand map confirmed by the founder
+
+- Local `main` is the single head (fast-forwarded to the fleet work at 58e77d8); nine merged local branches deleted (restore SHAs kept in the session scratchpad); `codex/local-mini-pilot` kept as an alias until push. The founder deleted six merged remote branches; PR #9 closed with them. Three remote branches remain for review: `ecc-tools/…` (PR #6, closed unmerged) and two `local-004-seed-briefs-dispatcher-*` backups.
+- Not pushed: the GitHub repo is public and the unpushed range carries tailnet, LAN and account details; publishing waits on the founder's decision. The repo is shallow at 3353e52; an incremental push is fine, a full bundle is not.
+- Brand map (`specs/006-editorial-steward-integration/founder-intake-2026-10-05.md`): ten branch tenants under Axtech plus AXIO under Metagration; projects `axtech-shop`, `safvr-channel`, `iverif` (under `cee-management`); `savewatt` and `iverif` tenant folders removed; three cross-brand flows proposed, none approved.
+- Coding Mac: its checkout is 9 commits behind and clean; a second checkout `~/code/snow-gloves-os` there holds uncommitted work, including a 2026-09-30 `tenants/axio/` interview that describes AXIO differently (lead generation via getleads.io). Not merged; recorded as an open question.
+- Verification: `python3 -m pytest -q` 279 passed; `scripts/build_catalog.py --check` up to date.
+
 ## 2026-10-02 14:10 UTC — Cutover complete, single live gateway
 
 - The Coding Mac is the only OmniRoute; the seat's clients target `coding-mac` and its loopback 20128 forwards there under the original LaunchAgent label. Rollback path recorded in docs/fleet/DECISIONS.md.

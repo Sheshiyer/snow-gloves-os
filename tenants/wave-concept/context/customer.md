@@ -1,8 +1,8 @@
 # Customer
 
-Source: none in this repository.
+Source: `specs/006-editorial-steward-integration/founder-intake-2026-10-05.md`.
 
-No customer definition for Wave Concept exists in this repository or in any linked source (checked 2026-10-02).
+Business buyers of mobile accessories (B2B).
 
-FILL: who buys from Wave Concept (segment, B2C or B2B, geography).
-FILL: the problem Wave Concept solves for that customer.
+FILL: which businesses buy (retailers, distributors, corporate buyers) and in which countries.
+FILL: the problem Wave solves for that customer.

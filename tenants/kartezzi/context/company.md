@@ -1,9 +1,10 @@
 # Company
 
-Source: `specs/006-editorial-steward-integration/portfolio-map-proposal.json`, `docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md`, `docs/PORTFOLIO-ORG-MAP.md`.
+Source: `specs/006-editorial-steward-integration/portfolio-map-proposal.json`, `docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md`, `docs/PORTFOLIO-ORG-MAP.md`, `specs/006-editorial-steward-integration/founder-intake-2026-10-05.md`.
 
 - Kartezzi is an operating branch of Axtech: `id: kartezzi`, `parent: axtech`, `relationship: operating_branch`, `legal_entity: null`, `status: planning_not_provisioned` (`specs/006-editorial-steward-integration/portfolio-map-proposal.json`, sourced from `docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md`).
 - `docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md` names Kartezzi as one of the initial Axtech brands for campaign operations and states: "Brand spellings and legal/company relationships require source-backed mapping. These are proposed scopes, not provisioned tenants."
+- The founder confirmed on 2026-10-05 that Kartezzi is under Axtech. Kartezzi is not on the founder's sketch.
 - Legal ownership is not inferred. No other file in this repository describes Kartezzi (checked 2026-10-02).
 
 FILL: confirm the spelling "Kartezzi".

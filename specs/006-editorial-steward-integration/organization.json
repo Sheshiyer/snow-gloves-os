@@ -6,7 +6,14 @@
   "branches": [
     "heyzack",
     "ecoled",
-    "kartezzi"
+    "kartezzi",
+    "izzimo",
+    "wave-concept",
+    "sunfeed",
+    "cee-management",
+    "china-sourcing",
+    "metagration",
+    "axio"
   ],
   "control_roles": [
     "ceo",
@@ -45,5 +52,10 @@
     "snow_gloves_callable": false,
     "cloud_agent": false,
     "public_delivery": false
-  }
+  },
+  "projects": [
+    "axtech-shop",
+    "safvr-channel",
+    "iverif"
+  ]
 }

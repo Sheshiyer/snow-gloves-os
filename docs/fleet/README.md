@@ -20,8 +20,9 @@ Run them in order on each mini. `<wing>` is `marketing`, `design` or `coding`; n
 
 ### 0. Company ([00-COMPANY.md](00-COMPANY.md))
 
-Thoughtseed operates the fleet; Axtech is the portfolio root (HeyZack, Ecoled, Kartezzi), four more
-brands wait for a source-backed parent. All wings serve all brands.
+Thoughtseed operates the fleet; Axtech is the portfolio root over ten brand tenants (HeyZack, Ecoled,
+Kartezzi, Izzimo, Wave, Sunfeed, CEE Management, China Sourcing, Metagration, and AXIO under
+Metagration), confirmed by the founder on 2026-10-05. All wings serve all brands.
 
 ```bash
 cat fleet.yaml

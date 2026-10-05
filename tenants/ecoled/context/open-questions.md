@@ -1,12 +1,13 @@
 # Open questions
 
-Every FILL line from the other context files, collected on 2026-10-02. Answer in the file named by `docs/fleet/05-BRANDS.md` (Founder FILL list), then remove the line here.
+Every FILL line from the other context files, collected on 2026-10-05. Answer in the file named by `docs/fleet/05-BRANDS.md` (Founder FILL list), then remove the line here.
 
 - FILL: confirm the spelling "Ecoled".
 - FILL: legal entity behind Ecoled, registration country, and its legal relationship to Axtech.
 - FILL: Ecoled domain (`brand.domain` in `MANIFEST.yaml`).
 - FILL: what Ecoled does, in one paragraph from the founder or a brand document.
-- FILL: who buys from Ecoled (segment, B2C or B2B, geography).
+- FILL: what the number 25 above Ecoled on the sketch means.
+- FILL: which business and consumer segments buy from Ecoled, and in which countries.
 - FILL: the problem Ecoled solves for that customer.
 - FILL: the ideal customer profile the founder wants used for prospecting briefs.
 - FILL: what Ecoled sells and how it is priced.
