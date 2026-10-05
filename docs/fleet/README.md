@@ -87,6 +87,8 @@ the operator user's Keychain under the name the command references.
 python3 scripts/fleet/gateway_client.py set-url --host coding-mac --key-ref keychain:snowgloves-gateway-<wing>
 ```
 
+With a cloud gateway ([08-CLOUD-GATEWAY.md](08-CLOUD-GATEWAY.md)) the same command takes `--url https://gw.<zone>`.
+
 ### 7. Brands ([05-BRANDS.md](05-BRANDS.md))
 
 Enable every brand tenant on this wing. A wing never owns a brand; it serves all of them.

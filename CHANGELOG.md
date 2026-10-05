@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Cloud gateway.** OmniRoute can run on EC2 behind Cloudflare instead of the Coding Mac: `infra/aws-gateway` (Elastic IP, Cloudflare-only security group, SSM, S3 backups, DLM snapshots, alarms, budget) and `infra/cloudflare-gateway` (proxied DNS, Origin CA cert via SSM, WAF office allowlist on `/v1`, Access on the dashboard), driven by `scripts/fleet/cloud_gateway.sh`. `scripts/fleet/cloud_guard.py` and the doctor's `fleet-boundary` check refuse any account, zone or domain outside the `cloud_gateway` block. `gateway_client.py` takes `--url https://…` and `--via tailnet`. Docs: `docs/fleet/08-CLOUD-GATEWAY.md`.
+
 ## v0.2.1 — Onboarding TUI (2026-09-30)
 
 - **TUI + headless runner.** `make tui` / `scripts/tui_onboard.py` walks doctor, smoke, walk, harvest apply, catalog enable, render, and graph-upgrade dry-run. Toggle agent vs manual TUI; agent needs `claude`, `codex`, or `kimi`/`kimi-cli` on PATH or it falls back. Agents: `--headless`. `hold`/`refuse` stay refused. Hermes is not started headless.

@@ -224,3 +224,59 @@ def test_missing_fleet_yaml_is_warn_with_explicit_wing(tmp_path, capsys):
     # without an explicit wing there is nothing to identify the mini with
     rc, by = run_json(root, home, capsys)
     assert rc == 1 and by["node-profile"]["ok"] is False
+
+
+# ---------------------------------------------------------------- cloud gateway boundary
+
+CLOUD_BLOCK = {
+    "hostname": "gw.example.com",
+    "zone": "example.com",
+    "aws_profile": "company",
+    "aws_account_id": "111122223333",
+    "cf_account_id": "0123456789abcdef0123456789abcdef",
+    "cf_zone_id": "fedcba9876543210fedcba9876543210",
+    "deny_domains": ["personal.example", "personal-team"],
+    "deny_aws_profiles": ["personal"],
+}
+
+
+def seed_cloud(tmp_path, gateway: dict | None = None, **cloud) -> tuple[Path, Path]:
+    root, home = seed_root(tmp_path)
+    fleet = json.loads(json.dumps(FLEET))
+    fleet["gateway"] = gateway or {"kind": "cloud", "port": 20128, "url": "https://gw.example.com",
+                                   "tailnet_url": "http://cloud-gw:20128"}
+    fleet["cloud_gateway"] = {**CLOUD_BLOCK, **cloud}
+    (root / "fleet.yaml").write_text(yaml.safe_dump(fleet), encoding="utf-8")
+    return root, home
+
+
+def test_boundary_is_a_quiet_pass_without_a_cloud_block(tmp_path, capsys):
+    root, home = seed_root(tmp_path)
+    rc, by = run_json(root, home, capsys, "--wing", "coding")
+    assert by["fleet-boundary"]["ok"] and by["fleet-boundary"]["critical"] is False
+
+
+def test_boundary_passes_for_a_clean_cloud_gateway(tmp_path, capsys):
+    root, home = seed_cloud(tmp_path)
+    rc, by = run_json(root, home, capsys, "--wing", "coding")
+    assert by["fleet-boundary"]["ok"], by["fleet-boundary"]["detail"]
+    assert by["fleet-boundary"]["critical"] and rc == 0
+    assert "tailnet http://cloud-gw:20128/healthz" in by["gateway"]["detail"]
+
+
+@pytest.mark.parametrize("gateway,cloud,needle", [
+    (None, {"hostname": "gw.personal.example", "zone": "personal.example"}, "denied domain personal.example"),
+    (None, {"hostname": "gw.other.com"}, "not under zone"),
+    (None, {"aws_profile": "default"}, "aws_profile default is denied"),
+    (None, {"aws_profile": "personal"}, "aws_profile personal is denied"),
+    (None, {"cf_zone_id": "<cf-zone-id>"}, "cf_zone_id unset"),
+    ({"kind": "cloud", "url": "http://gw.example.com"}, {}, "must be https"),
+    ({"kind": "cloud", "url": "https://gw2.example.com"}, {}, "differs from cloud_gateway.hostname"),
+    ({"kind": "cloud", "url": "https://gw.example.com", "tailnet_url": "http://personal-team-gw:20128"}, {},
+     "denied domain personal-team"),
+])
+def test_boundary_fails_closed(tmp_path, capsys, gateway, cloud, needle):
+    root, home = seed_cloud(tmp_path, gateway, **cloud)
+    rc, by = run_json(root, home, capsys, "--wing", "coding")
+    assert by["fleet-boundary"]["ok"] is False and needle in by["fleet-boundary"]["detail"]
+    assert rc == 1

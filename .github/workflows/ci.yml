@@ -30,3 +30,19 @@ jobs:
         env:
           SNOWGLOVES_EMBED_BACKEND: stub
         run: make smoke
+
+  infra-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.10.6"
+      - name: tofu fmt
+        run: tofu fmt -check -recursive infra
+      - name: tofu validate
+        run: |
+          for d in infra/*-gateway; do
+            tofu -chdir="$d" init -backend=false -input=false
+            tofu -chdir="$d" validate
+          done

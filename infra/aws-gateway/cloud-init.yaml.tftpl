@@ -1,0 +1,181 @@
+#cloud-config
+# Snow Gloves cloud gateway bootstrap (Ubuntu 24.04 arm64). Rendered by OpenTofu templatefile().
+# Shell variables are written as $NAME (no braces) so templatefile leaves them alone.
+#
+#   snowgloves-omniroute.service   omniroute serve, 127.0.0.1:20128 only, data in /var/lib/omniroute/.omniroute
+#   caddy                          :443 with the Cloudflare Origin CA cert from SSM -> 127.0.0.1:20128
+#   sg-gw-tls                      pull cert + key from SSM ${ssm_prefix}/tls/*, reload caddy (boot + daily)
+#   sg-gw-tailnet                  one-shot: read ${ssm_prefix}/tailscale/authkey, join, delete the key, serve :20128 on the tailnet
+#   sg-gw-backup                   nightly sqlite .backup + .env -> s3://${backup_bucket}/backups/
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - jq
+  - sqlite3
+  - unattended-upgrades
+  - debian-keyring
+  - debian-archive-keyring
+  - apt-transport-https
+
+users:
+  - default
+  - name: omniroute
+    system: true
+    homedir: /var/lib/omniroute
+    shell: /usr/sbin/nologin
+
+write_files:
+  - path: /etc/systemd/system/snowgloves-omniroute.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Snow Gloves fleet gateway (OmniRoute ${omniroute_version})
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      User=omniroute
+      Group=omniroute
+      WorkingDirectory=/var/lib/omniroute
+      Environment=HOME=/var/lib/omniroute
+      Environment=NODE_ENV=production
+      Environment=OMNIROUTE_SERVER_HOST=127.0.0.1
+      Environment=OMNIROUTE_MCP_ENFORCE_SCOPES=true
+      Environment=OMNIROUTE_CHAT_ADMISSION_QUEUE_MS=30000
+      Environment=OMNIROUTE_CHAT_MAX_HEAVY_IN_FLIGHT=4
+      ExecStart=/usr/bin/omniroute serve --no-open --no-tray
+      Restart=always
+      RestartSec=5
+      NoNewPrivileges=true
+      ProtectSystem=strict
+      ProtectHome=true
+      ReadWritePaths=/var/lib/omniroute
+      PrivateTmp=true
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/caddy/Caddyfile
+    permissions: "0644"
+    content: |
+      {
+        auto_https disable_redirects
+        servers {
+          trusted_proxies static ${cf_ranges}
+          client_ip_headers CF-Connecting-IP
+        }
+      }
+
+      :443 {
+        tls /etc/caddy/tls/origin.pem /etc/caddy/tls/origin.key
+        encode zstd gzip
+        reverse_proxy 127.0.0.1:20128 {
+          flush_interval -1
+          header_up X-Real-IP {client_ip}
+          header_up X-Forwarded-For {client_ip}
+        }
+      }
+
+  - path: /usr/local/sbin/sg-gw-tls
+    permissions: "0750"
+    content: |
+      #!/usr/bin/env bash
+      # Pull the Cloudflare Origin CA cert and key from SSM; reload caddy when they change.
+      set -euo pipefail
+      install -d -m 0750 -o root -g caddy /etc/caddy/tls
+      tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+      for part in cert key; do
+        aws ssm get-parameter --region ${region} --with-decryption \
+          --name "${ssm_prefix}/tls/$part" --query Parameter.Value --output text > "$tmp/$part" || {
+            echo "sg-gw-tls: ${ssm_prefix}/tls/$part not in SSM yet (apply the cloudflare stack)"; exit 0; }
+      done
+      if cmp -s "$tmp/cert" /etc/caddy/tls/origin.pem && cmp -s "$tmp/key" /etc/caddy/tls/origin.key; then
+        exit 0
+      fi
+      install -m 0644 -o root -g caddy "$tmp/cert" /etc/caddy/tls/origin.pem
+      install -m 0640 -o root -g caddy "$tmp/key" /etc/caddy/tls/origin.key
+      systemctl enable caddy >/dev/null 2>&1 || true
+      systemctl reload-or-restart caddy
+      echo "sg-gw-tls: origin certificate installed"
+
+  - path: /usr/local/sbin/sg-gw-tailnet
+    permissions: "0750"
+    content: |
+      #!/usr/bin/env bash
+      # One-shot tailnet join. The operator puts a single-use, tagged auth key in SSM; we read it,
+      # join, delete it, then expose 127.0.0.1:20128 on the tailnet only (tailscale serve).
+      set -euo pipefail
+      param="${ssm_prefix}/tailscale/authkey"
+      if ! tailscale status >/dev/null 2>&1; then
+        key="$(aws ssm get-parameter --region ${region} --with-decryption --name "$param" \
+          --query Parameter.Value --output text)"
+        tailscale up --auth-key "$key" --hostname "${tailnet_hostname}" --ssh --advertise-tags=tag:gateway
+        unset key
+      fi
+      aws ssm delete-parameter --region ${region} --name "$param" >/dev/null 2>&1 || true
+      tailscale serve --bg --http 20128 http://127.0.0.1:20128
+      tailscale status --self --peers=false
+
+  - path: /usr/local/sbin/sg-gw-backup
+    permissions: "0750"
+    content: |
+      #!/usr/bin/env bash
+      # Consistent sqlite snapshot plus the storage key (.env), uploaded to the private,
+      # versioned, KMS-encrypted backup bucket. Restore: docs/fleet/04-GATEWAY.md (cloud gateway).
+      set -euo pipefail
+      data=/var/lib/omniroute/.omniroute
+      stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+      work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
+      [ -f "$data/storage.sqlite" ] || { echo "sg-gw-backup: no database yet"; exit 0; }
+      sqlite3 "$data/storage.sqlite" ".backup '$work/storage.sqlite'"
+      [ -f "$data/.env" ] && cp "$data/.env" "$work/.env"
+      tar -C "$work" -czf "$work/omniroute-$stamp.tgz" storage.sqlite $( [ -f "$work/.env" ] && echo .env )
+      aws s3 cp --only-show-errors "$work/omniroute-$stamp.tgz" "s3://${backup_bucket}/backups/omniroute-$stamp.tgz"
+      echo "sg-gw-backup: s3://${backup_bucket}/backups/omniroute-$stamp.tgz"
+
+  - path: /etc/systemd/system/sg-gw-tls.service
+    content: |
+      [Unit]
+      Description=Refresh the gateway origin certificate from SSM
+      After=network-online.target
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/sg-gw-tls
+  - path: /etc/systemd/system/sg-gw-tls.timer
+    content: |
+      [Unit]
+      Description=Daily origin certificate refresh
+      [Timer]
+      OnBootSec=2min
+      OnUnitActiveSec=1d
+      [Install]
+      WantedBy=timers.target
+  - path: /etc/systemd/system/sg-gw-backup.service
+    content: |
+      [Unit]
+      Description=Back up the gateway database to S3
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/sg-gw-backup
+  - path: /etc/systemd/system/sg-gw-backup.timer
+    content: |
+      [Unit]
+      Description=Nightly gateway backup
+      [Timer]
+      OnCalendar=*-*-* 02:00:00 UTC
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+
+runcmd:
+  - [bash, -c, "snap install aws-cli --classic"]
+  - [bash, -c, "curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs"]
+  - [bash, -c, "npm install -g omniroute@${omniroute_version}"]
+  - [bash, -c, "curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt > /etc/apt/sources.list.d/caddy-stable.list && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confold caddy"]
+  - [bash, -c, "curl -fsSL https://tailscale.com/install.sh | sh"]
+  - [bash, -c, "install -d -m 0750 -o omniroute -g omniroute /var/lib/omniroute"]
+  - [bash, -c, "systemctl daemon-reload && systemctl enable --now snowgloves-omniroute.service sg-gw-tls.timer sg-gw-backup.timer"]
+  - [bash, -c, "systemctl disable --now caddy || true; /usr/local/sbin/sg-gw-tls || true"]

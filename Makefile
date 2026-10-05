@@ -42,6 +42,8 @@ help:
 	@echo "  make fleet-connect W=<wing>             # open a shell on a wing over Tailscale"
 	@echo "  make fleet-kit-export                   # export the gateway kit from the authoring seat"
 	@echo "  make fleet-remote-access W=<wing>       # ARD / Screen Sharing / SSH plan (dry-run)"
+	@echo "  make fleet-cloud-guard                  # cloud gateway: prove AWS account + Cloudflare zone match fleet.yaml"
+	@echo "  make fleet-cloud S=aws|cloudflare A=plan  # cloud gateway infra (docs/fleet/08-CLOUD-GATEWAY.md)"
 
 doctor:
 	bash scripts/doctor.sh
@@ -132,7 +134,7 @@ clean:
 	rm -f .hermes.pid .e2e.json
 
 # ---- fleet (three Mac minis by wing; see docs/fleet/README.md) ----
-.PHONY: fleet-doctor fleet-render fleet-enable fleet-connect fleet-kit-export fleet-remote-access
+.PHONY: fleet-doctor fleet-render fleet-enable fleet-connect fleet-kit-export fleet-remote-access fleet-cloud-guard fleet-cloud
 fleet-doctor:
 	$(PYTHON) scripts/fleet/doctor.py $(if $(W),--wing $(W),)
 
@@ -154,6 +156,13 @@ fleet-kit-export:
 fleet-remote-access:
 	@if [ -z "$(W)" ]; then echo "usage: make fleet-remote-access W=<wing>"; exit 1; fi
 	bash scripts/fleet/remote_access.sh --wing $(W)
+
+fleet-cloud-guard:
+	$(PYTHON) scripts/fleet/cloud_guard.py check all
+
+fleet-cloud:
+	@if [ -z "$(S)" ] || [ -z "$(A)" ]; then echo "usage: make fleet-cloud S=aws|cloudflare A=init|plan|apply|destroy|output"; exit 1; fi
+	bash scripts/fleet/cloud_gateway.sh $(S) $(A)
 
 
 # ---- Onboarding app (Tauri v2) ----

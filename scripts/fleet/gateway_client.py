@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Point this machine's CLI surfaces at the Snow Gloves fleet gateway.
 
+Gateway target, in order: --url, else --host/--port (plain http over the tailnet), else fleet.yaml
+gateway.url (or gateway.tailnet_url with --via tailnet). A cloud gateway is an https URL such as
+https://gw.example.com (port 443 by default); a Mac gateway is http://<tailnet-name>:20128.
+
 Surfaces (paths are relative to --home, default $HOME):
   claude    .claude/settings.json          env.ANTHROPIC_BASE_URL (root, no /v1) + ANTHROPIC_AUTH_TOKEN
   codex     .codex/config.toml             [model_providers.omniroute] base_url .../v1, env_key
@@ -89,25 +93,39 @@ def dump_json(data: dict) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
-def fleet_gateway(fleet_path: Path) -> tuple[str | None, int | None]:
-    """Return (host, port) from fleet.yaml gateway.url, or (None, None)."""
+def fleet_gateway_url(fleet_path: Path, via: str = "primary") -> str | None:
+    """Return fleet.yaml gateway.url (or gateway.tailnet_url for via=tailnet), or None."""
     try:
         import yaml  # type: ignore
 
         data = yaml.safe_load(fleet_path.read_text(encoding="utf-8")) or {}
-        url = str(data["gateway"]["url"])
+        gw = data["gateway"]
+        url = gw.get("tailnet_url") if via == "tailnet" else gw.get("url")
     except Exception:
-        return None, None
-    return split_host_port(url)
+        return None
+    return str(url) if url else None
+
+
+def parse_gateway_url(url: str | None) -> tuple[str | None, str | None, int | None]:
+    """(scheme, host, port). No scheme means http. Default port: 443 for https, 80 for http."""
+    if not url:
+        return None, None, None
+    m = re.match(r"^\s*(?:(https?)://)?([^:/\s]+)(?::(\d+))?", url, re.I)
+    if not m:
+        return None, None, None
+    scheme = (m.group(1) or "http").lower()
+    return scheme, m.group(2), int(m.group(3) or (443 if scheme == "https" else 80))
 
 
 def split_host_port(url: str | None) -> tuple[str | None, int | None]:
-    if not url:
-        return None, None
-    m = re.match(r"^\s*(?:https?://)?([^:/\s]+)(?::(\d+))?", url)
-    if not m:
-        return None, None
-    return m.group(1), int(m.group(2) or 80)
+    _, host, port = parse_gateway_url(url)
+    return host, port
+
+
+def root_url_for(scheme: str, host: str, port: int) -> str:
+    """Canonical root URL (no trailing slash, no /v1); the scheme's default port is omitted."""
+    default = 443 if scheme == "https" else 80
+    return f"{scheme}://{host}" + ("" if port == default else f":{port}")
 
 
 def parse_key_ref(ref: str) -> tuple[str, str]:
@@ -371,8 +389,7 @@ def plan_opencode(path: Path, v1_url: str, env_var: str) -> Plan:
     return Plan("opencode", path, old, dump_json(data), notes)
 
 
-def build_plans(home: Path, surfaces: list[str], host: str, port: int, env_var: str, set_default: bool = False) -> list[Plan]:
-    root_url = f"http://{host}:{port}"
+def build_plans(home: Path, surfaces: list[str], root_url: str, env_var: str, set_default: bool = False) -> list[Plan]:
     v1_url = root_url + "/v1"
     plans = []
     for s in surfaces:
@@ -439,13 +456,18 @@ def surface_base_url(surface: str, path: Path) -> str | None:
     return None
 
 
-def is_fleet(base_url: str | None, host: str, port: int) -> bool:
-    h, p = split_host_port(base_url)
-    return bool(h) and h.lower() == host.lower() and p == port
+def is_fleet(base_url: str | None, root_url: str) -> bool:
+    got, want = parse_gateway_url(base_url), parse_gateway_url(root_url)
+    return bool(got[1]) and got[0] == want[0] and got[1].lower() == want[1].lower() and got[2] == want[2]
 
 
-def probe_health(host: str, port: int, timeout: float = 3.0) -> tuple[str, str]:
-    url = f"http://{host}:{port}/healthz"
+def is_tailnet_gateway(root_url: str) -> bool:
+    """Plain http means the tailnet path; an https gateway is reached over the internet (cloud)."""
+    return parse_gateway_url(root_url)[0] != "https"
+
+
+def probe_health(root_url: str, timeout: float = 3.0) -> tuple[str, str]:
+    url = f"{root_url}/healthz"
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310 - fixed scheme/path
             return url, f"HTTP {resp.status}"
@@ -455,31 +477,34 @@ def probe_health(host: str, port: int, timeout: float = 3.0) -> tuple[str, str]:
         return url, f"unreachable ({type(exc).__name__})"
 
 
-def run_status(home: Path, surfaces: list[str], host: str, port: int, probe: bool) -> int:
-    print(f"gateway: http://{host}:{port}")
+def run_status(home: Path, surfaces: list[str], root_url: str, probe: bool) -> int:
+    print(f"gateway: {root_url}")
     all_fleet = True
     for s in surfaces:
         path = home / SURFACE_PATHS[s]
         base = surface_base_url(s, path)
-        fleet = is_fleet(base, host, port)
+        fleet = is_fleet(base, root_url)
         all_fleet = all_fleet and fleet
         shown = base if base else "(missing)"
         print(f"  {s:<9} {'FLEET' if fleet else 'NOT-FLEET':<9} base={shown}  file={path}")
     if probe:
-        url, result = probe_health(host, port)
+        url, result = probe_health(root_url)
         print(f"probe: GET {url} -> {result}")
     return 0 if all_fleet else 1
 
 
-def run_doctor(home: Path, surfaces: list[str], host: str, port: int, probe: bool, key_ref: str | None) -> int:
-    rc = run_status(home, surfaces, host, port, probe)
+def run_doctor(home: Path, surfaces: list[str], root_url: str, probe: bool, key_ref: str | None) -> int:
+    rc = run_status(home, surfaces, root_url, probe)
     ok = rc == 0
     ts = shutil.which("tailscale") or (
         "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
         if Path("/Applications/Tailscale.app/Contents/MacOS/Tailscale").exists() else None
     )
-    print(f"tailscale: {'present (' + ts + ')' if ts else 'MISSING (install Tailscale; the gateway is reachable only over the tailnet)'}")
-    ok = ok and bool(ts)
+    if is_tailnet_gateway(root_url):
+        print(f"tailscale: {'present (' + ts + ')' if ts else 'MISSING (install Tailscale; the gateway is reachable only over the tailnet)'}")
+        ok = ok and bool(ts)
+    else:
+        print(f"tailscale: {'present (' + ts + ')' if ts else 'absent'} (optional: https gateway; tailscale is only the fallback path)")
     env_var = DEFAULT_ENV_VAR
     if key_ref:
         kind, name = parse_key_ref(key_ref)
@@ -505,14 +530,14 @@ def run_doctor(home: Path, surfaces: list[str], host: str, port: int, probe: boo
 
 # ----------------------------------------------------------------------------- set-url
 
-def run_set_url(home: Path, surfaces: list[str], host: str, port: int, key_ref: str, apply: bool, set_default: bool = False) -> int:
+def run_set_url(home: Path, surfaces: list[str], root_url: str, key_ref: str, apply: bool, set_default: bool = False) -> int:
     kind, name = parse_key_ref(key_ref)
     env_var = env_var_for(kind, name)
     print(f"mode: {'APPLY' if apply else 'dry-run (pass --apply to write)'}")
-    print(f"gateway: http://{host}:{port}  key_ref: {key_ref}  env var written to TOML/JSON references: {env_var}")
+    print(f"gateway: {root_url}  key_ref: {key_ref}  env var written to TOML/JSON references: {env_var}")
     if kind == "keychain":
         print(f'shell profile line (no secret shown): export {env_var}="$(security find-generic-password -s {name} -w)"')
-    plans = build_plans(home, surfaces, host, port, env_var, set_default=set_default)
+    plans = build_plans(home, surfaces, root_url, env_var, set_default=set_default)
     secret = resolve_key(kind, name) if apply else None
     rc = 0
     for plan in plans:
@@ -540,8 +565,11 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--home", type=Path, default=Path(os.environ.get("HOME", str(Path.home()))),
                         help="redirect all surface paths (tests)")
     common.add_argument("--fleet", type=Path, default=DEFAULT_FLEET, help="fleet.yaml for the default gateway host")
-    common.add_argument("--host", help="gateway overlay name or IP (default: fleet.yaml gateway.url)")
-    common.add_argument("--port", type=int, help="gateway port (default: fleet.yaml, else 20128)")
+    common.add_argument("--url", help="full gateway URL, e.g. https://gw.example.com (cloud) or http://coding-mac:20128")
+    common.add_argument("--host", help="gateway overlay name or IP, plain http (default: fleet.yaml gateway.url)")
+    common.add_argument("--port", type=int, help="gateway port with --host (default: fleet.yaml, else 20128)")
+    common.add_argument("--via", choices=("primary", "tailnet"), default="primary",
+                        help="fleet.yaml default: gateway.url (primary) or gateway.tailnet_url (fallback path)")
     common.add_argument("--surfaces", default=",".join(SURFACES), help="comma list of claude,codex,grok,opencode")
     common.add_argument("--set-default-provider", action="store_true",
                         help="codex: also set top-level model_provider = omniroute (changes the default away from native login; needs the env_key exported)")
@@ -559,13 +587,27 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
-def resolve_target(args: argparse.Namespace) -> tuple[str, int]:
-    f_host, f_port = fleet_gateway(args.fleet)
-    host = args.host or f_host
-    port = args.port or f_port or 20128
-    if not host:
-        raise SystemExit("no --host given and fleet.yaml gateway.url not readable")
-    return host, port
+def resolve_target(args: argparse.Namespace) -> str:
+    """Return the gateway root URL: --url, else --host/--port (http), else fleet.yaml."""
+    if args.url and (args.host or args.port):
+        raise SystemExit("pass either --url or --host/--port, not both")
+    if args.url:
+        scheme, host, port = parse_gateway_url(args.url)
+        if not host:
+            raise SystemExit(f"bad --url {args.url!r}")
+        return root_url_for(scheme, host, port)
+    if args.host:
+        return root_url_for("http", args.host, args.port or 20128)
+    url = fleet_gateway_url(args.fleet, args.via)
+    if not url:
+        key = "gateway.tailnet_url" if args.via == "tailnet" else "gateway.url"
+        raise SystemExit(f"no --url/--host given and fleet.yaml {key} not readable")
+    scheme, host, port = parse_gateway_url(url)
+    if args.port:
+        port = args.port
+    elif not re.search(r"://[^/]+:\d+", url) and scheme == "http":
+        port = 20128  # bare http://name in fleet.yaml means the OmniRoute default port
+    return root_url_for(scheme, host, port)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -574,14 +616,14 @@ def main(argv: list[str] | None = None) -> int:
     unknown = [s for s in surfaces if s not in SURFACES]
     if unknown:
         raise SystemExit(f"unknown surfaces: {', '.join(unknown)} (choose from {', '.join(SURFACES)})")
-    host, port = resolve_target(args)
+    root_url = resolve_target(args)
     home = args.home.expanduser()
     if args.cmd == "set-url":
-        return run_set_url(home, surfaces, host, port, args.key_ref, args.apply, set_default=bool(getattr(args, 'set_default_provider', False)))
+        return run_set_url(home, surfaces, root_url, args.key_ref, args.apply, set_default=bool(getattr(args, 'set_default_provider', False)))
     if args.cmd == "status":
-        return run_status(home, surfaces, host, port, not args.no_probe)
+        return run_status(home, surfaces, root_url, not args.no_probe)
     if args.cmd == "doctor":
-        return run_doctor(home, surfaces, host, port, not args.no_probe, args.key_ref)
+        return run_doctor(home, surfaces, root_url, not args.no_probe, args.key_ref)
     return 2
 
 
