@@ -196,6 +196,11 @@ until the actual mini supplies evidence.
   learned: matched generic adapter now uses managed8080/full independent role keys, selected digest plus actual inspection, authenticated exact readiness and unknown-running holds; unsupported responses stays held.55transport tests/generatedtypes/strictcompile and12actual localHTTPS boundary probes pass;473platform tests90Linux skips12subtests54.51s/catalogcurrent. Local Worker created no container; start remainsfalse.
   criterion now: ISC-47..51 remain open; company registry/deployment, durable running-config recovery, remote encrypted checkpoint custody/acknowledgment, owned retention/storage budgets, provider admission and physical acceptance remain unproved.
 
+- 2026-10-06 | conjectured: the first storage guard could bound retained artifacts through a read-only inventory.
+  refuted by: independent Linux probes reproduced wrong filename classes, unbounded listing, missing platform/owner checks, namespace and file-growth false acceptance, late observations and leaked fault context; repaired source also exposed closed nested descriptors.
+  learned: corrected bounded FD inventory with actual artifact patterns, conservative sparse bytes, current ownership, final metadata/root checks and redacted faults passes25Linux checks. Guard creates/deletes no files and is source-only, not yet coordinator-wired or image-bundled.
+  criterion now: ISC-47..51 remain open; management quota ordering/replay integration, retained-file reconciliation, hard filesystem capacity, remote recovery and physical fleet acceptance remain unproved.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
