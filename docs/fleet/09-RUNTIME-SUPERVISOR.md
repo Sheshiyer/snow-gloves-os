@@ -47,3 +47,7 @@ Linux service execution must retain an init/reaper such as the image’s existin
 ### Authenticated management mutation boundary
 
 `create_management_server` returns a nonstarted listener for exact POST checkpoint and restore metadata routes. Only the distinct management key authenticates. Request line and headers share a32KiB budget and absolute connection deadline; bodies are canonical-length JSON bounded2048bytes. Schema validation precedes callbacks. `OperationGate` holds mutations when inference tokens are active and prevents new tokens during mutation; callers must integrate tokens around the actual complete upstream stream lifetime. Callbacks remain trusted bounded operations. Linux proof uses actual OmniRoute, owned encrypted files and local journal through HTTP; these proof callbacks are not a packaged deployment service. Provider credentials, remote acknowledgment and real SSE forwarding remain separate acceptance gates.
+
+### Operation identity binding
+
+`runtime_operation_identity` computes canonical request digests bound to operation kind, trusted instance/runtime/image/key-ID context, and operation fields. Restore has its own job ID and mandatory source-checkpoint job/digest plus encrypted artifact identity. Checkpoint digests cannot authorize restore. These pure validators must run before coordinator effects; the current generic management listener still validates its earlier metadata schema and does not yet invoke them. Restore intent and ambiguous-interruption holds must be integrated before service acceptance.
