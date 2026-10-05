@@ -146,3 +146,52 @@ def test_render_cursor_writes_mdc_rule_and_plugin_note(tmp_path):
     assert "pl" in (roots["tenant"] / "runtime" / "cursor" / "plugins.md").read_text()
     manifest = json.loads((roots["tenant"] / "runtime" / "cursor" / "render.json").read_text())
     assert manifest["runtime"] == "cursor"
+
+
+def test_upsert_block_tagged_keeps_both_tenants_and_migrates_legacy():
+    legacy = ad.upsert_block("# Mine\n\nkeep me\n", "old body")
+    assert ad.BLOCK_START in legacy
+    migrated = ad.upsert_block(legacy, "acme body", tag="acme")
+    assert ad.BLOCK_START not in migrated and "old body" not in migrated
+    assert "<!-- snowgloves:start tenant=acme -->" in migrated and "keep me" in migrated
+    both = ad.upsert_block(migrated, "bakery body", tag="bakery")
+    assert "acme body" in both and "bakery body" in both
+    again = ad.upsert_block(both, "acme v2", tag="acme")
+    assert "acme v2" in again and "acme body" not in again and "bakery body" in again
+    assert again.count("snowgloves:start") == 2 and again.count("snowgloves:end") == 2
+    # a tag that is a prefix of another tag does not match it
+    prefixed = ad.upsert_block(both, "acme-2 body", tag="acme-2")
+    assert prefixed.count("snowgloves:start") == 3
+    # the untagged path is unchanged
+    assert ad.upsert_block(None, "x") == f"{ad.BLOCK_START}\nx\n{ad.BLOCK_END}\n"
+    assert ad.upsert_block("", "x", tag=None) == f"{ad.BLOCK_START}\nx\n{ad.BLOCK_END}\n"
+
+
+def test_render_opencode_keeps_env_as_environment_and_honours_node_override(tmp_path):
+    roots = _roots(tmp_path)
+    items = ITEMS + [{"id": "envsrv", "name": "Env", "category": "mcp", "disposition": "add", "risk": "low",
+                      "mcp": {"command": "npx", "args": ["e"], "env": {"TOKEN": "${TOKEN}"}}}]
+    node = {"wing": "coding", "mcps": {"srv": {"command": "uvx", "args": ["srv2"]}}}
+    links = [Path("/abs/tenant/context/voice.md")]
+    plan = ad.render_plan(ad.load_adapter(ADAPTERS, "opencode"), items, [], "t1", roots, node=node, context_links=links)
+    ad.write_plan(plan)
+    data = json.loads((roots["home"] / ".config" / "opencode" / "opencode.json").read_text())
+    assert data["mcp"]["envsrv"] == {"type": "local", "command": ["npx", "e"], "enabled": True,
+                                     "environment": {"TOKEN": "${TOKEN}"}}
+    assert data["mcp"]["srv"] == {"type": "local", "command": ["uvx", "srv2"], "enabled": True}
+    rules = (roots["project"] / "AGENTS.md").read_text()
+    assert "Wing:" in rules and "coding" in rules and "tenant=t1" in rules
+    assert "Brand context" in rules and "/abs/tenant/context/voice.md" in rules
+    manifest = json.loads((roots["tenant"] / "runtime" / "coding" / "opencode" / "render.json").read_text())
+    assert manifest["wing"] == "coding" and manifest["effective"] == [i["id"] for i in items]
+    assert not (roots["tenant"] / "runtime" / "opencode").exists()
+
+
+def test_render_without_node_is_unchanged(tmp_path):
+    roots = _roots(tmp_path)
+    plan = ad.render_plan(ad.load_adapter(ADAPTERS, "opencode"), ITEMS, [], "t1", roots)
+    ad.write_plan(plan)
+    manifest = json.loads((roots["tenant"] / "runtime" / "opencode" / "render.json").read_text())
+    assert "wing" not in manifest and "effective" not in manifest
+    rules = (roots["project"] / "AGENTS.md").read_text()
+    assert rules.startswith(ad.BLOCK_START) and "Wing:" not in rules and "tenant=" not in rules

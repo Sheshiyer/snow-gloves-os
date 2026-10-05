@@ -1,0 +1,79 @@
+# Marketing wing (schema snowgloves.node.v1). Names and variable names only; no secrets.
+# Template: an instance's own copy lives in $SNOWGLOVES_DATA/nodes/<wing>/node.yaml and wins over this one.
+# A render = enabled.yaml[tenant] ∩ (modules ∪ connectors) below. This file enables nothing;
+# `connectors` are served by the G-Stack fabric and are never auto-enabled by `enable --node`.
+schema: snowgloves.node.v1
+wing: marketing
+hostname: marketing-mac
+overlay: marketing-mac
+location: <office>
+always_on: false
+services: []
+operator_user: sg-marketing
+primary: claude
+runtimes: [claude, codex, grok, cursor]
+modules:
+  # marketingskills (coreyhaines31), one skill per card
+  - ms-ab-testing
+  - ms-ad-creative
+  - ms-ads
+  - ms-ai-seo
+  - ms-analytics
+  - ms-aso
+  - ms-attribution
+  - ms-churn-prevention
+  - ms-co-marketing
+  - ms-cold-email
+  - ms-community-marketing
+  - ms-competitor-profiling
+  - ms-competitors
+  - ms-content-strategy
+  - ms-copy-editing
+  - ms-copywriting
+  - ms-cro
+  - ms-customer-research
+  - ms-directory-submissions
+  - ms-emails
+  - ms-events
+  - ms-free-tools
+  - ms-image
+  - ms-influencer-marketing
+  - ms-launch
+  - ms-lead-magnets
+  - ms-marketing-council
+  - ms-marketing-ideas
+  - ms-marketing-loops
+  - ms-marketing-plan
+  - ms-marketing-psychology
+  - ms-offers
+  - ms-onboarding
+  - ms-paywalls
+  - ms-popups
+  - ms-pricing
+  - ms-product-marketing
+  - ms-programmatic-seo
+  - ms-prospecting
+  - ms-public-relations
+  - ms-referrals
+  - ms-revops
+  - ms-sales-enablement
+  - ms-schema
+  - ms-seo-audit
+  - ms-signup
+  - ms-site-architecture
+  - ms-sms
+  - ms-social
+  - ms-video
+  # packs
+  - emil-skills
+  - executive-assistant
+mcps: {}
+connectors: [gmail, slack, google_drive]
+tenants: all
+gateway:
+  url: "http://coding-mac:20128"
+  key_ref: "keychain:snowgloves-gateway-marketing"
+remote_access:
+  remote_management: on
+  ssh: on
+  allowed_users: [sg-marketing]

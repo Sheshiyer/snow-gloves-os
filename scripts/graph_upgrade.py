@@ -22,6 +22,8 @@ from pathlib import Path
 
 import yaml
 
+from lib import paths
+
 ROOT = Path(__file__).resolve().parent.parent
 ENABLEABLE = {"add", "pointer"}
 BLOCKED = {"hold", "refuse"}
@@ -199,12 +201,13 @@ def apply_hook_diffs(hooks_path: Path, hooks: dict, diffs: list[dict]) -> None:
     hooks_path.write_text(yaml.safe_dump(hooks, sort_keys=False))
 
 
-def propose(root: Path, tenant: str, walk_path: Path | None = None) -> dict:
+def propose(root: Path, tenant: str, walk_path: Path | None = None, data: Path | None = None) -> dict:
+    """root holds workflows/, catalog/ and agents/; data (default: root) holds tenants/."""
+    tdir = (data or root) / "tenants" / tenant
     hooks = load_yaml(root / "workflows" / "skill-hooks.yaml")
     existing = load_yaml(root / "workflows" / "constraints.yaml")
-    receipt = walk_path or (root / "tenants" / tenant / "audit" / "graph-walk.json")
+    receipt = walk_path or (tdir / "audit" / "graph-walk.json")
     catalog = catalog_by_id(root / "catalog" / "modules.json")
-    tdir = root / "tenants" / tenant
     drift = parse_evolution_drift(root / "agents")
     reds = load_walk_reds(receipt)
     enabled = enabled_modules(tdir)
@@ -225,7 +228,7 @@ def propose(root: Path, tenant: str, walk_path: Path | None = None) -> dict:
     }
 
 
-def apply_proposal(root: Path, tenant: str, proposal: dict, *, write_hooks: bool) -> dict:
+def apply_proposal(root: Path, tenant: str, proposal: dict, *, write_hooks: bool, data: Path | None = None) -> dict:
     cpath = root / "workflows" / "constraints.yaml"
     existing = load_yaml(cpath)
     merged = merge_constraints(existing.get("constraints") or [], proposal.get("constraints_proposed") or [])
@@ -238,7 +241,7 @@ def apply_proposal(root: Path, tenant: str, proposal: dict, *, write_hooks: bool
     cpath.write_text(yaml.safe_dump(payload, sort_keys=False))
     result = {"constraints_written": str(cpath), "constraints_count": len(merged)}
     diffs = proposal.get("hook_diffs") or []
-    tdir = root / "tenants" / tenant
+    tdir = (data or root) / "tenants" / tenant
     if not diffs:
         result["hooks"] = "none"
         return result
@@ -254,17 +257,26 @@ def apply_proposal(root: Path, tenant: str, proposal: dict, *, write_hooks: bool
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Propose (or apply) graph learning-edge updates.")
-    ap.add_argument("--root", type=Path, default=ROOT)
+    ap.add_argument("--root", type=Path, default=None, help="Snow Gloves checkout (default: this one); holds tenants/ too unless --data")
+    ap.add_argument("--data", type=Path, default=None, help="instance data checkout (default: --root, else $SNOWGLOVES_DATA, else this one)")
     ap.add_argument("--tenant", default="_demo")
     ap.add_argument("--walk", type=Path, default=None)
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args(argv)
-    proposal = propose(args.root, args.tenant, args.walk)
+    # brand tenants live under the data root; an explicit --root and fixture tenants (`_demo`) keep data with the code
+    if args.data:
+        data = paths.data_root(args.data)
+    elif args.root or args.tenant.startswith("_"):
+        data = args.root or ROOT
+    else:
+        data = paths.data_root()
+    args.root = args.root or ROOT
+    proposal = propose(args.root, args.tenant, args.walk, data=data)
     applied = None
     if args.write:
         mode = proposal["approval_mode"]
         allow_hooks = mode in ALLOW_HOOK_WRITE
-        applied = apply_proposal(args.root, args.tenant, proposal, write_hooks=allow_hooks)
+        applied = apply_proposal(args.root, args.tenant, proposal, write_hooks=allow_hooks, data=data)
         proposal["dry_run"] = False
         proposal["applied"] = applied
         if proposal.get("hook_diffs") and not allow_hooks:

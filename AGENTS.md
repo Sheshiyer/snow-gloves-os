@@ -38,6 +38,12 @@ Events reach the Chief of Staff through **Hermes** (`scripts/hermes.py`, port 41
 - The runtime is the founder's choice. `adapters/<runtime>/adapter.yaml` says where that runtime keeps skills, MCP config, and rules; `scripts/onboard.py --render-adapter` writes them. Onboarding is the plan-mode interview in `skills/sg-onboard/`.
 - Docs: `docs/catalog.md`, `docs/adapters.md`, `docs/onboarding.md`.
 
+## Private data
+
+- This repository is the platform. Instance data (brand tenants, the fleet inventory and wing profiles, receipts, decisions, planning state) lives in the private `snow-gloves-ops` checkout.
+- Set `SNOWGLOVES_DATA=/path/to/snow-gloves-ops`; the scripts resolve `tenants/`, `fleet.yaml`, `nodes/` and `_audit/` through `scripts/lib/paths.py`. Unset, they use this checkout's public fixtures (`_demo`, `acme`, `tryambakam-noesis`).
+- Never commit tenants, `fleet.yaml`, receipts or planning state here. `.planning` is a local symlink into the private checkout and is gitignored.
+
 <!-- temperance:project-rail:start -->
 ## Temperance project rail
 

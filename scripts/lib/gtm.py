@@ -20,7 +20,7 @@ from pathlib import Path
 import yaml
 from lib.contract import extract_variable_contract
 
-PROXY = os.environ.get("EXPLEE_PROXY_URL", "https://explee-proxy.sheshnarayan-iyer.workers.dev")
+PROXY = os.environ.get("EXPLEE_PROXY_URL", "")  # your own explee-proxy deployment; no default is shipped
 COMPANIES = "/public/api/v1/search/companies"
 PEOPLE = "/public/api/v1/search/people"
 
@@ -95,7 +95,9 @@ def rank_candidates(candidates, brief):
 
 
 def _default_call(method, path, body, *, timeout=30):
-    """POST to the explee-proxy (needs the gate token in EXPLEE_PROXY_TOKEN)."""
+    """POST to the explee-proxy (needs EXPLEE_PROXY_URL and the gate token in EXPLEE_PROXY_TOKEN)."""
+    if not PROXY:
+        raise RuntimeError("EXPLEE_PROXY_URL not set — point it at your own explee-proxy deployment")
     token = os.environ.get("EXPLEE_PROXY_TOKEN")
     if not token:
         raise RuntimeError("EXPLEE_PROXY_TOKEN not set — cannot reach the explee-proxy")

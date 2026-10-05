@@ -15,8 +15,11 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone, date
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib import paths  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
-LOG = ROOT / "_audit" / "hermes-events.jsonl"
+LOG = paths.audit_dir() / "hermes-events.jsonl"
 AGENTS_DIR = ROOT / "agents"
 
 def load_today():

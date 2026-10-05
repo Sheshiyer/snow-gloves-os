@@ -55,7 +55,7 @@ connectors:
         approval: required
   explee_proxy:
     auth: api_key            # X-Proxy-Token header; secret bound per-tenant via auth.py (vault ref)
-    base_url: "https://explee-proxy.sheshnarayan-iyer.workers.dev"
+    base_url: "${EXPLEE_PROXY_URL}"   # your own proxy deployment; set EXPLEE_PROXY_URL (no default is shipped)
     note: "Token-gated cookie-auth proxy to api.explee.com (de-siloed Explee cluster; specs/002)."
     capabilities:
       - id: explee.list_agents

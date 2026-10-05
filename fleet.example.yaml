@@ -1,0 +1,44 @@
+# Snow Gloves OS fleet inventory (schema snowgloves.fleet.v1). TEMPLATE with placeholders.
+# The real inventory is instance data: keep it as fleet.yaml in your private data checkout
+# (SNOWGLOVES_DATA=/path/to/snow-gloves-ops) and never commit it here (fleet.yaml is gitignored).
+#   cp fleet.example.yaml "$SNOWGLOVES_DATA/fleet.yaml"   # then replace every <placeholder>
+# Names only. No secrets, no API keys, no IP addresses that change. Tailscale MagicDNS resolves `overlay`.
+schema: snowgloves.fleet.v1
+company: "<company>"
+portfolio_root: <portfolio-root-tenant>   # tenant slug at the top of the brand portfolio
+overlay: tailscale
+tailnet: <tailnet>.ts.net            # MagicDNS suffix; short names (coding-mac) resolve for every member
+admin_user: sg-admin                 # local admin on every mini; day-to-day work uses the wing operator user
+gateway:
+  wing: coding                       # the Coding Mac hosts OmniRoute for the whole fleet
+  port: 20128
+  url: "http://coding-mac:20128"     # clients over Tailscale (see docs/fleet/04-GATEWAY.md for the bind policy)
+  # lan_url: "http://<gateway-lan-name>.local:20128"   # optional: the Coding Mac on the office LAN before Tailscale
+authoring_seat:
+  role: staging                      # the founder's own Mac: authors config, exports the gateway kit; not a wing
+  hostname: "<founder-mac>"
+wings:
+  marketing:
+    hostname: marketing-mac          # <wing>-mac
+    overlay: marketing-mac
+    location: <office>
+    always_on: false
+    operator_user: sg-marketing      # sg-<wing>
+    services: []
+  design:
+    hostname: design-mac
+    overlay: design-mac
+    location: <office>
+    always_on: false
+    operator_user: sg-design
+    services: []
+  coding:
+    hostname: coding-mac
+    # lan_host: <gateway-lan-name>.local   # optional: Bonjour name on the office LAN (connect.sh --lan)
+    overlay: coding-mac
+    location: <office>
+    always_on: true
+    operator_user: sg-coding
+    services:
+      - {id: omniroute, port: 20128}
+      - {id: hermes, port: 4100}

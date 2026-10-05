@@ -15,6 +15,9 @@ import yaml, time, random
 CACHE_DIR = None  # set in run()
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+from lib import paths  # noqa: E402
+TENANTS = paths.tenants_dir()  # $SNOWGLOVES_DATA/tenants when set, else this checkout
 CONF = yaml.safe_load((ROOT / "config" / "snowgloves.yaml").read_text())
 DIM = int(CONF["embeddings"]["dimension"])
 MODEL = CONF["embeddings"]["model"]
@@ -85,12 +88,12 @@ def embed(texts):
 
 def run(tenant: str, limit: int | None = None) -> dict:
     global CACHE_DIR
-    CACHE_DIR = ROOT / "tenants" / tenant / "_embed_cache"; CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    plan_path = ROOT / "tenants" / tenant / "ingest-plan.json"
+    CACHE_DIR = TENANTS / tenant / "_embed_cache"; CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    plan_path = TENANTS / tenant / "ingest-plan.json"
     if not plan_path.exists():
         return {"error": f"missing {plan_path}", "hint": "run scripts/ingest.py first"}
     plan = json.loads(plan_path.read_text())
-    out = ROOT / "tenants" / tenant / "vector-index.jsonl"
+    out = TENANTS / tenant / "vector-index.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
     n_files, n_chunks = 0, 0
     with out.open("w") as f:

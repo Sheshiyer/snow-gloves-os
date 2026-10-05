@@ -4,14 +4,16 @@ Tenant-bound connector identities. Real impl would integrate Composio or a
 secrets vault. This stub only validates shape + persists bindings to disk.
 """
 from __future__ import annotations
-import json, os, secrets, time
+import json, os, secrets, sys, time
 from pathlib import Path
 from typing import Literal
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts"))
+from lib import paths  # noqa: E402
 
 def _store(tenant: str) -> Path:
-    p = ROOT / "tenants" / tenant / "connectors"
+    p = paths.tenants_dir() / tenant / "connectors"  # $SNOWGLOVES_DATA/tenants when set
     p.mkdir(parents=True, exist_ok=True)
     return p
 

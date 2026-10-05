@@ -1,7 +1,7 @@
 # Snow Gloves OS — runtime config
 platform:
   name: snow-gloves-os
-  version: 0.1.0
+  version: 0.2.1
 
 paperclip:
   # PLACEHOLDER (P-SEC-a2): future TN-owned paperclip instance. Not yet stood up —

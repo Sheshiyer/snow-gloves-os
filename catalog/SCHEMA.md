@@ -19,6 +19,7 @@ Each file `catalog/cards/<id>.md` is a **pointer** to a third-party skill, MCP s
 | `hooks` | optional; `<agent>.<hook-id>` from `workflows/skill-hooks.yaml`. This is the target area only; nothing gets wired automatically |
 | `runtimes` | subset of `any, hermes, claude, codex, cursor, opencode, grok, openclaw, muse` |
 | `summary` | one line |
+| `mcp` | optional, for `mcp`/`connector` cards: the launch spec, `{command, args?, env?}` or `{url}`. `env` values are variable names (`"${GITHUB_PERSONAL_ACCESS_TOKEN}"`), never secrets. Rendered into the runtime's MCP config; a wing's `nodes/<wing>/node.yaml` `mcps.<id>` overrides it, and without either the render writes a `FILL:` command |
 
 The body holds a short explanation of why the card exists, plus its provenance (source files, Field Theory pack path, upstream commit).
 
@@ -29,4 +30,4 @@ The body holds a short explanation of why the card exists, plus its provenance (
 - `hold` means it shows on the dashboard but can't be enabled until the founder picks it and it passes a review.
 - `refuse` means it shows on the dashboard and can never be enabled. This matches Factor's shelf.
 
-`build_catalog.py` exits 2 on an unknown category, disposition, risk, agent, hook, or runtime.
+`build_catalog.py` exits 2 on an unknown category, disposition, risk, agent, hook, or runtime, and on a malformed `mcp` block (no `command`/`url`, non-string `args`, non-string `env` values). `catalog/modules.json` carries `mcp` only on cards that declare it.

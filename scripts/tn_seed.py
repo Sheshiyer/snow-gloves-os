@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # snow-gloves-os/scripts
+from lib import paths
 from lib.seed import load_targets, run_seed
 
 ROOT = Path(__file__).resolve().parent.parent  # snow-gloves-os/
@@ -18,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent  # snow-gloves-os/
 
 def resolve_distribution_dir(tenant):
     import yaml
-    f = ROOT / "tenants" / tenant / "MANIFEST.yaml"
+    f = paths.tenants_dir() / tenant / "MANIFEST.yaml"
     if not f.exists():
         return None
     m = yaml.safe_load(f.read_text()) or {}

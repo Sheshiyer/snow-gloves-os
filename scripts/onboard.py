@@ -7,10 +7,18 @@
     python3 scripts/onboard.py --list [--category skills] [--json]
     python3 scripts/onboard.py --enable id,id --tenant acme
     python3 scripts/onboard.py --render-adapter claude --tenant acme [--out DIR] [--write]
+    python3 scripts/onboard.py --render-adapter claude --tenant acme --node coding   # wing-scoped render
     python3 scripts/onboard.py --init-tenant          # the interactive sources prompt (make onboard)
 
 Options come from catalog/modules.json (built by scripts/build_catalog.py). Only
 `add` and `pointer` items can be enabled; `hold` and `refuse` are refused.
+
+--node <wing> (default $SNOWGLOVES_NODE) reads nodes/<wing>/node.yaml. A render then
+emits enabled.yaml[tenant] ∩ the wing's modules plus the wing's MCP launch specs;
+--enable also adds the wing's modules. enabled.yaml stays the one authority.
+
+--data DIR (default $SNOWGLOVES_DATA, else this checkout) is where tenants/ and
+nodes/ live. The catalog, agents and adapters always come from this checkout.
 """
 
 from __future__ import annotations
@@ -27,12 +35,15 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import adapters as ad  # noqa: E402
+from lib import nodes  # noqa: E402
+from lib import paths  # noqa: E402
 
 CODE_ROOT = Path(__file__).resolve().parents[1]
 ENABLEABLE = ("add", "pointer")
 CATEGORIES = ("skills", "mcp", "connector", "plugin", "playbook")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 CONTEXT_SECTIONS = ("owner", "company", "customer", "offer", "voice", "proof")
+CONTEXT_LINKS = ("voice", "offer", "customer", "company")  # linked from the wing rules block when they hold real text
 LIST_SECTIONS = ("agents", "skills", "connectors", "runtimes", "sources")
 HARVEST_SECTIONS = ("tenant", *CONTEXT_SECTIONS, "agents", "skills", "connectors", "runtimes", "preferences", "sources", "open questions")
 REFUSAL = {
@@ -81,8 +92,9 @@ def enableable(card: dict) -> bool:
 
 
 class Catalog:
-    def __init__(self, root: Path, adapters_dir: Path, modules_path: Path | None = None):
+    def __init__(self, root: Path, adapters_dir: Path, modules_path: Path | None = None, data_root: Path | None = None):
         self.root = root
+        self.data_root = data_root or root  # tenants/ live here; catalog/ and agents/ stay under root
         self.adapters_dir = adapters_dir
         self.path = modules_path or root / "catalog" / "modules.json"
         self.data: dict | None = None
@@ -92,6 +104,10 @@ class Catalog:
     @property
     def built(self) -> bool:
         return self.data is not None
+
+    @property
+    def tenants(self) -> Path:
+        return self.data_root / "tenants"
 
     def cards(self) -> list[dict]:
         if not self.data:
@@ -383,7 +399,7 @@ def apply_harvest(catalog: Catalog, harvest: Path, slug: str) -> list[str]:
     if bad:
         raise SystemExit(f"unknown runtime(s): {', '.join(bad)} (known: {', '.join(sorted(known))})")
 
-    tdir, notes = ensure_tenant(catalog.root, slug, name)
+    tdir, notes = ensure_tenant(catalog.data_root, slug, name)
     context = tdir / "context"
     context.mkdir(exist_ok=True)
     for key in CONTEXT_SECTIONS:
@@ -436,7 +452,7 @@ def apply_harvest(catalog: Catalog, harvest: Path, slug: str) -> list[str]:
 
 
 def enable(catalog: Catalog, slug: str, raw: str, replace: bool) -> Path:
-    tdir = catalog.root / "tenants" / slug
+    tdir = catalog.tenants / slug
     if not tdir.is_dir():
         raise SystemExit(f"no such tenant: {slug} (run --apply-harvest or scripts/tenant_new.sh first)")
     wanted = [p.strip() for p in raw.split(",") if p.strip()]
@@ -464,10 +480,37 @@ def list_text(catalog: Catalog, category: str | None) -> str:
     return "\n".join(out) + "\n" if out else "no cards match\n"
 
 
-def project_for(tdir: Path, given: Path | None) -> Path:
-    """{project} is the founder's project, never the Snow Gloves checkout by accident."""
+def has_real_text(text: str) -> bool:
+    """True when a context file says something beyond its heading, Source line, and FILL: markers."""
+    for line in text.splitlines():
+        body = line.strip().lstrip("-*").strip()
+        if not body or body.startswith("#") or body.startswith("Source:") or body.upper().startswith("FILL"):
+            continue
+        return True
+    return False
+
+
+def context_links_for(tdir: Path) -> list[Path]:
+    """Absolute paths of the tenant context files worth linking (never inlined)."""
+    out: list[Path] = []
+    for key in CONTEXT_LINKS:
+        path = tdir / "context" / f"{key}.md"
+        if path.is_file() and has_real_text(path.read_text(encoding="utf-8")):
+            out.append(path.resolve())
+    return out
+
+
+def project_for(tdir: Path, given: Path | None, node: dict | None = None, slug: str | None = None) -> Path:
+    """{project} is the founder's project, never the Snow Gloves checkout by accident.
+
+    Precedence: --project > node.tenants[slug].project > runtime.yaml preferences.project > the tenant folder.
+    """
     if given:
         return given.expanduser().resolve()
+    if node is not None and slug:
+        pinned = nodes.node_project(node, slug)
+        if pinned is not None:
+            return pinned
     runtime = tdir / "runtime.yaml"
     if runtime.is_file():
         prefs = (yaml.safe_load(runtime.read_text(encoding="utf-8")) or {}).get("preferences") or {}
@@ -476,12 +519,42 @@ def project_for(tdir: Path, given: Path | None) -> Path:
     return tdir
 
 
-def render(catalog: Catalog, runtime: str, slug: str, out: Path | None, project: Path | None, write: bool) -> int:
+def render(
+    catalog: Catalog,
+    runtime: str,
+    slug: str,
+    out: Path | None,
+    project: Path | None,
+    write: bool,
+    node: dict | None = None,
+) -> int:
     adapter = ad.load_adapter(catalog.adapters_dir, runtime)
-    tdir = catalog.root / "tenants" / slug
+    tdir = catalog.tenants / slug
     if not tdir.is_dir():
         raise SystemExit(f"no such tenant: {slug}")
     ids, agents = read_enabled(tdir)
+    wing = None
+    context_links: list[Path] | None = None
+    if node is not None:
+        wing = node.get("wing") or "unknown"
+        allowed_runtimes = node.get("runtimes") or []
+        if runtime not in allowed_runtimes:
+            raise SystemExit(
+                f"runtime {runtime!r} is not in the {wing} wing profile (runtimes: {', '.join(allowed_runtimes) or 'none'}); "
+                f"pick one of those or edit nodes/{wing}/node.yaml"
+            )
+        if not nodes.node_serves(node, slug):
+            raise SystemExit(f"tenant {slug!r} is not served by the {wing} wing (see tenants: in nodes/{wing}/node.yaml)")
+        ids, only_tenant, only_node = nodes.effective_ids(ids, nodes.allow_ids(node))
+        for ident in only_tenant:
+            print(f"skip {ident}: not in wing profile {wing}", file=sys.stderr)
+        for ident in only_node:
+            print(
+                f"skip {ident}: not enabled for tenant {slug} "
+                f"(run scripts/fleet/node_profile.py enable --tenant {slug} --node {wing})",
+                file=sys.stderr,
+            )
+        context_links = context_links_for(tdir)
     cards_by_id = catalog.by_id()
     items = []
     for ident in ids:
@@ -495,14 +568,17 @@ def render(catalog: Catalog, runtime: str, slug: str, out: Path | None, project:
     if out:
         roots = {"home": out / "home", "project": out / "project", "tenant": out / "tenant"}
     else:
-        roots = {"home": Path.home(), "project": project_for(tdir, project), "tenant": tdir}
+        roots = {"home": Path.home(), "project": project_for(tdir, project, node, slug), "tenant": tdir}
     plan = ad.render_plan(
         adapter, items, agents, slug, roots,
         card_bodies={c["id"]: catalog.card_body(c["id"]) for c in items},
         in_sandbox=out is not None,
+        node=node,
+        context_links=context_links,
     )
     mode = "write" if write else "dry run"
-    print(f"render {runtime} for {slug} ({mode}; {len(items)} modules, {len(agents)} agents)")
+    scope = f"; wing {wing}" if wing else ""
+    print(f"render {runtime} for {slug} ({mode}; {len(items)} modules, {len(agents)} agents{scope})")
     for path, content in plan.files.items():
         print(f"  {'wrote' if write else 'would write'} {path} ({len(content.encode())} bytes)")
     for line in plan.skipped:
@@ -559,6 +635,24 @@ def init_tenant(root: Path) -> int:
 # ---------------------------------------------------------------- main
 
 
+def resolve_roots(root: Path | None, data: Path | None) -> tuple[Path, Path, Path]:
+    """Return (code root, data root, nodes base).
+
+    --data wins, then an explicit --root (which moves code and data together, as before),
+    then $SNOWGLOVES_DATA, then $SNOWGLOVES_ROOT or this checkout. Wing profiles come from
+    <data>/nodes when that folder exists, else from the code root's nodes/ templates.
+    """
+    code = root or Path(os.environ.get("SNOWGLOVES_ROOT", CODE_ROOT))
+    if data is not None:
+        data_dir = paths.data_root(data)
+    elif root is None and os.environ.get(paths.ENV, "").strip():
+        data_dir = paths.data_root()
+    else:
+        data_dir = code
+    node_base = data_dir if (data_dir / "nodes").is_dir() else code
+    return code, data_dir, node_base
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Snow Gloves onboarding", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     p.add_argument("--steps", action="store_true", help="print the onboarding steps")
@@ -574,18 +668,42 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--category", choices=CATEGORIES)
     p.add_argument("--json", action="store_true", help="with --list: print JSON")
     p.add_argument("--tenant", metavar="SLUG")
+    p.add_argument(
+        "--node", metavar="WING", default=os.environ.get("SNOWGLOVES_NODE"),
+        help="machine wing (nodes/<wing>/node.yaml). With --render-adapter: render only ids enabled for the tenant "
+             "AND listed by the wing, using the wing's MCP launch specs. With --enable: also enable the wing's modules. "
+             "Default: $SNOWGLOVES_NODE",
+    )
     p.add_argument("--init-tenant", action="store_true", help="interactive tenant + sources prompt")
-    p.add_argument("--root", type=Path, default=Path(os.environ.get("SNOWGLOVES_ROOT", CODE_ROOT)), help=argparse.SUPPRESS)
+    p.add_argument("--root", type=Path, default=None, help=argparse.SUPPRESS)
+    p.add_argument("--data", type=Path, default=None,
+                   help="instance data checkout holding tenants/ and nodes/ (default: $SNOWGLOVES_DATA, else this checkout)")
     p.add_argument("--adapters-dir", type=Path, default=CODE_ROOT / "adapters", help=argparse.SUPPRESS)
     p.add_argument("--catalog", type=Path, help="path to modules.json (default: <root>/catalog/modules.json)")
     args = p.parse_args(argv)
+    args.root, args.data, node_base = resolve_roots(args.root, args.data)
 
-    catalog = Catalog(args.root, args.adapters_dir, args.catalog)
+    catalog = Catalog(args.root, args.adapters_dir, args.catalog, data_root=args.data)
     if args.tenant and not SLUG.match(args.tenant):
         raise SystemExit(f"bad tenant slug: {args.tenant!r} (lowercase letters, digits, dashes)")
     needs_tenant = args.apply_harvest or args.enable or args.render_adapter
     if needs_tenant and not args.tenant:
         raise SystemExit("--apply-harvest, --enable, and --render-adapter need --tenant <slug>")
+
+    node: dict | None = None
+    if args.node:
+        try:
+            node = nodes.load_node(node_base, args.node)
+        except nodes.NodeError as exc:
+            raise SystemExit(str(exc)) from None
+        problems = nodes.validate_node(
+            node, folder=args.node, adapters_dir=args.adapters_dir, catalog=catalog if catalog.built else None
+        )
+        if problems:
+            print(f"nodes/{args.node}/node.yaml is not valid:", file=sys.stderr)
+            for problem in problems:
+                print(f"  - {problem}", file=sys.stderr)
+            return 2
 
     try:
         if args.steps:
@@ -595,18 +713,22 @@ def main(argv: list[str] | None = None) -> int:
             print(render_prompt(catalog, args.prompt), end="")
             return 0
         if args.init_tenant:
-            return init_tenant(args.root)
+            return init_tenant(args.data)
         did = False
         if args.apply_harvest:
             for note in apply_harvest(catalog, args.apply_harvest, args.tenant):
                 print(note)
             did = True
         if args.enable:
-            path = enable(catalog, args.tenant, args.enable, args.replace)
+            raw = args.enable
+            if node is not None:
+                wanted = [s.strip() for s in raw.split(",") if s.strip()]
+                raw = ",".join([*wanted, *(node.get("modules") or [])])
+            path = enable(catalog, args.tenant, raw, args.replace)
             print(f"wrote {path}")
             did = True
         if args.render_adapter:
-            render(catalog, args.render_adapter, args.tenant, args.out, args.project, args.write)
+            render(catalog, args.render_adapter, args.tenant, args.out, args.project, args.write, node=node)
             did = True
         if args.list:
             if args.json:

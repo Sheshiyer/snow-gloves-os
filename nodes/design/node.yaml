@@ -1,0 +1,39 @@
+# Design wing (schema snowgloves.node.v1). Names and variable names only; no secrets.
+# Template: an instance's own copy lives in $SNOWGLOVES_DATA/nodes/<wing>/node.yaml and wins over this one.
+# A render = enabled.yaml[tenant] ∩ modules below. This file enables nothing.
+schema: snowgloves.node.v1
+wing: design
+hostname: design-mac
+overlay: design-mac
+location: <office>
+always_on: false
+services: []
+operator_user: sg-design
+primary: claude
+runtimes: [claude, cursor, codex]
+modules:
+  - taste-skill        # pointer: host design cluster
+  - layers
+  - text-to-lottie
+  - archify
+  - gsap               # pointer: library, nothing installs
+  - lenis              # pointer
+  - react-bits         # pointer
+  - threeui            # pointer
+  - vanta              # pointer
+  - figma-mcp
+mcps:
+  figma-mcp:
+    command: npx
+    args: ["-y", "figma-developer-mcp", "--stdio"]
+    env:
+      FIGMA_API_KEY: "${FIGMA_API_KEY}"
+connectors: []
+tenants: all
+gateway:
+  url: "http://coding-mac:20128"
+  key_ref: "keychain:snowgloves-gateway-design"
+remote_access:
+  remote_management: on
+  ssh: on
+  allowed_users: [sg-design]
