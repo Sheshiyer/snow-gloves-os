@@ -41,3 +41,6 @@ docs/assets/user/*.mp4
 *.tfvars
 *.tfvars.json
 crash.log
+
+# Local Workers development cache and ephemeral runtime state.
+.wrangler/

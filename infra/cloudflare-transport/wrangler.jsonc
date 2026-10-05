@@ -1,0 +1,43 @@
+{
+  "name": "snowgloves-gateway",
+  "main": "index.ts",
+  "compatibility_date": "2026-10-05",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "GATEWAY_INSTANCE_ID": "company-gateway",
+    "GATEWAY_START_ALLOWED": "false"
+  },
+  "exports": {
+    "Gateway": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "containers": [
+    {
+      "class_name": "Gateway",
+      "scheduling_policy": "durable_object",
+      "images": {
+        "base": {
+          "dockerfile": "../cloudflare-runtime/Dockerfile",
+          "build_context": "../cloudflare-runtime"
+        }
+      }
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "GATEWAY",
+        "class_name": "Gateway"
+      }
+    ]
+  }
+}

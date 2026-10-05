@@ -5,7 +5,7 @@ HERMES_PORT ?= 4100
 # the private data checkout, so they drop SNOWGLOVES_DATA (see scripts/lib/paths.py).
 FIXTURE_ENV := env -u SNOWGLOVES_DATA
 
-.PHONY: help install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade graph-upgrade walk tui app-install app-dev app-build
+.PHONY: help test-cloud-transport cloud-transport-check install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade graph-upgrade walk tui app-install app-dev app-build
 
 help:
 	@echo "Snow Gloves OS — make targets"
@@ -32,6 +32,8 @@ help:
 	@echo "  make approvals T=<tenant>  # list pending approval tickets"
 	@echo "  make replay N=5            # replay last N events through current hooks"
 	@echo "  make test                  # pytest"
+	@echo "  make test-cloud-transport  # Node 24+ transport boundary tests"
+	@echo "  make cloud-transport-check # generated types + strict compilation; npm ci first"
 	@echo "  make kill-hermes           # free port $(HERMES_PORT)"
 	@echo "  make app-install           # npm install for the Tauri onboarding app"
 	@echo "  make app-dev               # tauri dev (GUI; do not leave running in agents)"
@@ -42,8 +44,8 @@ help:
 	@echo "  make fleet-connect W=<wing>             # open a shell on a wing over Tailscale"
 	@echo "  make fleet-kit-export                   # export the gateway kit from the authoring seat"
 	@echo "  make fleet-remote-access W=<wing>       # ARD / Screen Sharing / SSH plan (dry-run)"
-	@echo "  make fleet-cloud-guard                  # cloud gateway: prove AWS account + Cloudflare zone match fleet.yaml"
-	@echo "  make fleet-cloud S=aws|cloudflare A=plan  # cloud gateway infra (docs/fleet/08-CLOUD-GATEWAY.md)"
+	@echo "  make fleet-cloud-guard                  # historical AWS lane (deferred): combined account guard"
+	@echo "  make fleet-cloud S=aws|cloudflare A=plan  # historical AWS lane (deferred); see docs/fleet/08-CLOUD-GATEWAY.md"
 
 doctor:
 	bash scripts/doctor.sh
@@ -200,3 +202,10 @@ release-tag:
 release-dispatch:
 	@test -n "$(V)" || (echo "usage: make release-dispatch V=0.1.0"; exit 1)
 	@gh workflow run release.yml -f tag=v$(V)
+
+# Generic local gateway checks; no cloud deployment or provider calls.
+test-cloud-transport:
+	node --test infra/cloudflare-transport/*.mjs
+
+cloud-transport-check:
+	cd infra/cloudflare-transport && npm run typecheck
