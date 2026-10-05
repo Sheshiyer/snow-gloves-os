@@ -142,4 +142,17 @@ class Review(unittest.TestCase):
  def test_artifact_fifo_denied_without_waiting(self):
   self.prepare();os.mkfifo(self.root/self.leaf,0o600)
   with self.assertRaises(RuntimeError):self.verify()
+ def kill_artifact_update(self, after):
+  self.prepare();self.artifact()
+  code="import os,sys,signal;import lib.runtime_job_journal as module;from lib.runtime_job_journal import LocalJobJournal;original=os.rename\ndef interrupted(*a,**kw):\n if sys.argv[7]=='after':original(*a,**kw)\n os.kill(os.getpid(),signal.SIGKILL)\nmodule.os.rename=interrupted;LocalJobJournal(sys.argv[1]).record_artifact(sys.argv[2],sys.argv[3],sys.argv[4],int(sys.argv[5]),sys.argv[6]);print('success')"
+  result=subprocess.run([sys.executable,'-c',code,str(self.root),self.job,self.digest,self.leaf,str(len(self.body)),self.sha,'after' if after else 'before'],capture_output=True,text=True,timeout=5)
+  self.assertEqual(result.returncode,-9);self.assertEqual(result.stdout,'')
+ def test_sigkill_before_artifact_update_preserves_prepared(self):
+  self.kill_artifact_update(False)
+  self.assertEqual(self.j.reconcile(self.job,self.digest)['state'],'prepared')
+  self.assertEqual(self.verify()['state'],'artifact-verified')
+ def test_sigkill_after_artifact_update_reconciles_verified(self):
+  self.kill_artifact_update(True)
+  r=self.j.reconcile(self.job,self.digest)
+  self.assertEqual(r['state'],'artifact-verified');self.assertEqual(r['job_id'],self.job);self.assertEqual(r['artifact']['sha256'],self.sha)
 if __name__=='__main__':unittest.main(verbosity=2)
