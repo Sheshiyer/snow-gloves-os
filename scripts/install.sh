@@ -57,7 +57,12 @@ PAPERCLIP_PORT=$PAPERCLIP_PORT
 PAPERCLIP_INSTANCE=$PAPERCLIP_INSTANCE
 HERMES_PORT=$HERMES_PORT
 SNOWGLOVES_ROOT=$ROOT
+# Instance data (tenants, fleet.yaml, nodes, _audit) in a separate private checkout:
+# SNOWGLOVES_DATA=/path/to/snow-gloves-ops
 ENV
+if [ -n "${SNOWGLOVES_DATA:-}" ]; then
+  echo "SNOWGLOVES_DATA=$SNOWGLOVES_DATA" >> "$ENV_FILE"
+fi
 echo "    Wrote $ENV_FILE"
 
 # --- 6. Print next steps (the glove is not live yet) ---------------------

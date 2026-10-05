@@ -12,6 +12,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
+from lib import paths  # noqa: E402
 from lib.ingest_filters import iter_ingest_files  # noqa: E402
 
 
@@ -21,9 +22,8 @@ def main() -> None:
         sys.exit(1)
 
     tenant = sys.argv[1]
-    root = ROOT
 
-    tdir = root / "tenants" / tenant
+    tdir = paths.tenants_dir() / tenant
     manifest = tdir / "sources.yaml"
     if not manifest.exists():
         print(f"missing: {manifest}")

@@ -4,8 +4,10 @@ import argparse, json, os, sys, urllib.request, urllib.error
 from pathlib import Path
 import yaml
 from lib.contract import extract_variable_contract
+from lib import paths
 
 ROOT = Path(__file__).resolve().parent.parent
+TENANTS = paths.tenants_dir()
 CONF = yaml.safe_load((ROOT / "config" / "snowgloves.yaml").read_text())
 PC = CONF["paperclip"]
 # Target = future TN-owned paperclip instance. config/snowgloves.yaml carries the
@@ -19,7 +21,7 @@ BASE = f"http://{PC_HOST}:{PC_PORT}"
 DEFAULT_COMPANY = os.environ.get("SNOWGLOVES_DEFAULT_COMPANY", "")
 
 def resolve_company(tenant: str) -> str | None:
-    f = ROOT / "tenants" / tenant / "MANIFEST.yaml"
+    f = TENANTS / tenant / "MANIFEST.yaml"
     if f.exists():
         try:
             m = yaml.safe_load(f.read_text()) or {}
@@ -69,7 +71,7 @@ def create_task(tenant: str, decision: dict, dry: bool = False) -> dict:
         return {"ok": True, "response": json.loads(urllib.request.urlopen(req, timeout=8).read())}
     except (urllib.error.URLError, ConnectionError, TimeoutError) as e:
         # Queue locally for retry
-        q = ROOT / "tenants" / tenant / "bridge_outbox.jsonl"
+        q = TENANTS / tenant / "bridge_outbox.jsonl"
         q.parent.mkdir(parents=True, exist_ok=True)
         q.open("a").write(json.dumps(payload) + "\n")
         return {"ok": False, "queued": str(q), "error": str(e),

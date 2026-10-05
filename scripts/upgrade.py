@@ -24,6 +24,8 @@ from pathlib import Path
 
 import yaml
 
+from lib import paths
+
 REPO = Path(__file__).resolve().parents[1]
 MIGRATIONS = REPO / "migrations"
 VERSION_FILE = ".snowgloves-version"
@@ -169,12 +171,15 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--tenant", help="tenant slug (default: all tenants)")
     ap.add_argument("--write", action="store_true", help="apply changes (default is dry-run)")
-    ap.add_argument("--root", type=Path, default=REPO, help=argparse.SUPPRESS)
+    ap.add_argument("--root", type=Path, default=None, help=argparse.SUPPRESS)
+    ap.add_argument("--data", type=Path, default=None,
+                    help="instance data checkout holding tenants/ (default: $SNOWGLOVES_DATA, else this checkout)")
     a = ap.parse_args(argv)
-    root = a.root.resolve()
+    data = paths.data_root(a.data) if a.data else (a.root or paths.data_root()).resolve()
+    root = (a.root or REPO).resolve()
     vf = root / "VERSION"
     target = (vf if vf.exists() else REPO / "VERSION").read_text().strip()
-    tenants_dir = root / "tenants"
+    tenants_dir = data / "tenants"
     if a.tenant:
         dirs = [tenants_dir / a.tenant]
         if not dirs[0].is_dir():
@@ -200,6 +205,8 @@ def main(argv: list[str] | None = None) -> int:
         for d in dirs:
             for rt in runtimes_for(d):
                 cmd = [py, "scripts/onboard.py", "--render-adapter", rt, "--tenant", d.name]
+                if a.data:
+                    cmd += ["--data", str(data)]
                 _run(cmd + ["--write"] if a.write else cmd, root, a.write)
     else:
         print("skip adapter render: scripts/onboard.py missing")

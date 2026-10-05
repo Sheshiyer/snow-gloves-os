@@ -177,6 +177,7 @@ def step_list_catalog(category: str | None = None) -> dict:
 
 
 def walk_receipt_path() -> Path:
+    # `_demo` is a code fixture: graph_walk.py writes its receipt here even when $SNOWGLOVES_DATA is set
     return ROOT / "tenants" / "_demo" / "audit" / "graph-walk.json"
 
 

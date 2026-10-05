@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
@@ -24,7 +25,7 @@ agents: [{agents}]
 hooks: [{hooks}]
 runtimes: [any]
 summary: "Summary for {id}."
----
+{extra}---
 
 # {name}
 
@@ -35,7 +36,7 @@ Why and provenance.
 def write_card(root, cid, **kw):
     fields = dict(id=cid, name=cid.title(), category="skills", disposition="add",
                   source="2035841006273548481", approval="no", agents="interpreter",
-                  hooks="interpreter.funnel-and-launch")
+                  hooks="interpreter.funnel-and-launch", extra="")
     fields.update(kw)
     path = root / "catalog" / "cards" / f"{cid}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -158,3 +159,34 @@ def test_real_cards_validate():
     for card in m["cards"]:
         if card["disposition"] in ("hold", "refuse"):
             assert card["enableable"] is False
+
+
+def test_mcp_block_passes_through_only_when_present(repo):
+    write_card(repo, "good-mcp", category="mcp",
+               extra='mcp:\n  command: npx\n  args: ["-y", "good"]\n  env:\n    GOOD_TOKEN: "${GOOD_TOKEN}"\n')
+    write_card(repo, "remote-mcp", category="mcp", extra='mcp:\n  url: "https://mcp.example/sse"\n')
+    assert bc.main(["--root", str(repo)]) == 0
+    m = json.loads((repo / "catalog" / "modules.json").read_text())
+    by_id = {c["id"]: c for c in m["cards"]}
+    assert by_id["good-mcp"]["mcp"] == {"command": "npx", "args": ["-y", "good"], "env": {"GOOD_TOKEN": "${GOOD_TOKEN}"}}
+    assert by_id["remote-mcp"]["mcp"] == {"url": "https://mcp.example/sse"}
+    assert "mcp" not in by_id["ms-cro"]
+    rows = {r["id"]: r for r in yaml.safe_load((repo / "catalog" / "registry.yaml").read_text())["cards"]}
+    assert rows["good-mcp"]["mcp"]["command"] == "npx" and "mcp" not in rows["ms-cro"]
+    assert bc.main(["--root", str(repo), "--check"]) == 0
+
+
+@pytest.mark.parametrize("extra,msg", [
+    ("mcp: npx\n", "mcp must be a mapping"),
+    ('mcp:\n  args: ["x"]\n', "command or url"),
+    ("mcp:\n  command: 3\n", "command or url"),
+    ("mcp:\n  command: npx\n  args: x\n", "args"),
+    ("mcp:\n  command: npx\n  args: [1]\n", "args"),
+    ("mcp:\n  command: npx\n  env: [a]\n", "env"),
+    ("mcp:\n  command: npx\n  env:\n    T: 1\n", "env"),
+])
+def test_invalid_mcp_block_exits_2(repo, extra, msg, capsys):
+    write_card(repo, "bad-mcp", category="mcp", extra=extra)
+    assert bc.main(["--root", str(repo)]) == 2
+    assert msg in capsys.readouterr().err
+    assert not (repo / "catalog" / "modules.json").exists()

@@ -3,7 +3,8 @@ set -euo pipefail
 T="${1:?usage: tenant_new.sh <slug> [business_name]}"
 NAME="${2:-$T}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TDIR="$ROOT/tenants/$T"
+DATA="${SNOWGLOVES_DATA:-$ROOT}"   # tenants live in the private data checkout when it is set
+TDIR="$DATA/tenants/$T"
 [ -d "$TDIR" ] && { echo "tenant exists: $TDIR"; exit 1; }
 mkdir -p "$TDIR"/{sources,connectors,approvals,audit,agents,wiki,docs,_embed_cache}
 cat > "$TDIR/MANIFEST.yaml" <<EOF
@@ -20,7 +21,7 @@ cat > "$TDIR/sources.yaml" <<EOF
 tenant: $T
 sources: []
 EOF
-REG="$ROOT/tenants/_registry.yaml"
+REG="$DATA/tenants/_registry.yaml"
 if [ ! -f "$REG" ]; then echo "tenants:" > "$REG"; fi
 grep -q "  - $T" "$REG" || echo "  - $T  # $NAME" >> "$REG"
 echo "✅ tenant created: $TDIR"

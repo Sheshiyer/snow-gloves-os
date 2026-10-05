@@ -20,6 +20,7 @@ sys_path_added = True
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
 from lib.redact import redact
 from lib.contract import contract_routing_terms, extract_variable_contract
+from lib import paths
 from pathlib import Path
 from datetime import datetime, timezone
 import yaml, fnmatch, argparse
@@ -29,7 +30,7 @@ CONF = yaml.safe_load((ROOT / "config" / "snowgloves.yaml").read_text())
 HOST = CONF["hermes"]["host"]
 PORT = int(CONF["hermes"]["port"])
 CHANNEL = CONF["hermes"]["channel"]
-LOG = ROOT / "_audit" / "hermes-events.jsonl"
+LOG = paths.audit_dir() / "hermes-events.jsonl"  # $SNOWGLOVES_DATA/_audit when set
 LOG.parent.mkdir(exist_ok=True)
 HOOKS = yaml.safe_load((ROOT / "workflows" / "skill-hooks.yaml").read_text())
 CONSTRAINTS_PATH = ROOT / "workflows" / "constraints.yaml"

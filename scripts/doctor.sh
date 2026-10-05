@@ -2,6 +2,7 @@
 # Pre-flight diagnostic for Snow Gloves OS
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DATA="${SNOWGLOVES_DATA:-$ROOT}"   # instance data (tenants/, _audit/): the private checkout when set
 GREEN='\033[0;32m'; RED='\033[0;31m'; YEL='\033[0;33m'; NC='\033[0m'
 pass(){ printf "  ${GREEN}✓${NC} %s\n" "$1"; }
 fail(){ printf "  ${RED}✗${NC} %s\n" "$1"; FAILED=$((FAILED+1)); }
@@ -33,9 +34,10 @@ python3 -c "import yaml; yaml.safe_load(open('$ROOT/workflows/skill-hooks.yaml')
 
 # 4 audit + tenants
 [ -w "$ROOT" ] && pass "repo writable" || fail "repo not writable"
-mkdir -p "$ROOT/_audit"; touch "$ROOT/_audit/.probe" && rm "$ROOT/_audit/.probe" && pass "_audit writable" || fail "_audit not writable"
-if [ -f "$ROOT/tenants/_registry.yaml" ]; then
-  N=$(grep -c "^  - " "$ROOT/tenants/_registry.yaml" 2>/dev/null || echo 0)
+[ "$DATA" = "$ROOT" ] || { [ -d "$DATA" ] && pass "data checkout: $DATA" || fail "SNOWGLOVES_DATA is not a directory: $DATA"; }
+mkdir -p "$DATA/_audit"; touch "$DATA/_audit/.probe" && rm "$DATA/_audit/.probe" && pass "_audit writable" || fail "_audit not writable"
+if [ -f "$DATA/tenants/_registry.yaml" ]; then
+  N=$(grep -c "^  - " "$DATA/tenants/_registry.yaml" 2>/dev/null || echo 0)
   pass "tenants registered: $N"
 else
   warn "no tenants yet (run: bash scripts/tenant_new.sh <slug>)"

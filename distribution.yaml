@@ -21,3 +21,7 @@ env_requires:
     description: "NVIDIA embeddings for the Librarian. Unset falls back to SNOWGLOVES_EMBED_BACKEND=stub."
     required: false
     default: ""
+  - name: SNOWGLOVES_DATA
+    description: "Private data checkout holding tenants/, fleet.yaml, nodes/ and _audit/ (scripts/lib/paths.py). Unset uses this checkout's fixtures."
+    required: false
+    default: ""

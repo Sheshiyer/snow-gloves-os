@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 tenants/*/_embed_cache/
+# generated per-machine renders (fleet wing render); see docs/fleet/05-BRANDS.md
+tenants/*/runtime/
 tenants/_demo/audit/graph-walk.json
 tenants/_demo/audit/_walk_scratch/
 .DS_Store
@@ -10,6 +12,8 @@ tenants/_demo/audit/_walk_scratch/
 # smoke run artifacts
 .hermes.pid
 .e2e.json
+.snowgloves-local/
+dist/local-pilot/
 
 # Tauri build artifacts
 apps/onboarding/src-tauri/target/
@@ -23,3 +27,8 @@ apps/onboarding/dist-site/
 # NotebookLM user kit: audio/video live on the wiki (Vercel). PDF + briefing stay here.
 docs/assets/user/*.mp3
 docs/assets/user/*.mp4
+
+# Instance data lives in the private data checkout (SNOWGLOVES_DATA); see scripts/lib/paths.py.
+# .planning is a local symlink into it; fleet.yaml is the real inventory (template: fleet.example.yaml).
+/.planning
+/fleet.yaml

@@ -30,7 +30,7 @@ RISKS = ("low", "medium", "high")
 RUNTIMES = ("any", "hermes", "claude", "codex", "cursor", "opencode", "grok", "openclaw", "muse")
 REQUIRED = ("id", "name", "category", "kind", "disposition", "repo", "source",
             "risk", "approval", "agents", "runtimes", "summary")
-CARD_KEYS = REQUIRED[:10] + ("agents", "hooks", "runtimes", "summary")
+CARD_KEYS = REQUIRED[:10] + ("agents", "hooks", "runtimes", "summary", "mcp")  # mcp is optional
 
 
 class CatalogError(Exception):
@@ -43,6 +43,22 @@ def _yes_no(value, where: str) -> str:
     if value is False or value == "no":
         return "no"
     raise CatalogError(f"{where}: approval must be yes|no, got {value!r}")
+
+
+def _mcp_problems(mcp) -> list[str]:
+    """Optional `mcp:` launch spec: {command|url, args?, env?}. env values are variable names."""
+    if not isinstance(mcp, dict):
+        return ["mcp must be a mapping with a command or url"]
+    out: list[str] = []
+    command, url = mcp.get("command"), mcp.get("url")
+    if not (isinstance(command, str) and command) and not (isinstance(url, str) and url):
+        out.append("mcp needs a string command or url")
+    if "args" in mcp and (not isinstance(mcp["args"], list) or not all(isinstance(a, str) for a in mcp["args"])):
+        out.append("mcp.args must be a list of strings")
+    env = mcp.get("env")
+    if "env" in mcp and (not isinstance(env, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in env.items())):
+        out.append("mcp.env must be a mapping of string -> string (variable names such as ${VAR}, never values)")
+    return out
 
 
 def _load_yaml(path: Path):
@@ -120,6 +136,11 @@ def load_cards(root: Path, agents: list[dict]) -> list[dict]:
         bad = sorted(set(runtimes) - set(RUNTIMES))
         if bad or not runtimes:
             raise CatalogError(f"{where}: runtimes must be a non-empty subset of {RUNTIMES}")
+        mcp = meta.get("mcp")
+        if mcp is not None:
+            problems = _mcp_problems(mcp)
+            if problems:
+                raise CatalogError(f"{where}: " + "; ".join(problems))
         card = {
             "id": cid,
             "name": str(meta["name"]),
@@ -137,6 +158,8 @@ def load_cards(root: Path, agents: list[dict]) -> list[dict]:
             "enableable": meta["disposition"] in ENABLEABLE,
             "body": body,
         }
+        if mcp is not None:
+            card["mcp"] = mcp  # passthrough; only present when the card declares it
         cards.append(card)
     return cards
 
@@ -215,7 +238,7 @@ def render_json(modules: dict) -> str:
 
 
 def render_registry(modules: dict) -> str:
-    rows = [{k: card[k] for k in CARD_KEYS} | {"enableable": card["enableable"]} for card in modules["cards"]]
+    rows = [{k: card[k] for k in CARD_KEYS if k in card} | {"enableable": card["enableable"]} for card in modules["cards"]]
     doc = {
         "schema": modules["schema"],
         "version": modules["version"],

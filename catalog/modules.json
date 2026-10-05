@@ -765,6 +765,38 @@
     },
     {
       "agents": [
+        "interpreter"
+      ],
+      "approval": "no",
+      "body": "# Figma Context MCP\n\nCommunity MCP server (`figma-developer-mcp`) that fetches a Figma file or node and returns simplified layout, text, and style data. The design wing (`nodes/design/node.yaml`) serves it; the node's `mcps.figma-mcp` repeats the launch spec and wins at render.\n\nRead-only against Figma. Env values are variable names; secrets live in the runtime env or Keychain. The tenant must still enable `figma-mcp` in `enabled.yaml`; the wing profile alone turns nothing on.\n",
+      "category": "mcp",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "figma-mcp",
+      "kind": "mcp-server",
+      "mcp": {
+        "args": [
+          "-y",
+          "figma-developer-mcp",
+          "--stdio"
+        ],
+        "command": "npx",
+        "env": {
+          "FIGMA_API_KEY": "${FIGMA_API_KEY}"
+        }
+      },
+      "name": "Figma Context MCP",
+      "repo": "https://github.com/GLips/Figma-Context-MCP",
+      "risk": "medium",
+      "runtimes": [
+        "any"
+      ],
+      "source": "fleet-wings-2026-10-02",
+      "summary": "Read Figma files as structured layout data so the agent can implement a design from the source frame instead of a screenshot."
+    },
+    {
+      "agents": [
         "librarian"
       ],
       "approval": "no",
@@ -1598,6 +1630,37 @@
       ],
       "source": "2096252768633995734",
       "summary": "The frontend spoke of Addy Osmani's agent-skills. Held with the parent pack until the founder picks spokes."
+    },
+    {
+      "agents": [
+        "cto"
+      ],
+      "approval": "no",
+      "body": "# GitHub MCP Server\n\nMCP server for GitHub repositories, issues, pull requests, and Actions. The coding wing (`nodes/coding/node.yaml`) serves it; `nodes/coding/node.yaml` `mcps.github-mcp` carries the same launch spec and wins at render.\n\nThe `mcp:` block above launches the npm reference server; upstream also ships a Go binary and a Docker image (`github-mcp-server stdio`). Swap the launch spec in the node file if the Mac runs that instead.\n\nEnv values are variable names; secrets live in the runtime env or Keychain. Nothing here grants a token: the tenant must enable `github-mcp` in `enabled.yaml` and `connector-gate` still runs before every call.\n",
+      "category": "mcp",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "github-mcp",
+      "kind": "mcp-server",
+      "mcp": {
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-github"
+        ],
+        "command": "npx",
+        "env": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+        }
+      },
+      "name": "GitHub MCP Server",
+      "repo": "https://github.com/github/github-mcp-server",
+      "risk": "medium",
+      "runtimes": [
+        "any"
+      ],
+      "source": "fleet-wings-2026-10-02",
+      "summary": "GitHub from the agent: issues, pull requests, code search, Actions. Writes still land as PRs and go through the repo's own review."
     },
     {
       "agents": [],
@@ -3093,6 +3156,34 @@
       "agents": [
         "cto"
       ],
+      "approval": "no",
+      "body": "# Playwright MCP\n\nMicrosoft's MCP server that drives a real browser through structured accessibility snapshots instead of screenshots. The coding wing (`nodes/coding/node.yaml`) serves it for UI checks and smoke flows; the node's `mcps.playwright-mcp` repeats the launch spec.\n\nIt needs no token. Env values, when a tenant adds any, are variable names; secrets live in the runtime env or Keychain. Logging into a tenant's live accounts through it is a `connector-gate` decision, not a default.\n",
+      "category": "mcp",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "playwright-mcp",
+      "kind": "mcp-server",
+      "mcp": {
+        "args": [
+          "-y",
+          "@playwright/mcp@latest"
+        ],
+        "command": "npx"
+      },
+      "name": "Playwright MCP",
+      "repo": "https://github.com/microsoft/playwright-mcp",
+      "risk": "low",
+      "runtimes": [
+        "any"
+      ],
+      "source": "fleet-wings-2026-10-02",
+      "summary": "Browser automation over the accessibility tree: navigate, click, fill, snapshot. Local browser only; no credentials pass through it."
+    },
+    {
+      "agents": [
+        "cto"
+      ],
       "approval": "yes",
       "body": "# portless (OAuth local URLs)\n\nFour-Signal 8/12. Fills the OAuth-redirect gap in connectors/g-stack/auth.py local testing.\n\n## Provenance\n\n- Source: X bookmark `2090136598679560679` (https://x.com/i/status/2090136598679560679)\n- Upstream: https://github.com/vercel-labs/portless\n- tenants/_demo/wiki/systems/ecosystem-candidates.md\n- tenants/_demo/wiki/systems/skill-hook-crosswalk.md\n- ~/.fieldtheory/library/taste/skills/vercel-labs-portless/ (2 SKILL.md: portless, oauth)\n\nPointer card. Nothing here is installed or wired into `workflows/skill-hooks.yaml`.\n",
       "category": "connector",
@@ -3524,18 +3615,18 @@
   "counts": {
     "by_category": {
       "connector": 1,
-      "mcp": 3,
+      "mcp": 6,
       "playbook": 36,
       "plugin": 13,
       "skills": 79
     },
     "by_disposition": {
-      "add": 61,
+      "add": 64,
       "hold": 14,
       "pointer": 45,
       "refuse": 12
     },
-    "total": 132
+    "total": 135
   },
   "schema": "snowgloves.modules.v1",
   "version": "0.2.1"

@@ -1,0 +1,42 @@
+# Test fixture for tests/test_fleet_scripts.py and tests/test_fleet_gateway_kit.py.
+# Same shape and placeholder values as fleet.example.yaml, with the optional LAN names filled
+# by synthetic values so the --lan paths can be exercised. Never a real inventory.
+schema: snowgloves.fleet.v1
+company: "<company>"
+portfolio_root: <portfolio-root-tenant>   # tenant slug at the top of the brand portfolio
+overlay: tailscale
+tailnet: <tailnet>.ts.net            # MagicDNS suffix; short names (coding-mac) resolve for every member
+admin_user: sg-admin                 # local admin on every mini; day-to-day work uses the wing operator user
+gateway:
+  wing: coding                       # the Coding Mac hosts OmniRoute for the whole fleet
+  port: 20128
+  url: "http://coding-mac:20128"     # clients over Tailscale (see docs/fleet/04-GATEWAY.md for the bind policy)
+  lan_url: "http://coding-mac.local:20128"   # synthetic LAN name for tests
+authoring_seat:
+  role: staging                      # the founder's own Mac: authors config, exports the gateway kit; not a wing
+  hostname: "<founder-mac>"
+wings:
+  marketing:
+    hostname: marketing-mac          # <wing>-mac
+    overlay: marketing-mac
+    location: <office>
+    always_on: false
+    operator_user: sg-marketing      # sg-<wing>
+    services: []
+  design:
+    hostname: design-mac
+    overlay: design-mac
+    location: <office>
+    always_on: false
+    operator_user: sg-design
+    services: []
+  coding:
+    hostname: coding-mac
+    lan_host: coding-mac.local         # synthetic LAN name for tests (connect.sh --lan)
+    overlay: coding-mac
+    location: <office>
+    always_on: true
+    operator_user: sg-coding
+    services:
+      - {id: omniroute, port: 20128}
+      - {id: hermes, port: 4100}

@@ -1,6 +1,9 @@
 SHELL := /bin/bash
 PYTHON ?= python3
 HERMES_PORT ?= 4100
+# Fixture targets (smoke, walk) run on the public `_demo` fixture in this checkout, never on
+# the private data checkout, so they drop SNOWGLOVES_DATA (see scripts/lib/paths.py).
+FIXTURE_ENV := env -u SNOWGLOVES_DATA
 
 .PHONY: help install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade graph-upgrade walk tui app-install app-dev app-build
 
@@ -33,6 +36,12 @@ help:
 	@echo "  make app-install           # npm install for the Tauri onboarding app"
 	@echo "  make app-dev               # tauri dev (GUI; do not leave running in agents)"
 	@echo "  make app-build             # tauri release bundle (needs signing identity)"
+	@echo "  make fleet-doctor [W=<wing>]            # is this mini wired as its wing says (fleet.yaml; \$$SNOWGLOVES_DATA)"
+	@echo "  make fleet-render W=<wing> T=<tenant> R=<rt>  # render brand x wing x runtime (WRITE=1 applies)"
+	@echo "  make fleet-enable W=<wing> T=<tenant>|all     # enable a brand on a wing"
+	@echo "  make fleet-connect W=<wing>             # open a shell on a wing over Tailscale"
+	@echo "  make fleet-kit-export                   # export the gateway kit from the authoring seat"
+	@echo "  make fleet-remote-access W=<wing>       # ARD / Screen Sharing / SSH plan (dry-run)"
 
 doctor:
 	bash scripts/doctor.sh
@@ -65,7 +74,7 @@ upgrade:
 	$(PYTHON) scripts/upgrade.py $(if $(T),--tenant $(T),) $(if $(WRITE),--write,)
 
 walk:
-	$(PYTHON) scripts/graph_walk.py
+	$(FIXTURE_ENV) $(PYTHON) scripts/graph_walk.py
 
 tui:
 	$(PYTHON) scripts/tui_onboard.py $(ARGS)
@@ -85,19 +94,19 @@ kill-hermes:
 
 smoke: kill-hermes
 	@echo "==> [1/5] starting Hermes in background"
-	@$(PYTHON) scripts/hermes.py & echo $$! > .hermes.pid; sleep 0.5
+	@$(FIXTURE_ENV) $(PYTHON) scripts/hermes.py & echo $$! > .hermes.pid; sleep 0.5
 	@echo "==> [2/5] firing e2e test event"
 	@curl -sS -X POST http://127.0.0.1:$(HERMES_PORT)/test/e2e -H 'Content-Type: application/json' -d '{}' > .e2e.json
 	@cat .e2e.json | $(PYTHON) -m json.tool
 	@echo "==> [3/5] bridging decision to Paperclip (dry-run)"
-	@cat .e2e.json | $(PYTHON) scripts/paperclip_bridge.py --tenant _demo --dry-run
+	@cat .e2e.json | $(FIXTURE_ENV) $(PYTHON) scripts/paperclip_bridge.py --tenant _demo --dry-run
 	@echo "==> [4/5] running embed worker on _demo (stub backend)"
 	@mkdir -p tenants/_demo
 	@printf "Snow Gloves OS uses NVIDIA embeddings to interpret tenant wikis.\n" > /tmp/sg_sample.md
 	@$(PYTHON) -c "import json,pathlib; pathlib.Path('tenants/_demo/ingest-plan.json').write_text(json.dumps({'tenant':'_demo','files':[{'path':'/tmp/sg_sample.md','size':128}]}))"
-	@SNOWGLOVES_EMBED_BACKEND=stub $(PYTHON) scripts/embed_worker.py _demo
+	@SNOWGLOVES_EMBED_BACKEND=stub $(FIXTURE_ENV) $(PYTHON) scripts/embed_worker.py _demo
 	@echo "==> [5/5] sentinel sweep"
-	@$(PYTHON) scripts/sentinel_sweep.py
+	@$(FIXTURE_ENV) $(PYTHON) scripts/sentinel_sweep.py
 	@echo "==> stopping Hermes"
 	@kill $$(cat .hermes.pid) 2>/dev/null; rm -f .hermes.pid .e2e.json
 	@echo "==> smoke complete ✅"
@@ -121,6 +130,30 @@ test:
 
 clean:
 	rm -f .hermes.pid .e2e.json
+
+# ---- fleet (three Mac minis by wing; see docs/fleet/README.md) ----
+.PHONY: fleet-doctor fleet-render fleet-enable fleet-connect fleet-kit-export fleet-remote-access
+fleet-doctor:
+	$(PYTHON) scripts/fleet/doctor.py $(if $(W),--wing $(W),)
+
+fleet-render:
+	@if [ -z "$(W)" ] || [ -z "$(T)" ] || [ -z "$(R)" ]; then echo "usage: make fleet-render W=<wing> T=<tenant> R=<runtime> [WRITE=1]"; exit 1; fi
+	$(PYTHON) scripts/fleet/node_profile.py render --tenant $(T) --node $(W) --runtime $(R) $(if $(WRITE),--write,)
+
+fleet-enable:
+	@if [ -z "$(W)" ] || [ -z "$(T)" ]; then echo "usage: make fleet-enable W=<wing> T=<tenant>|all"; exit 1; fi
+	$(PYTHON) scripts/fleet/node_profile.py enable --node $(W) $(if $(filter all,$(T)),--all-tenants,--tenant $(T))
+
+fleet-connect:
+	@if [ -z "$(W)" ]; then echo "usage: make fleet-connect W=<wing>"; exit 1; fi
+	bash scripts/fleet/connect.sh $(W)
+
+fleet-kit-export:
+	bash scripts/fleet/gateway_kit.sh export
+
+fleet-remote-access:
+	@if [ -z "$(W)" ]; then echo "usage: make fleet-remote-access W=<wing>"; exit 1; fi
+	bash scripts/fleet/remote_access.sh --wing $(W)
 
 
 # ---- Onboarding app (Tauri v2) ----

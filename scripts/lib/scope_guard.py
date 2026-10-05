@@ -2,9 +2,11 @@
 from __future__ import annotations
 from pathlib import Path
 import yaml, json, time, secrets
+from lib import paths
 
-ROOT = Path(__file__).resolve().parents[2]
-CAPS = yaml.safe_load((ROOT / "connectors" / "g-stack" / "capabilities.yaml").read_text())
+CODE_ROOT = paths.code_root()
+ROOT = paths.data_root()  # approval queues: ROOT/tenants/<t>/approvals ($SNOWGLOVES_DATA, else this checkout)
+CAPS = yaml.safe_load((CODE_ROOT / "connectors" / "g-stack" / "capabilities.yaml").read_text())
 
 class ScopeViolation(Exception): ...
 class ApprovalRequired(Exception):
