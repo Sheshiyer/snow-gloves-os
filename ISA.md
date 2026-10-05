@@ -319,3 +319,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-05 unified managedHTTP candidate: approvedBuild source reusesexistingmanagementhandler/sharedgate.5 actualhostHTTP probes initially2pass3fail; ordinarymultimessageJSON, GETbody andunhealthyreadiness defects reproduced/repaired;5pass4.042s. Private/unpromoted; SSEcancellation/readerownership/parser/Linuxruntime pending;25/51 unchanged.
 
 - 2026-10-05 managedSSE falsification: chunkedcompletion andoriginalcancel/mutationgate pass, butquietstream1.3s losesDONE after1sreadtimeout. Select-before-read trial stalls alreadybufferedfirstevent; latest8hosttests6pass2errors12.088s. Candidateprivate/unpromoted; decodedreader/cancellationrepair next, noSSEacceptanceclaim;25/51 unchanged.
+
+- 2026-10-05 managedSSE reader repaired: decodedread1 direct30sidle timeout and explicitupstreamsocketshutdown removebuffer/select stalls.8hostHTTPchecks7.078s pass;8Linuxchecks9.162s withpersistentHTTP1.1chunkedfixture pass, includingquiet1.3sDONE andcancel/upstreamclose/mutationgate/readerexit. Candidateprivate pendingparserbounds/stress/managementregression/actualruntime;25/51 unchanged.
