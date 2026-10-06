@@ -246,6 +246,11 @@ until the actual mini supplies evidence.
   learned: corrected one-pass consumer validates copied context/payload/full headers, splits host chunks with backpressure, shares a fixed total deadline and contains cancellation.12Node regressions and strict Workers types pass; actual local HTTP/workerd R2 accepts immutable-image14.6MB cipher, complete readback and stable same-job replay; adverse short/trailing/SHA bodies never receive commit records.
   criterion now: ISC-47..51 remain open; standalone consumer is not gateway-wired and local R2 does not prove company deployment, remote key custody, physical recovery or fleet soak.
 
+- 2026-10-06 | conjectured: a remote receipt could be reverified without the lost runtime's HTTP export source.
+  refuted by: generated fixture required unavailable native FixedLengthStream in Node; independent checks found uncanceled commit bodies, cleanup-abort false acknowledgment and late-get getter diagnostic escape.
+  learned: corrected read-only verifier binds copied identity and optional pinned versions, bounds canonical commit readback and repeats named cipher/commit heads.21Node checks/strict Workers types and actual local R2 image-cipher identity/pinned verification pass; actual object/commit mutations are held without runtime fetch.
+  criterion now: ISC-47..51 remain open; metadata readback is not AES authenticity, artifact download, durable job storage, company deployment, key custody or physical recovery.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
