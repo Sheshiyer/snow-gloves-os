@@ -171,6 +171,11 @@ until the actual mini supplies evidence.
 
 ## Changelog
 
+- 2026-10-06 | conjectured: a narrow source HTTP probe could establish the original fixture hash and postrestore baseline.
+  refuted by: actual owned SQLite fixture reaches checkpoint, but receiver-only client rejects that route; generated validation fabricates remote receipt versions.
+  learned: general source HTTP exchange and exact actual local record/operation/artifact validation replace those defects. Eight host and eight fresh-image Linux fixtures pass using actual12MiB SQLite data and emulated HTTP; Linux1.157s exit0/container absent/default context unchanged.
+  criterion now: ISC-47..51 remain open at25/51; source probe is a private accepted component, actual managed-service execution and full HTTP/R2 separate-container recovery remain pending.
+
 - 2026-10-06 | conjectured: repaired narrow Docker lifecycle could become a safe parent-proof ingredient.
   refuted by: four argument/ownership/identifier failures and two root-owner/nofollow failures reproduced after initial cleanup repair.
   learned: narrow native corrections pass15 isolated callback checks, including orderly exit0/PID0 removal, healthy absence, attempted-resource tracking and first-interruption cleanup. Private source only; no actual Docker resource was created.
