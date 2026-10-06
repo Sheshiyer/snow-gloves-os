@@ -271,6 +271,13 @@ until the actual mini supplies evidence.
   learned: staging must reuse the literal accepted receipt fields/keys, account for its own root timestamp changes, retain owned descriptors through publication and cover input validation/cleanup with the same generic held boundary. Original and independent Linux evidence are preserved privately; repair is running, no staging source promoted.
   criterion now: ISC-47..51 remain open; independent local ciphertext publication, journal binding, restore/key custody and physical/cloud acceptance remain unproved.
 
+
+- 2026-10-06 remote cipher staging repaired local proof:
+  - conjectured: The repaired candidate preserved root, descriptor and receipt authority through publication and cleanup.
+  - refuted_by: Independent Linux probes found malformed cancellation cleanup, boolean receipt sizes, suppressed descriptor-close failure, root and temp replacement before writes, writable-only sources and changing nonblocking flags.
+  - learned: Validate exact input types and descriptor flags before effects; retain the original inode anchor through final readback and reject cleanup or cancellation faults before acknowledging.
+  - criterion_now: Twenty-nine actual Linux checks pass, including the 14,627,035-byte owned image cipher and actual local R2 receipt with same-inode replay. Source remains private pending promotion; journal binding, authenticated plaintext, cloud and physical acceptance remain open; progress stays 25/51.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
