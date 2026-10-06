@@ -356,6 +356,11 @@ until the actual mini supplies evidence.
   learned: reviewed state tracking preserves successful finish, retains uncertain ownership, avoids ambiguous close retries, protects fixed canonical metadata and validates complete frames under the original deadline. Native focused repairs plus35host cases3.13s/35ownedLinux6.81s/verified container absence and729platform passes271Linuxskips12subtests58.91s/catalogcurrent pass. Managed parity and future source-image helper COPY manifest included.
   criterion now: ISC-47..51 remain open; HTTP source integrates synchronous test callbacks only. Trusted service root closure/shutdown ordering, new exact-source image and actual HTTP R2 import/restore/recovery/cloud/physical acceptance remain unproved.
 
+- 2026-10-06 | conjectured: trusted service import and registry shutdown could reuse the optional HTTP seam directly.
+  refuted by: isolated source probes reproduced renewed/mutated deadlines, first interrupt masked by cancellation or lock-release faults, cleanup interrupts silently ignored, invalid registry zero accepted, and main converting uncertain interruption to success exit0; generated service tests also contained invalid registry/post-shutdown fixtures.
+  learned: startup-root/IMODE closure forwards the required original deadline/Event through bounded shared-lock acquisition; registry cancellation precedes gate closure in normal cleanup, unknown ownership blocks child stop, and first control flow survives cleanup. Unhandled interruption now returns redacted failure; normal signal Event shutdown remains clean.68host and68ownedLinux focused checks plus4subtests each pass;738platform checks271Linux skips16subtests59.65s/catalogcurrent. Image recipe includes actual import/stage dependencies; no new image built.
+  criterion now: ISC-47..51 remain open; service wiring is accepted source only. Exact-source immutable image, actual R2 ciphertext HTTP import/restore/replay/separate-process recovery, company scoped runtime, provider admission and physical fleet acceptance remain unproved.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -548,3 +553,5 @@ Host isolated47checks pass3.94s; owned Linux47checks pass7.61s with containerabs
 - 2026-10-06: Standalone request ownership registry accepted after23focused cases0.02s and isolated694platform passes271Linuxskips12subtests56.55s/catalogcurrent. No HTTP/service/image wiring or cloud/physical activation; ISA25/51 remains.
 
 - 2026-10-06: Optional management import route, managed factory/parity and source-image helper allowlist accepted after35host framed/controlflow cases3.13s and35ownedLinux6.81s with healthy exactcontainerabsence;729platform passes271Linuxskips12subtests58.91s/catalogcurrent. Full response frames and first replay flags verified; synchronous callbacks are stubs, not real journal/root import. Servicecallbackclosure/image/cloud/physical acceptance remains open;ISA25/51.
+
+- Service import source checkpoint 2026-10-06: 68host/68ownedLinux focused checks and4subtests each;738platform/271Linux skips/16subtests59.65s, catalogcurrent. Required callback root captured at startup, original deadline/Event and exact IMODE; normal registry cancellation before gate admission close; retained ownership and cleanup faults block child stop; main uncertain interrupt redacted failure1. Fixture evidence is not actual bundled-image, cloud/R2 HTTP recovery or physical acceptance. ISA remains25/51; ISC-47..51 open.

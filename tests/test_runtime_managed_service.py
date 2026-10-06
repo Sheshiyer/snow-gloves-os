@@ -42,7 +42,7 @@ class Review(unittest.TestCase):
     caller=threading.Thread(target=lambda:holders['restore']({}));caller.start();restoring.wait(2);finish(signal.SIGTERM,None);caller.join(2)
    else:holders['restore']({});finish(signal.SIGTERM,None)
   worker=threading.Thread(target=controller);worker.start()
-  with patch.object(m.sys,'platform','linux'),patch.object(m,'_verify_data_dir'),patch.object(m,'_snapshot_all_paths',return_value={}),patch.object(m,'_verify_snapshots'),patch.object(m,'InitializingSupervisor',Supervisor),patch.object(m,'RuntimeManagementCoordinator',Coordinator),patch.object(m,'create_managed_server',factory),patch.object(m.signal,'getsignal',return_value=signal.SIG_DFL),patch.object(m.signal,'signal',side_effect=lambda n,h:handlers.__setitem__(n,h)):
+  with patch.object(m.sys,'platform','linux'),patch.object(m,'_verify_data_dir',return_value=(1,2,3,0o40700)),patch.object(m,'_snapshot_all_paths',return_value={}),patch.object(m,'_verify_snapshots'),patch.object(m,'InitializingSupervisor',Supervisor),patch.object(m,'RuntimeManagementCoordinator',Coordinator),patch.object(m,'create_managed_server',factory),patch.object(m.signal,'getsignal',return_value=signal.SIG_DFL),patch.object(m.signal,'signal',side_effect=lambda n,h:handlers.__setitem__(n,h)):
    try:m.run_service(m.load_config(env()))
    finally:worker.join(3)
   self.assertTrue(restoring.is_set());self.assertTrue(restored.is_set());self.assertEqual(log,[('stop',True)])
@@ -78,7 +78,7 @@ class Review(unittest.TestCase):
    if case=='health-before-bind':
     self.assertGreaterEqual(counts['health'],1,'listener created before initial child health');handlers[signal.SIGTERM](signal.SIGTERM,None)
    return Server()
-  patches=[patch.object(m.sys,'platform','linux'),patch.object(m,'_verify_data_dir'),patch.object(m,'_snapshot_all_paths',return_value={}),patch.object(m,'_verify_snapshots'),patch.object(m,'InitializingSupervisor',Supervisor),patch.object(m,'RuntimeManagementCoordinator',Coordinator),patch.object(m,'create_managed_server',factory),patch.object(m.signal,'getsignal',return_value=signal.SIG_DFL),patch.object(m.signal,'signal',side_effect=lambda n,h:handlers.__setitem__(n,h))]
+  patches=[patch.object(m.sys,'platform','linux'),patch.object(m,'_verify_data_dir',return_value=(1,2,3,0o40700)),patch.object(m,'_snapshot_all_paths',return_value={}),patch.object(m,'_verify_snapshots'),patch.object(m,'InitializingSupervisor',Supervisor),patch.object(m,'RuntimeManagementCoordinator',Coordinator),patch.object(m,'create_managed_server',factory),patch.object(m.signal,'getsignal',return_value=signal.SIG_DFL),patch.object(m.signal,'signal',side_effect=lambda n,h:handlers.__setitem__(n,h))]
   if case=='root-changed-before-start':patches[1]=patch.object(m,'_verify_data_dir',side_effect=[('owned',),('replaced',)])
   if case=='script-changed-before-start':patches[3]=patch.object(m,'_verify_snapshots',side_effect=RuntimeError('script changed'))
   if case=='late-health':patches.append(patch.object(m.time,'monotonic',side_effect=lambda values=iter([0.0,0.0,11.0]):next(values,11.0)))

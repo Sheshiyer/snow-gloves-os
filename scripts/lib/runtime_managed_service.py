@@ -14,14 +14,17 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Mapping, Tuple
 
 from lib.runtime_cipher_export import CheckpointExportReader
+from lib.runtime_import_request_registry import ImportRequestRegistry
 from lib.runtime_initializer import InitializingSupervisor
 from lib.runtime_managed_http import KEY_RE, OperationGate, create_managed_server
 from lib.runtime_management_coordinator import RuntimeManagementCoordinator
 from lib.runtime_operation_identity import checkpoint_digest
+from lib.runtime_remote_cipher_import import import_remote_cipher_and_bind_journal
 
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 _KEY_ID_RE = re.compile(r"^[a-z0-9-]{1,64}$")
 _INSTANCE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,128}$")
+_MANAGED_IMPORT_HOLD = "Managed import held"
 
 
 @dataclass(frozen=True)
@@ -254,6 +257,10 @@ def _verify_snapshots(before: Dict[str, PathSnapshot], config: Config) -> None:
         raise RuntimeError("Trusted path attributes modified during lifecycle")
 
 
+def _managed_import_hold() -> None:
+    raise RuntimeError(_MANAGED_IMPORT_HOLD) from None
+
+
 def run_service(config: Config) -> None:
     _validate_pure_config(config)
     root_identity = _verify_data_dir(config.data_dir, config.initialize_fresh)
@@ -276,6 +283,7 @@ def run_service(config: Config) -> None:
     export_cancel = threading.Event()
     gate = OperationGate()
     mgmt_lock = threading.Lock()
+    import_registry = ImportRequestRegistry()
 
     def sig_handler(_signum: int, _frame: Any) -> None:
         stop_event.set()
@@ -304,7 +312,6 @@ def run_service(config: Config) -> None:
         if _verify_data_dir(config.data_dir, False) != root_identity:
             raise RuntimeError("Data root identity changed")
 
-        # Verify child health before exposing any management request.
         grace_deadline = time.monotonic() + 10.0
         init_healthy = False
         while time.monotonic() < grace_deadline:
@@ -334,6 +341,21 @@ def run_service(config: Config) -> None:
             backup_cli_path=config.backup_cli,
         )
 
+        expected_root_identity = (
+            root_identity[0],
+            root_identity[1],
+            root_identity[2],
+            stat.S_IMODE(root_identity[3]),
+        )
+
+        def _import_guard_check(deadline: Any, cancel_event: threading.Event) -> None:
+            if type(cancel_event) is not threading.Event or cancel_event.is_set():
+                _managed_import_hold()
+            if stop_event.is_set():
+                _managed_import_hold()
+            if time.monotonic() >= deadline:
+                _managed_import_hold()
+
         def guarded_checkpoint(payload: Any) -> Any:
             with mgmt_lock:
                 return coordinator.checkpoint(payload)
@@ -342,10 +364,115 @@ def run_service(config: Config) -> None:
             with mgmt_lock:
                 return coordinator.restore(payload)
 
+        def guarded_import(
+            context: Any,
+            record: Any,
+            receipt: Any,
+            input_fd: Any,
+            cancel_event: threading.Event,
+            deadline: Any,
+        ) -> Any:
+            acquired = False
+            release_attempted = False
+            primary_exc_info: tuple[Any, Any, Any] = (None, None, None)
+
+            def _release_mgmt_lock_once() -> None:
+                nonlocal acquired, release_attempted
+                if not acquired or release_attempted:
+                    return
+                release_attempted = True
+                try:
+                    mgmt_lock.release()
+                except Exception:
+                    _managed_import_hold()
+                else:
+                    acquired = False
+
+            try:
+                entry_mono = time.monotonic()
+                if deadline is None:
+                    _managed_import_hold()
+                if (type(deadline) is not int and type(deadline) is not float) or isinstance(
+                    deadline, bool
+                ):
+                    _managed_import_hold()
+                if not (deadline > entry_mono) or deadline > entry_mono + 15.0:
+                    _managed_import_hold()
+
+                if type(cancel_event) is not threading.Event:
+                    _managed_import_hold()
+                _import_guard_check(deadline, cancel_event)
+
+                while not acquired:
+                    _import_guard_check(deadline, cancel_event)
+                    if mgmt_lock.acquire(blocking=False):
+                        acquired = True
+                        break
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0.0:
+                        _managed_import_hold()
+                    poll = min(0.05, remaining)
+                    if cancel_event.wait(timeout=poll):
+                        _import_guard_check(deadline, cancel_event)
+                    elif stop_event.is_set():
+                        _import_guard_check(deadline, cancel_event)
+
+                try:
+                    _import_guard_check(deadline, cancel_event)
+                    try:
+                        try:
+                            result = import_remote_cipher_and_bind_journal(
+                                config.data_dir,
+                                expected_root_identity,
+                                context,
+                                record,
+                                receipt,
+                                input_fd,
+                                cancel_event,
+                                deadline=deadline,
+                            )
+                        except BaseException:
+                            primary_exc_info = sys.exc_info()
+                            raise
+                        finally:
+                            if primary_exc_info[0] is None:
+                                _import_guard_check(deadline, cancel_event)
+                        return result
+                    finally:
+                        pending = sys.exc_info()
+                        if primary_exc_info[0] is None and isinstance(pending[1], (KeyboardInterrupt, SystemExit)):
+                            primary_exc_info = pending
+                        _release_mgmt_lock_once()
+                finally:
+                    pending = sys.exc_info()
+                    if primary_exc_info[0] is None and isinstance(pending[1], (KeyboardInterrupt, SystemExit)):
+                        primary_exc_info = pending
+                    _release_mgmt_lock_once()
+            except (KeyboardInterrupt, SystemExit):
+                if primary_exc_info[0] is not None and isinstance(
+                    primary_exc_info[1], (KeyboardInterrupt, SystemExit)
+                ):
+                    raise primary_exc_info[1].with_traceback(primary_exc_info[2])
+                raise
+            except Exception:
+                if isinstance(primary_exc_info[1], (KeyboardInterrupt, SystemExit)):
+                    raise primary_exc_info[1].with_traceback(primary_exc_info[2])
+                _managed_import_hold()
+            finally:
+                pending = sys.exc_info()
+                if primary_exc_info[0] is None and isinstance(pending[1], (KeyboardInterrupt, SystemExit)):
+                    primary_exc_info = pending
+                _release_mgmt_lock_once()
+
         def make_export_reader(payload: dict[str, Any]) -> CheckpointExportReader:
             return CheckpointExportReader(
                 config.data_dir,
-                (root_identity[0], root_identity[1], root_identity[2], stat.S_IMODE(root_identity[3])),
+                (
+                    root_identity[0],
+                    root_identity[1],
+                    root_identity[2],
+                    stat.S_IMODE(root_identity[3]),
+                ),
                 _build_context(config),
                 payload,
                 cancel_event=export_cancel,
@@ -364,6 +491,8 @@ def run_service(config: Config) -> None:
             operation_context=_build_context(config),
             upstream_port=8081,
             export_cb=make_export_reader,
+            import_cb=guarded_import,
+            import_request_registry=import_registry,
             host="0.0.0.0",
             port=8080,
             gate=gate,
@@ -380,7 +509,6 @@ def run_service(config: Config) -> None:
         if not serve_entered.wait(timeout=10.0):
             raise RuntimeError("Server thread failed to start serve loop")
 
-        # Main supervision loop
         while not stop_event.is_set():
             if not server_thread.is_alive():
                 raise RuntimeError("Server thread terminated unexpectedly")
@@ -396,20 +524,41 @@ def run_service(config: Config) -> None:
             stop_event.wait(timeout=0.5)
 
     finally:
+        orig_exc_info = sys.exc_info()
         cleanup_error = None
         cleanup_deadline = None
+        cleanup_controlflow = None
+
+        def record_cleanup_controlflow(exc: BaseException) -> None:
+            nonlocal cleanup_controlflow, cleanup_error
+            if cleanup_controlflow is None:
+                cleanup_controlflow = (exc, exc.__traceback__)
+            if cleanup_error is None:
+                cleanup_error = RuntimeError("Cleanup control flow held")
+
         try:
             export_cancel.set()
             cleanup_deadline = time.monotonic() + 60.0
 
             try:
+                import_registry.close_and_cancel()
+            except (KeyboardInterrupt, SystemExit) as exc:
+                record_cleanup_controlflow(exc)
+            except Exception as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+
+            try:
                 gate.close_admission()
+            except (KeyboardInterrupt, SystemExit) as exc:
+                record_cleanup_controlflow(exc)
             except Exception as exc:
                 if cleanup_error is None:
                     cleanup_error = exc
 
             if server is not None and serve_entered.is_set():
                 shutdown_err = []
+
                 def _do_shutdown() -> None:
                     try:
                         server.shutdown()
@@ -430,6 +579,8 @@ def run_service(config: Config) -> None:
             if server is not None:
                 try:
                     server.server_close()
+                except (KeyboardInterrupt, SystemExit) as exc:
+                    record_cleanup_controlflow(exc)
                 except Exception as exc:
                     if cleanup_error is None:
                         cleanup_error = exc
@@ -450,6 +601,8 @@ def run_service(config: Config) -> None:
                     if not idle_ok or now_idle > (cleanup_deadline - 8.0):
                         if cleanup_error is None:
                             cleanup_error = RuntimeError("Gate drain timed out or held")
+                except (KeyboardInterrupt, SystemExit) as exc:
+                    record_cleanup_controlflow(exc)
                 except Exception as exc:
                     if cleanup_error is None:
                         cleanup_error = exc
@@ -471,14 +624,34 @@ def run_service(config: Config) -> None:
 
             if acquired:
                 try:
-                    if cleanup_error is None:
-                        supervisor.stop()
-                except Exception as exc:
-                    if cleanup_error is None:
-                        cleanup_error = exc
+                    can_stop_child = False
+                    try:
+                        active_count = import_registry.active_count()
+                        can_stop_child = type(active_count) is int and active_count == 0
+                        if not can_stop_child and cleanup_error is None:
+                            cleanup_error = RuntimeError(
+                                "Import registry retained active records"
+                            )
+                    except (KeyboardInterrupt, SystemExit) as exc:
+                        record_cleanup_controlflow(exc)
+                        can_stop_child = False
+                    except Exception as exc:
+                        if cleanup_error is None:
+                            cleanup_error = exc
+                        can_stop_child = False
+                    if can_stop_child and cleanup_error is None:
+                        try:
+                            supervisor.stop()
+                        except (KeyboardInterrupt, SystemExit) as exc:
+                            record_cleanup_controlflow(exc)
+                        except Exception as exc:
+                            if cleanup_error is None:
+                                cleanup_error = exc
                 finally:
                     mgmt_lock.release()
 
+        except (KeyboardInterrupt, SystemExit) as exc:
+            record_cleanup_controlflow(exc)
         except Exception as exc:
             if cleanup_error is None:
                 cleanup_error = exc
@@ -486,6 +659,8 @@ def run_service(config: Config) -> None:
             for signum, previous in ((signal.SIGINT, old_sigint), (signal.SIGTERM, old_sigterm)):
                 try:
                     signal.signal(signum, previous)
+                except (KeyboardInterrupt, SystemExit) as exc:
+                    record_cleanup_controlflow(exc)
                 except Exception as exc:
                     if cleanup_error is None:
                         cleanup_error = exc
@@ -493,9 +668,19 @@ def run_service(config: Config) -> None:
             if cleanup_deadline is None or time.monotonic() >= cleanup_deadline:
                 if cleanup_error is None:
                     cleanup_error = RuntimeError("Cleanup deadline held")
+        except (KeyboardInterrupt, SystemExit) as exc:
+            record_cleanup_controlflow(exc)
         except Exception as exc:
             if cleanup_error is None:
                 cleanup_error = exc
+
+        orig_type, orig_val, orig_tb = orig_exc_info
+        if isinstance(orig_val, (KeyboardInterrupt, SystemExit)):
+            raise orig_val.with_traceback(orig_tb)
+        if cleanup_controlflow is not None:
+            raise cleanup_controlflow[0].with_traceback(cleanup_controlflow[1])
+        if orig_type is not None and orig_val is not None:
+            raise orig_val.with_traceback(orig_tb)
         if cleanup_error is not None:
             raise RuntimeError("Cleanup failed") from cleanup_error
 
@@ -504,8 +689,6 @@ def main() -> int:
     try:
         cfg = load_config(os.environ)
         run_service(cfg)
-        return 0
-    except KeyboardInterrupt:
         return 0
     except SystemExit:
         raise
