@@ -321,6 +321,11 @@ until the actual mini supplies evidence.
   learned: require canonical pure metadata validation before body effects, bounded replay-aware drain with independent body count/hash, exact result/FD/worker cleanup and explicit import cancellation. Reviewed contract stages validator, bridge, service wiring and immutable-image proof independently.
   criterion now: ISC-47..51 remain open; the integration contract is planning, not implemented HTTP/image/cloud/physical acceptance.
 
+- 2026-10-06 | conjectured: a pure metadata validator could preserve staging identity rules before HTTP body effects.
+  refuted by: supplied tests wrongly rejected maximum permitted bytes and reset two invalid key mutations; independent dependency fault probe exposed an unsuppressed diagnostic chain when a forged exception reused the generic held message.
+  learned: corrected fixtures and unconditional redaction for ordinary exceptions pass84focused host checks, including canonical type/key/alias/version/parity and control-flow faults. Standalone source passes575platform tests/252Linux skips/12subtests57.33s and catalog consistency.
+  criterion now: ISC-47..51 remain open; validator is standalone source, not yet shared by staging or service-wired/image-bundled/cloud/physical accepted.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -488,3 +493,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-06: Fresh local R2 import/restore chain passed: 14,627,035 bytes, cipher SHA256 d73cb575d999832653e94289a1cf8dad40c763c37cad12e20a06b5ee0f7721e0; native R2 object/commit versions retained in private proof. Wrong-key denial, actual valid restore, historical replay, SQLite integrity, zero providers and owned cleanup verified. Five separate controller fault simulations pass. ISA remains25/51; no cloud/physical acceptance.
 
 - 2026-10-06: Owned fresh-process recovery session5315 passed; imported ciphertext/journal replay and completed restore intent retained, zero new decrypt/restore calls, actual SQLite and process/group cleanup verified. ISA remains25/51.
+
+- 2026-10-06: Standalone remote cipher metadata validator passes84focused checks and575platform tests,252Linux skips,12subtests57.33s; catalog current. Generic diagnostic redaction repaired. No HTTP/image/cloud/physical acceptance; ISA25/51.
