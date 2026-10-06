@@ -171,6 +171,11 @@ until the actual mini supplies evidence.
 
 ## Changelog
 
+- 2026-10-06 | conjectured: accepted fixture probes could observe the bundled managed source service unchanged.
+  refuted by: actual runs held on model-list framing and the default470-entry/130-table schema; launcher inspection also reproduced the Python-I-B argv mismatch before service execution.
+  learned: separate1MiB model-list framing, exact launcher argv, bounded512-entry/256-table observation with131072-byte aggregate SQL cap, and524288-byte source-proof envelope pass actual fresh-image HTTP checkpoint/export/restore. The14,627,029-byte cipher verifies; original/restored12MiB blob SHA matches; provider count0 and roles200/401/503 pass. Orderly current-run cleanup succeeds; three earlier held volumes remain retained.
+  criterion now: ISC-47..51 remain open at25/51. Standalone local managed source proof is accepted; same-cipher native R2/fullHTTP wrong/correct/fresh-process receiver recovery, company deployment and physical acceptance remain pending.
+
 - 2026-10-06 | conjectured: a narrow source HTTP probe could establish the original fixture hash and postrestore baseline.
   refuted by: actual owned SQLite fixture reaches checkpoint, but receiver-only client rejects that route; generated validation fabricates remote receipt versions.
   learned: general source HTTP exchange and exact actual local record/operation/artifact validation replace those defects. Eight host and eight fresh-image Linux fixtures pass using actual12MiB SQLite data and emulated HTTP; Linux1.157s exit0/container absent/default context unchanged.
