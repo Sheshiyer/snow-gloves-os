@@ -266,6 +266,11 @@ until the actual mini supplies evidence.
   learned: exact pinned metadata plus byte/EOF limits, bounded final-chunk retention, final pinned verification and post-enqueue guards pass22 component checks. Actual owned local R2 streams14,627,035 image-cipher bytes with independent receiver SHA; ciphertext replacement, commit replacement and missing commit all hold.137 transport tests, strict generated Worker types,491 platform passes201 skips12 subtests55.69s and catalog consistency pass.
   criterion now: ISC-47..51 remain open; ciphertext export and receiver digest do not prove plaintext authentication, key custody, owned local import, restore, deployed gateway or physical fleet acceptance.
 
+- 2026-10-06 | conjectured: an owned Linux staging component could publish ciphertext received through a bounded nonblocking descriptor.
+  refuted by: first actual Linux candidate passes7 checks but fails4, including valid pipe/socket staging, the accepted remote receipt schema and malformed-digest redaction. Source review also finds caller FD flag mutation, lost temp inode anchoring and missing post-cleanup guards.
+  learned: staging must reuse the literal accepted receipt fields/keys, account for its own root timestamp changes, retain owned descriptors through publication and cover input validation/cleanup with the same generic held boundary. Original and independent Linux evidence are preserved privately; repair is running, no staging source promoted.
+  criterion now: ISC-47..51 remain open; independent local ciphertext publication, journal binding, restore/key custody and physical/cloud acceptance remain unproved.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
