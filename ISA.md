@@ -371,6 +371,11 @@ until the actual mini supplies evidence.
   learned: preserve the accepted client prefix byte-identically, isolate readonly observations, and require actual-schema assertions before any receiver execution. No fresh-image service or HTTP/R2 recovery acceptance was added.
   criterion now: ISC-47..51 remain open; repair and validate readonly observations before phase assembly and owned runtime execution.
 
+- 2026-10-06 | conjectured: thin receiver and native R2 fixture clients could support the next owned fresh-image recovery proof.
+  refuted by: phase drafts repeated nonexistent imports and validated restored data before restore; R2 cleanup ignored reader-release/server-close faults, and the first subprocess guard failed seven identity/cleanup assertions before child execution.
+  learned: private thin probe now passes eight host/eight Linux phase fixtures with unchanged accepted client prefix; readonly observer passes nineteen host/twenty-two Linux fixtures. R2 cleanup passes ten bounded source assertions; process ownership repair and actual full lifecycle proof remain pending.
+  criterion now: ISC-47..51 remain open; mock HTTP and isolated source assertions do not establish actual fresh-image service, remote or physical acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
