@@ -331,6 +331,11 @@ until the actual mini supplies evidence.
   learned: staging now delegates metadata to the accepted pure validator, rejects nonplain keys/subclasses and adds a final metadata deadline observation; existing filesystem publication code is unchanged. Updated13-module injected proof and575platform passes/252Linux skips/12subtests58.00s/catalogcurrent verify source integration.
   criterion now: ISC-47..51 remain open; source-shared validation is not HTTP import, a new immutable image, cloud deployment or physical/durable fleet acceptance.
 
+- 2026-10-06 | conjectured: the first bounded body bridge could enforce verification and cleanup before a success acknowledgment.
+  refuted by: owned subprocess probes reproduce wrongSHA cleanup deadlock, body-verified despite an unclosed owned writer, rejection of valid monotonic deadlines and body-verified after delayed cleanup exceeds the budget.
+  learned: first bridge remains private/unaccepted; require monotonic observations throughout, no blocking cleanup under shared Lock, explicit producer close states and final post-cleanup Event/deadline checks. All probe children were contained and terminated.
+  criterion now: ISC-47..51 remain open; bridge/service/image integration is held until repaired real-socket/fault evidence exists. Existing accepted metadata/staging and local recovery proofs are unaffected.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -502,3 +507,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-06: Standalone remote cipher metadata validator passes84focused checks and575platform tests,252Linux skips,12subtests57.33s; catalog current. Generic diagnostic redaction repaired. No HTTP/image/cloud/physical acceptance; ISA25/51.
 
 - 2026-10-06: Shared metadata staging refactor accepted after135Linux checks, actual owned native-R2/restore/fresh-process proof and575platform passes,252Linux skips,12subtests58.00s; catalog current. Original immutable image unchanged and modules injected for local proof only. ISA25/51.
+
+- 2026-10-06: First body bridge28564 refuted before promotion by four independent owned socketpair/subprocess faults. No aggregate suite success claimed; no runtime/cloud/physical execution. ISA25/51.
