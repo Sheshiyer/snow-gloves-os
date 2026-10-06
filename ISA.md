@@ -292,6 +292,13 @@ until the actual mini supplies evidence.
   - learned: Validate builtin scalar types on every journal return before full equality and redact ordinary faults in final cancellation/deadline cleanup.
   - criterion_now: Twenty-four actual owned Linux checks pass, including exact 14,627,035-byte image ciphertext with native local R2 receipt, local journal binding and same-inode replay. Platform regression pending; authenticated plaintext, restore, deployment and physical acceptance stay open;25/51 unchanged.
 
+
+- 2026-10-06 owned R2 import restore controller refutation:
+  - conjectured: The first owned controller safely transported receiver code and always reported truthful cleanup.
+  - refuted_by: A dummy ZIP fed to Python source reproduces SyntaxError; a source-probe failure with stubbed Docker calls reproduces UnboundLocalError during cleanup. Static review finds missing receiver finally cleanup and a passed status despite shutdown failure.
+  - learned: Receiver transport must execute an explicit bootstrap; cleanup ownership must begin before resource creation and each cleanup result must gate acceptance independently.
+  - criterion_now: Controller remains private and no runtime container was created. Repair before actual native R2/authenticated restore proof;25/51 unchanged.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
