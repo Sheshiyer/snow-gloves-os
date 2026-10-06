@@ -500,7 +500,7 @@ def test_failure_after_real_journal_commit_is_unknown_not_rollback(valid_setup,m
 
 def test_cancel_between_stage_and_journal_has_no_journal(valid_setup,monkeypatch):
  root,expected,ctx,record,receipt,data,event=valid_setup;original=import_mod.stage_remote_cipher
- def stage(*args):
+ def stage(*args,**kwargs):
   result=original(*args);event.set();return result
  monkeypatch.setattr(import_mod,'stage_remote_cipher',stage)
  with pytest.raises(RuntimeError,match='^Remote cipher import held$'):_cold_import(valid_setup)
@@ -511,9 +511,9 @@ def test_cancel_between_stage_and_journal_has_no_journal(valid_setup,monkeypatch
 def test_caller_mutation_during_stage_does_not_change_bound_identity(valid_setup,monkeypatch):
  root,expected,ctx,record,receipt,data,event=valid_setup;original=import_mod.stage_remote_cipher
  expected_ctx=dict(ctx);expected_record=json.loads(json.dumps(record))
- def stage(*args):
+ def stage(*args,**kwargs):
   ctx['keyId']='mutated-key';record['job_id']='f'*32;record['artifact']['bytes']=999;receipt['object_version']='changed'
-  return original(*args)
+  return original(*args,**kwargs)
  monkeypatch.setattr(import_mod,'stage_remote_cipher',stage)
  result=_cold_import(valid_setup)
  assert result['context']==expected_ctx and result['artifact']==expected_record['artifact']
@@ -544,3 +544,106 @@ def test_cancel_observer_fault_is_redacted_in_final_cleanup(valid_setup):
  event.is_set=broken
  with pytest.raises(RuntimeError,match='^Remote cipher import held$'):_cold_import(valid_setup)
  assert os.listdir(root)==[]
+
+# Independent caller deadline cases use existing real metadata and owned root fixtures.
+def _deadline_pipe(data):
+    readfd,writefd=os.pipe()
+    os.set_blocking(readfd,False)
+    try:
+        assert os.write(writefd,data)==len(data)
+    finally:
+        os.close(writefd)
+    return readfd
+
+@pytest.mark.parametrize("value", [True,False,float("nan"),float("inf"),float("-inf"),100.0,99.0,115.01,type("I",(int,),{})(105),type("F",(float,),{})(105)])
+def test_caller_deadline_invalid_before_root(value,valid_setup,monkeypatch):
+    root,identity,ctx,rec,receipt,data,event=valid_setup
+    fd=_deadline_pipe(data)
+    monkeypatch.setattr(import_mod.time,"monotonic",lambda:100.0)
+    calls=[]
+    monkeypatch.setattr(import_mod,"_verify_root_guard",lambda *args:calls.append(args))
+    try:
+        with pytest.raises(RuntimeError,match="^Remote cipher import held$"):
+            import_remote_cipher_and_bind_journal(root,identity,ctx,rec,receipt,fd,event,deadline=value)
+        assert calls==[]
+        assert os.listdir(root)==[]
+        assert os.read(fd,100)==data
+    finally:os.close(fd)
+
+@pytest.mark.parametrize("explicit",[False,True])
+def test_caller_deadline_propagates_real_stage(explicit,valid_setup,monkeypatch):
+    root,identity,ctx,rec,receipt,data,event=valid_setup
+    fd=_deadline_pipe(data)
+    monkeypatch.setattr(import_mod.time,"monotonic",lambda:100.0)
+    real=import_mod.stage_remote_cipher
+    observed=[]
+    def spy(*args,**kwargs):
+        observed.append(kwargs["deadline"])
+        return real(*args,**kwargs)
+    monkeypatch.setattr(import_mod,"stage_remote_cipher",spy)
+    try:
+        options={"deadline":105.0} if explicit else {}
+        result=import_remote_cipher_and_bind_journal(root,identity,ctx,rec,receipt,fd,event,**options)
+        assert observed==[105.0 if explicit else 115.0]
+        assert result["replay_stage"] is False and result["replay_journal"] is False
+        assert pathlib.Path(root,rec["artifact"]["leaf"]).read_bytes()==data
+    finally:os.close(fd)
+
+def test_caller_deadline_clock_redaction(valid_setup,monkeypatch):
+    import traceback
+    root,identity,ctx,rec,receipt,data,event=valid_setup
+    fd=_deadline_pipe(data)
+    def boom():raise ValueError("SECRET-CLOCK")
+    monkeypatch.setattr(import_mod.time,"monotonic",boom)
+    try:
+        with pytest.raises(RuntimeError,match="^Remote cipher import held$") as caught:
+            import_remote_cipher_and_bind_journal(root,identity,ctx,rec,receipt,fd,event)
+        assert "SECRET-CLOCK" not in "".join(traceback.format_exception(caught.type,caught.value,caught.tb))
+        assert os.listdir(root)==[]
+    finally:os.close(fd)
+
+@pytest.mark.parametrize("excclass",[KeyboardInterrupt,SystemExit,type("KISub",(KeyboardInterrupt,),{}),type("SESub",(SystemExit,),{})])
+def test_caller_deadline_controlflow_original_after_late_guard(excclass,valid_setup,monkeypatch):
+    root,identity,ctx,rec,receipt,data,event=valid_setup
+    fd=_deadline_pipe(data)
+    clock=[100.0]
+    monkeypatch.setattr(import_mod.time,"monotonic",lambda:clock[0])
+    original=excclass("original-controlflow")
+    def boom(*args,**kwargs):
+        clock[0]=106.0
+        raise original
+    monkeypatch.setattr(import_mod,"stage_remote_cipher",boom)
+    try:
+        with pytest.raises(excclass) as caught:
+            import_remote_cipher_and_bind_journal(root,identity,ctx,rec,receipt,fd,event,deadline=105.0)
+        assert caught.value is original
+    finally:os.close(fd)
+
+def test_caller_deadline_late_actual_journal_keeps_prepared(valid_setup,monkeypatch):
+    root,identity,ctx,rec,receipt,data,event=valid_setup
+    fd=_deadline_pipe(data);clock=[100.0]
+    monkeypatch.setattr(import_mod.time,"monotonic",lambda:clock[0])
+    real=LocalJobJournal.prepare
+    def late(self,*args,**kwargs):
+        result=real(self,*args,**kwargs)
+        clock[0]=105.0
+        return result
+    monkeypatch.setattr(LocalJobJournal,"prepare",late)
+    try:
+        with pytest.raises(RuntimeError,match="^Remote cipher import held$"):
+            import_remote_cipher_and_bind_journal(root,identity,ctx,rec,receipt,fd,event,deadline=105.0)
+        assert pathlib.Path(root,rec["artifact"]["leaf"]).read_bytes()==data
+        assert LocalJobJournal(root).lookup(rec["job_id"],rec["request_digest"])["state"]=="prepared"
+    finally:os.close(fd)
+
+def test_stage_original_deadline_actual_wait(valid_setup):
+    root,identity,ctx,rec,receipt,data,event=valid_setup
+    readfd,writefd=os.pipe();os.set_blocking(readfd,False)
+    start=time.monotonic()
+    try:
+        with pytest.raises(RuntimeError,match="^Remote cipher staging held$"):
+            import_mod.stage_remote_cipher(root,identity,ctx,rec,receipt,readfd,event,deadline=start+0.1)
+        assert 0.07 <= time.monotonic()-start < 1.0
+        assert not pathlib.Path(root,rec["artifact"]["leaf"]).exists()
+    finally:
+        os.close(writefd);os.close(readfd)

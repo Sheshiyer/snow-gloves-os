@@ -185,24 +185,34 @@ def stage_remote_cipher(
     receipt: dict[str, Any],
     input_fd: int,
     cancel_event: threading.Event,
+    *,
+    deadline=None,
 ) -> dict[str, Any]:
-    start_time = time.monotonic()
-    deadline = start_time + _TIMEOUT_SECONDS
-
     root_fd: int | None = None
     dup_in_fd: int | None = None
     temp_fd: int | None = None
     temp_name: str | None = None
     existing_fd: int | None = None
     final_fd: int | None = None
+    effective_deadline: float | None = None
     cleanup_failed = False
 
     try:
-        _check_deadline_cancel(deadline, cancel_event)
+        start_time = time.monotonic()
+        if deadline is None:
+            effective_deadline = start_time + _TIMEOUT_SECONDS
+        else:
+            if (type(deadline) is not int and type(deadline) is not float) or isinstance(deadline, bool):
+                _hold()
+            if not (deadline > start_time) or deadline > start_time + _TIMEOUT_SECONDS:
+                _hold()
+            effective_deadline = deadline
+
+        _check_deadline_cancel(effective_deadline, cancel_event)
         validated_ctx, validated_rec, validated_rcpt, job_id, req_digest, art, exp_id = _validate_inputs(
-            root_path, expected_identity, context, record, receipt, input_fd, cancel_event, deadline
+            root_path, expected_identity, context, record, receipt, input_fd, cancel_event, effective_deadline
         )
-        v_root = _validate_root_path(root_path, deadline, cancel_event)
+        v_root = _validate_root_path(root_path, effective_deadline, cancel_event)
 
         try:
             caller_flags = fcntl.fcntl(input_fd, fcntl.F_GETFL)
@@ -250,7 +260,7 @@ def stage_remote_cipher(
         except Exception:
             _hold()
 
-        _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
+        _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
 
         final_exists = False
         try:
@@ -276,15 +286,15 @@ def stage_remote_cipher(
                 if _full_sig(st_f1) != _full_sig(st_named1):
                     _hold()
 
-                _stream_hash_and_verify(existing_fd, expected_size, expected_sha, deadline, cancel_event)
+                _stream_hash_and_verify(existing_fd, expected_size, expected_sha, effective_deadline, cancel_event)
 
                 st_f2 = os.fstat(existing_fd)
                 st_named2 = os.lstat(final_leaf, dir_fd=root_fd)
                 if _full_sig(st_f1) != _full_sig(st_f2) or _full_sig(st_f1) != _full_sig(st_named2):
                     _hold()
 
-                _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
-                _validate_root_path(v_root, deadline, cancel_event)
+                _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
+                _validate_root_path(v_root, effective_deadline, cancel_event)
 
                 return {
                     "schema": "sg.local-cipher-stage.v1",
@@ -309,7 +319,7 @@ def stage_remote_cipher(
         except Exception:
             _hold()
 
-        _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
+        _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
 
         try:
             flags_before = fcntl.fcntl(input_fd, fcntl.F_GETFL)
@@ -331,10 +341,10 @@ def stage_remote_cipher(
             _hold()
 
         for attempt in range(8):
-            _check_deadline_cancel(deadline, cancel_event)
+            _check_deadline_cancel(effective_deadline, cancel_event)
             tok = secrets.token_hex(8)
             candidate_temp = f".sg-remote-stage-{job_id}-{tok}.part"
-            _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
+            _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
             try:
                 temp_fd = os.open(
                     candidate_temp,
@@ -365,21 +375,21 @@ def stage_remote_cipher(
             _hold()
 
         def verify_owned_temp():
-            _check_deadline_cancel(deadline, cancel_event)
+            _check_deadline_cancel(effective_deadline, cancel_event)
             current = os.fstat(temp_fd)
             named = os.lstat(temp_name, dir_fd=root_fd)
             if (current.st_dev, current.st_ino, current.st_uid, current.st_mode) != (st_t_init.st_dev, st_t_init.st_ino, st_t_init.st_uid, st_t_init.st_mode):
                 _hold()
             if current.st_nlink != 1 or current.st_size > expected_size or _full_sig(current) != _full_sig(named):
                 _hold()
-            _check_deadline_cancel(deadline, cancel_event)
+            _check_deadline_cancel(effective_deadline, cancel_event)
 
         hasher = hashlib.sha256()
         bytes_written = 0
 
         while True:
-            _check_deadline_cancel(deadline, cancel_event)
-            rem = deadline - time.monotonic()
+            _check_deadline_cancel(effective_deadline, cancel_event)
+            rem = effective_deadline - time.monotonic()
             if rem <= 0:
                 _hold()
             timeout_poll = min(0.05, rem)
@@ -389,7 +399,7 @@ def stage_remote_cipher(
                 raise
             except Exception:
                 _hold()
-            _check_deadline_cancel(deadline, cancel_event)
+            _check_deadline_cancel(effective_deadline, cancel_event)
             if not r_ready:
                 continue
 
@@ -413,8 +423,8 @@ def stage_remote_cipher(
 
             view = memoryview(chunk)
             while len(view) > 0:
-                _check_deadline_cancel(deadline, cancel_event)
-                _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
+                _check_deadline_cancel(effective_deadline, cancel_event)
+                _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
                 verify_owned_temp()
                 try:
                     nw = os.write(temp_fd, view)
@@ -422,7 +432,7 @@ def stage_remote_cipher(
                     raise
                 except Exception:
                     _hold()
-                _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
+                _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
                 verify_owned_temp()
                 if nw <= 0:
                     _hold()
@@ -434,8 +444,8 @@ def stage_remote_cipher(
         if bytes_written != expected_size or hasher.hexdigest() != expected_sha:
             _hold()
 
-        _check_deadline_cancel(deadline, cancel_event)
-        _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
+        _check_deadline_cancel(effective_deadline, cancel_event)
+        _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
         verify_owned_temp()
         try:
             os.fsync(temp_fd)
@@ -443,9 +453,9 @@ def stage_remote_cipher(
             raise
         except Exception:
             _hold()
-        _check_deadline_cancel(deadline, cancel_event)
+        _check_deadline_cancel(effective_deadline, cancel_event)
 
-        _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
+        _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
 
         st_t_pre = os.fstat(temp_fd)
         st_t_named_pre = os.lstat(temp_name, dir_fd=root_fd)
@@ -458,15 +468,15 @@ def stage_remote_cipher(
         if _full_sig(st_t_pre) != _full_sig(st_t_named_pre):
             _hold()
 
-        _stream_hash_and_verify(temp_fd, expected_size, expected_sha, deadline, cancel_event)
+        _stream_hash_and_verify(temp_fd, expected_size, expected_sha, effective_deadline, cancel_event)
 
         st_t_pre2 = os.fstat(temp_fd)
         st_t_named_pre2 = os.lstat(temp_name, dir_fd=root_fd)
         if _full_sig(st_t_pre) != _full_sig(st_t_pre2) or _full_sig(st_t_pre) != _full_sig(st_t_named_pre2):
             _hold()
 
-        _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
-        _check_deadline_cancel(deadline, cancel_event)
+        _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
+        _check_deadline_cancel(effective_deadline, cancel_event)
 
         try:
             os.link(temp_name, final_leaf, src_dir_fd=root_fd, dst_dir_fd=root_fd, follow_symlinks=False)
@@ -475,7 +485,7 @@ def stage_remote_cipher(
         except Exception:
             _hold()
 
-        _check_deadline_cancel(deadline, cancel_event)
+        _check_deadline_cancel(effective_deadline, cancel_event)
 
         st_t_post_fd = os.fstat(temp_fd)
         st_t_post_named = os.lstat(temp_name, dir_fd=root_fd)
@@ -511,9 +521,9 @@ def stage_remote_cipher(
         if _full_sig(st_t_post_fd) != _full_sig(st_f_post):
             _hold()
 
-        _check_deadline_cancel(deadline, cancel_event)
+        _check_deadline_cancel(effective_deadline, cancel_event)
 
-        _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
+        _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
         try:
             os.unlink(temp_name, dir_fd=root_fd)
         except (KeyboardInterrupt, SystemExit):
@@ -521,7 +531,7 @@ def stage_remote_cipher(
         except Exception:
             _hold()
 
-        _check_deadline_cancel(deadline, cancel_event)
+        _check_deadline_cancel(effective_deadline, cancel_event)
 
         try:
             os.fsync(root_fd)
@@ -530,7 +540,7 @@ def stage_remote_cipher(
         except Exception:
             _hold()
 
-        _check_deadline_cancel(deadline, cancel_event)
+        _check_deadline_cancel(effective_deadline, cancel_event)
 
         try:
             final_fd = os.open(final_leaf, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=root_fd)
@@ -547,7 +557,7 @@ def stage_remote_cipher(
             if _full_sig(st_f_final1) != _full_sig(st_f_final_named1):
                 _hold()
 
-            _stream_hash_and_verify(final_fd, expected_size, expected_sha, deadline, cancel_event)
+            _stream_hash_and_verify(final_fd, expected_size, expected_sha, effective_deadline, cancel_event)
 
             st_f_final2 = os.fstat(final_fd)
             st_f_final_named2 = os.lstat(final_leaf, dir_fd=root_fd)
@@ -561,9 +571,9 @@ def stage_remote_cipher(
                     cleanup_failed = True
                 final_fd = None
 
-        _verify_root_guard(v_root, root_fd, exp_id, deadline, cancel_event)
-        _validate_root_path(v_root, deadline, cancel_event)
-        _check_deadline_cancel(deadline, cancel_event)
+        _verify_root_guard(v_root, root_fd, exp_id, effective_deadline, cancel_event)
+        _validate_root_path(v_root, effective_deadline, cancel_event)
+        _check_deadline_cancel(effective_deadline, cancel_event)
 
         return {
             "schema": "sg.local-cipher-stage.v1",
@@ -579,34 +589,50 @@ def stage_remote_cipher(
     except Exception:
         _hold()
     finally:
-        if dup_in_fd is not None:
-            try:
-                os.close(dup_in_fd)
-            except Exception:
-                cleanup_failed = True
-        if temp_fd is not None:
-            try:
-                os.close(temp_fd)
-            except Exception:
-                cleanup_failed = True
-        if existing_fd is not None:
-            try:
-                os.close(existing_fd)
-            except Exception:
-                cleanup_failed = True
-        if final_fd is not None:
-            try:
-                os.close(final_fd)
-            except Exception:
-                cleanup_failed = True
-        if root_fd is not None:
-            try:
-                fcntl.flock(root_fd, fcntl.LOCK_UN)
-            except Exception:
-                cleanup_failed = True
-            try:
-                os.close(root_fd)
-            except Exception:
-                cleanup_failed = True
-        if cleanup_failed or type(cancel_event) is not threading.Event or cancel_event.is_set() or time.monotonic() >= deadline:
+        exc_type, exc_val, exc_tb = sys.exc_info()
+        try:
+            if dup_in_fd is not None:
+                try:
+                    os.close(dup_in_fd)
+                except Exception:
+                    cleanup_failed = True
+            if temp_fd is not None:
+                try:
+                    os.close(temp_fd)
+                except Exception:
+                    cleanup_failed = True
+            if existing_fd is not None:
+                try:
+                    os.close(existing_fd)
+                except Exception:
+                    cleanup_failed = True
+            if final_fd is not None:
+                try:
+                    os.close(final_fd)
+                except Exception:
+                    cleanup_failed = True
+            if root_fd is not None:
+                try:
+                    fcntl.flock(root_fd, fcntl.LOCK_UN)
+                except Exception:
+                    cleanup_failed = True
+                try:
+                    os.close(root_fd)
+                except Exception:
+                    cleanup_failed = True
+            should_hold = cleanup_failed
+            if effective_deadline is not None:
+                if type(cancel_event) is not threading.Event or cancel_event.is_set() or time.monotonic() >= effective_deadline:
+                    should_hold = True
+            if should_hold:
+                if isinstance(exc_val, (KeyboardInterrupt, SystemExit)):
+                    raise exc_val.with_traceback(exc_tb)
+                _hold()
+        except (KeyboardInterrupt, SystemExit):
+            if isinstance(exc_val, (KeyboardInterrupt, SystemExit)):
+                raise exc_val.with_traceback(exc_tb)
+            raise
+        except Exception:
+            if isinstance(exc_val, (KeyboardInterrupt, SystemExit)):
+                raise exc_val.with_traceback(exc_tb)
             _hold()

@@ -141,12 +141,23 @@ def import_remote_cipher_and_bind_journal(
     receipt: dict[str, Any],
     input_fd: int,
     cancel_event: threading.Event,
+    *,
+    deadline=None,
 ) -> dict[str, Any]:
-    start_time = time.monotonic()
-    deadline = start_time + _TIMEOUT_SECONDS
+    effective_deadline: float | None = None
 
     try:
-        _check_deadline_cancel(deadline, cancel_event)
+        start_time = time.monotonic()
+        if deadline is None:
+            effective_deadline = start_time + _TIMEOUT_SECONDS
+        else:
+            if (type(deadline) is not int and type(deadline) is not float) or isinstance(deadline, bool):
+                _hold()
+            if not (deadline > start_time) or deadline > start_time + _TIMEOUT_SECONDS:
+                _hold()
+            effective_deadline = deadline
+
+        _check_deadline_cancel(effective_deadline, cancel_event)
 
         if type(expected_identity) is not tuple or len(expected_identity) != 4:
             _hold()
@@ -233,7 +244,7 @@ def import_remote_cipher_and_bind_journal(
             "commit_version": receipt["commit_version"],
         }
 
-        _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+        _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
 
         try:
             stage_res = stage_remote_cipher(
@@ -244,14 +255,15 @@ def import_remote_cipher_and_bind_journal(
                 copied_rcpt,
                 input_fd,
                 cancel_event,
+                deadline=effective_deadline,
             )
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception:
             _hold()
 
-        _check_deadline_cancel(deadline, cancel_event)
-        _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+        _check_deadline_cancel(effective_deadline, cancel_event)
+        _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
 
         stage_keys = {"schema", "state", "context", "job_id", "request_digest", "artifact", "replay_historical"}
         if type(stage_res) is not dict or len(stage_res) != 7 or set(stage_res.keys()) != stage_keys:
@@ -287,7 +299,7 @@ def import_remote_cipher_and_bind_journal(
             "artifact": dict(bound_art),
         }
 
-        _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+        _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
         try:
             journal = LocalJobJournal(root_path)
         except (KeyboardInterrupt, SystemExit):
@@ -295,14 +307,14 @@ def import_remote_cipher_and_bind_journal(
         except Exception:
             _hold()
 
-        _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+        _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
         try:
             existing_rec = journal.lookup(bound_job_id, bound_req_digest)
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception:
             _hold()
-        _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+        _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
 
         replay_journal_flag = False
 
@@ -324,24 +336,24 @@ def import_remote_cipher_and_bind_journal(
 
         if not replay_journal_flag:
             if replay_stage_flag:
-                _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+                _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
                 try:
                     preflight(root_path, exp_id, "checkpoint_encrypt", StorageBudget())
                 except (KeyboardInterrupt, SystemExit):
                     raise
                 except Exception:
                     _hold()
-                _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+                _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
 
             if existing_rec is None:
-                _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+                _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
                 try:
                     prep_res = journal.prepare(bound_job_id, bound_req_digest)
                 except (KeyboardInterrupt, SystemExit):
                     raise
                 except Exception:
                     _hold()
-                _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+                _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
                 if type(prep_res) is not dict or len(prep_res) != 5 or set(prep_res.keys()) != {"schema", "job_id", "request_digest", "state", "artifact"}:
                     _hold()
                 if prep_res["schema"] != "sg.local-job.v1" or prep_res["job_id"] != bound_job_id or prep_res["request_digest"] != bound_req_digest:
@@ -355,7 +367,7 @@ def import_remote_cipher_and_bind_journal(
                 else:
                     _hold()
 
-            _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+            _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
             try:
                 rec_res = journal.record_artifact(
                     bound_job_id,
@@ -368,18 +380,18 @@ def import_remote_cipher_and_bind_journal(
                 raise
             except Exception:
                 _hold()
-            _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+            _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
             if not _verified_record_matches(rec_res, expected_verified_record):
                 _hold()
 
-        _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+        _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
         try:
             final_lookup = journal.lookup(bound_job_id, bound_req_digest)
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception:
             _hold()
-        _verify_root_guard(root_path, exp_id, deadline, cancel_event)
+        _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
         if not _verified_record_matches(final_lookup, expected_verified_record):
             _hold()
 
@@ -394,17 +406,23 @@ def import_remote_cipher_and_bind_journal(
             "replay_journal": replay_journal_flag,
         }
 
-        _verify_root_guard(root_path, exp_id, deadline, cancel_event)
-        _check_deadline_cancel(deadline, cancel_event)
+        _verify_root_guard(root_path, exp_id, effective_deadline, cancel_event)
+        _check_deadline_cancel(effective_deadline, cancel_event)
         return result
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception:
         _hold()
     finally:
+        exc_type, exc_val, exc_tb = sys.exc_info()
         try:
-            _check_deadline_cancel(deadline, cancel_event)
+            if effective_deadline is not None:
+                _check_deadline_cancel(effective_deadline, cancel_event)
         except (KeyboardInterrupt, SystemExit):
+            if isinstance(exc_val, (KeyboardInterrupt, SystemExit)):
+                raise exc_val.with_traceback(exc_tb)
             raise
         except Exception:
+            if isinstance(exc_val, (KeyboardInterrupt, SystemExit)):
+                raise exc_val.with_traceback(exc_tb)
             _hold()

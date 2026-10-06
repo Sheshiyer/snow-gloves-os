@@ -341,6 +341,11 @@ until the actual mini supplies evidence.
   learned: exact boolean result flags, ordinary unique headers, canonical metadata revalidation and plain integer byte counts are required. Narrow isolated correction plus independent boundary/type/redaction probes passes49focused checks; isolated exact-source platform671passes252Linuxskips12subtests55.65s/catalogcurrent.
   criterion now: ISC-47..51 remain open; pure source contract is accepted, but caller-deadline seam, request registry, HTTP/service/image closure and cloud/physical acceptance remain unproved.
 
+- 2026-10-06 | conjectured: the import wrapper alone could accept the original HTTP deadline because staging already exposed that seam.
+  refuted by: actual staging API had its own15s clock and no deadline parameter; owned Linux probes also reproduced KI/SystemExit subclasses masked by a late cleanup guard.
+  learned: both source APIs now accept an optional keyword deadline, validate the plain bounded future value and share the wrapper effective deadline explicitly. Native narrow controlflow correction preserves subclasses; old test spies forward the keyword.70ownedLinux checks0.26s include actual blocked pipe and late prepared-journal retention;671platform passes271Linuxskips12subtests56.34s/catalogcurrent.
+  criterion now: ISC-47..51 remain open; deadline source seam is accepted, request registry and HTTP/service/image/cloud/physical closure remain unproved.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -527,3 +532,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 Host isolated47checks pass3.94s; owned Linux47checks pass7.61s with containerabsence verified. Source module copied byte-identically; portable test child source reconstructed exactly from tested fixtures. Catalog current. Full platform regression session20373 passes622tests,252Linux skips and12subtests in64.34s; catalog current. ISA remains25/51, no new criterion closure.
 
 - 2026-10-06: Pure HTTP import helper source accepted after49focused cases and isolated publicHEAD+candidate regression671passed252skipped12subtests55.65s;catalogcurrent. Exact two-file SHA recorded privately. No HTTP route or service/image/live activation; ISA25/51 unchanged.
+
+- 2026-10-06: Shared caller deadline source integrated after70ownedLinux checks0.26s/ownedcontainerabsencehealthy and isolated671platform passes271Linuxskips12subtests56.34s/catalogcurrent. Default callers retain15s; same earlier caller budget reaches actual staging. No HTTP/service/image/cloud/physical activation; ISA25/51.
