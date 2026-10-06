@@ -11,18 +11,24 @@ import select
 import socket
 import threading
 import time
-from typing import Any, Callable
+from typing import Any, Callable, TYPE_CHECKING
 
-from lib.runtime_management_http import KEY_RE, OperationGate, _ManagementHandler, _BoundedHeaderReader, create_management_server
+if TYPE_CHECKING:
+    from .runtime_cipher_export import CheckpointExportReader
+
+try:
+    from .runtime_management_http import KEY_RE, OperationGate, _ManagementHandler, _BoundedHeaderReader, create_management_server
+except ImportError:
+    from lib.runtime_management_http import KEY_RE, OperationGate, _ManagementHandler, _BoundedHeaderReader, create_management_server
 
 
 class _BoundedUpstreamResponse(http.client.HTTPResponse):
-    def __init__(self, sock, *args, deadline, **kwargs):
+    def __init__(self, sock: socket.socket, *args: Any, deadline: float, **kwargs: Any) -> None:
         self._owned_socket = sock
         self._deadline = deadline
         super().__init__(sock, *args, **kwargs)
 
-    def begin(self):
+    def begin(self) -> None:
         original = self.fp
         reader = _BoundedHeaderReader(original, self._owned_socket, self._deadline, limit=32768)
         reader.close = original.close
@@ -32,6 +38,7 @@ class _BoundedUpstreamResponse(http.client.HTTPResponse):
         finally:
             if self.fp is reader:
                 self.fp = original
+
 
 class _ManagedProxyHandler(_ManagementHandler):
     def _check_raw_path(self, expected: str) -> bool:
@@ -85,8 +92,11 @@ class _ManagedProxyHandler(_ManagementHandler):
                 return
             self._forward_backend("GET", "/v1/models", None)
             return
-        if self.path in ("/_management/checkpoint", "/_management/restore", "/v1/chat/completions"):
+        if self.path in ("/_management/checkpoint", "/_management/restore", "/_management/export", "/v1/chat/completions"):
             if not self._validate_auth() and not self._validate_backend_auth():
+                self._send_response_raw(401, "text/plain; charset=utf-8", b"Unauthorized")
+                return
+            if self.path == "/_management/export" and not self._validate_auth():
                 self._send_response_raw(401, "text/plain; charset=utf-8", b"Unauthorized")
                 return
             self._send_response_raw(405, "text/plain; charset=utf-8", b"Method Not Allowed")
@@ -98,7 +108,7 @@ class _ManagedProxyHandler(_ManagementHandler):
         if "?" in raw or "%" in raw or "//" in raw:
             self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
             return
-        if self.path in ("/_management/checkpoint", "/_management/restore"):
+        if self.path in ("/_management/checkpoint", "/_management/restore", "/_management/export"):
             super().do_POST()
             return
         if self.path == "/v1/chat/completions":
@@ -163,7 +173,7 @@ class _ManagedProxyHandler(_ManagementHandler):
             self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
             return None
         try:
-            def _pairs(pairs: list[tuple[str, Any]]) -> dict:
+            def _pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
                 seen: set[str] = set()
                 res = {}
                 for k, v in pairs:
@@ -240,7 +250,6 @@ class _ManagedProxyHandler(_ManagementHandler):
                 self._send_response_raw(status, "application/json", bytes(resp_body))
                 return
 
-            # SSE Streaming path
             try:
                 stream_headers_started = True
                 self.send_response(status)
@@ -257,7 +266,7 @@ class _ManagedProxyHandler(_ManagementHandler):
             upstream_socket = resp.fp.raw._sock
             upstream_socket.settimeout(30.0)
 
-            def _offer(item):
+            def _offer(item: bytes | None | Exception) -> None:
                 while not stop_ev.is_set():
                     try:
                         q.put(item, timeout=0.1)
@@ -367,10 +376,23 @@ class _ManagedProxyHandler(_ManagementHandler):
                 self.server.gate.end_stream(token)
 
 
-def create_managed_server(checkpoint: Callable[[dict], dict], restore: Callable[[dict], dict],
-                          health_probe: Callable[[], bool], management_key: str, backend_key: str, storage_key: str,
-                          *, operation_context: dict, upstream_port: int, host: str = "127.0.0.1",
-                          port: int = 0, gate: OperationGate | None = None, upstream_timeout: float = 30.0, admission_probe: Callable[[], bool] | None = None) -> Any:
+def create_managed_server(
+    checkpoint: Callable[[dict[str, Any]], dict[str, Any]],
+    restore: Callable[[dict[str, Any]], dict[str, Any]],
+    health_probe: Callable[[], bool],
+    management_key: str,
+    backend_key: str,
+    storage_key: str,
+    *,
+    operation_context: dict[str, Any],
+    upstream_port: int,
+    export_cb: Callable[[dict[str, Any]], CheckpointExportReader] | None = None,
+    host: str = "127.0.0.1",
+    port: int = 0,
+    gate: OperationGate | None = None,
+    upstream_timeout: float = 30.0,
+    admission_probe: Callable[[], bool] | None = None,
+) -> Any:
     if isinstance(upstream_timeout, bool) or not isinstance(upstream_timeout, (int, float)) or not math.isfinite(upstream_timeout) or not 0.05 <= upstream_timeout <= 30:
         raise ValueError("Invalid upstream timeout")
     if admission_probe is not None and not callable(admission_probe):
@@ -379,8 +401,18 @@ def create_managed_server(checkpoint: Callable[[dict], dict], restore: Callable[
         raise ValueError("health_probe must be callable")
     if isinstance(upstream_port, bool) or not isinstance(upstream_port, int) or upstream_port < 1 or upstream_port > 65535:
         raise ValueError("upstream_port must be int in 1..65535")
-    server = create_management_server(checkpoint, restore, management_key, backend_key, storage_key,
-                                      operation_context=operation_context, host=host, port=port, gate=gate)
+    server = create_management_server(
+        checkpoint,
+        restore,
+        management_key,
+        backend_key,
+        storage_key,
+        operation_context=operation_context,
+        export_cb=export_cb,
+        host=host,
+        port=port,
+        gate=gate,
+    )
     bound_port = server.server_address[1]
     if bound_port == upstream_port:
         server.server_close()

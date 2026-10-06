@@ -226,6 +226,11 @@ until the actual mini supplies evidence.
   learned: strict Event validation, redacted public boundaries, iterator-finally cleanup and final named journal comparison repair those failures.27 actual owned Linux checks0.744s pass including max ciphertext, two-pass hashes, cancellation, namespace changes and zero file effects.
   criterion now: ISC-47..51 remain open; standalone source proof does not establish HTTP wiring, current image inclusion, remote custody or physical acceptance.
 
+- 2026-10-06 | conjectured: authenticated HTTP export could reuse the accepted reader without changing existing listener behavior.
+  refuted by: owned Linux probes reproduce a factory keyword mismatch, late header emission, a cleanup fault appending a second HTTP status and eager imports breaking the existing package without its optional reader.
+  learned: corrected API, absolute header-write checks, export-boundary cleanup containment and lazy optional-reader loading repair these failures.95 actual owned Linux checks61.425s pass across export, reader and existing listeners, including real blocked-client deadline and disconnect cleanup.
+  criterion now: ISC-47..51 remain open; optional generic HTTP source does not enable managed service, bundle the current image, commit remote custody or accept physical fleet operation.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
