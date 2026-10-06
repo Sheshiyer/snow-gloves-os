@@ -311,6 +311,11 @@ until the actual mini supplies evidence.
   learned: narrow controller repairs pass five controlled fault cases; actual fresh immutable-image checkpoint through native local R2 download, current public import/journal modules and real AES-GCM/SQLite receiver restore passes. Wrong key causes one decrypt and zero restore; valid key one decrypt/one restore; historical replay preserves completed intent and receiver identity; original receiver group and owned source container/volume are absent after clean shutdown.
   criterion now: ISC-47..51 remain open; current modules were injected into an owned image for local proof, not service-wired/image-bundled, cloud-deployed or physical/durable fleet accepted.
 
+- 2026-10-06 | conjectured: replay might rely on coordinator state retained in the first Python process.
+  refuted by: a separate owned Python process reconstructs public import/journal/supervisor/coordinator objects after receiver shutdown and accepts the same completed restore identity without new decryption or mutation.
+  learned: actual retained ciphertext inode, artifact journal, completed intent, restored row/blob/SQLite integrity and zero-provider state survive orderly local process recovery; restarted process/group shutdown and outer cleanup pass.
+  criterion now: ISC-49 remains open for durable fleet interruption; local orderly process recovery does not prove physical reboot, interruption during mutation or deployed cloud session recovery. ISC-47..51 remain open.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -476,3 +481,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-06 standalone local remote ciphertext import source integrated byte-identically to the privately preserved candidate. Twenty-four actual Linux checks include 14,627,035-byte owned image ciphertext/native local R2 receipt, journal binding, concurrent replay, quota ordering and cancellation faults. Full platform regression:491 passed,252 Linux skips,12 subtests in56.45s;catalogcurrent. No authenticated plaintext, restore intent, image/service wiring, deployment or physical acceptance;25/51 unchanged.
 
 - 2026-10-06: Fresh local R2 import/restore chain passed: 14,627,035 bytes, cipher SHA256 d73cb575d999832653e94289a1cf8dad40c763c37cad12e20a06b5ee0f7721e0; native R2 object/commit versions retained in private proof. Wrong-key denial, actual valid restore, historical replay, SQLite integrity, zero providers and owned cleanup verified. Five separate controller fault simulations pass. ISA remains25/51; no cloud/physical acceptance.
+
+- 2026-10-06: Owned fresh-process recovery session5315 passed; imported ciphertext/journal replay and completed restore intent retained, zero new decrypt/restore calls, actual SQLite and process/group cleanup verified. ISA remains25/51.
