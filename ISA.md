@@ -285,6 +285,13 @@ until the actual mini supplies evidence.
   - learned: Every returned record needs exact full identity validation; prepared and independently verified same-job prepare returns are both legitimate concurrent outcomes.
   - criterion_now: Candidate remains private with two reproducible failing probes pending repair. Local source evidence does not close journal orchestrator, authenticated recovery, cloud or physical acceptance; progress stays25/51.
 
+
+- 2026-10-06 local import repaired candidate proof:
+  - conjectured: Full returned-record equality was sufficient to preserve binding authority and cleanup redaction.
+  - refuted_by: A one-byte final readback admitted boolean True through Python integer equality; a cancellation-observer fault escaped the final cleanup with its diagnostic.
+  - learned: Validate builtin scalar types on every journal return before full equality and redact ordinary faults in final cancellation/deadline cleanup.
+  - criterion_now: Twenty-four actual owned Linux checks pass, including exact 14,627,035-byte image ciphertext with native local R2 receipt, local journal binding and same-inode replay. Platform regression pending; authenticated plaintext, restore, deployment and physical acceptance stay open;25/51 unchanged.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -446,3 +453,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-06 standalone local cipher staging source integrated byte-identically to the privately preserved candidate. Twenty-nine owned Linux checks include actual image ciphertext/R2 receipt and same-inode replay; full host platform regression: 491 passed, 229 Linux skips, 12 subtests passed in 57.49s; catalog current. No journal binding, image bundling, authenticated plaintext, deployment or physical acceptance; 25/51 unchanged.
 
 - 2026-10-06 owned local journal seam probe: actual image ciphertext is staged and then bound through unchanged LocalJobJournal prepare/record_artifact/lookup APIs after the staging root lock releases. Identical journal replay and ciphertext inode preservation pass within 29 Linux checks (0.37s). This is local API sequence evidence, not a promoted import orchestrator or authenticated restore; 25/51 unchanged.
+
+- 2026-10-06 standalone local remote ciphertext import source integrated byte-identically to the privately preserved candidate. Twenty-four actual Linux checks include 14,627,035-byte owned image ciphertext/native local R2 receipt, journal binding, concurrent replay, quota ordering and cancellation faults. Full platform regression:491 passed,252 Linux skips,12 subtests in56.45s;catalogcurrent. No authenticated plaintext, restore intent, image/service wiring, deployment or physical acceptance;25/51 unchanged.
