@@ -251,6 +251,11 @@ until the actual mini supplies evidence.
   learned: corrected read-only verifier binds copied identity and optional pinned versions, bounds canonical commit readback and repeats named cipher/commit heads.21Node checks/strict Workers types and actual local R2 image-cipher identity/pinned verification pass; actual object/commit mutations are held without runtime fetch.
   criterion now: ISC-47..51 remain open; metadata readback is not AES authenticity, artifact download, durable job storage, company deployment, key custody or physical recovery.
 
+- 2026-10-06 | conjectured: repaired durable confirmation validation would stop with the shared cancellation guard.
+  refuted by: independent stalled digest probe returned a hold but started a fourth digest after cancellation instead of stopping at three.
+  learned: stored-job hash validation now races each digest against the shared deadline and checks cancellation between observations.16 Node checks, strict actual Worker types, and owned native SQLite Durable Object/R2 dispose-recreate same-job receipt proof pass; replaced remote version is held. Candidate remains private pending broader review and integration.
+  criterion now: ISC-47..51 remain open; local Durable Object persistence does not establish deployed gateway, physical recovery or fleet handoff acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
