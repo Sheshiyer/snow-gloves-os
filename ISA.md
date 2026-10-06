@@ -361,6 +361,11 @@ until the actual mini supplies evidence.
   learned: startup-root/IMODE closure forwards the required original deadline/Event through bounded shared-lock acquisition; registry cancellation precedes gate closure in normal cleanup, unknown ownership blocks child stop, and first control flow survives cleanup. Unhandled interruption now returns redacted failure; normal signal Event shutdown remains clean.68host and68ownedLinux focused checks plus4subtests each pass;738platform checks271Linux skips16subtests59.65s/catalogcurrent. Image recipe includes actual import/stage dependencies; no new image built.
   criterion now: ISC-47..51 remain open; service wiring is accepted source only. Exact-source immutable image, actual R2 ciphertext HTTP import/restore/replay/separate-process recovery, company scoped runtime, provider admission and physical fleet acceptance remain unproved.
 
+- 2026-10-06 | conjectured: adding import modules to Docker COPY completed the future image source inputs.
+  refuted by: direct COPY/ignore reconciliation found all six new modules excluded by the existing deny-all Dockerfile.dockerignore.
+  learned: added only the six exact module allowlist entries; fresh immutable build and in-image source hashes must prove packaging instead of inferring it from COPY.
+  criterion now: ISC-47..51 remain open; source input repair is not a successful image build, runtime or physical acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
