@@ -316,6 +316,11 @@ until the actual mini supplies evidence.
   learned: actual retained ciphertext inode, artifact journal, completed intent, restored row/blob/SQLite integrity and zero-provider state survive orderly local process recovery; restarted process/group shutdown and outer cleanup pass.
   criterion now: ISC-49 remains open for durable fleet interruption; local orderly process recovery does not prove physical reboot, interruption during mutation or deployed cloud session recovery. ISC-47..51 remain open.
 
+- 2026-10-06 | conjectured: the first managed import plan could bridge HTTP framing directly into the standalone importer.
+  refuted by: current source shows an outer15s total wrapper deadline and fast replay that consumes no pipe input; initial plan incorrectly allowed30s and could strand a producer on replay.
+  learned: require canonical pure metadata validation before body effects, bounded replay-aware drain with independent body count/hash, exact result/FD/worker cleanup and explicit import cancellation. Reviewed contract stages validator, bridge, service wiring and immutable-image proof independently.
+  criterion now: ISC-47..51 remain open; the integration contract is planning, not implemented HTTP/image/cloud/physical acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
