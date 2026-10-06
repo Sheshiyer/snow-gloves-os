@@ -326,6 +326,11 @@ until the actual mini supplies evidence.
   learned: corrected fixtures and unconditional redaction for ordinary exceptions pass84focused host checks, including canonical type/key/alias/version/parity and control-flow faults. Standalone source passes575platform tests/252Linux skips/12subtests57.33s and catalog consistency.
   criterion now: ISC-47..51 remain open; validator is standalone source, not yet shared by staging or service-wired/image-bundled/cloud/physical accepted.
 
+- 2026-10-06 | conjectured: sharing canonical metadata rules might change the accepted filesystem staging and replay behavior.
+  refuted by:135Linux stage/import/metadata checks and actual fresh local R2/download/import/real restore/fresh-process replay pass while retaining owned root/FD/Event guards and cleanup.
+  learned: staging now delegates metadata to the accepted pure validator, rejects nonplain keys/subclasses and adds a final metadata deadline observation; existing filesystem publication code is unchanged. Updated13-module injected proof and575platform passes/252Linux skips/12subtests58.00s/catalogcurrent verify source integration.
+  criterion now: ISC-47..51 remain open; source-shared validation is not HTTP import, a new immutable image, cloud deployment or physical/durable fleet acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -495,3 +500,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-06: Owned fresh-process recovery session5315 passed; imported ciphertext/journal replay and completed restore intent retained, zero new decrypt/restore calls, actual SQLite and process/group cleanup verified. ISA remains25/51.
 
 - 2026-10-06: Standalone remote cipher metadata validator passes84focused checks and575platform tests,252Linux skips,12subtests57.33s; catalog current. Generic diagnostic redaction repaired. No HTTP/image/cloud/physical acceptance; ISA25/51.
+
+- 2026-10-06: Shared metadata staging refactor accepted after135Linux checks, actual owned native-R2/restore/fresh-process proof and575platform passes,252Linux skips,12subtests58.00s; catalog current. Original immutable image unchanged and modules injected for local proof only. ISA25/51.

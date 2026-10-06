@@ -4,9 +4,7 @@ from __future__ import annotations
 import copy
 import fcntl
 import hashlib
-import hmac
 import os
-import re
 import secrets
 import select
 import stat
@@ -16,18 +14,15 @@ import time
 from typing import Any
 
 try:
-    from .runtime_operation_identity import checkpoint_digest
+    from .runtime_remote_cipher_metadata import validate_remote_cipher_metadata
     from .runtime_storage_guard import StorageBudget, preflight
 except ImportError:
-    from lib.runtime_operation_identity import checkpoint_digest
+    from lib.runtime_remote_cipher_metadata import validate_remote_cipher_metadata
     from lib.runtime_storage_guard import StorageBudget, preflight
 
 _TIMEOUT_SECONDS = 15.0
 _CHUNK_SIZE = 65536
 _MAX_CIPHERTEXT_SIZE = 64 * 1024 * 1024 + 4136
-_HEX32_RE = re.compile(r"^[0-9a-f]{32}$")
-_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
-_ID_RE = re.compile(r"^[a-z0-9-]{1,64}$")
 
 
 def _hold() -> None:
@@ -80,15 +75,6 @@ def _validate_root_path(root_path: str, deadline: float, cancel_event: threading
     return root_path
 
 
-def _validate_ascii_version(val: Any) -> str:
-    if type(val) is not str or not (1 <= len(val) <= 256):
-        _hold()
-    for c in val:
-        if ord(c) < 33 or ord(c) > 126:
-            _hold()
-    return val
-
-
 def _validate_inputs(
     root_path: str,
     expected_identity: tuple[Any, ...],
@@ -113,124 +99,16 @@ def _validate_inputs(
     if type(input_fd) is not int or isinstance(input_fd, bool) or input_fd < 0:
         _hold()
 
-    if type(context) is not dict or set(context.keys()) != {"instanceId", "runtimeVersion", "imageDigest", "keyId"}:
-        _hold()
-    for k, v in context.items():
-        if type(v) is not str:
-            _hold()
-    if context["runtimeVersion"] != "3.8.50":
-        _hold()
-    if not _ID_RE.fullmatch(context["instanceId"]):
-        _hold()
-    if not _ID_RE.fullmatch(context["keyId"]):
-        _hold()
-    if not _HEX64_RE.fullmatch(context["imageDigest"]):
-        _hold()
-    validated_ctx = {
-        "instanceId": context["instanceId"],
-        "runtimeVersion": context["runtimeVersion"],
-        "imageDigest": context["imageDigest"],
-        "keyId": context["keyId"],
-    }
-
-    if type(record) is not dict or set(record.keys()) != {"schema", "job_id", "request_digest", "state", "artifact"}:
-        _hold()
-    if type(record["schema"]) is not str or record["schema"] != "sg.local-job.v1":
-        _hold()
-    job_id = record["job_id"]
-    req_digest = record["request_digest"]
-    if type(job_id) is not str or not _HEX32_RE.fullmatch(job_id):
-        _hold()
-    if type(req_digest) is not str or not _HEX64_RE.fullmatch(req_digest):
-        _hold()
-    if type(record["state"]) is not str or record["state"] != "artifact-verified":
-        _hold()
-
     try:
-        expected_req_digest = checkpoint_digest(validated_ctx, job_id)
+        validated_ctx, validated_rec, validated_receipt = validate_remote_cipher_metadata(context, record, receipt)
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception:
         _hold()
-    if not hmac.compare_digest(req_digest, expected_req_digest):
-        _hold()
-
-    art = record["artifact"]
-    if type(art) is not dict or set(art.keys()) != {"leaf", "bytes", "sha256"}:
-        _hold()
-    leaf = art["leaf"]
-    b_count = art["bytes"]
-    s256 = art["sha256"]
-    if type(leaf) is not str or leaf != f"sg-encrypted-{job_id}.bin":
-        _hold()
-    if type(b_count) is not int or isinstance(b_count, bool) or not (1 <= b_count <= _MAX_CIPHERTEXT_SIZE):
-        _hold()
-    if type(s256) is not str or not _HEX64_RE.fullmatch(s256):
-        _hold()
-    validated_art = {"leaf": leaf, "bytes": b_count, "sha256": s256}
-    validated_rec = {
-        "schema": "sg.local-job.v1",
-        "job_id": job_id,
-        "request_digest": req_digest,
-        "state": "artifact-verified",
-        "artifact": copy.deepcopy(validated_art),
-    }
-
-    exp_prefix = f"cp/v1/{validated_ctx['instanceId']}/{validated_ctx['imageDigest']}/{job_id}/{req_digest}/{s256}"
-    exp_obj_key = f"{exp_prefix}.bin"
-    exp_commit_key = f"{exp_prefix}.commit.json"
-
-    if type(receipt) is not dict or set(receipt.keys()) != {
-        "schema",
-        "state",
-        "context",
-        "job_id",
-        "request_digest",
-        "artifact",
-        "object_key",
-        "object_version",
-        "commit_key",
-        "commit_version",
-    }:
-        _hold()
-    if any(type(receipt[k]) is not str for k in ("schema", "state", "job_id", "request_digest", "object_key", "object_version", "commit_key", "commit_version")):
-        _hold()
-    if type(receipt["context"]) is not dict or set(receipt["context"]) != set(validated_ctx) or any(type(v) is not str for v in receipt["context"].values()):
-        _hold()
-    if type(receipt["artifact"]) is not dict or set(receipt["artifact"]) != set(validated_art):
-        _hold()
-    if type(receipt["artifact"]["bytes"]) is not int or any(type(receipt["artifact"][k]) is not str for k in ("leaf","sha256")):
-        _hold()
-    if receipt["schema"] != "sg.remote-checkpoint.v1" or receipt["state"] != "remote-committed":
-        _hold()
-    if receipt["context"] != validated_ctx:
-        _hold()
-    if receipt["job_id"] != job_id:
-        _hold()
-    if type(receipt["request_digest"]) is not str or not hmac.compare_digest(receipt["request_digest"], req_digest):
-        _hold()
-    if receipt["artifact"] != validated_art:
-        _hold()
-    if receipt["object_key"] != exp_obj_key or receipt["commit_key"] != exp_commit_key:
-        _hold()
-    o_ver = _validate_ascii_version(receipt["object_version"])
-    c_ver = _validate_ascii_version(receipt["commit_version"])
-    if o_ver == c_ver:
-        _hold()
-
-    validated_receipt = {
-        "schema": "sg.remote-checkpoint.v1",
-        "state": "remote-committed",
-        "context": copy.deepcopy(validated_ctx),
-        "job_id": job_id,
-        "request_digest": req_digest,
-        "artifact": copy.deepcopy(validated_art),
-        "object_key": exp_obj_key,
-        "object_version": o_ver,
-        "commit_key": exp_commit_key,
-        "commit_version": c_ver,
-    }
-
+    _check_deadline_cancel(deadline, cancel_event)
+    job_id = validated_rec["job_id"]
+    req_digest = validated_rec["request_digest"]
+    validated_art = dict(validated_rec["artifact"])
     return validated_ctx, validated_rec, validated_receipt, job_id, req_digest, validated_art, (exp_dev, exp_ino, exp_uid, exp_mode)
 
 
