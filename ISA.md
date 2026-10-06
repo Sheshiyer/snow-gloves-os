@@ -221,6 +221,11 @@ until the actual mini supplies evidence.
   learned: exactschema/nativeFixedLengthStream, strictobject/commitverification, cancellation/uncertainlatewrite semantics, listenercleanup andmonotonicdeadline nowpass60transporttests/strictcompile plusactual localR2newcommit/replay/4adverseholds. Helperremainsunwired withnobucketbinding.
   criterion now: ISC-47..51 remain open; component commitment doesnotproveencryptedproducerexport, recoverablekeys, actualcompanycustody, providerdurability orphysicalrecovery.
 
+- 2026-10-06 | conjectured: a bounded ciphertext reader could expose only a verified owned checkpoint and release all resources on abandonment.
+  refuted by: actual Linux probes reproduce invalid Event and constructor diagnostic leaks, retained iterator lock, manifest diagnostic leakage and final journal mutation releasing the last chunk.
+  learned: strict Event validation, redacted public boundaries, iterator-finally cleanup and final named journal comparison repair those failures.27 actual owned Linux checks0.744s pass including max ciphertext, two-pass hashes, cancellation, namespace changes and zero file effects.
+  criterion now: ISC-47..51 remain open; standalone source proof does not establish HTTP wiring, current image inclusion, remote custody or physical acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
