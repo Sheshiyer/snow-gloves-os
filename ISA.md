@@ -336,6 +336,11 @@ until the actual mini supplies evidence.
   learned: first bridge remains private/unaccepted; require monotonic observations throughout, no blocking cleanup under shared Lock, explicit producer close states and final post-cleanup Event/deadline checks. All probe children were contained and terminated.
   criterion now: ISC-47..51 remain open; bridge/service/image integration is held until repaired real-socket/fault evidence exists. Existing accepted metadata/staging and local recovery proofs are unaffected.
 
+- 2026-10-06 | conjectured: pure HTTP import metadata/result contracts could preserve accepted wrapper semantics before routing integration.
+  refuted by: initial producer invented nonboolean replay fields and rejected Authorization/Host; corrected producer rejected mandatory integer artifact.bytes, reproducing six focused failures.
+  learned: exact boolean result flags, ordinary unique headers, canonical metadata revalidation and plain integer byte counts are required. Narrow isolated correction plus independent boundary/type/redaction probes passes49focused checks; isolated exact-source platform671passes252Linuxskips12subtests55.65s/catalogcurrent.
+  criterion now: ISC-47..51 remain open; pure source contract is accepted, but caller-deadline seam, request registry, HTTP/service/image closure and cloud/physical acceptance remain unproved.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -520,3 +525,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 ## Verification — body bridge integration
 
 Host isolated47checks pass3.94s; owned Linux47checks pass7.61s with containerabsence verified. Source module copied byte-identically; portable test child source reconstructed exactly from tested fixtures. Catalog current. Full platform regression session20373 passes622tests,252Linux skips and12subtests in64.34s; catalog current. ISA remains25/51, no new criterion closure.
+
+- 2026-10-06: Pure HTTP import helper source accepted after49focused cases and isolated publicHEAD+candidate regression671passed252skipped12subtests55.65s;catalogcurrent. Exact two-file SHA recorded privately. No HTTP route or service/image/live activation; ISA25/51 unchanged.
