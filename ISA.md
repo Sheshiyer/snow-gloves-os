@@ -366,6 +366,11 @@ until the actual mini supplies evidence.
   learned: added only the six exact module allowlist entries; fresh immutable build and in-image source hashes must prove packaging instead of inferring it from COPY.
   criterion now: ISC-47..51 remain open; source input repair is not a successful image build, runtime or physical acceptance.
 
+- 2026-10-06 | conjectured: an append-only receiver observer could prove actual HTTP recovery without replacing accepted client helpers.
+  refuted by: two phase drafts had invalid JSON or invented APIs; a narrower compiling observer failed four asserted owned fixtures for actual SQLite tables, table absence, provider count and random-suffix plaintext names.
+  learned: preserve the accepted client prefix byte-identically, isolate readonly observations, and require actual-schema assertions before any receiver execution. No fresh-image service or HTTP/R2 recovery acceptance was added.
+  criterion now: ISC-47..51 remain open; repair and validate readonly observations before phase assembly and owned runtime execution.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
