@@ -3,7 +3,7 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: build
+phase: verify
 progress: 25/51
 mode: interactive
 started: 2026-09-30
@@ -435,3 +435,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-06 managed entrypoint first Build draft rejected: valid config fails real operation identity due backupKeyId/keyId mismatch, reproduced1testerror0.002s. Static review identifies restore health-monitor interference, false-success exits and partial shutdown deadlock risks. Rejectedsource preserved privately; no image/entrypoint promotion;25/51 unchanged.
 
 - Storage coordinator integration checkpoint:107 owned Linux checks8.987s, actual bundled fresh/existing image lifecycle and476platformpasses128Linuxskips12subtests56.24s;catalogcurrent. ISC-47..51 remain open.
+
+- 2026-10-06 standalone local cipher staging source integrated byte-identically to the privately preserved candidate. Twenty-nine owned Linux checks include actual image ciphertext/R2 receipt and same-inode replay; full host platform regression: 491 passed, 229 Linux skips, 12 subtests passed in 57.49s; catalog current. No journal binding, image bundling, authenticated plaintext, deployment or physical acceptance; 25/51 unchanged.
