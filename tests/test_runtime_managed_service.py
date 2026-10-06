@@ -81,7 +81,7 @@ class Review(unittest.TestCase):
   patches=[patch.object(m.sys,'platform','linux'),patch.object(m,'_verify_data_dir'),patch.object(m,'_snapshot_all_paths',return_value={}),patch.object(m,'_verify_snapshots'),patch.object(m,'InitializingSupervisor',Supervisor),patch.object(m,'RuntimeManagementCoordinator',Coordinator),patch.object(m,'create_managed_server',factory),patch.object(m.signal,'getsignal',return_value=signal.SIG_DFL),patch.object(m.signal,'signal',side_effect=lambda n,h:handlers.__setitem__(n,h))]
   if case=='root-changed-before-start':patches[1]=patch.object(m,'_verify_data_dir',side_effect=[('owned',),('replaced',)])
   if case=='script-changed-before-start':patches[3]=patch.object(m,'_verify_snapshots',side_effect=RuntimeError('script changed'))
-  if case=='late-health':patches.append(patch.object(m.time,'monotonic',side_effect=[0.0,0.0,11.0]))
+  if case=='late-health':patches.append(patch.object(m.time,'monotonic',side_effect=lambda values=iter([0.0,0.0,11.0]):next(values,11.0)))
   if case=='thread-start-failed':patches.append(patch.object(m.threading.Thread,'start',side_effect=RuntimeError('owned fixture')))
   import contextlib
   with contextlib.ExitStack() as stack:

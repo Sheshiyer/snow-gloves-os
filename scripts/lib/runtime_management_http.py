@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import hmac
 import json
+import math
 import re
 import select
 import socket
@@ -35,13 +36,54 @@ class OperationGate:
         self._lock = threading.Lock()
         self._active_tokens: set[object] = set()
         self._mutating = False
+        self._closing = False
+        self._idle_notification = threading.Event()
+        self._idle_notification.set()
+
+    def close_admission(self) -> None:
+        acquired = self._lock.acquire(timeout=1.0)
+        if not acquired:
+            raise RuntimeError("OperationGate lock held")
+        try:
+            self._closing = True
+        finally:
+            self._lock.release()
+
+    def wait_idle(self, timeout: int | float) -> bool:
+        if type(timeout) not in (int, float) or not 0 < timeout <= 60 or not math.isfinite(timeout):
+            raise ValueError("Invalid timeout for wait_idle")
+        deadline = time.monotonic() + float(timeout)
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            acquired = self._lock.acquire(timeout=min(remaining, 0.1))
+            if acquired:
+                try:
+                    is_idle = (not self._mutating) and (len(self._active_tokens) == 0)
+                    now = time.monotonic()
+                    if is_idle:
+                        return now < deadline
+                    if now >= deadline:
+                        return False
+                finally:
+                    self._lock.release()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            self._idle_notification.wait(timeout=min(remaining, 0.1))
+            if time.monotonic() >= deadline:
+                return False
 
     def begin_stream(self) -> object:
         with self._lock:
+            if self._closing:
+                raise RuntimeError("Gate admission closed")
             if self._mutating:
                 raise RuntimeError("Mutation in progress")
             token = object()
             self._active_tokens.add(token)
+            self._idle_notification.clear()
             return token
 
     def end_stream(self, token: object) -> None:
@@ -49,18 +91,25 @@ class OperationGate:
             if token not in self._active_tokens:
                 raise RuntimeError("Invalid stream token")
             self._active_tokens.remove(token)
+            if len(self._active_tokens) == 0 and not self._mutating:
+                self._idle_notification.set()
 
     def begin_mutation(self) -> None:
         with self._lock:
+            if self._closing:
+                raise RuntimeError("Gate admission closed")
             if self._mutating or len(self._active_tokens) > 0:
                 raise RuntimeError("Cannot begin mutation: active operations present")
             self._mutating = True
+            self._idle_notification.clear()
 
     def end_mutation(self) -> None:
         with self._lock:
             if not self._mutating:
                 raise RuntimeError("No mutation in progress")
             self._mutating = False
+            if len(self._active_tokens) == 0:
+                self._idle_notification.set()
 
 
 class _BoundedHeaderReader:
@@ -92,8 +141,7 @@ class _BoundedHeaderReader:
 class _ManagementServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(
-        self,
+    def __init__(self,
         server_address: tuple[str, int],
         RequestHandlerClass: type,
         checkpoint_cb: Callable[[dict[str, Any]], dict[str, Any]],

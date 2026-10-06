@@ -6,14 +6,16 @@ import base64
 import os
 import re
 import signal
+import stat
 import sys
 import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Mapping, Tuple
 
+from lib.runtime_cipher_export import CheckpointExportReader
 from lib.runtime_initializer import InitializingSupervisor
-from lib.runtime_managed_http import KEY_RE, create_managed_server
+from lib.runtime_managed_http import KEY_RE, OperationGate, create_managed_server
 from lib.runtime_management_coordinator import RuntimeManagementCoordinator
 from lib.runtime_operation_identity import checkpoint_digest
 
@@ -163,7 +165,7 @@ def _stat_and_verify_trusted_path(path: str) -> PathSnapshot:
     )
 
 
-def _verify_data_dir(data_dir: str, initialize_fresh: bool) -> None:
+def _verify_data_dir(data_dir: str, initialize_fresh: bool) -> Tuple[int, int, int, int]:
     if not os.path.isabs(data_dir):
         raise ValueError(f"DATA_DIR must be absolute: {data_dir}")
     real = os.path.realpath(data_dir)
@@ -271,10 +273,13 @@ def run_service(config: Config) -> None:
     server_thread = None
     serve_entered = threading.Event()
     stop_event = threading.Event()
+    export_cancel = threading.Event()
+    gate = OperationGate()
     mgmt_lock = threading.Lock()
 
     def sig_handler(_signum: int, _frame: Any) -> None:
         stop_event.set()
+        export_cancel.set()
 
     old_sigint = signal.getsignal(signal.SIGINT)
     old_sigterm = signal.getsignal(signal.SIGTERM)
@@ -337,6 +342,15 @@ def run_service(config: Config) -> None:
             with mgmt_lock:
                 return coordinator.restore(payload)
 
+        def make_export_reader(payload: dict[str, Any]) -> CheckpointExportReader:
+            return CheckpointExportReader(
+                config.data_dir,
+                (root_identity[0], root_identity[1], root_identity[2], stat.S_IMODE(root_identity[3])),
+                _build_context(config),
+                payload,
+                cancel_event=export_cancel,
+            )
+
         def health_probe() -> bool:
             return supervisor._check_http_health()
 
@@ -349,8 +363,10 @@ def run_service(config: Config) -> None:
             storage_key=config.storage_encryption_key,
             operation_context=_build_context(config),
             upstream_port=8081,
+            export_cb=make_export_reader,
             host="0.0.0.0",
             port=8080,
+            gate=gate,
             admission_probe=lambda: False,
         )
 
@@ -381,39 +397,105 @@ def run_service(config: Config) -> None:
 
     finally:
         cleanup_error = None
+        cleanup_deadline = None
+        try:
+            export_cancel.set()
+            cleanup_deadline = time.monotonic() + 60.0
 
-        if server is not None and serve_entered.is_set():
             try:
-                server.shutdown()
+                gate.close_admission()
             except Exception as exc:
                 if cleanup_error is None:
                     cleanup_error = exc
 
-        if server is not None:
-            try:
-                server.server_close()
-            except Exception as exc:
+            if server is not None and serve_entered.is_set():
+                shutdown_err = []
+                def _do_shutdown() -> None:
+                    try:
+                        server.shutdown()
+                    except Exception as exc:
+                        shutdown_err.append(exc)
+
+                sht_thread = threading.Thread(target=_do_shutdown, daemon=True)
+                sht_thread.start()
+                rem_sht = max(0.0, cleanup_deadline - time.monotonic() - 8.0)
+                sht_thread.join(timeout=min(rem_sht, 5.0))
+                now_sht = time.monotonic()
+                if sht_thread.is_alive() or now_sht > (cleanup_deadline - 8.0):
+                    if cleanup_error is None:
+                        cleanup_error = RuntimeError("Server shutdown timed out or held")
+                elif shutdown_err and cleanup_error is None:
+                    cleanup_error = shutdown_err[0]
+
+            if server is not None:
+                try:
+                    server.server_close()
+                except Exception as exc:
+                    if cleanup_error is None:
+                        cleanup_error = exc
+
+            if server_thread is not None and server_thread.is_alive():
+                rem_srv = max(0.0, cleanup_deadline - time.monotonic() - 8.0)
+                server_thread.join(timeout=min(rem_srv, 5.0))
+                now_srv = time.monotonic()
+                if server_thread.is_alive() or now_srv > (cleanup_deadline - 8.0):
+                    if cleanup_error is None:
+                        cleanup_error = RuntimeError("Server thread join held")
+
+            rem_idle = max(0.0, cleanup_deadline - time.monotonic() - 8.0)
+            if rem_idle > 0:
+                try:
+                    idle_ok = gate.wait_idle(rem_idle)
+                    now_idle = time.monotonic()
+                    if not idle_ok or now_idle > (cleanup_deadline - 8.0):
+                        if cleanup_error is None:
+                            cleanup_error = RuntimeError("Gate drain timed out or held")
+                except Exception as exc:
+                    if cleanup_error is None:
+                        cleanup_error = exc
+            else:
                 if cleanup_error is None:
-                    cleanup_error = exc
+                    cleanup_error = RuntimeError("No cleanup deadline budget left for gate drain")
 
-        if server_thread is not None and server_thread.is_alive():
-            server_thread.join(timeout=5.0)
-
-        acquired = mgmt_lock.acquire(timeout=60.0)
-        if acquired:
-            try:
-                supervisor.stop()
-            except Exception as exc:
+            rem_lock = max(0.0, cleanup_deadline - time.monotonic() - 8.0)
+            acquired = False
+            if rem_lock > 0:
+                acquired = mgmt_lock.acquire(timeout=rem_lock)
+                now_lock = time.monotonic()
+                if not acquired or now_lock > (cleanup_deadline - 8.0):
+                    if cleanup_error is None:
+                        cleanup_error = RuntimeError("Management cleanup lock held")
+            else:
                 if cleanup_error is None:
-                    cleanup_error = exc
-            finally:
-                mgmt_lock.release()
-        elif cleanup_error is None:
-            cleanup_error = RuntimeError("Management cleanup held")
+                    cleanup_error = RuntimeError("No cleanup deadline budget left for lock acquire")
 
-        signal.signal(signal.SIGINT, old_sigint)
-        signal.signal(signal.SIGTERM, old_sigterm)
+            if acquired:
+                try:
+                    if cleanup_error is None:
+                        supervisor.stop()
+                except Exception as exc:
+                    if cleanup_error is None:
+                        cleanup_error = exc
+                finally:
+                    mgmt_lock.release()
 
+        except Exception as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+        finally:
+            for signum, previous in ((signal.SIGINT, old_sigint), (signal.SIGTERM, old_sigterm)):
+                try:
+                    signal.signal(signum, previous)
+                except Exception as exc:
+                    if cleanup_error is None:
+                        cleanup_error = exc
+        try:
+            if cleanup_deadline is None or time.monotonic() >= cleanup_deadline:
+                if cleanup_error is None:
+                    cleanup_error = RuntimeError("Cleanup deadline held")
+        except Exception as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
         if cleanup_error is not None:
             raise RuntimeError("Cleanup failed") from cleanup_error
 

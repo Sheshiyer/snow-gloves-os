@@ -231,6 +231,11 @@ until the actual mini supplies evidence.
   learned: corrected API, absolute header-write checks, export-boundary cleanup containment and lazy optional-reader loading repair these failures.95 actual owned Linux checks61.425s pass across export, reader and existing listeners, including real blocked-client deadline and disconnect cleanup.
   criterion now: ISC-47..51 remain open; optional generic HTTP source does not enable managed service, bundle the current image, commit remote custody or accept physical fleet operation.
 
+- 2026-10-06 | conjectured: managed-service export could bind the verified reader and drain operations before child cleanup.
+  refuted by: Plan passed full directory mode into a permissions-only reader identity and left an admission race; independent source probes reproduce late child-stop success, cleanup faults bypassing signal restoration and a nonstandard timeout type accepted by the gate.
+  learned: normalized reader identity, admission closure, timed idle witnessing, owned cancellation and cleanup-finally/deadline checks repair those boundaries.39 host checks and134 actual Linux regressions64.290s pass; actual Node3.8.50 exports14,622,935encrypted bytes/restores12MiB, cancels blocked SIGTERM/real-child-failure exports inabout15.1s, freesrootlock beforechildstop and removesall4observed identities withzero providers.
+  criterion now: ISC-47..51 remain open; current immutable image, Worker/R2 custody, company deployment and physical fleet acceptance remain unproved.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
