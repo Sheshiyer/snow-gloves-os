@@ -437,3 +437,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - Storage coordinator integration checkpoint:107 owned Linux checks8.987s, actual bundled fresh/existing image lifecycle and476platformpasses128Linuxskips12subtests56.24s;catalogcurrent. ISC-47..51 remain open.
 
 - 2026-10-06 standalone local cipher staging source integrated byte-identically to the privately preserved candidate. Twenty-nine owned Linux checks include actual image ciphertext/R2 receipt and same-inode replay; full host platform regression: 491 passed, 229 Linux skips, 12 subtests passed in 57.49s; catalog current. No journal binding, image bundling, authenticated plaintext, deployment or physical acceptance; 25/51 unchanged.
+
+- 2026-10-06 owned local journal seam probe: actual image ciphertext is staged and then bound through unchanged LocalJobJournal prepare/record_artifact/lookup APIs after the staging root lock releases. Identical journal replay and ciphertext inode preservation pass within 29 Linux checks (0.37s). This is local API sequence evidence, not a promoted import orchestrator or authenticated restore; 25/51 unchanged.
