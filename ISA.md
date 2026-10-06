@@ -351,6 +351,11 @@ until the actual mini supplies evidence.
   learned: narrow public exception guards preserve original controlflow and redact ordinary failures; bounded tests verify capacity, opaque handles, close/register ordering, outside-lock signalling and retained records.23focused cases0.02s and694platform passes271Linuxskips12subtests56.55s/catalogcurrent.
   criterion now: ISC-47..51 remain open; registry is source-only, request handlers and service shutdown have not adopted it; record count/Event state cannot certify worker absence.
 
+- 2026-10-06 | conjectured: the optional import HTTP draft could release owned mutation resources and return a bounded validated acknowledgment.
+  refuted by: owned HTTP probes reproduced abort cancelling a successful response, missing default registry, replay close retry/ownership release and post-finish cleanup failure acknowledgment. Further probes reproduced original controlflow masking, unknown-worker record removal and replacement descriptor flag mutation.
+  learned: reviewed state tracking preserves successful finish, retains uncertain ownership, avoids ambiguous close retries, protects fixed canonical metadata and validates complete frames under the original deadline. Native focused repairs plus35host cases3.13s/35ownedLinux6.81s/verified container absence and729platform passes271Linuxskips12subtests58.91s/catalogcurrent pass. Managed parity and future source-image helper COPY manifest included.
+  criterion now: ISC-47..51 remain open; HTTP source integrates synchronous test callbacks only. Trusted service root closure/shutdown ordering, new exact-source image and actual HTTP R2 import/restore/recovery/cloud/physical acceptance remain unproved.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -541,3 +546,5 @@ Host isolated47checks pass3.94s; owned Linux47checks pass7.61s with containerabs
 - 2026-10-06: Shared caller deadline source integrated after70ownedLinux checks0.26s/ownedcontainerabsencehealthy and isolated671platform passes271Linuxskips12subtests56.34s/catalogcurrent. Default callers retain15s; same earlier caller budget reaches actual staging. No HTTP/service/image/cloud/physical activation; ISA25/51.
 
 - 2026-10-06: Standalone request ownership registry accepted after23focused cases0.02s and isolated694platform passes271Linuxskips12subtests56.55s/catalogcurrent. No HTTP/service/image wiring or cloud/physical activation; ISA25/51 remains.
+
+- 2026-10-06: Optional management import route, managed factory/parity and source-image helper allowlist accepted after35host framed/controlflow cases3.13s and35ownedLinux6.81s with healthy exactcontainerabsence;729platform passes271Linuxskips12subtests58.91s/catalogcurrent. Full response frames and first replay flags verified; synchronous callbacks are stubs, not real journal/root import. Servicecallbackclosure/image/cloud/physical acceptance remains open;ISA25/51.

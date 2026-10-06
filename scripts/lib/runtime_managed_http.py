@@ -17,8 +17,10 @@ if TYPE_CHECKING:
     from .runtime_cipher_export import CheckpointExportReader
 
 try:
+    from .runtime_import_request_registry import ImportRequestRegistry
     from .runtime_management_http import KEY_RE, OperationGate, _ManagementHandler, _BoundedHeaderReader, create_management_server
 except ImportError:
+    from lib.runtime_import_request_registry import ImportRequestRegistry
     from lib.runtime_management_http import KEY_RE, OperationGate, _ManagementHandler, _BoundedHeaderReader, create_management_server
 
 
@@ -92,11 +94,11 @@ class _ManagedProxyHandler(_ManagementHandler):
                 return
             self._forward_backend("GET", "/v1/models", None)
             return
-        if self.path in ("/_management/checkpoint", "/_management/restore", "/_management/export", "/v1/chat/completions"):
+        if self.path in ("/_management/checkpoint", "/_management/restore", "/_management/export", "/_management/import", "/v1/chat/completions"):
             if not self._validate_auth() and not self._validate_backend_auth():
                 self._send_response_raw(401, "text/plain; charset=utf-8", b"Unauthorized")
                 return
-            if self.path == "/_management/export" and not self._validate_auth():
+            if self.path in ("/_management/export", "/_management/import") and not self._validate_auth():
                 self._send_response_raw(401, "text/plain; charset=utf-8", b"Unauthorized")
                 return
             self._send_response_raw(405, "text/plain; charset=utf-8", b"Method Not Allowed")
@@ -108,7 +110,7 @@ class _ManagedProxyHandler(_ManagementHandler):
         if "?" in raw or "%" in raw or "//" in raw:
             self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
             return
-        if self.path in ("/_management/checkpoint", "/_management/restore", "/_management/export"):
+        if self.path in ("/_management/checkpoint", "/_management/restore", "/_management/export", "/_management/import"):
             super().do_POST()
             return
         if self.path == "/v1/chat/completions":
@@ -387,6 +389,8 @@ def create_managed_server(
     operation_context: dict[str, Any],
     upstream_port: int,
     export_cb: Callable[[dict[str, Any]], CheckpointExportReader] | None = None,
+    import_cb: Callable[..., dict[str, Any]] | None = None,
+    import_request_registry: ImportRequestRegistry | None = None,
     host: str = "127.0.0.1",
     port: int = 0,
     gate: OperationGate | None = None,
@@ -409,6 +413,8 @@ def create_managed_server(
         storage_key,
         operation_context=operation_context,
         export_cb=export_cb,
+        import_cb=import_cb,
+        import_request_registry=import_request_registry,
         host=host,
         port=port,
         gate=gate,

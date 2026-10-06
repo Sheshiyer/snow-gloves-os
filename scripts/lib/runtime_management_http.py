@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 import copy
+import fcntl
 import hmac
 import json
 import math
+import os
 import re
 import select
 import socket
+import stat
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -19,9 +23,15 @@ if TYPE_CHECKING:
 try:
     from .runtime_job_journal import _parse_and_validate_record, _serialize_record
     from .runtime_operation_identity import checkpoint_digest, validate_checkpoint, validate_restore
+    from .runtime_import_http_contract import parse_import_headers, validate_import_result
+    from .runtime_import_body_bridge import ImportBodyBridge
+    from .runtime_import_request_registry import ImportRequestRegistry
 except ImportError:
     from lib.runtime_job_journal import _parse_and_validate_record, _serialize_record
     from lib.runtime_operation_identity import checkpoint_digest, validate_checkpoint, validate_restore
+    from lib.runtime_import_http_contract import parse_import_headers, validate_import_result
+    from lib.runtime_import_body_bridge import ImportBodyBridge
+    from lib.runtime_import_request_registry import ImportRequestRegistry
 
 KEY_RE = re.compile(r"^[A-Za-z0-9._~-]{32,256}$")
 HEX32_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -29,6 +39,30 @@ HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 LEAF_RE = re.compile(r"^sg-encrypted-[0-9a-f]{32}\.bin$")
 MAX_RESTORE_BYTES = 64 * 1024 * 1024 + 4136
 MAX_CIPHER_BYTES = 64 * 1024 * 1024 + 4136
+
+
+def _safe_fstat_local(fd: int | None) -> tuple[int, int, int] | None:
+    if fd is None or type(fd) is not int or fd < 0:
+        return None
+    try:
+        st = os.fstat(fd)
+        return (st.st_dev, st.st_ino, stat.S_IFMT(st.st_mode))
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:
+        return None
+
+
+def _close_fd_no_retry_local(fd: int | None) -> bool:
+    if fd is None or type(fd) is not int or fd < 0:
+        return True
+    try:
+        os.close(fd)
+        return True
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:
+        return False
 
 
 class OperationGate:
@@ -141,12 +175,15 @@ class _BoundedHeaderReader:
 class _ManagementServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self,
+    def __init__(
+        self,
         server_address: tuple[str, int],
         RequestHandlerClass: type,
         checkpoint_cb: Callable[[dict[str, Any]], dict[str, Any]],
         restore_cb: Callable[[dict[str, Any]], dict[str, Any]],
         export_cb: Callable[[dict[str, Any]], CheckpointExportReader] | None,
+        import_cb: Callable[..., dict[str, Any]] | None,
+        import_request_registry: ImportRequestRegistry | None,
         management_key: str,
         max_conn: int,
         conn_timeout: float,
@@ -158,6 +195,8 @@ class _ManagementServer(ThreadingHTTPServer):
         self.checkpoint_cb = checkpoint_cb
         self.restore_cb = restore_cb
         self.export_cb = export_cb
+        self.import_cb = import_cb
+        self.import_request_registry = import_request_registry
         self.management_key = management_key
         self.conn_timeout = conn_timeout
         self.gate = gate
@@ -335,6 +374,402 @@ class _ManagementHandler(BaseHTTPRequestHandler):
         except ValueError:
             self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
             return None
+
+    def _send_bounded_import_response(
+        self,
+        response_bytes: bytes,
+        cancel_event: threading.Event,
+        deadline: float,
+    ) -> bool:
+        sock = self.connection
+        try:
+            now = time.monotonic()
+            if cancel_event.is_set() or not math.isfinite(now) or now >= deadline:
+                return False
+            rem = deadline - now
+            if rem <= 0:
+                return False
+            sock.settimeout(rem)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(response_bytes)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Connection", "close")
+            now = time.monotonic()
+            if cancel_event.is_set() or not math.isfinite(now) or now >= deadline:
+                return False
+            rem = deadline - now
+            if rem <= 0:
+                return False
+            sock.settimeout(rem)
+            self.end_headers()
+
+            view = memoryview(response_bytes)
+            while len(view) > 0:
+                now = time.monotonic()
+                if cancel_event.is_set() or not math.isfinite(now) or now >= deadline:
+                    return False
+                rem = deadline - now
+                if rem <= 0:
+                    return False
+                sock.settimeout(rem)
+                to_send = view[: min(len(view), 4096)]
+                nw = sock.send(to_send)
+                if nw <= 0:
+                    return False
+                view = view[nw:]
+
+            now = time.monotonic()
+            if cancel_event.is_set() or not math.isfinite(now) or now >= deadline:
+                return False
+            rem = deadline - now
+            if rem <= 0:
+                return False
+            sock.settimeout(rem)
+            self.wfile.flush()
+            now = time.monotonic()
+            if cancel_event.is_set() or not math.isfinite(now) or now >= deadline:
+                return False
+            return True
+        except Exception:
+            return False
+        finally:
+            self.close_connection = True
+
+    def _handle_import(self) -> None:
+        if self.server.import_cb is None or self.server.import_request_registry is None:
+            self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+            return
+
+        entry_now = time.monotonic()
+        http_deadline = entry_now + 15.0
+
+        try:
+            raw_headers = list(self.headers.raw_items())
+            validated_ctx, validated_rec, validated_rcpt = parse_import_headers(
+                raw_headers,
+                self.server.operation_context,
+            )
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception:
+            self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
+            return
+
+        now = time.monotonic()
+        if now >= http_deadline:
+            self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+            return
+
+        gate_held = False
+        registry_registered = False
+        reg_handle = None
+        cancel_event = None
+        bridge = None
+        input_fd = -1
+        orig_cb_exc = None
+        success_response_bytes = None
+        finish_succeeded = False
+        cleanup_uncertain = False
+        gate_end_attempted = False
+        unregister_attempted = False
+
+        try:
+            self.server.gate.begin_mutation()
+            gate_held = True
+        except RuntimeError:
+            self._send_response_raw(409, "text/plain; charset=utf-8", b"Conflict")
+            return
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception:
+            self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+            return
+
+        try:
+            try:
+                reg_handle, cancel_event = self.server.import_request_registry.register()
+                registry_registered = True
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            now = time.monotonic()
+            if cancel_event.is_set() or now >= http_deadline:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            expected_bytes = validated_rec["artifact"]["bytes"]
+            expected_sha256 = validated_rec["artifact"]["sha256"]
+            try:
+                bridge = ImportBodyBridge(
+                    self.connection,
+                    expected_bytes,
+                    expected_sha256,
+                    cancel_event,
+                    http_deadline,
+                )
+                input_fd = bridge.start()
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            cb_result = None
+            try:
+                ctx_copy1 = copy.deepcopy(validated_ctx)
+                rec_copy1 = copy.deepcopy(validated_rec)
+                rcpt_copy1 = copy.deepcopy(validated_rcpt)
+                cb_result = self.server.import_cb(
+                    ctx_copy1,
+                    rec_copy1,
+                    rcpt_copy1,
+                    input_fd,
+                    cancel_event,
+                    http_deadline,
+                )
+            except (KeyboardInterrupt, SystemExit) as cbe:
+                orig_cb_exc = cbe
+                raise
+            except Exception:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            validated_first_result = None
+            try:
+                validated_first_result = validate_import_result(
+                    cb_result,
+                    validated_ctx,
+                    validated_rec,
+                    validated_rcpt,
+                )
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            initial_replay_stage = validated_first_result["replay_stage"]
+            initial_replay_journal = validated_first_result["replay_journal"]
+            do_replay = bool(initial_replay_stage)
+
+            try:
+                bridge_res = bridge.finish(verified_replay=do_replay)
+                if not isinstance(bridge_res, dict) or bridge_res.get("state") != "body-verified":
+                    raise RuntimeError("Bridge finish verification held")
+                finish_succeeded = True
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            if do_replay:
+                replay_r = -1
+                replay_w = -1
+                replay_r_stat = None
+                replay_w_stat = None
+                replay_r_closed = False
+                try:
+                    if hasattr(os, "pipe2") and hasattr(os, "O_NONBLOCK") and hasattr(os, "O_CLOEXEC"):
+                        replay_r, replay_w = os.pipe2(os.O_NONBLOCK | os.O_CLOEXEC)  # type: ignore[attr-defined]
+                        replay_r_stat = _safe_fstat_local(replay_r)
+                        replay_w_stat = _safe_fstat_local(replay_w)
+                    else:
+                        replay_r, replay_w = os.pipe()
+                        replay_r_stat = _safe_fstat_local(replay_r)
+                        replay_w_stat = _safe_fstat_local(replay_w)
+                        for pfd, expected_stat in ((replay_r, replay_r_stat), (replay_w, replay_w_stat)):
+                            if expected_stat is None or expected_stat[2] != stat.S_IFIFO or _safe_fstat_local(pfd) != expected_stat:
+                                raise RuntimeError("Replay pipe identity held")
+                            fl = fcntl.fcntl(pfd, fcntl.F_GETFL)
+                            if _safe_fstat_local(pfd) != expected_stat:
+                                raise RuntimeError("Replay pipe identity held")
+                            fcntl.fcntl(pfd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+                            if _safe_fstat_local(pfd) != expected_stat:
+                                raise RuntimeError("Replay pipe identity held")
+                            descriptor_flags = fcntl.fcntl(pfd, fcntl.F_GETFD)
+                            if _safe_fstat_local(pfd) != expected_stat:
+                                raise RuntimeError("Replay pipe identity held")
+                            fcntl.fcntl(pfd, fcntl.F_SETFD, descriptor_flags | fcntl.FD_CLOEXEC)
+                            if _safe_fstat_local(pfd) != expected_stat:
+                                raise RuntimeError("Replay pipe identity held")
+
+                    if replay_r < 0 or replay_w < 0 or replay_r_stat is None or replay_w_stat is None:
+                        raise RuntimeError("Replay pipe allocation failed")
+
+                    if _safe_fstat_local(replay_w) != replay_w_stat:
+                        raise RuntimeError("Replay pipe writer altered before close")
+                    target_w = replay_w
+                    replay_w = -1
+                    if not _close_fd_no_retry_local(target_w):
+                        cleanup_uncertain = True
+                        raise RuntimeError("Replay pipe writer close failed")
+
+                    ctx_copy2 = copy.deepcopy(validated_ctx)
+                    rec_copy2 = copy.deepcopy(validated_rec)
+                    rcpt_copy2 = copy.deepcopy(validated_rcpt)
+                    replay_result = self.server.import_cb(
+                        ctx_copy2,
+                        rec_copy2,
+                        rcpt_copy2,
+                        replay_r,
+                        cancel_event,
+                        http_deadline,
+                    )
+
+                    validated_replay_result = validate_import_result(
+                        replay_result,
+                        validated_ctx,
+                        validated_rec,
+                        validated_rcpt,
+                    )
+
+                    if not (validated_replay_result["replay_stage"] is True and validated_replay_result["replay_journal"] is True):
+                        raise RuntimeError("Replay revalidation flags not both True")
+                except (KeyboardInterrupt, SystemExit) as r_exc:
+                    orig_cb_exc = r_exc
+                    raise
+                except Exception:
+                    self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                    return
+                finally:
+                    if replay_w >= 0:
+                        target_w = replay_w
+                        replay_w = -1
+                        if _safe_fstat_local(target_w) == replay_w_stat:
+                            if not _close_fd_no_retry_local(target_w):
+                                cleanup_uncertain = True
+                        else:
+                            cleanup_uncertain = True
+                    if replay_r >= 0:
+                        target_r = replay_r
+                        replay_r = -1
+                        if _safe_fstat_local(target_r) == replay_r_stat:
+                            if _close_fd_no_retry_local(target_r):
+                                replay_r_closed = True
+                            else:
+                                cleanup_uncertain = True
+                        else:
+                            cleanup_uncertain = True
+
+                if not replay_r_closed or cleanup_uncertain:
+                    self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                    return
+
+            now = time.monotonic()
+            if cancel_event.is_set() or now >= http_deadline:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            ack_payload = {
+                "schema": "sg.local-cipher-import.v1",
+                "state": "cipher-journal-bound",
+                "context": copy.deepcopy(validated_ctx),
+                "job_id": validated_rec["job_id"],
+                "request_digest": validated_rec["request_digest"],
+                "artifact": copy.deepcopy(validated_rec["artifact"]),
+                "replay_stage": bool(initial_replay_stage),
+                "replay_journal": bool(initial_replay_journal),
+            }
+            try:
+                serialized = json.dumps(ack_payload, allow_nan=False).encode("utf-8")
+                if len(serialized) > 4096:
+                    raise ValueError("Response exceeds 4096 bytes")
+            except Exception:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            if bridge is not None and not bridge.worker_quiescent:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            if cleanup_uncertain:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            try:
+                unregister_attempted = True
+                self.server.import_request_registry.unregister(reg_handle)
+                registry_registered = False
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception:
+                cleanup_uncertain = True
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            try:
+                gate_end_attempted = True
+                self.server.gate.end_mutation()
+                gate_held = False
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception:
+                cleanup_uncertain = True
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+
+            success_response_bytes = serialized
+
+        finally:
+            inflight = sys.exc_info()[1]
+            primary_controlflow = orig_cb_exc if isinstance(orig_cb_exc, (KeyboardInterrupt, SystemExit)) else (inflight if isinstance(inflight, (KeyboardInterrupt, SystemExit)) else None)
+            if bridge is not None and not finish_succeeded:
+                try:
+                    bridge.abort()
+                except (KeyboardInterrupt, SystemExit) as c_exc:
+                    cleanup_uncertain = True
+                    if orig_cb_exc is None:
+                        orig_cb_exc = c_exc
+                except Exception:
+                    cleanup_uncertain = True
+            if bridge is not None and (gate_held or registry_registered):
+                try:
+                    if bridge.worker_quiescent is not True:
+                        cleanup_uncertain = True
+                except (KeyboardInterrupt, SystemExit) as c_exc:
+                    cleanup_uncertain = True
+                    if orig_cb_exc is None:
+                        orig_cb_exc = c_exc
+                except Exception:
+                    cleanup_uncertain = True
+
+            if registry_registered and reg_handle is not None and not unregister_attempted:
+                if not cleanup_uncertain:
+                    try:
+                        unregister_attempted = True
+                        self.server.import_request_registry.unregister(reg_handle)
+                        registry_registered = False
+                    except (KeyboardInterrupt, SystemExit) as c_exc:
+                        if orig_cb_exc is None:
+                            orig_cb_exc = c_exc
+                        cleanup_uncertain = True
+                    except Exception:
+                        cleanup_uncertain = True
+
+            if gate_held and not gate_end_attempted:
+                if not cleanup_uncertain:
+                    try:
+                        gate_end_attempted = True
+                        self.server.gate.end_mutation()
+                        gate_held = False
+                    except (KeyboardInterrupt, SystemExit) as c_exc:
+                        if orig_cb_exc is None:
+                            orig_cb_exc = c_exc
+                    except Exception:
+                        pass
+
+            if primary_controlflow is not None:
+                raise primary_controlflow
+            if isinstance(orig_cb_exc, (KeyboardInterrupt, SystemExit)):
+                raise orig_cb_exc
+
+        if success_response_bytes is not None and cancel_event is not None:
+            self._send_bounded_import_response(success_response_bytes, cancel_event, http_deadline)
 
     def _handle_export(self, raw_body: bytes) -> None:
         http_deadline = time.monotonic() + 15.0
@@ -547,6 +982,9 @@ class _ManagementHandler(BaseHTTPRequestHandler):
         if "?" in raw_path or "%" in raw_path or "//" in raw_path:
             self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
             return
+        if self.path == "/_management/import":
+            self._handle_import()
+            return
         if self.path == "/_management/export":
             body = self._read_body()
             if body is None:
@@ -609,6 +1047,8 @@ def create_management_server(
     *,
     operation_context: dict[str, Any],
     export_cb: Callable[[dict[str, Any]], CheckpointExportReader] | None = None,
+    import_cb: Callable[..., dict[str, Any]] | None = None,
+    import_request_registry: ImportRequestRegistry | None = None,
     host: str = "127.0.0.1",
     port: int = 0,
     max_connections: int = 8,
@@ -621,6 +1061,10 @@ def create_management_server(
         raise ValueError("Callbacks must be callable")
     if export_cb is not None and not callable(export_cb):
         raise ValueError("Export callback must be callable")
+    if import_cb is not None and not callable(import_cb):
+        raise ValueError("Import callback must be callable")
+    if import_request_registry is not None and type(import_request_registry) is not ImportRequestRegistry:
+        raise ValueError("import_request_registry must be an ImportRequestRegistry instance")
     for name, k in [("management_key", management_key), ("backend_key", backend_key), ("storage_key", storage_key)]:
         if not isinstance(k, str) or not KEY_RE.fullmatch(k):
             raise ValueError(f"Invalid key for {name}")
@@ -635,12 +1079,15 @@ def create_management_server(
     if isinstance(connection_timeout, bool) or not isinstance(connection_timeout, (int, float)) or not (0.05 <= connection_timeout <= 5.0):
         raise ValueError("connection_timeout must be float in 0.05..5.0")
     server_gate = gate if gate is not None else OperationGate()
+    registry = import_request_registry if import_request_registry is not None else (ImportRequestRegistry() if import_cb is not None else None)
     return _ManagementServer(
         (host, port),
         _ManagementHandler,
         checkpoint,
         restore,
         export_cb,
+        import_cb,
+        registry,
         management_key,
         max_connections,
         float(connection_timeout),
