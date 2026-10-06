@@ -171,6 +171,11 @@ until the actual mini supplies evidence.
 
 ## Changelog
 
+- 2026-10-06 | conjectured: repaired narrow Docker lifecycle could become a safe parent-proof ingredient.
+  refuted by: four argument/ownership/identifier failures and two root-owner/nofollow failures reproduced after initial cleanup repair.
+  learned: narrow native corrections pass15 isolated callback checks, including orderly exit0/PID0 removal, healthy absence, attempted-resource tracking and first-interruption cleanup. Private source only; no actual Docker resource was created.
+  criterion now: ISC-47..51 remain open at25/51; source probe, assembled fresh-service HTTP/R2 recovery and actual lifecycle cleanup remain pending.
+
 - 2026-10-06 | conjectured: narrow owned Docker lifecycle generation could safely prepare the fresh-image HTTP recovery proof.
   refuted by: four independent callback fixtures reproduce secret envfile present at start, ignored unlink failure, boolean process state and duplicate JSON state-key acceptance.
   learned: creation and secret-file cleanup must be separate acknowledgment boundaries; strict state parsing and first-control-flow cleanup are required before actual Docker execution. No container or volume was created by these fixtures.
