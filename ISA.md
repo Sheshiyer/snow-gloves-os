@@ -3,7 +3,7 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: build
+phase: plan
 progress: 25/51
 mode: interactive
 started: 2026-09-30
