@@ -236,6 +236,11 @@ until the actual mini supplies evidence.
   learned: normalized reader identity, admission closure, timed idle witnessing, owned cancellation and cleanup-finally/deadline checks repair those boundaries.39 host checks and134 actual Linux regressions64.290s pass; actual Node3.8.50 exports14,622,935encrypted bytes/restores12MiB, cancels blocked SIGTERM/real-child-failure exports inabout15.1s, freesrootlock beforechildstop and removesall4observed identities withzero providers.
   criterion now: ISC-47..51 remain open; current immutable image, Worker/R2 custody, company deployment and physical fleet acceptance remain unproved.
 
+- 2026-10-06 | conjectured: the reviewed export service could run and recover as its actual immutable image.
+  refuted by: the first blocked-export controller interpreted CRLF escapes before passing its embedded Python fixture; the production image was unchanged.
+  learned: corrected owned fixture passes image-bound fresh and same-image existing encrypted export SHA/full headers, restore, role denial, held chat and zero-provider integrity. Actual PID1 image blocked-export SIGTERM exits cleanly in 15.17s; all owned containers and volume are removed.
+  criterion now: ISC-47..51 remain open; local immutable image proof does not establish remote custody, Cloudflare deployment, physical recovery or fleet soak.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
