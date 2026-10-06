@@ -299,6 +299,13 @@ until the actual mini supplies evidence.
   - learned: Receiver transport must execute an explicit bootstrap; cleanup ownership must begin before resource creation and each cleanup result must gate acceptance independently.
   - criterion_now: Controller remains private and no runtime container was created. Repair before actual native R2/authenticated restore proof;25/51 unchanged.
 
+
+- 2026-10-06 owned recovery cleanup acknowledgement refutation:
+  - conjectured: The first controller repair made source shutdown sufficient to establish clean proof completion.
+  - refuted_by: A controlled Docker/Node simulation returns passed even when both container and volume removal fail. Static review also finds dependency-path mismatch, incomplete archive checks and receiver acknowledgement before ignored cleanup.
+  - learned: Source exit, receiver cleanup, container removal, volume removal and absence readbacks each need independent success evidence before the final acknowledgement.
+  - criterion_now: Repaired controller stays private and unexecuted; advisor helper timed out without a result. Continue focused repairs and independent fault probes;25/51 unchanged.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
