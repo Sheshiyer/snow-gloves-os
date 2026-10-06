@@ -509,3 +509,14 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-06: Shared metadata staging refactor accepted after135Linux checks, actual owned native-R2/restore/fresh-process proof and575platform passes,252Linux skips,12subtests58.00s; catalog current. Original immutable image unchanged and modules injected for local proof only. ISA25/51.
 
 - 2026-10-06: First body bridge28564 refuted before promotion by four independent owned socketpair/subprocess faults. No aggregate suite success claimed; no runtime/cloud/physical execution. ISA25/51.
+
+## Change log — standalone import body bridge, 6 October 2026
+
+- What changed: standalone bounded socket-to-pipe body bridge and 47 exact-outcome owned subprocess tests; module only, no service registration.
+- Why: future authenticated import needs incremental count/hash verification, replay drain and truthful FD/thread cleanup before acknowledgment.
+- Scope: generic public module/tests; private proof receipts remain in ops. Existing metadata/staging/import APIs and immutable image are unchanged.
+- Risk: source-component proof does not establish HTTP wiring, AEAD restore, deployed company scope, physical recovery or fleet/session acceptance.
+
+## Verification — body bridge integration
+
+Host isolated47checks pass3.94s; owned Linux47checks pass7.61s with containerabsence verified. Source module copied byte-identically; portable test child source reconstructed exactly from tested fixtures. Catalog current. Full platform regression session20373 passes622tests,252Linux skips and12subtests in64.34s; catalog current. ISA remains25/51, no new criterion closure.
