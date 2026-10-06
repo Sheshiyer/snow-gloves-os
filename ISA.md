@@ -241,6 +241,11 @@ until the actual mini supplies evidence.
   learned: corrected owned fixture passes image-bound fresh and same-image existing encrypted export SHA/full headers, restore, role denial, held chat and zero-provider integrity. Actual PID1 image blocked-export SIGTERM exits cleanly in 15.17s; all owned containers and volume are removed.
   criterion now: ISC-47..51 remain open; local immutable image proof does not establish remote custody, Cloudflare deployment, physical recovery or fleet soak.
 
+- 2026-10-06 | conjectured: a bounded Worker consumer could bind management ciphertext export to the existing remote commit helper.
+  refuted by: generated plan required impossible body prehash/replay; candidate sent the wrong POST body, leaked canceled response ownership and acknowledged past cleanup deadline. Actual workerd rejects redirect:error; an asynchronous digest observer also changed the un-copied payload.
+  learned: corrected one-pass consumer validates copied context/payload/full headers, splits host chunks with backpressure, shares a fixed total deadline and contains cancellation.12Node regressions and strict Workers types pass; actual local HTTP/workerd R2 accepts immutable-image14.6MB cipher, complete readback and stable same-job replay; adverse short/trailing/SHA bodies never receive commit records.
+  criterion now: ISC-47..51 remain open; standalone consumer is not gateway-wired and local R2 does not prove company deployment, remote key custody, physical recovery or fleet soak.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
