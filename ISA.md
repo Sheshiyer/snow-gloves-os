@@ -306,6 +306,11 @@ until the actual mini supplies evidence.
   - learned: Source exit, receiver cleanup, container removal, volume removal and absence readbacks each need independent success evidence before the final acknowledgement.
   - criterion_now: Repaired controller stays private and unexecuted; advisor helper timed out without a result. Continue focused repairs and independent fault probes;25/51 unchanged.
 
+- 2026-10-06 | conjectured: focused recovery controllers could safely prove the imported ciphertext through actual restore and cleanup.
+  refuted by: review found a missing bootstrap import, wrong Docker label comparison, unguarded cleanup, uncertain creation gaps, process-environment reads and partial-write/error suppression.
+  learned: narrow controller repairs pass five controlled fault cases; actual fresh immutable-image checkpoint through native local R2 download, current public import/journal modules and real AES-GCM/SQLite receiver restore passes. Wrong key causes one decrypt and zero restore; valid key one decrypt/one restore; historical replay preserves completed intent and receiver identity; original receiver group and owned source container/volume are absent after clean shutdown.
+  criterion now: ISC-47..51 remain open; current modules were injected into an owned image for local proof, not service-wired/image-bundled, cloud-deployed or physical/durable fleet accepted.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -469,3 +474,5 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-06 owned local journal seam probe: actual image ciphertext is staged and then bound through unchanged LocalJobJournal prepare/record_artifact/lookup APIs after the staging root lock releases. Identical journal replay and ciphertext inode preservation pass within 29 Linux checks (0.37s). This is local API sequence evidence, not a promoted import orchestrator or authenticated restore; 25/51 unchanged.
 
 - 2026-10-06 standalone local remote ciphertext import source integrated byte-identically to the privately preserved candidate. Twenty-four actual Linux checks include 14,627,035-byte owned image ciphertext/native local R2 receipt, journal binding, concurrent replay, quota ordering and cancellation faults. Full platform regression:491 passed,252 Linux skips,12 subtests in56.45s;catalogcurrent. No authenticated plaintext, restore intent, image/service wiring, deployment or physical acceptance;25/51 unchanged.
+
+- 2026-10-06: Fresh local R2 import/restore chain passed: 14,627,035 bytes, cipher SHA256 d73cb575d999832653e94289a1cf8dad40c763c37cad12e20a06b5ee0f7721e0; native R2 object/commit versions retained in private proof. Wrong-key denial, actual valid restore, historical replay, SQLite integrity, zero providers and owned cleanup verified. Five separate controller fault simulations pass. ISA remains25/51; no cloud/physical acceptance.
