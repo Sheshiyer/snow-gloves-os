@@ -346,6 +346,11 @@ until the actual mini supplies evidence.
   learned: both source APIs now accept an optional keyword deadline, validate the plain bounded future value and share the wrapper effective deadline explicitly. Native narrow controlflow correction preserves subclasses; old test spies forward the keyword.70ownedLinux checks0.26s include actual blocked pipe and late prepared-journal retention;671platform passes271Linuxskips12subtests56.34s/catalogcurrent.
   criterion now: ISC-47..51 remain open; deadline source seam is accepted, request registry and HTTP/service/image/cloud/physical closure remain unproved.
 
+- 2026-10-06 | conjectured: the standalone request registry draft preserved cancellation ownership and controlflow.
+  refuted by: four actual factory-fault probes replaced original KeyboardInterrupt/SystemExit with held errors; draft concurrency joins were unbounded and interrupt assertions did not invoke registry.
+  learned: narrow public exception guards preserve original controlflow and redact ordinary failures; bounded tests verify capacity, opaque handles, close/register ordering, outside-lock signalling and retained records.23focused cases0.02s and694platform passes271Linuxskips12subtests56.55s/catalogcurrent.
+  criterion now: ISC-47..51 remain open; registry is source-only, request handlers and service shutdown have not adopted it; record count/Event state cannot certify worker absence.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -534,3 +539,5 @@ Host isolated47checks pass3.94s; owned Linux47checks pass7.61s with containerabs
 - 2026-10-06: Pure HTTP import helper source accepted after49focused cases and isolated publicHEAD+candidate regression671passed252skipped12subtests55.65s;catalogcurrent. Exact two-file SHA recorded privately. No HTTP route or service/image/live activation; ISA25/51 unchanged.
 
 - 2026-10-06: Shared caller deadline source integrated after70ownedLinux checks0.26s/ownedcontainerabsencehealthy and isolated671platform passes271Linuxskips12subtests56.34s/catalogcurrent. Default callers retain15s; same earlier caller budget reaches actual staging. No HTTP/service/image/cloud/physical activation; ISA25/51.
+
+- 2026-10-06: Standalone request ownership registry accepted after23focused cases0.02s and isolated694platform passes271Linuxskips12subtests56.55s/catalogcurrent. No HTTP/service/image wiring or cloud/physical activation; ISA25/51 remains.
