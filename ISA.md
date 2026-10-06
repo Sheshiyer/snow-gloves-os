@@ -256,6 +256,11 @@ until the actual mini supplies evidence.
   learned: stored-job hash validation now races each digest against the shared deadline and checks cancellation between observations.16 Node checks, strict actual Worker types, and owned native SQLite Durable Object/R2 dispose-recreate same-job receipt proof pass; replaced remote version is held. Candidate remains private pending broader review and integration.
   criterion now: ISC-47..51 remain open; local Durable Object persistence does not establish deployed gateway, physical recovery or fleet handoff acceptance.
 
+- 2026-10-06 | conjectured: the repaired standalone durable helper could preserve validated same-job remote acknowledgment through object recreation.
+  refuted by: initial candidate accepted mismatched caller pins after prepared writes, forged stored hashes and continued hashing after cancellation; these defects were reproduced and repaired before promotion.
+  learned: reviewed canonical single-registry helper validates identity before intent, validates all stored hashes and receipt pins, verifies R2 outside transactions, and requires synchronized confirmed readback.22 component checks,115 transport tests, strict generated types,491 platform passes201 skips12 subtests55.49s and catalog consistency pass. Actual owned SQLite Durable Object/R2 disposal-recreation preserves the same job and rejects replaced object versions.
+  criterion now: ISC-47..51 remain open; standalone source/local persistence is not deployed gateway, key custody, artifact recovery or physical fleet handoff acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
