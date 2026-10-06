@@ -171,6 +171,11 @@ until the actual mini supplies evidence.
 
 ## Changelog
 
+- 2026-10-06 | conjectured: narrow owned Docker lifecycle generation could safely prepare the fresh-image HTTP recovery proof.
+  refuted by: four independent callback fixtures reproduce secret envfile present at start, ignored unlink failure, boolean process state and duplicate JSON state-key acceptance.
+  learned: creation and secret-file cleanup must be separate acknowledgment boundaries; strict state parsing and first-control-flow cleanup are required before actual Docker execution. No container or volume was created by these fixtures.
+  criterion now: ISC-47..51 remain open at25/51; lifecycle source is rejected pending repair and actual fresh-service/R2 recovery proof.
+
 - 2026-10-05 | conjectured: imported source registrations could feed ingestion through the private-data seam.
   refuted by: CLI regression reproduces NameError for a relative source path.
   learned: root resolution was lost at the public/private split and helper-only tests did not exercise the entrypoint.
