@@ -261,6 +261,11 @@ until the actual mini supplies evidence.
   learned: reviewed canonical single-registry helper validates identity before intent, validates all stored hashes and receipt pins, verifies R2 outside transactions, and requires synchronized confirmed readback.22 component checks,115 transport tests, strict generated types,491 platform passes201 skips12 subtests55.49s and catalog consistency pass. Actual owned SQLite Durable Object/R2 disposal-recreation preserves the same job and rejects replaced object versions.
   criterion now: ISC-47..51 remain open; standalone source/local persistence is not deployed gateway, key custody, artifact recovery or physical fleet handoff acceptance.
 
+- 2026-10-06 | conjectured: pinned R2 ciphertext could be exported as a bounded read-only stream to an independent receiver.
+  refuted by: generated source omitted the record schema, stalled zero-buffer pulls, rejected successful cleanup, overpulled small chunks and returned clean EOF after final-enqueue cancellation. Cancellation/timer and receipt-copy review also tightened ownership; invalid closed-body/timer/metadata-return test assumptions were corrected.
+  learned: exact pinned metadata plus byte/EOF limits, bounded final-chunk retention, final pinned verification and post-enqueue guards pass22 component checks. Actual owned local R2 streams14,627,035 image-cipher bytes with independent receiver SHA; ciphertext replacement, commit replacement and missing commit all hold.137 transport tests, strict generated Worker types,491 platform passes201 skips12 subtests55.69s and catalog consistency pass.
+  criterion now: ISC-47..51 remain open; ciphertext export and receiver digest do not prove plaintext authentication, key custody, owned local import, restore, deployed gateway or physical fleet acceptance.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.

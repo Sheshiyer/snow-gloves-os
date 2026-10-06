@@ -56,3 +56,11 @@ This proves observed consistency through final readback, not an atomic snapshot 
 The registry has at most 256 sorted unique jobs, an 8 KiB bound per job and a 1 MiB total bound. One 60-second monotonic budget covers validation, storage, remote verification and cleanup. Already submitted storage operations may complete after a held result and require reconciliation. R2 observation and Durable Object confirmation do not form an atomic cross-service snapshot.
 
 Twenty-two component checks and actual owned local SQLite Durable Object/R2 disposal and recreation prove same-job persistence and remote-version replacement rejection. The helper has no gateway route or resource binding and does not close cloud deployment, key custody, plaintext authentication or physical fleet acceptance.
+
+## Standalone pinned ciphertext stream
+
+`remote-cipher-export.ts` opens an explicit R2 ciphertext stream only after the unchanged remote verifier validates a mandatory receipt pin. It checks native get metadata, checksum, size and versions; counts exact bytes; emits views at most 64 KiB; and withholds the final chunk until actual EOF and a second pinned verification. A shared 30-second deadline covers opening, streaming, verification and cleanup. Cancellation also closes an unused stream. Returned metadata is copied separately from the internal pin and does not acknowledge body completion.
+
+The receiver must independently count and hash the complete stream before publishing or decrypting it. R2 metadata checks do not authenticate plaintext, and sequential R2 observations are not a global atomic snapshot. Native host chunks may have larger backing allocations than emitted views. This component performs no remote writes or local file publication, adds no gateway route or bucket binding, and grants no restore or container adoption authority.
+
+Twenty-two component checks, an actual owned local R2 export of the 14,627,035-byte image ciphertext with independent receiver SHA-256, and three native R2 replacement/missing-commit holds verify this seam. Cloud, key custody, local artifact import and physical recovery remain separate acceptance work.
