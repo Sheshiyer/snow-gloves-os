@@ -278,6 +278,13 @@ until the actual mini supplies evidence.
   - learned: Validate exact input types and descriptor flags before effects; retain the original inode anchor through final readback and reject cleanup or cancellation faults before acknowledging.
   - criterion_now: Twenty-nine actual Linux checks pass, including the 14,627,035-byte owned image cipher and actual local R2 receipt with same-inode replay. Source remains private pending promotion; journal binding, authenticated plaintext, cloud and physical acceptance remain open; progress stays 25/51.
 
+
+- 2026-10-06 local import first-candidate refutation:
+  - conjectured: A thin staging-to-journal wrapper correctly replayed binding and verified final identity.
+  - refuted_by: Actual Linux probes pass eleven checks but reject a peer-completed verified prepare replay and admit an injected final journal readback with a wrong request digest.
+  - learned: Every returned record needs exact full identity validation; prepared and independently verified same-job prepare returns are both legitimate concurrent outcomes.
+  - criterion_now: Candidate remains private with two reproducible failing probes pending repair. Local source evidence does not close journal orchestrator, authenticated recovery, cloud or physical acceptance; progress stays25/51.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
