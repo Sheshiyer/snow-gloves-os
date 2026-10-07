@@ -1,5 +1,57 @@
 import type { GameState } from './contracts';
 
+export class ReplayRecorder {
+  private recorder: MediaRecorder | null = null;
+  private stream: MediaStream | null = null;
+  private chunks: Blob[] = [];
+  private blob: Blob | null = null;
+  get available(): boolean { return this.blob !== null && this.blob.size > 0; }
+  start(canvas: HTMLCanvasElement | null): void {
+    if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
+    this.stream?.getTracks().forEach(t => t.stop());
+    this.recorder = null; this.blob = null; this.chunks = [];
+    if (!canvas?.captureStream || typeof MediaRecorder === 'undefined') return;
+    const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find(m => MediaRecorder.isTypeSupported(m));
+    if (!mime) return;
+    try {
+      this.stream = canvas.captureStream(25);
+      const recorder = new MediaRecorder(this.stream, { mimeType: mime, videoBitsPerSecond: 1500000 });
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      this.chunks = chunks; this.recorder = recorder;
+      recorder.start(1000);
+    } catch { this.stream?.getTracks().forEach(t => t.stop()); this.recorder = null; }
+  }
+  pause(): void { if (this.recorder?.state === 'recording') this.recorder.pause(); }
+  resume(): void { if (this.recorder?.state === 'paused') this.recorder.resume(); }
+  stop(): Promise<void> {
+    const recorder = this.recorder;
+    if (!recorder || recorder.state === 'inactive') return Promise.resolve();
+    return new Promise(resolve => {
+      const chunks = this.chunks;
+      const stream = this.stream;
+      recorder.onstop = () => {
+        if (this.recorder === recorder) this.blob = new Blob(chunks, { type: recorder.mimeType });
+        stream?.getTracks().forEach(t => t.stop());
+        resolve();
+      };
+      recorder.stop();
+    });
+  }
+  dispose(): void {
+    if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
+    this.stream?.getTracks().forEach(t => t.stop());
+    this.recorder = null;
+  }
+  download(seed: string): void {
+    if (!this.blob) return;
+    const url = URL.createObjectURL(this.blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `snowgloves-${seed}.${this.blob.type.includes('mp4') ? 'mp4' : 'webm'}`;
+    a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
+
 export function challengeUrl(state: GameState): string {
   const url = new URL(window.location.href);
   url.searchParams.set('block', state.seed);
@@ -43,7 +95,7 @@ export function exportScorecard(state: GameState): void {
 
   ctx.fillStyle = orange;
   ctx.font = '700 24px sans-serif';
-  ctx.fillText('/ INFRASTRUCTURE SIMULATION SCORECARD', 440, 120);
+  ctx.fillText('/ INFRASTRUCTURE SIMULATION SCORECARD', 80, 178);
 
   ctx.strokeStyle = 'rgba(25, 60, 53, 0.2)';
   ctx.lineWidth = 2;
@@ -77,7 +129,7 @@ export function exportScorecard(state: GameState): void {
     { label: 'OPERATIVE UNIT', value: state.character.toUpperCase() },
     { label: 'SEED BLOCK', value: state.seed.slice(0, 32) },
     { label: 'DESTROYED PAYLOADS', value: String(state.destroyed) },
-    { label: 'MAX COMBO MULTIPLIER', value: `${state.bestCombo}x` },
+    { label: 'BEST DEMOLITION COMBO', value: String(state.bestCombo) },
     { label: 'ELAPSED SIMULATION', value: `${state.elapsed.toFixed(1)}s` }
   ];
 

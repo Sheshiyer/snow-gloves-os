@@ -6,7 +6,7 @@ import { createWorld } from './world';
 import { createGame, tick, stomp, grabThrow, start, pause, resume } from './game';
 import type { GameState, CharacterId, WorldController, Layer, WorldEvent } from './contracts';
 import { Audio as SoundEngine } from './audio';
-import { exportScorecard, challengeUrl } from './export';
+import { exportScorecard, challengeUrl, ReplayRecorder } from './export';
 
 function escapeHtml(str: unknown): string {
   return String(str ?? '')
@@ -136,6 +136,7 @@ function sanitizeCharacter(raw: string | null): CharacterId {
 }
 
 const urlParams = new URLSearchParams(window.location.search);
+const prefersMap = urlParams.get('view') === 'map';
 const parsedBeat = Number(urlParams.get('beat'));
 const challengeTarget = Number.isFinite(parsedBeat) && parsedBeat > 0 ? Math.floor(parsedBeat) : null;
 let currentSeed = sanitizeSeed(urlParams.get('block') || urlParams.get('seed'));
@@ -149,6 +150,7 @@ let selectedNodeId: string | null = nodes[0]?.id || null;
 let walkthroughIndex = 0;
 
 const sound = new SoundEngine();
+const replay = new ReplayRecorder();
 let gameState: GameState = createGame(currentSeed, selectedCharacter);
 let worldController: WorldController | null = null;
 let lastFrameTime = performance.now();
@@ -171,6 +173,7 @@ const keyState = {
 };
 
 function clearInputs(): void {
+  replay.pause();
   keyState.KeyW = false;
   keyState.KeyA = false;
   keyState.KeyS = false;
@@ -202,6 +205,7 @@ app.innerHTML = `
       <button type="button" class="sg-tab-btn ${activeTab === 'sandbox' ? 'active' : ''}" id="tab-sandbox">${escapeHtml(i18n[lang].sandbox)}</button>
     </nav>
     <div class="sg-header-actions">
+      <button type="button" class="sg-btn-ghost" id="btn-view">${prefersMap ? '3D CITY' : '2D MAP'}</button>
       <button type="button" class="sg-btn-ghost" id="btn-lang" aria-label="Toggle Language">${lang === 'en' ? '简中' : 'EN'}</button>
       <button type="button" class="sg-btn-ghost" id="btn-audio" aria-label="Toggle Audio">${sound.muted ? escapeHtml(i18n[lang].unmute) : escapeHtml(i18n[lang].mute)}</button>
       <button type="button" class="sg-btn-ghost" id="btn-help" aria-label="Open Help">${escapeHtml(i18n[lang].help)}</button>
@@ -210,7 +214,7 @@ app.innerHTML = `
 
   <div class="sg-body">
     <aside class="sg-sidebar" aria-label="Controls and Filter">
-      <div class="sg-pane" id="pane-explore-controls">
+      <div class="sg-pane" id="pane-explore-controls" style="display:${activeTab === 'explore' ? 'block' : 'none'};">
         <div class="sg-side-section">
           <label class="sg-section-lbl" id="lbl-layers" for="layer-filter-select">${escapeHtml(i18n[lang].layers)}</label>
           <div class="sg-layer-pill-group" role="radiogroup" aria-label="Layer Filter">
@@ -323,9 +327,13 @@ app.innerHTML = `
         <button type="button" class="sg-btn sg-btn-primary" id="btn-res-retry">${escapeHtml(i18n[lang].retry)}</button>
         <button type="button" class="sg-btn" id="btn-res-export">${escapeHtml(i18n[lang].sharePng)}</button>
         <button type="button" class="sg-btn" id="btn-res-copy">${escapeHtml(i18n[lang].copyLink)}</button>
+        ${typeof navigator.share === 'function' ? '<button type="button" class="sg-btn" id="btn-res-share">Share challenge…</button>' : ''}
         <button type="button" class="sg-btn" id="btn-res-home">${escapeHtml(i18n[lang].home)}</button>
       </div>
       <div id="sg-copy-toast" class="sg-copy-toast" style="display:none;">${escapeHtml(i18n[lang].copied)}</div>
+      <label class="sg-section-lbl" for="challenge-link">Same block challenge URL</label>
+      <input id="challenge-link" class="sg-search-input" type="text" readonly aria-label="Challenge URL, select and copy manually" />
+      <p id="challenge-status" class="sg-insp-detail" role="status"></p>
     </div>
   </dialog>
 `;
@@ -365,6 +373,7 @@ function closeDialog(dlg: HTMLDialogElement): void {
 }
 
 try {
+  if (prefersMap) throw new Error('Accessible map view selected');
   worldController = createWorld(canvasMount, nodes, gameState, (id: string) => {
     selectedNodeId = id;
     renderInspector();
@@ -372,7 +381,7 @@ try {
     worldController?.select(id);
   });
 } catch (e) {
-  console.warn('WebGL init failed; using fallback view', e);
+  if (!prefersMap) console.warn('WebGL init failed; using fallback view', e);
   if (fallbackMount) fallbackMount.style.display = 'block';
 }
 
@@ -387,6 +396,10 @@ function getFilteredNodes() {
 
 function renderNavigator(): void {
   const filtered = getFilteredNodes();
+  if (!worldController && fallbackMount) {
+    fallbackMount.innerHTML = `<div class="sg-map-view"><p>${prefersMap ? 'Accessible source map · 3D rendering disabled by preference' : escapeHtml(i18n[lang].webglFail)}</p><div class="sg-map-grid">${filtered.map(n => `<button class="sg-map-node" data-map-id="${escapeHtml(n.id)}" aria-pressed="${n.id === selectedNodeId}"><span style="background:${escapeHtml(n.color)}"></span>${escapeHtml(n.name)}<small>${escapeHtml(n.layer)}</small></button>`).join('')}</div></div>`;
+    fallbackMount.querySelectorAll<HTMLButtonElement>('[data-map-id]').forEach(b => b.onclick = () => { selectedNodeId = b.dataset.mapId || null; renderInspector(); renderNavigator(); });
+  }
   navNodes.innerHTML = filtered.map((n, idx) => {
     const isSelected = n.id === selectedNodeId;
     return `
@@ -433,6 +446,7 @@ function renderInspector(): void {
       <div class="sg-insp-badge badge-${escapeHtml(node.evidence)}">${escapeHtml(node.evidence.toUpperCase())} AUDIT</div>
     </div>
     <p class="sg-insp-summary">${escapeHtml(node.summary)}</p>
+    <p class="sg-insp-detail">${escapeHtml(node.detail)}</p>
     <div class="sg-insp-section">
       <div class="sg-insp-sec-title">${escapeHtml(i18n[lang].evidenceNote)}</div>
       <p class="sg-insp-detail">${escapeHtml(node.evidenceNote || node.detail)}</p>
@@ -556,6 +570,11 @@ document.getElementById('btn-help')?.addEventListener('click', () => {
   if (gameState.mode === 'playing') { pause(gameState); clearInputs(); }
   openDialog(dlgHelp);
 });
+document.getElementById('btn-view')?.addEventListener('click', () => {
+  const url = new URL(window.location.href);
+  if (prefersMap) url.searchParams.delete('view'); else url.searchParams.set('view', 'map');
+  window.location.assign(url.toString());
+});
 document.getElementById('btn-help-close')?.addEventListener('click', () => {
   closeDialog(dlgHelp);
   if (gameState.mode === 'paused') openDialog(dlgPause);
@@ -612,6 +631,12 @@ document.getElementById('sg-search-input')?.addEventListener('input', (e) => {
 });
 
 function triggerWalkthrough(dir: number): void {
+  activeLayer = 'all';
+  activeSearch = '';
+  const search = document.getElementById('sg-search-input') as HTMLInputElement;
+  search.value = '';
+  document.querySelectorAll('.sg-layer-pill-group .sg-pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-layer') === 'all'));
+  worldController?.filter('all');
   const matches = WALKTHROUGH_KEYS.map(k => nodes.find(n => n.id.toLowerCase().includes(k) || n.name.toLowerCase().includes(k) || (k === 'audit' && n.id.includes('sentinel')))).filter((n): n is typeof nodes[number] => !!n);
   if (matches.length === 0) return;
   walkthroughIndex = (walkthroughIndex + dir + matches.length) % matches.length;
@@ -640,6 +665,7 @@ function startSimulation(): void {
   gameState = createGame(currentSeed, selectedCharacter);
   start(gameState);
   worldController?.reset(gameState);
+  replay.start(canvasMount.querySelector('canvas'));
   if (window.matchMedia('(pointer: coarse)').matches) {
     const tc = document.getElementById('sg-touch-controls');
     if (tc) tc.style.display = 'flex';
@@ -684,18 +710,32 @@ document.getElementById('btn-res-export')?.addEventListener('click', () => {
 
 document.getElementById('btn-res-copy')?.addEventListener('click', () => {
   const url = challengeUrl(gameState);
+  const input = document.getElementById('challenge-link') as HTMLInputElement;
+  const status = document.getElementById('challenge-status')!;
+  input.value = url;
+  input.focus(); input.select();
+  if (!navigator.clipboard?.writeText) { status.textContent = 'Select and copy the challenge URL above.'; return; }
   navigator.clipboard.writeText(url).then(() => {
+    status.textContent = lang === 'zh' ? '挑战链接已复制。' : 'Challenge link copied.';
     const toast = document.getElementById('sg-copy-toast');
     if (toast) {
       toast.style.display = 'block';
       setTimeout(() => { toast.style.display = 'none'; }, 2000);
     }
-  }).catch(err => console.error('Copy failed', err));
+  }).catch(() => { input.focus(); input.select(); status.textContent = lang === 'zh' ? '请手动复制上方链接。' : 'Clipboard unavailable here. Select and copy the challenge URL above.'; });
 });
 
 document.getElementById('btn-res-home')?.addEventListener('click', () => {
   closeDialog(dlgResult);
   switchTab('explore');
+});
+document.getElementById('btn-res-share')?.addEventListener('click', () => {
+  const url = challengeUrl(gameState);
+  void navigator.share({ title: 'Snow Gloves · Same block challenge', text: `Try this simulated city block. My score: ${gameState.score}.`, url }).catch(() => {
+    const input = document.getElementById('challenge-link') as HTMLInputElement;
+    input.value = url; input.focus(); input.select();
+    document.getElementById('challenge-status')!.textContent = 'Select and copy the challenge URL, or try Copy Challenge Link.';
+  });
 });
 
 window.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -869,9 +909,23 @@ function mainLoop(now: number): void {
       if (resScore) resScore.textContent = `${gameState.score}`;
       if (resDest) resDest.textContent = `${gameState.destroyed}`;
       if (resCombo) resCombo.textContent = `${gameState.bestCombo}x`;
+      if (resCombo) resCombo.textContent = String(gameState.bestCombo);
       openDialog(dlgResult);
+      (document.getElementById('challenge-link') as HTMLInputElement).value = challengeUrl(gameState);
+      void replay.stop().then(() => {
+        const old = document.getElementById('btn-res-replay');
+        old?.remove();
+        const button = document.createElement('button');
+        button.id = 'btn-res-replay';
+        button.className = 'sg-btn';
+        button.textContent = replay.available ? (lang === 'zh' ? '下载模拟录像' : 'Download replay') : (lang === 'zh' ? '浏览器不支持录像' : 'Replay recording unavailable in this browser');
+        button.disabled = !replay.available;
+        button.onclick = () => replay.download(gameState.seed);
+        document.getElementById('btn-res-export')?.after(button);
+      });
     }
   worldController?.update(gameState, dt);
+  if (gameState.mode === 'playing') replay.resume(); else replay.pause();
   requestAnimationFrame(mainLoop);
 }
 
@@ -887,5 +941,9 @@ if (challengeTarget) {
 dlgPause.addEventListener('cancel', e => e.preventDefault());
 dlgResult.addEventListener('cancel', e => e.preventDefault());
 dlgHelp.addEventListener('close', () => { if (gameState.mode === 'paused' && !dlgPause.open) openDialog(dlgPause); });
-window.addEventListener('beforeunload', () => { clearInputs(); worldController?.dispose(); });
+window.addEventListener('beforeunload', () => { clearInputs(); replay.dispose(); worldController?.dispose(); });
 requestAnimationFrame(mainLoop);
+if (prefersMap) {
+  document.getElementById('btn-start-round')!.setAttribute('disabled', '');
+  document.getElementById('btn-start-round')!.textContent = 'Use 3D City for sandbox play';
+}

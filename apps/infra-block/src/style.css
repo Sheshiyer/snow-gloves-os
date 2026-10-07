@@ -250,11 +250,11 @@ html, body {
   font-family: var(--font-hero);
   font-size: clamp(3rem, 7vw, 88px);
   line-height: 0.88;
-  color: var(--cream);
+  color: var(--forest);
   text-transform: uppercase;
   letter-spacing: -0.02em;
   opacity: 0.95;
-  text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  text-shadow: 0 1px 0 rgba(244,240,229,.7);
 }
 
 .sg-hero-sub {
@@ -267,6 +267,8 @@ html, body {
 }
 
 .sg-canvas-mount {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
 }
@@ -589,6 +591,17 @@ html, body {
 }
 
 @media (max-width: 840px) {
+  .sg-header { height: auto; min-height: 90px; flex-wrap: wrap; gap: 10px; padding: 12px; }
+  .sg-brand { width: 100%; }
+  .sg-sidebar { padding: 14px; }
+  #pane-explore-controls:not([style*="display: none"]):not([style*="display:none"]) { display: flex !important; gap: 20px; overflow-x: auto; }
+  #pane-explore-controls .sg-side-section { min-width: 150px; margin: 0; }
+  #pane-explore-controls .sg-layer-pill-group { display: flex; flex-wrap: wrap; gap: 5px; }
+  #pane-explore-controls .sg-pill { width: auto; }
+  .sg-hero-watermark { top: 18px; left: 18px; max-width: 90%; }
+  .sg-hero-title { font-size: 56px; }
+  .sg-hud { left: 10px; right: 10px; bottom: 125px; flex-wrap: wrap; gap: 5px; }
+  .sg-hud-card { padding: 4px 8px; }
   html, body {
     overflow-y: auto;
   }
@@ -614,6 +627,19 @@ html, body {
     border-top: 1px solid var(--border);
   }
 }
+
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
+.sg-inspector { user-select: text; }
+.sg-map-view { padding: 15px; width: 100%; max-height: 100%; overflow: auto; }
+.sg-map-view > p { font-size: 12px; margin-bottom: 16px; }
+.sg-map-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.sg-map-node { border: 1px solid var(--border); background: var(--cream); color: var(--forest); padding: 15px 8px; font: inherit; cursor: pointer; }
+.sg-map-node span { display: block; width: 20px; height: 20px; margin: 0 auto 8px; border-radius: 4px; }
+.sg-map-node small { display: block; font-size: 9px; margin-top: 8px; text-transform: uppercase; }
+.sg-map-node[aria-pressed="true"] { border: 2px solid var(--orange); }
+.sg-webgl-fallback { background: var(--cream); color: var(--forest); z-index: 3; }
+@media(max-width: 600px) { .sg-map-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media(max-width: 420px) { .sg-hero-title { font-size: clamp(32px,9vw,40px); max-width: 100%; } .sg-hero-sub { font-size: 10px; letter-spacing: .06em; } }
 
 @media (prefers-reduced-motion: reduce) {
   * {

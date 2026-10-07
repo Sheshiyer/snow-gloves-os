@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 33/71
+progress: 45/71
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-07
@@ -118,22 +118,22 @@ until the actual mini supplies evidence.
 
 - [x] ISC-52: Antecedent: Sixteen diorama landmarks correspond to source-backed infrastructure entities.
 - [x] ISC-53: Each landmark exposes its source paths and evidence boundary.
-- [ ] ISC-54: A synchronized keyboard-accessible list selects the same landmark as the scene.
-- [ ] ISC-55: Layer filters preserve inspector and list navigation.
-- [ ] ISC-56: The walkthrough highlights the sourced event-to-artifact route.
-- [ ] ISC-57: Three distinct procedural characters remain selectable.
+- [x] ISC-54: A synchronized keyboard-accessible list selects the same landmark as the scene.
+- [x] ISC-55: Layer filters preserve inspector and list navigation.
+- [x] ISC-56: The walkthrough highlights the sourced event-to-artifact route.
+- [x] ISC-57: Three distinct procedural characters remain selectable.
 - [x] ISC-58: Seeded layout repeats across retry and challenge links.
-- [ ] ISC-59: The sandbox round ends after 45 active seconds.
-- [ ] ISC-60: Pause freezes scoring and time and clears held input.
+- [x] ISC-59: The sandbox round ends after 45 active seconds.
+- [x] ISC-60: Pause freezes scoring and time and clears held input.
 - [x] ISC-61: Claw damage and cadence follow the supplied rules.
 - [x] ISC-62: Stomp damage and cooldown follow the supplied rules.
-- [ ] ISC-63: Car grab and throw produce separate visible states.
+- [x] ISC-63: Car grab and throw produce separate visible states.
 - [x] ISC-64: Demolition combos expire without ordinary hits extending them.
-- [ ] ISC-65: Results support retry and a same-map challenge link.
-- [ ] ISC-66: Scorecard export creates a local PNG.
-- [ ] ISC-67: Desktop and narrow mobile layouts remain usable.
-- [ ] ISC-68: Reduced-motion mode removes nonessential effects.
-- [ ] ISC-69: WebGL failure preserves access to the infrastructure list.
+- [x] ISC-65: Results support retry and a same-map challenge link.
+- [x] ISC-66: Scorecard export creates a local PNG.
+- [x] ISC-67: Desktop and narrow mobile layouts remain usable.
+- [x] ISC-68: Reduced-motion mode removes nonessential effects.
+- [x] ISC-69: WebGL failure preserves access to the infrastructure list.
 - [x] ISC-70: Production static build and focused rules tests pass.
 - [x] ISC-71: Anti: browser simulation performs no infrastructure mutation or live-readiness promotion.
 
@@ -661,3 +661,9 @@ Fresh results for this implementation:747platform passes/271Linux skips/23subtes
 Evidence is local only: native Miniflare R2 and real Durable Object storage with a simulated Cloudflare Container API adapter. The automatic fixture uses the confirmed fresh source export; first-bootstrap/checkpoint scheduling acceptance remains regression evidence rather than an actual company deployment drill. Company credentials, published OCI manifest, live deployment, provider activation, physical wings/recovery/handoff/soak and publication authority remain open. Custody names are deferred; company billing entitlements and spend ceiling remain unverified. ISA stays25/51 with no criterion promoted.
 
 - 2026-10-07 frontend checkpoint: sixteen source-mapped nodes and local-only contracts verified; 33 focused game/controller tests and strict TypeScript/production Vite build pass. Full integrated desktop renders with no console errors. Browser interaction, responsive/export/fallback criteria remain pending. Historical fleet criteria unchanged.
+
+## Verification — infrastructure frontend, 7 October 2026
+
+ISC-52/53: sixteen unique nodes, 31 source references, all paths present, relationship IDs valid; explicit source/local/pending evidence. ISC-54..56: IAB scene/list/keyboard selection, four-node Knowledge filter, archive search and repaired walkthrough clearing incompatible filters pass. ISC-57: MUNCH/BONGO/BOLT visibly distinct. ISC-58..64: 33 focused rules/controller assertions pass, same seed replay checked; desktop keyboard and mobile touch actions show score/destruction/cooldown; actual 45-active-second result pass; pause/retry and touch grab then throw (425 points, one demolition) pass. ISC-65/66: result retry and visible seed/character/beat URL, clipboard success/manual fallback and actual 1080×1350 PNG download pass. ISC-67/68: narrow viewport/touch and reduced-motion emulation pass; canvas mount corrected from165px to full420px stage. ISC-69: deliberate map preference exposes16 keyboard-selectable nodes with inspector/list synchronization; actual WebGL failure catch inspected, not fault-injected. ISC-70/71: strict build/33 tests and static boundary audit pass; no host service or infrastructure mutations.
+
+Actual replay:1,238,450 bytes, EBML VP9 WebM independently read by ffprobe. Browser warnings/errors empty after final source-map and game probes. The required GPT-5.4 Cato invocation was rejected as unsupported by the ChatGPT account; advisor timed out after30seconds. No model audit pass is claimed. Procedural toys replace unavailable original GLBs; principal UI localization excludes English source contracts. No physical phone, company deployment or fleet readiness acceptance follows. Historical ISC-1..51 remain unchanged; frontend lane20/20, overall45/71.
