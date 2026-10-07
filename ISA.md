@@ -171,6 +171,8 @@ until the actual mini supplies evidence.
 - 2026-10-05: Interview intake reused the explicit three-part objective and prior review. No further scope choice is needed for local source binding or sandbox proof. Company domain/account inputs were subsequently resolved by the Cloudflare-only decision and pinned guard readback; new enablements and live runtime activation retain their own gates.
 - 2026-10-05: Ingestion checkpoint: undefined relative-path root is the data seam defect. Resolve through data_root rather than patching each manifest with host-specific absolute paths.
 
+- 2026-10-07 refined: Local company recovery implementation authorized: latest verified durable-confirmed checkpoint, 15-minute active checkpoint cadence, 24-hour reviewed expiry eligibility, explicit one-time zero-provider bootstrap, company vault plus distinct runtime secret. Exact 17 newer proof volumes may be removed after ownership and all-container mount checks; preserve original volumes, migration exports and accepted image. Publication, provisioning and deployment remain separate gates.
+
 ## Changelog
 
 - 2026-10-06 | conjectured: accepted fixture probes could observe the bundled managed source service unchanged.
@@ -606,3 +608,5 @@ The exact reviewed parent controller completed a fresh source fixture/checkpoint
 This is local VM/image/native R2 evidence with zero providers, without company deployment or physical recovery acceptance. Platform 738-test results remain historical. ISC progress remains 25/51, and historical ISC-1–19 retain their separate unresolved routing decision. The private company runtime/deployment, physical wing/recovery/handoff/soak packets and replacement PR description are prepared; release and deployment authority remain separate.
 
 The prescribed GPT-5.4 Cato review was attempted read-only but rejected by the ChatGPT account as an unsupported model. No independent-model audit pass is claimed, and host model configuration was not changed. This does not upgrade the broader fleet ISA to complete.
+
+- 2026-10-07 local cleanup verification: fresh saved inventory and five failure-path checks preceded exact removal of 17 owned, unmounted newer proof volumes in colima-sg-runtime-proof. Three original proof volumes plus the migration-owned volume, four stopped migration-export containers and accepted image retained with identical readback. Temporary directories remain pending individual ownership review. ISA stays 25/51; production recovery implementation not yet accepted.
