@@ -22,6 +22,7 @@ from lib.runtime_operation_identity import checkpoint_digest
 from lib.runtime_remote_cipher_import import import_remote_cipher_and_bind_journal
 
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+_GENERATION_RE = re.compile(r"^[0-9a-f]{32}$")
 _KEY_ID_RE = re.compile(r"^[a-z0-9-]{1,64}$")
 _INSTANCE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,128}$")
 _MANAGED_IMPORT_HOLD = "Managed import held"
@@ -41,6 +42,7 @@ class Config:
     runtime_script: str
     backup_cli: str
     initialize_fresh: bool
+    runtime_generation: str | None = None
 
     def __repr__(self) -> str:
         return (
@@ -100,6 +102,16 @@ def _build_context(config: Config) -> Dict[str, Any]:
     }
 
 
+def _build_runtime_identity(config: Config) -> Dict[str, Any]:
+    if config.runtime_generation is None:
+        raise RuntimeError("Runtime identity held")
+    return {
+        "schema": "sg.runtime-identity.v1",
+        "generation": config.runtime_generation,
+        **_build_context(config),
+    }
+
+
 def _validate_pure_config(config: Config) -> None:
     if not sys.platform.startswith("linux"):
         raise RuntimeError("Linux only")
@@ -111,6 +123,11 @@ def _validate_pure_config(config: Config) -> None:
         raise ValueError("Invalid image digest")
     if not _KEY_ID_RE.fullmatch(config.backup_key_id):
         raise ValueError("Invalid backup key id")
+    if config.runtime_generation is not None and (
+        type(config.runtime_generation) is not str
+        or not _GENERATION_RE.fullmatch(config.runtime_generation)
+    ):
+        raise ValueError("Invalid runtime generation")
 
     _validate_keys(
         config.backup_key,
@@ -233,6 +250,7 @@ def load_config(env: Mapping[str, str]) -> Config:
         runtime_script=env["SG_RUNTIME_SCRIPT"],
         backup_cli=env["SG_BACKUP_CLI"],
         initialize_fresh=initialize_fresh,
+        runtime_generation=env.get("SG_RUNTIME_GENERATION"),
     )
     _validate_pure_config(cfg)
     return cfg
@@ -485,6 +503,7 @@ def run_service(config: Config) -> None:
             checkpoint=guarded_checkpoint,
             restore=guarded_restore,
             health_probe=health_probe,
+            identity_probe=lambda: _build_runtime_identity(config),
             management_key=config.management_key,
             backend_key=config.backend_key,
             storage_key=config.storage_encryption_key,

@@ -84,6 +84,37 @@ class _ManagedProxyHandler(_ManagementHandler):
             body = b'{"ready":true}' if ready else b'{"ready":false}'
             self._send_response_raw(200 if ready else 503, "application/json", body)
             return
+        if self.path == "/_management/identity":
+            if not self._validate_auth():
+                self._send_response_raw(401, "text/plain; charset=utf-8", b"Unauthorized")
+                return
+            lengths = self.headers.get_all("Content-Length", [])
+            if "Transfer-Encoding" in self.headers or "Expect" in self.headers or (lengths and lengths != ["0"]):
+                self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
+                return
+            readable, _, _ = select.select([self.connection], [], [], 0.0)
+            if readable:
+                self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
+                return
+            try:
+                probe = self.server.identity_probe
+                identity = probe() if probe is not None else None
+                expected = self.server.operation_context
+                if (
+                    type(identity) is not dict
+                    or set(identity) != {"schema", "generation", *expected}
+                    or identity.get("schema") != "sg.runtime-identity.v1"
+                    or type(identity.get("generation")) is not str
+                    or re.fullmatch(r"[0-9a-f]{32}", identity["generation"]) is None
+                    or any(identity.get(k) != v for k, v in expected.items())
+                ):
+                    raise ValueError("Runtime identity held")
+                body = json.dumps(identity, separators=(",", ":"), sort_keys=True).encode("ascii")
+            except Exception:
+                self._send_response_raw(503, "text/plain; charset=utf-8", b"Service Unavailable")
+                return
+            self._send_response_raw(200, "application/json", body)
+            return
         if self.path == "/v1/models":
             if not self._validate_backend_auth():
                 self._send_response_raw(401, "text/plain; charset=utf-8", b"Unauthorized")
@@ -109,6 +140,12 @@ class _ManagedProxyHandler(_ManagementHandler):
         raw = self.raw_requestline.split()[1].decode("ascii", errors="ignore") if hasattr(self, "raw_requestline") else self.path
         if "?" in raw or "%" in raw or "//" in raw:
             self._send_response_raw(400, "text/plain; charset=utf-8", b"Bad Request")
+            return
+        if self.path == "/_management/identity":
+            if not self._validate_auth():
+                self._send_response_raw(401, "text/plain; charset=utf-8", b"Unauthorized")
+                return
+            self._send_response_raw(405, "text/plain; charset=utf-8", b"Method Not Allowed")
             return
         if self.path in ("/_management/checkpoint", "/_management/restore", "/_management/export", "/_management/import"):
             super().do_POST()
@@ -396,6 +433,7 @@ def create_managed_server(
     gate: OperationGate | None = None,
     upstream_timeout: float = 30.0,
     admission_probe: Callable[[], bool] | None = None,
+    identity_probe: Callable[[], dict[str, Any]] | None = None,
 ) -> Any:
     if isinstance(upstream_timeout, bool) or not isinstance(upstream_timeout, (int, float)) or not math.isfinite(upstream_timeout) or not 0.05 <= upstream_timeout <= 30:
         raise ValueError("Invalid upstream timeout")
@@ -403,6 +441,8 @@ def create_managed_server(
         raise ValueError("Invalid admission probe")
     if not callable(health_probe):
         raise ValueError("health_probe must be callable")
+    if identity_probe is not None and not callable(identity_probe):
+        raise ValueError("Invalid identity probe")
     if isinstance(upstream_port, bool) or not isinstance(upstream_port, int) or upstream_port < 1 or upstream_port > 65535:
         raise ValueError("upstream_port must be int in 1..65535")
     server = create_management_server(
@@ -428,5 +468,6 @@ def create_managed_server(
     server.admission_probe = admission_probe if admission_probe is not None else (lambda: False)
     server.backend_key = backend_key
     server.health_probe = health_probe
+    server.identity_probe = identity_probe
     server.upstream_port = upstream_port
     return server
