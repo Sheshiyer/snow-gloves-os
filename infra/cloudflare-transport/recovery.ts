@@ -8,7 +8,7 @@ export interface RuntimeContext { instanceId: string; imageDigest: string; keyId
 export interface RuntimeIdentity extends RuntimeContext { schema: 'sg.runtime-identity.v1'; generation: string }
 export interface Checkpoint { receipt: RemoteReceipt; confirmedAt: number; held: boolean }
 export interface Operation {
-  kind: 'bootstrap' | 'recovery' | 'checkpoint'; generation: string; jobId: string;
+  kind: 'bootstrap' | 'recovery' | 'checkpoint' | 'adoption'; generation: string; jobId: string;
   phase: 'prepared' | 'launched' | 'imported' | 'restored' | 'exported' | 'confirmed';
   startedAt: number; attempts: number; nextAttemptAt: number;
   source: Checkpoint | null; receipt: RemoteReceipt | null;
@@ -70,11 +70,13 @@ export function validateRecoveryState(value: unknown, context: RuntimeContext): 
   if (!(value.nextCheckpointAt === null || timestamp(value.nextCheckpointAt)) || !Array.isArray(value.checkpoints) || value.checkpoints.length > 256 || !value.checkpoints.every(c => checkpointValid(c,context))) throw new RecoveryHeld('DURABLE_STATE_INVALID');
   if (new Set(value.checkpoints.map(c => c.receipt.job_id)).size !== value.checkpoints.length) throw new RecoveryHeld('DURABLE_STATE_INVALID');
   const op = value.operation;
-  if (op !== null && (!exact(op,['kind','generation','jobId','phase','startedAt','attempts','nextAttemptAt','source','receipt']) || !['bootstrap','recovery','checkpoint'].includes(String(op.kind)) || typeof op.generation !== 'string' || !hex32.test(op.generation) || op.generation !== value.generation || typeof op.jobId !== 'string' || !hex32.test(op.jobId) || !['prepared','launched','imported','restored','exported','confirmed'].includes(String(op.phase)) || !timestamp(op.startedAt) || !timestamp(op.nextAttemptAt) || !Number.isSafeInteger(op.attempts) || (op.attempts as number) < 0 || (op.attempts as number) > 3 || !(op.source === null || checkpointValid(op.source,context)) || !(op.receipt === null || receiptValid(op.receipt,context)))) throw new RecoveryHeld('DURABLE_STATE_INVALID');
+  if (op !== null && (!exact(op,['kind','generation','jobId','phase','startedAt','attempts','nextAttemptAt','source','receipt']) || !['bootstrap','recovery','checkpoint','adoption'].includes(String(op.kind)) || typeof op.generation !== 'string' || !hex32.test(op.generation) || op.generation !== value.generation || typeof op.jobId !== 'string' || !hex32.test(op.jobId) || !['prepared','launched','imported','restored','exported','confirmed'].includes(String(op.phase)) || !timestamp(op.startedAt) || !timestamp(op.nextAttemptAt) || !Number.isSafeInteger(op.attempts) || (op.attempts as number) < 0 || (op.attempts as number) > 3 || !(op.source === null || checkpointValid(op.source,context)) || !(op.receipt === null || receiptValid(op.receipt,context)))) throw new RecoveryHeld('DURABLE_STATE_INVALID');
   if (value.generation===null && (value.readyGeneration!==null || op!==null)) throw new RecoveryHeld('DURABLE_STATE_INVALID');
   if (op!==null) {
     const operation=op as unknown as Operation;
-    if (operation.kind==='recovery') {
+    if (operation.kind==='adoption') {
+      if(!operation.source || operation.source.held || operation.receipt!==null || value.readyGeneration!==value.generation || !value.checkpoints.some(c=>canonicalJson(c)===canonicalJson(operation.source)) || !['prepared','launched','confirmed'].includes(operation.phase)) throw new RecoveryHeld('DURABLE_STATE_INVALID');
+    } else if (operation.kind==='recovery') {
       if (!operation.source || operation.source.held || operation.receipt!==null || operation.jobId===operation.source.receipt.job_id || !value.checkpoints.some(c=>canonicalJson(c)===canonicalJson(operation.source)) || ['exported','confirmed'].includes(operation.phase)) throw new RecoveryHeld('DURABLE_STATE_INVALID');
     } else {
       if (operation.source!==null || ['imported','restored'].includes(operation.phase) || operation.receipt!==null && operation.receipt.job_id!==operation.jobId || ['exported','confirmed'].includes(operation.phase) && operation.receipt===null || operation.kind==='bootstrap' && !value.bootstrapConsumed || operation.kind==='checkpoint' && value.readyGeneration!==value.generation) throw new RecoveryHeld('DURABLE_STATE_INVALID');
@@ -146,14 +148,27 @@ export class GatewayRecovery {
     let state = await this.state();
     if (state.status === 'held') throw new RecoveryHeld(state.failure ?? 'RECOVERY_HELD');
     const controller = new AbortController();
-    const deadline = (state.operation?.startedAt ?? this.now())+RECOVERY_BUDGET_MS;
+    const wasRunning=this.io.running();
+    // A prepared recovery without a previously ready disk is still the same launch attempt.
+    // Its identity, budget and retry spacing survive eviction. The same prepared bootstrap
+    // intent may retry its launch; an owned/launched bootstrap whose unconfirmed disk
+    // disappears cannot consume another gate or allocate a fresh empty generation.
+    const pending=state.operation;
+    const resumePrepared=!wasRunning && state.readyGeneration===null && pending?.phase==='prepared' &&
+      (pending.kind==='recovery' || pending.kind==='bootstrap' && state.checkpoints.length===0);
+    // A legitimately new disk starts a new generation; a running/prepared replay retains its budget.
+    const deadline = (wasRunning || resumePrepared ? state.operation?.startedAt ?? this.now() : this.now())+RECOVERY_BUDGET_MS;
     this.activeDeadline=deadline;
     const timer = setTimeout(() => controller.abort(),RECOVERY_BUDGET_MS);
     try {
-      if (this.io.running()) {
+      if (wasRunning) {
         if (!state.generation) throw new RecoveryHeld('RUNNING_CONTAINER_UNOWNED');
-        if (state.readyGeneration === state.generation && !state.operation) { await this.owned(state,controller.signal);const latest=this.latest(state);if(!latest) throw new RecoveryHeld('CONFIRMED_CHECKPOINT_MISSING');await this.bounded(this.io.verify(latest.receipt,controller.signal)); await this.bounded(this.io.ready(controller.signal)); state.status='ready'; await this.save(state); return; }
-      } else {
+        if (state.readyGeneration === state.generation && !state.operation) {
+          const latest=this.latest(state);if(!latest) throw new RecoveryHeld('CONFIRMED_CHECKPOINT_MISSING');
+          state.operation={kind:'adoption',generation:state.generation,jobId:this.id(),phase:'prepared',startedAt:this.now(),attempts:0,nextAttemptAt:this.now(),source:latest,receipt:null};
+          state.status='recovering';state.failure=null;await this.save(state);
+        }
+      } else if(!resumePrepared) {
         const latest = this.latest(state);
         // A consumed gate cannot authorize another empty disk, even after an interrupted bootstrap.
         if (!latest && (state.checkpoints.length!==0 || !this.bootstrapOnce || state.bootstrapConsumed)) throw new RecoveryHeld('CONFIRMED_CHECKPOINT_MISSING');
@@ -165,6 +180,7 @@ export class GatewayRecovery {
         state.status='recovering'; state.failure=null; await this.save(state);
 
       }
+      if(resumePrepared && state.operation?.source) await this.bounded(this.io.verify(state.operation.source.receipt,controller.signal));
       const op = state.operation;
       if (!op) throw new RecoveryHeld('OPERATION_MISSING');
       while (true) {
@@ -180,12 +196,14 @@ export class GatewayRecovery {
             await this.bounded(this.io.verify(op.source.receipt,controller.signal));
             await this.bounded(this.io.restore(op.source,op.jobId,controller.signal));
             op.phase='restored'; await this.save(state);
+          } else if(op.kind==='adoption') {
+            if(!op.source) throw new RecoveryHeld('ADOPTION_SOURCE_MISSING');
+            await this.bounded(this.io.verify(op.source.receipt,controller.signal));
           } else await this.makeCheckpoint(state,controller.signal);
           await this.bounded(this.io.ready(controller.signal));
+          if(op.kind==='adoption') {op.phase='confirmed';await this.save(state);}
           if (controller.signal.aborted || this.now() >= deadline) throw new RecoveryHeld('RECOVERY_DEADLINE');
-          state.readyGeneration=state.generation; state.status='ready'; state.operation=null; state.failure=null;
-          state.nextCheckpointAt=this.now()+CHECKPOINT_INTERVAL_MS;
-          await this.save(state); await this.storage.setAlarm(state.nextCheckpointAt); return;
+          await this.admit(state,op.kind==='adoption' && state.nextCheckpointAt!==null ? state.nextCheckpointAt : this.now()+CHECKPOINT_INTERVAL_MS); return;
         } catch (error) {
           if (!(error instanceof TransientRecoveryFailure)) throw error;
           op.nextAttemptAt=this.now()+60_000; await this.save(state);
@@ -195,6 +213,17 @@ export class GatewayRecovery {
       state.status='held'; state.failure=error instanceof RecoveryHeld ? error.code : 'RECOVERY_VERIFICATION_HELD';
       this.activeDeadline=this.now()+5000; await this.save(state); throw new RecoveryHeld(state.failure);
     } finally { clearTimeout(timer); controller.abort(); this.activeDeadline=null; }
+  }
+  private async admit(state: RecoveryState, nextCheckpointAt=this.now()+CHECKPOINT_INTERVAL_MS): Promise<void> {
+    // Keep the completed intent durable until scheduling also succeeds. Scheduling failures
+    // can then be repaired using the same restore/checkpoint identity rather than an empty slot.
+    state.nextCheckpointAt=nextCheckpointAt;
+    await this.save(state);
+    await this.bounded(this.storage.setAlarm(state.nextCheckpointAt));
+    const operation=state.operation;
+    state.readyGeneration=state.generation;state.status='ready';state.operation=null;state.failure=null;
+    try {await this.save(state);}
+    catch(error) {state.operation=operation;state.status='recovering';throw error;}
   }
   private async makeCheckpoint(state: RecoveryState, signal: AbortSignal): Promise<void> {
     const op=state.operation!;
@@ -211,17 +240,29 @@ export class GatewayRecovery {
   }
   alarm(): Promise<void> { return this.serial(async()=> {
     const state=await this.state();
-    if (!this.io.running()) { state.status='stopped'; await this.save(state); return; }
+    if (!this.io.running()) {
+      // A stopped runtime does not repair a verification failure or clear its durable intent.
+      if(state.status!=='held') {state.status='stopped';await this.save(state);}
+      return;
+    }
     if (state.status !== 'ready' || state.operation) return;
     this.activeDeadline=this.now()+RECOVERY_BUDGET_MS;
     const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),RECOVERY_BUDGET_MS);
     try {
+      const latest=this.latest(state);if(!latest) throw new RecoveryHeld('CONFIRMED_CHECKPOINT_MISSING');
+      // Persist the known-ready generation's verification intent before probing ownership.
+      // A transient probe failure then remains repairable without granting unverified ownership.
+      state.operation={kind:'adoption',generation:state.generation!,jobId:this.id(),phase:'prepared',startedAt:this.now(),attempts:1,nextAttemptAt:this.now(),source:latest,receipt:null};
+      await this.save(state);
       await this.owned(state,controller.signal);
-      if (state.nextCheckpointAt !== null && this.now()<state.nextCheckpointAt) {await this.storage.setAlarm(state.nextCheckpointAt); return;}
-      state.operation={kind:'checkpoint',generation:state.generation!,jobId:this.id(),phase:'prepared',startedAt:this.now(),attempts:1,nextAttemptAt:this.now(),source:null,receipt:null};
+      state.operation.phase='launched';await this.save(state);
+      if (state.nextCheckpointAt !== null && this.now()<state.nextCheckpointAt) {
+        await this.admit(state,state.nextCheckpointAt);return;
+      }
+      state.operation={kind:'checkpoint',generation:state.generation!,jobId:state.operation.jobId,phase:'prepared',startedAt:state.operation.startedAt,attempts:1,nextAttemptAt:this.now(),source:null,receipt:null};
       await this.save(state); await this.makeCheckpoint(state,controller.signal);
       if (controller.signal.aborted) throw new RecoveryHeld('CHECKPOINT_DEADLINE');
-      state.operation=null; state.failure=null; state.nextCheckpointAt=this.now()+CHECKPOINT_INTERVAL_MS; await this.save(state); await this.storage.setAlarm(state.nextCheckpointAt);
+      await this.admit(state);
     } catch {this.activeDeadline=this.now()+5000;state.status='held'; state.failure='CHECKPOINT_HELD'; await this.save(state); throw new RecoveryHeld('CHECKPOINT_HELD');}
     finally {clearTimeout(timer); controller.abort(); this.activeDeadline=null;}
   }); }
