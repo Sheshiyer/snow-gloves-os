@@ -17,6 +17,56 @@ export function runtimeContext(container: Container, env: LifecycleEnv): Runtime
 export function localRecord(receipt: RemoteReceipt) {
   return {schema:'sg.local-job.v1',job_id:receipt.job_id,request_digest:receipt.request_digest,state:'artifact-verified',artifact:receipt.artifact};
 }
+/** Workers derives Content-Length from this native stream, not a caller-supplied header.
+ * Success requires the verified source to reach EOF and the receiver to acknowledge it.
+ */
+export async function importCipherStream<T>(source: ReadableStream<Uint8Array>, bytes: number,
+  exchange: (body: ReadableStream<Uint8Array>, signal: AbortSignal) => Promise<T>,
+  signal: AbortSignal, timeoutMs = 25_000): Promise<T> {
+  if(!Number.isSafeInteger(bytes) || bytes<1 || bytes>64*1024*1024+4136 || !Number.isInteger(timeoutMs) || timeoutMs<1 || timeoutMs>25_000) throw new RecoveryHeld('IMPORT_STREAM_INVALID');
+  if(typeof FixedLengthStream!=='function') {
+    // Native support is mandatory in production. Node fixtures install their own explicit test seam.
+    void source.cancel().catch(()=>{});throw new RecoveryHeld('FIXED_LENGTH_STREAM_UNAVAILABLE');
+  }
+  const controller=new AbortController();
+  const abort=()=>controller.abort();signal.addEventListener('abort',abort,{once:true});
+  const timer=setTimeout(abort,timeoutMs);
+  if(signal.aborted) abort();
+  let pipe: Promise<void> | null=null;
+  let response: Promise<T> | null=null;
+  let stoppedListener: (()=>void) | undefined;
+  let succeeded=false;
+  try {
+    if(controller.signal.aborted) throw new RecoveryHeld('IMPORT_STREAM_CANCELLED');
+    const fixed=new FixedLengthStream(bytes);
+    pipe=source.pipeTo(fixed.writable,{signal:controller.signal}).catch(()=>{controller.abort();throw new RecoveryHeld('IMPORT_STREAM_HELD');});
+    response=Promise.resolve().then(()=>exchange(fixed.readable,controller.signal)).catch(error=>{controller.abort();throw error;});
+    const stopped=new Promise<never>((_,reject)=>{
+      stoppedListener=()=>reject(new RecoveryHeld('IMPORT_STREAM_CANCELLED'));
+      controller.signal.addEventListener('abort',stoppedListener,{once:true});
+      if(controller.signal.aborted) stoppedListener();
+    });
+    const [,ack]=await Promise.race([Promise.all([pipe,response]),stopped]);
+    if(controller.signal.aborted) throw new RecoveryHeld('IMPORT_STREAM_CANCELLED');
+    succeeded=true;
+    return ack;
+  } finally {
+    clearTimeout(timer);signal.removeEventListener('abort',abort);
+    if(stoppedListener) controller.signal.removeEventListener('abort',stoppedListener);
+    if(!succeeded) {
+      controller.abort();
+      if(!pipe) void source.cancel().catch(()=>{});
+      let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          Promise.allSettled([...(pipe?[pipe]:[]),...(response?[response]:[])]),
+          new Promise<never>((_,reject)=>{cleanupTimer=setTimeout(()=>reject(new RecoveryHeld('IMPORT_STREAM_CLEANUP_HELD')),1000);}),
+        ]);
+      } finally {if(cleanupTimer) clearTimeout(cleanupTimer);}
+    }
+  }
+}
+
 /** All calls remain container-internal; no management route is added to the public Worker. */
 export function createRecoveryIO(storage: Pick<DurableObjectStorage,'transaction'|'get'|'sync'>, bucket: R2Bucket,
   container: Container, env: LifecycleEnv): RecoveryIO {
@@ -98,7 +148,7 @@ export function createRecoveryIO(storage: Pick<DurableObjectStorage,'transaction
       const exported=await openRemoteCipherExport(bucket,context,record,receipt,signal);
       const metadata=canonicalJson({context,record,remote_receipt:receipt});
       if(metadata.length>8192) throw new RecoveryHeld('IMPORT_METADATA_OVERSIZED');
-      const imported=await management('import',{method:'POST',headers:{'Content-Type':'application/vnd.sg.cipher-export+v1','Content-Length':String(receipt.artifact.bytes),'X-SG-Import-Metadata':metadata},body:exported.body},signal);
+      const imported=await importCipherStream(exported.body,receipt.artifact.bytes,(body,importSignal)=>management('import',{method:'POST',headers:{'Content-Type':'application/vnd.sg.cipher-export+v1','X-SG-Import-Metadata':metadata},body},importSignal),signal);
       const importedRecord=imported as Record<string,unknown>;
       const expectedImport={schema:'sg.local-cipher-import.v1',state:'cipher-journal-bound',context,job_id:receipt.job_id,request_digest:receipt.request_digest,artifact:receipt.artifact,replay_stage:importedRecord?.replay_stage,replay_journal:importedRecord?.replay_journal};
       if(typeof importedRecord?.replay_stage!=='boolean' || typeof importedRecord?.replay_journal!=='boolean' || canonicalJson(imported)!==canonicalJson(expectedImport)) throw new RecoveryHeld('IMPORT_RESPONSE_INVALID');
