@@ -7,6 +7,7 @@ import { createGame, tick, stomp, grabThrow, start, pause, resume } from './game
 import type { GameState, CharacterId, WorldController, Layer, WorldEvent } from './contracts';
 import { Audio as SoundEngine } from './audio';
 import { exportScorecard, challengeUrl, ReplayRecorder } from './export';
+import { mountCockpit } from './ops';
 
 function escapeHtml(str: unknown): string {
   return String(str ?? '')
@@ -153,6 +154,11 @@ const sound = new SoundEngine();
 const replay = new ReplayRecorder();
 let gameState: GameState = createGame(currentSeed, selectedCharacter);
 let worldController: WorldController | null = null;
+let cockpit: ReturnType<typeof mountCockpit> | null = null;
+function openOperations(nodeId?: string): void {
+  if (gameState.mode === 'playing') { pause(gameState); clearInputs(); }
+  cockpit?.open(nodeId);
+}
 let lastFrameTime = performance.now();
 let resultShownForRound = false;
 let lastFocusedElement: HTMLElement | null = null;
@@ -205,6 +211,7 @@ app.innerHTML = `
       <button type="button" class="sg-tab-btn ${activeTab === 'sandbox' ? 'active' : ''}" id="tab-sandbox">${escapeHtml(i18n[lang].sandbox)}</button>
     </nav>
     <div class="sg-header-actions">
+      <button type="button" class="sg-btn-ghost" id="btn-operations">OPERATIONS</button>
       <button type="button" class="sg-btn-ghost" id="btn-view">${prefersMap ? '3D CITY' : '2D MAP'}</button>
       <button type="button" class="sg-btn-ghost" id="btn-lang" aria-label="Toggle Language">${lang === 'en' ? '简中' : 'EN'}</button>
       <button type="button" class="sg-btn-ghost" id="btn-audio" aria-label="Toggle Audio">${sound.muted ? escapeHtml(i18n[lang].unmute) : escapeHtml(i18n[lang].mute)}</button>
@@ -447,6 +454,7 @@ function renderInspector(): void {
     </div>
     <p class="sg-insp-summary">${escapeHtml(node.summary)}</p>
     <p class="sg-insp-detail">${escapeHtml(node.detail)}</p>
+    <button type="button" class="sg-btn sg-btn-primary" id="btn-node-workspace">Open workspace</button>
     <div class="sg-insp-section">
       <div class="sg-insp-sec-title">${escapeHtml(i18n[lang].evidenceNote)}</div>
       <p class="sg-insp-detail">${escapeHtml(node.evidenceNote || node.detail)}</p>
@@ -454,7 +462,7 @@ function renderInspector(): void {
     <div class="sg-insp-section">
       <div class="sg-insp-sec-title">${escapeHtml(i18n[lang].sources)}</div>
       <ul class="sg-insp-paths">
-        ${node.sources.map(s => `<li><code>${escapeHtml(s)}</code></li>`).join('')}
+        ${node.sources.map(s => `<li><button type="button" class="sg-btn-link" data-source-document="${escapeHtml(s)}"><code>${escapeHtml(s)}</code></button></li>`).join('')}
       </ul>
     </div>
     <div class="sg-insp-section">
@@ -479,6 +487,11 @@ function renderInspector(): void {
         renderNavigator();
       }
     });
+  });
+  inspectorContent.querySelector<HTMLButtonElement>('#btn-node-workspace')!.onclick = () => openOperations(node.id);
+  inspectorContent.querySelectorAll<HTMLButtonElement>('[data-source-document]').forEach(b => b.onclick = () => {
+    if (gameState.mode === 'playing') { pause(gameState); clearInputs(); }
+    cockpit?.openDocument(b.dataset.sourceDocument!);
   });
 }
 
@@ -739,6 +752,7 @@ document.getElementById('btn-res-share')?.addEventListener('click', () => {
 });
 
 window.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (document.querySelector('.oc-cockpit-overlay:not([hidden])')) return;
   const tag = (e.target as HTMLElement)?.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
@@ -929,6 +943,17 @@ function mainLoop(now: number): void {
   requestAnimationFrame(mainLoop);
 }
 
+const operationsHost = document.createElement('div');
+document.body.append(operationsHost);
+cockpit = mountCockpit(operationsHost, id => {
+  if (!nodes.some(n => n.id === id)) return;
+  activeLayer = 'all'; activeSearch = '';
+  worldController?.filter('all');
+  selectedNodeId = id; worldController?.select(id);
+  renderInspector(); renderNavigator();
+});
+operationsHost.addEventListener('cockpit-close', () => { if (gameState.mode === 'paused') openDialog(dlgPause); });
+document.getElementById('btn-operations')!.onclick = () => openOperations();
 renderInspector();
 renderNavigator();
 worldController?.select(selectedNodeId);

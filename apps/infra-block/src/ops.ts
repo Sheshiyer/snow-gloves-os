@@ -1,0 +1,2741 @@
+import './ops.css';
+import { loadSnapshot, loadDocument, previewPlan, validateSnapshot } from './ops-client';
+import type { OpsSnapshot, OpsDocument, PlanRequest, PlanPreview } from './ops-contracts';
+
+function safeHtml(parts: TemplateStringsArray, ...values: unknown[]): string {
+  const escape = (v: unknown): string => {
+    if (v === null || v === undefined) return '';
+    return String(v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+  return parts.reduce((out, part, i) => out + part + (i < values.length ? escape(values[i]) : ''), '');
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function toStr(v: unknown, fallback = ''): string {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return fallback;
+}
+
+function toArr<T = unknown>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : [];
+}
+
+function prettyJson(val: unknown): string {
+  try {
+    return JSON.stringify(val, null, 2);
+  } catch {
+    return String(val);
+  }
+}
+
+function sanitizeUrl(raw: unknown): string | null {
+  const s = toStr(raw).trim();
+  if (s.startsWith('http://') || s.startsWith('https://')) return s;
+  return null;
+}
+
+export interface CockpitController {
+  open(nodeId?: string): void;
+  openDocument(path: string): void;
+}
+
+const BUILDING_ROUTING: Record<string, { section: SectionName; slugMatch?: string }> = {
+  'agent-ceo': { section: 'Agents', slugMatch: 'ceo' },
+  'agent-cto': { section: 'Agents', slugMatch: 'cto' },
+  'agent-chief-of-staff': { section: 'Agents', slugMatch: 'chief-of-staff' },
+  'agent-sentinel': { section: 'Agents', slugMatch: 'sentinel' },
+  'agent-interpreter': { section: 'Agents', slugMatch: 'interpreter' },
+  'agent-dispatcher': { section: 'Agents', slugMatch: 'dispatcher' },
+  'agent-librarian': { section: 'Agents', slugMatch: 'librarian' },
+  'module-catalog': { section: 'Modules' },
+  'runtime-adapters': { section: 'Runtimes' },
+  'connector-gate': { section: 'Connectors' },
+  'tenant-vault': { section: 'Tenants' },
+  'fleet-wings': { section: 'Fleet' },
+  'omniroute-gateway': { section: 'Fleet' },
+  'cloud-recovery': { section: 'Fleet' },
+  'hermes-bus': { section: 'Activity' },
+  'knowledge-archive': { section: 'Resources' },
+};
+
+const SECTIONS = [
+  'Overview',
+  'Agents',
+  'Modules',
+  'Runtimes',
+  'Connectors',
+  'Tenants',
+  'Fleet',
+  'Activity',
+  'Workbench',
+  'Evidence',
+  'Resources',
+] as const;
+type SectionName = (typeof SECTIONS)[number];
+
+interface ActivityRowItem {
+  id: string;
+  timestamp?: string;
+  tenant?: string;
+  agent?: string;
+  summary?: string;
+  status?: string;
+  jobId?: string;
+  artifactId?: string;
+  source?: string;
+  payload?: unknown;
+}
+
+export function mountCockpit(
+  host: HTMLElement,
+  onSelectNode: (id: string) => void
+): CockpitController {
+  let isOpen = false;
+  let currentSection: SectionName = 'Overview';
+  let selectedNodeContext: string | null = null;
+  let selectedTenantScope: string = '';
+
+  let snapshot: OpsSnapshot | null = null;
+  let isFetching = false;
+  let isStale = false;
+  let lastLoadedSource: 'api' | 'fixture' | null = null;
+  let genericFetchError: string | null = null;
+
+  let pollTimer: number | null = null;
+  let fetchGeneration = 0;
+  let fetchAbortController: AbortController | null = null;
+  let docGeneration = 0;
+  let docAbortController: AbortController | null = null;
+  let planGeneration = 0;
+  let planAbortController: AbortController | null = null;
+  let lastFocusedElement: HTMLElement | null = null;
+
+  const moduleFilter = {
+    search: '',
+    category: 'all',
+    disposition: 'all',
+    risk: 'all',
+    runtime: 'all',
+    agent: 'all',
+    tenant: 'all',
+  };
+
+  const activityFilter = {
+    tab: 'events' as 'events' | 'jobs' | 'artifacts' | 'approvals',
+    tenant: 'all',
+    agent: 'all',
+    status: 'all',
+    search: '',
+  };
+
+  const evidenceFilter = { status: 'all' as 'all' | 'open' | 'accepted' };
+  const resourceFilter = { search: '', kind: 'all' };
+
+  const defaultProposalTitle = 'Proposal ' + new Date().toISOString().slice(0, 10);
+  const workbenchForm = {
+    tenant: '',
+    title: defaultProposalTitle,
+    modules: new Set<string>(),
+    runtime: '',
+    wing: '',
+  };
+  let currentPlanPreview: PlanPreview | null = null;
+  let planErrorMsg: string | null = null;
+  let isPlanning = false;
+
+  let currentDocModal: OpsDocument | null = null;
+  let docLoading = false;
+  let docErrorMsg: string | null = null;
+  let selectedActivityItem: ActivityRowItem | null = null;
+
+  let globalSearchQuery = '';
+  let searchDebounceTimer: number | null = null;
+
+  host.innerHTML = '';
+  const rootEl = document.createElement('dialog');
+  rootEl.className = 'oc-cockpit-overlay';
+  rootEl.setAttribute('hidden', '');
+  rootEl.setAttribute('role', 'dialog');
+  rootEl.setAttribute('aria-modal', 'true');
+  rootEl.setAttribute('aria-label', 'Snow Gloves Operations Cockpit');
+  host.appendChild(rootEl);
+
+  const docDialog = document.createElement('dialog');
+  docDialog.className = 'oc-dialog';
+  docDialog.setAttribute('id', 'oc-doc-dialog');
+  docDialog.setAttribute('aria-label', 'Operations Document Inspector');
+  host.appendChild(docDialog);
+
+  const activityDialog = document.createElement('dialog');
+  activityDialog.className = 'oc-dialog';
+  activityDialog.setAttribute('id', 'oc-activity-dialog');
+  activityDialog.setAttribute('aria-label', 'Hermes Activity Record Details');
+  host.appendChild(activityDialog);
+  rootEl.addEventListener('cancel', e => { e.preventDefault(); closeOverlay(); });
+  docDialog.addEventListener('close', () => { docGeneration++; docAbortController?.abort(); docLoading = false; });
+
+  function closeOverlay() {
+    if (docDialog.open) {
+      docDialog.close();
+      return;
+    }
+    if (activityDialog.open) {
+      activityDialog.close();
+      return;
+    }
+    isOpen = false;
+    rootEl.close();
+    rootEl.setAttribute('hidden', '');
+    isFetching = false;
+    fetchGeneration++; docGeneration++; planGeneration++;
+    stopPolling();
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = null;
+    }
+    if (fetchAbortController) {
+      fetchAbortController.abort();
+      fetchAbortController = null;
+    }
+    if (docAbortController) {
+      docAbortController.abort();
+      docAbortController = null;
+    }
+    if (planAbortController) {
+      planAbortController.abort();
+      planAbortController = null;
+    }
+    host.dispatchEvent(new CustomEvent('cockpit-close'));
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+  }
+
+  async function fetchOperationsData(forceFixtureFallback = false) {
+    const currentGen = ++fetchGeneration;
+    if (fetchAbortController) {
+      fetchAbortController.abort();
+    }
+    fetchAbortController = new AbortController();
+    const signal = fetchAbortController.signal;
+
+    isFetching = true;
+    genericFetchError = null;
+    render();
+
+    const requestedTenant = selectedTenantScope || undefined;
+    const isExplicitPrivate = Boolean(requestedTenant) || snapshot?.scope.mode === 'local-private';
+
+    try {
+      if (!forceFixtureFallback) {
+        try {
+          const data = await loadSnapshot(requestedTenant, { signal });
+          if (signal.aborted || currentGen !== fetchGeneration) return;
+          if (data && data.schema === 'snowgloves.cockpit.v1') {
+            snapshot = data;
+            isStale = false;
+            lastLoadedSource = 'api';
+            genericFetchError = null;
+            return;
+          }
+          throw new Error('Invalid snapshot schema response');
+        } catch (err: unknown) {
+          if (signal.aborted || currentGen !== fetchGeneration) return;
+          if (isExplicitPrivate) {
+            snapshot = null;
+            currentPlanPreview = null;
+            currentDocModal = null;
+            isStale = false;
+            genericFetchError = `Failed to load authorized private sources for tenant "${requestedTenant}". Access was refused or endpoint is unreachable.`;
+            return;
+          }
+          if (!snapshot) {
+            // Fall through to public fixture for initial first public load
+          } else {
+            isStale = true;
+            genericFetchError = 'Public endpoint unreachable. Retaining previous known snapshot in stale state.';
+            return;
+          }
+        }
+      }
+
+      if (!isExplicitPrivate) {
+        const res = await fetch('/cockpit-fixture.json', { signal });
+        if (signal.aborted || currentGen !== fetchGeneration) return;
+        if (res.ok) {
+          const fixture = validateSnapshot(await res.json());
+          if (
+            fixture &&
+            fixture.schema === 'snowgloves.cockpit.v1' &&
+            fixture.scope.mode === 'public-fixtures'
+          ) {
+            snapshot = fixture;
+            isStale = true;
+            lastLoadedSource = 'fixture';
+            genericFetchError = null;
+            return;
+          }
+        }
+        throw new Error('Public fixture validation failed');
+      }
+    } catch (e: unknown) {
+      if (signal.aborted || currentGen !== fetchGeneration) return;
+      if (isExplicitPrivate) {
+        snapshot = null;
+        currentPlanPreview = null;
+        currentDocModal = null;
+      } else if (snapshot) {
+        isStale = true;
+      }
+      genericFetchError = genericFetchError || (e instanceof Error ? e.message : 'Operations endpoint request failed');
+    } finally {
+      if (!signal.aborted && currentGen === fetchGeneration) {
+        isFetching = false;
+        render();
+      }
+    }
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollTimer = window.setInterval(() => {
+      if (isOpen && document.visibilityState === 'visible' && !isFetching) {
+        fetchOperationsData(false);
+      }
+    }, 15000);
+  }
+
+  function stopPolling() {
+    if (pollTimer !== null) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  async function openDocViewer(docPath: string) {
+    const targetPath = toStr(docPath).trim();
+    if (!targetPath) return;
+
+    const currentGen = ++docGeneration;
+    if (docAbortController) {
+      docAbortController.abort();
+    }
+    docAbortController = new AbortController();
+    const signal = docAbortController.signal;
+
+    docLoading = true;
+    docErrorMsg = null;
+    currentDocModal = null;
+    renderDocDialog();
+    if (!docDialog.open) {
+      docDialog.showModal();
+    }
+
+    if (!snapshot) {
+      await fetchOperationsData(false);
+      if (signal.aborted || currentGen !== docGeneration) return;
+    }
+
+    const registered = snapshot?.documents?.find((d) => d.path === targetPath);
+    if (!registered) {
+      docLoading = false;
+      docErrorMsg = `Document path "${targetPath}" is not registered in authorized cockpit catalog.`;
+      renderDocDialog();
+      return;
+    }
+
+    try {
+      const doc = await loadDocument(targetPath, { signal });
+      if (signal.aborted || currentGen !== docGeneration) return;
+      currentDocModal = doc;
+    } catch (e: unknown) {
+      if (signal.aborted || currentGen !== docGeneration) return;
+      docErrorMsg = 'Failed to load document content: ' + (e instanceof Error ? e.message : String(e));
+    } finally {
+      if (!signal.aborted && currentGen === docGeneration) {
+        docLoading = false;
+        renderDocDialog();
+      }
+    }
+  }
+
+  function renderDocDialog() {
+    docDialog.innerHTML = '';
+    const header = document.createElement('div');
+    header.className = 'oc-dialog-header';
+    const title = document.createElement('h3');
+    title.className = 'oc-dialog-title';
+    title.textContent = currentDocModal ? currentDocModal.path : 'Document Viewer';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'oc-btn oc-btn-sm';
+    closeBtn.textContent = '✕ Close';
+    closeBtn.onclick = () => {
+      if (docAbortController) {
+        docAbortController.abort();
+        docAbortController = null;
+      }
+      docDialog.close();
+    };
+    header.append(title, closeBtn);
+
+    const content = document.createElement('div');
+    content.className = 'oc-dialog-content';
+
+    if (docLoading) {
+      const loadingEl = document.createElement('div');
+      loadingEl.className = 'oc-alert oc-alert-info';
+      loadingEl.textContent = 'Loading registered document...';
+      content.appendChild(loadingEl);
+    } else if (docErrorMsg) {
+      const errEl = document.createElement('div');
+      errEl.className = 'oc-alert oc-alert-error';
+      errEl.textContent = docErrorMsg;
+      content.appendChild(errEl);
+    } else if (currentDocModal) {
+      const metaBar = document.createElement('div');
+      metaBar.style.display = 'flex';
+      metaBar.style.gap = '8px';
+      metaBar.style.alignItems = 'center';
+      metaBar.style.flexWrap = 'wrap';
+
+      const pathBadge = document.createElement('span');
+      pathBadge.className = 'oc-badge';
+      pathBadge.textContent = 'PATH: ' + currentDocModal.path;
+      metaBar.appendChild(pathBadge);
+
+      const shaBadge = document.createElement('span');
+      shaBadge.className = 'oc-badge';
+      shaBadge.textContent = 'SHA256: ' + (currentDocModal.sha256 ? currentDocModal.sha256.slice(0, 16) + '...' : 'n/a');
+      metaBar.appendChild(shaBadge);
+
+      if (new TextEncoder().encode(currentDocModal.content).length !== undefined) {
+        const bytesBadge = document.createElement('span');
+        bytesBadge.className = 'oc-badge';
+        bytesBadge.textContent = `${new TextEncoder().encode(currentDocModal.content).length} B`;
+        metaBar.appendChild(bytesBadge);
+      }
+
+      if (currentDocModal.truncated) {
+        const truncBadge = document.createElement('span');
+        truncBadge.className = 'oc-badge oc-badge-stale';
+        truncBadge.textContent = 'TRUNCATED PAYLOAD';
+        metaBar.appendChild(truncBadge);
+      }
+      content.appendChild(metaBar);
+
+      const pre = document.createElement('pre');
+      pre.className = 'oc-pre';
+      pre.textContent = currentDocModal.content || '(empty payload)';
+      content.appendChild(pre);
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'oc-dialog-footer';
+    const doneBtn = document.createElement('button');
+    doneBtn.className = 'oc-btn oc-btn-primary';
+    doneBtn.textContent = 'Done';
+    doneBtn.onclick = () => {
+      if (docAbortController) {
+        docAbortController.abort();
+        docAbortController = null;
+      }
+      docDialog.close();
+    };
+    footer.appendChild(doneBtn);
+
+    docDialog.append(header, content, footer);
+  }
+
+  function openActivityDialog(item: ActivityRowItem) {
+    selectedActivityItem = item;
+    activityDialog.innerHTML = '';
+
+    const header = document.createElement('div');
+    header.className = 'oc-dialog-header';
+    const title = document.createElement('h3');
+    title.className = 'oc-dialog-title';
+    title.textContent = `Activity Record: ${item.id}`;
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'oc-btn oc-btn-sm';
+    closeBtn.textContent = '✕ Close';
+    closeBtn.onclick = () => activityDialog.close();
+    header.append(title, closeBtn);
+
+    const content = document.createElement('div');
+    content.className = 'oc-dialog-content';
+
+    const metaGrid = document.createElement('div');
+    metaGrid.className = 'oc-grid';
+    metaGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(200px, 1fr))';
+
+    const metaItems: Array<[string, string | undefined]> = [
+      ['Record ID', item.id],
+      ['Timestamp', item.timestamp || '—'],
+      ['Tenant', item.tenant || '—'],
+      ['Agent', item.agent || '—'],
+      ['Status', item.status || '—'],
+      ['Job ID', item.jobId || '—'],
+      ['Artifact ID', item.artifactId || '—'],
+      ['Source Doc', item.source || '—'],
+    ];
+
+    metaItems.forEach(([k, v]) => {
+      const card = document.createElement('div');
+      card.className = 'oc-card';
+      card.style.padding = '0.5rem 0.75rem';
+      card.innerHTML = safeHtml`<div class="oc-stat-label">${k}</div><div style="font-family:var(--oc-font-mono);font-size:0.8rem;margin-top:2px;">${v}</div>`;
+      metaGrid.appendChild(card);
+    });
+    content.appendChild(metaGrid);
+
+    const sumBox = document.createElement('div');
+    sumBox.className = 'oc-card';
+    sumBox.innerHTML = safeHtml`<h4 style="font-family:var(--oc-font-title);margin:0 0 0.4rem;text-transform:uppercase;">Summary</h4>
+      <p style="margin:0;font-size:0.88rem;">${item.summary || 'No summary available'}</p>`;
+    content.appendChild(sumBox);
+
+    if (item.source && snapshot?.documents?.some((d) => d.path === item.source)) {
+      const srcBtn = document.createElement('button');
+      srcBtn.className = 'oc-btn oc-btn-accent oc-btn-sm';
+      srcBtn.textContent = `📖 View Source Document (${item.source})`;
+      srcBtn.onclick = () => {
+        activityDialog.close();
+        openDocViewer(item.source!);
+      };
+      content.appendChild(srcBtn);
+    }
+
+    if (item.payload !== undefined) {
+      const rawSec = document.createElement('div');
+      rawSec.innerHTML = safeHtml`<h4 style="font-family:var(--oc-font-title);margin:0.5rem 0 0.25rem;text-transform:uppercase;">Payload Details</h4>`;
+      const pre = document.createElement('pre');
+      pre.className = 'oc-pre';
+      pre.textContent = prettyJson(item.payload);
+      rawSec.appendChild(pre);
+      content.appendChild(rawSec);
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'oc-dialog-footer';
+    const doneBtn = document.createElement('button');
+    doneBtn.className = 'oc-btn oc-btn-primary';
+    doneBtn.textContent = 'Close Record';
+    doneBtn.onclick = () => activityDialog.close();
+    footer.appendChild(doneBtn);
+
+    activityDialog.append(header, content, footer);
+    activityDialog.showModal();
+  }
+
+  async function handlePlanPreview() {
+    if (!workbenchForm.tenant || !workbenchForm.title.trim() || workbenchForm.title.length > 160) {
+      return;
+    }
+    const currentGen = ++planGeneration;
+    if (planAbortController) {
+      planAbortController.abort();
+    }
+    planAbortController = new AbortController();
+    const signal = planAbortController.signal;
+
+    isPlanning = true;
+    planErrorMsg = null;
+    currentPlanPreview = null;
+    render();
+
+    const req: PlanRequest = {
+      tenant: workbenchForm.tenant,
+      title: workbenchForm.title.trim(),
+      modules: Array.from(workbenchForm.modules),
+      runtime: workbenchForm.runtime || undefined,
+      wing: workbenchForm.wing || undefined,
+    };
+
+    const requestIdentity = JSON.stringify(req);
+    try {
+      const preview = await previewPlan(req, { signal });
+      if (signal.aborted || currentGen !== planGeneration) return;
+      const latestDraft = {tenant: workbenchForm.tenant, title: workbenchForm.title.trim(), modules: Array.from(workbenchForm.modules), runtime: workbenchForm.runtime || undefined, wing: workbenchForm.wing || undefined};
+      if (JSON.stringify(latestDraft) !== requestIdentity) {
+        planErrorMsg = 'Draft changed during preview. Generate a new proposal for this draft.';
+        return;
+      }
+      currentPlanPreview = preview;
+    } catch (e: unknown) {
+      if (signal.aborted || currentGen !== planGeneration) return;
+      planErrorMsg = 'Simulation failed: ' + (e instanceof Error ? e.message : 'Server returned an error');
+    } finally {
+      if (!signal.aborted && currentGen === planGeneration) {
+        isPlanning = false;
+        render();
+      }
+    }
+  }
+
+  function jumpToBuilding(buildingId: string) {
+    closeOverlay();
+    onSelectNode(buildingId);
+  }
+
+  function render() {
+    if (!isOpen) return;
+
+    const focused = document.activeElement as HTMLElement | null;
+    const activeId = focused?.id || null;
+    let selStart: number | null = null;
+    let selEnd: number | null = null;
+    if (focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement) {
+      try {
+        selStart = focused.selectionStart;
+        selEnd = focused.selectionEnd;
+      } catch {}
+    }
+
+    const prevContent = rootEl.querySelector('.oc-content');
+    const prevScrollTop = prevContent ? prevContent.scrollTop : 0;
+
+    rootEl.innerHTML = '';
+
+    // Top Brand Header
+    const header = document.createElement('header');
+    header.className = 'oc-header';
+
+    const brandBlock = document.createElement('div');
+    brandBlock.className = 'oc-brand-block';
+    const title = document.createElement('h1');
+    title.className = 'oc-brand-title';
+    title.textContent = 'SNOW GLOVES';
+    const sub = document.createElement('span');
+    sub.className = 'oc-brand-subtitle';
+    sub.textContent = 'OPERATIONS COCKPIT';
+    brandBlock.append(title, sub);
+
+    const headerActions = document.createElement('div');
+    headerActions.className = 'oc-header-actions';
+    const returnBtn = document.createElement('button');
+    returnBtn.id = 'oc-btn-return';
+    returnBtn.className = 'oc-btn-return';
+    returnBtn.innerHTML = '<span>⟵</span> Return to City';
+    returnBtn.onclick = () => closeOverlay();
+    headerActions.appendChild(returnBtn);
+    header.append(brandBlock, headerActions);
+
+    // Contextbar
+    const contextBar = document.createElement('div');
+    contextBar.className = 'oc-contextbar';
+
+    const tags = document.createElement('div');
+    tags.className = 'oc-context-tags';
+
+    // Scope Selector (Default All Public, or choose Tenant)
+    const scopeLabel = document.createElement('label');
+    scopeLabel.className = 'oc-filter-label';
+    scopeLabel.setAttribute('for', 'oc-scope-selector');
+    scopeLabel.textContent = 'Scope:';
+    tags.appendChild(scopeLabel);
+
+    const scopeSel = document.createElement('select');
+    scopeSel.id = 'oc-scope-selector';
+    scopeSel.className = 'oc-filter-select';
+    const optPublic = document.createElement('option');
+    optPublic.value = '';
+    optPublic.textContent = 'Public (All Scope)';
+    scopeSel.appendChild(optPublic);
+
+    (snapshot?.tenants || []).forEach((t) => {
+      const opt = document.createElement('option');
+      opt.value = toStr(t.slug);
+      opt.textContent = `Tenant: ${toStr(t.name || t.slug)}`;
+      scopeSel.appendChild(opt);
+    });
+    scopeSel.value = selectedTenantScope;
+    scopeSel.onchange = (e) => {
+      selectedTenantScope = (e.target as HTMLSelectElement).value;
+      snapshot = null;
+      currentDocModal = null;
+      selectedActivityItem = null;
+      currentPlanPreview = null;
+      workbenchForm.tenant = '';
+      docGeneration++; planGeneration++;
+      docAbortController?.abort(); planAbortController?.abort();
+      docLoading = false; isPlanning = false;
+      if (docDialog.open) docDialog.close();
+      if (activityDialog.open) activityDialog.close();
+      fetchOperationsData(false);
+    };
+    tags.appendChild(scopeSel);
+
+    const scopeMode = snapshot?.scope.mode || (selectedTenantScope ? 'local-private' : 'public');
+    const scopeBadge = document.createElement('span');
+    scopeBadge.className = `oc-badge oc-badge-scope-${scopeMode === 'public-fixtures' || scopeMode === 'public' ? 'public' : 'private'}`;
+    scopeBadge.textContent = `MODE: ${scopeMode.toUpperCase()}`;
+    tags.appendChild(scopeBadge);
+
+    const sourceBadge = document.createElement('span');
+    const isDisconnected = isStale || lastLoadedSource === 'fixture';
+    sourceBadge.className = `oc-badge ${isDisconnected ? 'oc-badge-stale' : 'oc-badge-status-reachable'}`;
+    sourceBadge.textContent = !snapshot ? 'SOURCE: UNAVAILABLE' : lastLoadedSource === 'fixture' ? 'SOURCE: PUBLIC FIXTURE (DISCONNECTED)' : isStale ? 'SOURCE: LAST API SNAPSHOT (STALE)' : 'SOURCE: API (CONNECTED)';
+    tags.appendChild(sourceBadge);
+
+    if (snapshot?.generatedAt) {
+      const genBadge = document.createElement('span');
+      genBadge.className = 'oc-badge';
+      genBadge.textContent = `GEN: ${snapshot.generatedAt}`;
+      tags.appendChild(genBadge);
+    }
+
+    // Global Search box
+    const searchBox = document.createElement('div');
+    searchBox.className = 'oc-search-box';
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'oc-search-icon';
+    searchIcon.textContent = '🔍';
+    const searchInput = document.createElement('input');
+    searchInput.id = 'oc-global-search-input';
+    searchInput.className = 'oc-search-input';
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Search cross-operations (cards, agents, fleet, activity, docs)...';
+    searchInput.value = globalSearchQuery;
+    searchInput.oninput = (e) => {
+      const val = (e.target as HTMLInputElement).value;
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = window.setTimeout(() => {
+        globalSearchQuery = val;
+        render();
+      }, 100);
+    };
+    searchInput.onkeydown = (e) => {
+      if (e.key === 'Escape') {
+        globalSearchQuery = '';
+        render();
+      }
+    };
+    searchBox.append(searchIcon, searchInput);
+
+    if (globalSearchQuery.trim()) {
+      const clearBtn = document.createElement('button');
+      clearBtn.id = 'oc-global-search-clear';
+      clearBtn.className = 'oc-search-clear';
+      clearBtn.textContent = '✕';
+      clearBtn.onclick = () => {
+        globalSearchQuery = '';
+        render();
+      };
+      searchBox.appendChild(clearBtn);
+
+      const dropdown = renderGlobalSearchResults(globalSearchQuery.trim());
+      if (dropdown) searchBox.appendChild(dropdown);
+    }
+
+    const refreshBtn = document.createElement('button');
+    refreshBtn.id = 'oc-btn-refresh';
+    refreshBtn.className = 'oc-btn-refresh';
+    refreshBtn.textContent = isFetching ? '⟳ Refreshing...' : '⟳ Refresh';
+    refreshBtn.disabled = isFetching;
+    refreshBtn.onclick = () => fetchOperationsData(false);
+
+    contextBar.append(tags, searchBox, refreshBtn);
+
+    // Main Layout
+    const main = document.createElement('div');
+    main.className = 'oc-main';
+
+    // Navigation with Tablist and keyboard roving
+    const nav = document.createElement('nav');
+    nav.className = 'oc-nav';
+    nav.setAttribute('aria-label', 'Operations Workspace Navigation');
+    const navList = document.createElement('ul');
+    navList.className = 'oc-nav-list';
+    navList.setAttribute('role', 'tablist');
+
+    SECTIONS.forEach((sec, idx) => {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'presentation');
+      const btn = document.createElement('button');
+      btn.id = `oc-nav-tab-${sec.toLowerCase()}`;
+      btn.className = `oc-nav-btn ${currentSection === sec ? 'oc-active' : ''}`;
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', currentSection === sec ? 'true' : 'false');
+      btn.setAttribute('aria-controls', 'oc-tabpanel-main');
+      btn.setAttribute('tabindex', currentSection === sec ? '0' : '-1');
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = sec;
+      btn.appendChild(nameSpan);
+
+      const count = getSectionCount(sec);
+      if (count !== null) {
+        const countBadge = document.createElement('span');
+        countBadge.className = 'oc-nav-count';
+        countBadge.textContent = String(count);
+        btn.appendChild(countBadge);
+      }
+
+      btn.onclick = () => {
+        currentSection = sec;
+        selectedNodeContext = null;
+        render();
+      };
+
+      btn.onkeydown = (e) => {
+        let targetIdx = idx;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          targetIdx = (idx + 1) % SECTIONS.length;
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          targetIdx = (idx - 1 + SECTIONS.length) % SECTIONS.length;
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          targetIdx = 0;
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          targetIdx = SECTIONS.length - 1;
+        }
+        if (targetIdx !== idx) {
+          const nextSec = SECTIONS[targetIdx];
+          currentSection = nextSec;
+          selectedNodeContext = null;
+          render();
+          const nextBtn = document.getElementById(`oc-nav-tab-${nextSec.toLowerCase()}`);
+          nextBtn?.focus();
+        }
+      };
+
+      li.appendChild(btn);
+      navList.appendChild(li);
+    });
+    nav.appendChild(navList);
+
+    // Content Container as TabPanel
+    const content = document.createElement('main');
+    content.id = 'oc-tabpanel-main';
+    content.className = 'oc-content';
+    content.setAttribute('role', 'tabpanel');
+    content.setAttribute('aria-labelledby', `oc-nav-tab-${currentSection.toLowerCase()}`);
+
+    if (genericFetchError) {
+      const errAlert = document.createElement('div');
+      errAlert.className = 'oc-alert oc-alert-error';
+      errAlert.innerHTML = safeHtml`<strong>Error:</strong> ${genericFetchError}`;
+      const retryScopeBtn = document.createElement('button');
+      retryScopeBtn.className = 'oc-btn oc-btn-sm';
+      retryScopeBtn.style.marginLeft = 'auto';
+      retryScopeBtn.textContent = 'Retry Request';
+      retryScopeBtn.onclick = () => fetchOperationsData(false);
+      errAlert.appendChild(retryScopeBtn);
+      content.appendChild(errAlert);
+    }
+
+    if (!snapshot) {
+      const emptyCard = document.createElement('div');
+      emptyCard.className = 'oc-card';
+      emptyCard.innerHTML = safeHtml`<h3 class="oc-card-title">No Snapshot Loaded</h3>
+        <p class="oc-card-body">Operations telemetry is unavailable for the current scope (${selectedTenantScope ? 'Tenant: ' + selectedTenantScope : 'Public'}).</p>`;
+      const btnRow = document.createElement('div');
+      btnRow.style.display = 'flex';
+      btnRow.style.gap = '0.5rem';
+      const retryBtn = document.createElement('button');
+      retryBtn.id = 'oc-btn-empty-retry';
+      retryBtn.className = 'oc-btn oc-btn-primary';
+      retryBtn.textContent = 'Retry API Load';
+      retryBtn.onclick = () => fetchOperationsData(false);
+      btnRow.appendChild(retryBtn);
+
+      if (!selectedTenantScope) {
+        const fixtureBtn = document.createElement('button');
+        fixtureBtn.id = 'oc-btn-empty-fixture';
+        fixtureBtn.className = 'oc-btn';
+        fixtureBtn.textContent = 'Load Public Fixture';
+        fixtureBtn.onclick = () => fetchOperationsData(true);
+        btnRow.appendChild(fixtureBtn);
+      }
+      emptyCard.appendChild(btnRow);
+      content.appendChild(emptyCard);
+    } else {
+      switch (currentSection) {
+        case 'Overview':
+          content.appendChild(renderOverview());
+          break;
+        case 'Agents':
+          content.appendChild(renderAgents());
+          break;
+        case 'Modules':
+          content.appendChild(renderModules());
+          break;
+        case 'Runtimes':
+          content.appendChild(renderRuntimes());
+          break;
+        case 'Connectors':
+          content.appendChild(renderConnectors());
+          break;
+        case 'Tenants':
+          content.appendChild(renderTenants());
+          break;
+        case 'Fleet':
+          content.appendChild(renderFleet());
+          break;
+        case 'Activity':
+          content.appendChild(renderActivity());
+          break;
+        case 'Workbench':
+          content.appendChild(renderWorkbenchSection());
+          break;
+        case 'Evidence':
+          content.appendChild(renderEvidence());
+          break;
+        case 'Resources':
+          content.appendChild(renderResources());
+          break;
+      }
+    }
+
+    main.append(nav, content);
+    rootEl.append(header, contextBar, main);
+
+    content.scrollTop = prevScrollTop;
+
+    // Focus/Cursor Restoration
+    if (activeId) {
+      const elToRestore = document.getElementById(activeId);
+      if (elToRestore) {
+        elToRestore.focus();
+        if (
+          (elToRestore instanceof HTMLInputElement || elToRestore instanceof HTMLTextAreaElement) &&
+          selStart !== null &&
+          selEnd !== null
+        ) {
+          try {
+            elToRestore.setSelectionRange(selStart, selEnd);
+          } catch {}
+        }
+      }
+    }
+  }
+
+  function getSectionCount(sec: SectionName): number | null {
+    if (!snapshot) return null;
+    switch (sec) {
+      case 'Agents':
+        return snapshot.catalog?.agents?.length || 0;
+      case 'Modules':
+        return snapshot.catalog?.cards?.length || 0;
+      case 'Runtimes':
+        return snapshot.catalog?.adapters?.length || 0;
+      case 'Connectors':
+        return Array.isArray(snapshot.catalog.connectors)
+          ? snapshot.catalog.connectors.length
+          : isRecord(snapshot.catalog.connectors)
+          ? Object.keys(snapshot.catalog.connectors).length
+          : 0;
+      case 'Tenants':
+        return snapshot.tenants?.length || 0;
+      case 'Fleet':
+        return snapshot.fleet?.length || 0;
+      case 'Activity':
+        return (
+          (snapshot.activity?.events?.length || 0) +
+          (snapshot.activity?.jobs?.length || 0) +
+          (snapshot.activity?.artifacts?.length || 0) +
+          (snapshot.activity?.approvals?.length || 0)
+        );
+      case 'Evidence':
+        return snapshot.acceptance?.length || 0;
+      case 'Resources':
+        return snapshot.documents?.length || 0;
+      default:
+        return null;
+    }
+  }
+
+  function renderGlobalSearchResults(query: string): HTMLElement | null {
+    if (!snapshot) return null;
+    const q = query.toLowerCase();
+    const container = document.createElement('div');
+    container.className = 'oc-search-dropdown';
+
+    let matchesCount = 0;
+
+    // Agents
+    const agentMatches = (snapshot.catalog?.agents || []).filter(
+      (a) => toStr(a.slug).toLowerCase().includes(q) || toStr(a.role).toLowerCase().includes(q)
+    );
+    if (agentMatches.length > 0) {
+      const gTitle = document.createElement('div');
+      gTitle.className = 'oc-search-group-title';
+      gTitle.textContent = `Agents (${agentMatches.length})`;
+      container.appendChild(gTitle);
+      agentMatches.slice(0, 3).forEach((a) => {
+        matchesCount++;
+        const item = document.createElement('button');
+        item.className = 'oc-search-item';
+        item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(a.slug)}</span><span class="oc-search-item-sub">Role: ${toStr(a.role)}</span>`;
+        item.onclick = () => {
+          currentSection = 'Agents';
+          selectedNodeContext = toStr(a.slug);
+          globalSearchQuery = '';
+          render();
+        };
+        container.appendChild(item);
+      });
+    }
+
+    // Modules / Cards (all 135 searchable)
+    const cardMatches = (snapshot.catalog?.cards || []).filter(
+      (c) =>
+        toStr(c.id).toLowerCase().includes(q) ||
+        toStr(c.name).toLowerCase().includes(q) ||
+        toStr(c.summary).toLowerCase().includes(q) ||
+        toStr(c.body).toLowerCase().includes(q)
+    );
+    if (cardMatches.length > 0) {
+      const gTitle = document.createElement('div');
+      gTitle.className = 'oc-search-group-title';
+      gTitle.textContent = `Modules (${cardMatches.length})`;
+      container.appendChild(gTitle);
+      cardMatches.slice(0, 4).forEach((c) => {
+        matchesCount++;
+        const item = document.createElement('button');
+        item.className = 'oc-search-item';
+        item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(c.name || c.id)}</span><span class="oc-search-item-sub">${toStr(c.category)} · ${toStr(c.disposition)}</span>`;
+        item.onclick = () => {
+          currentSection = 'Modules';
+          moduleFilter.search = toStr(c.id);
+          globalSearchQuery = '';
+          render();
+        };
+        container.appendChild(item);
+      });
+    }
+
+    // Adapters / Runtimes
+    const adapterMatches = (snapshot.catalog?.adapters || []).filter(
+      (ad) => toStr(ad.id).toLowerCase().includes(q) || toStr(ad.name).toLowerCase().includes(q)
+    );
+    if (adapterMatches.length > 0) {
+      const gTitle = document.createElement('div');
+      gTitle.className = 'oc-search-group-title';
+      gTitle.textContent = `Adapters (${adapterMatches.length})`;
+      container.appendChild(gTitle);
+      adapterMatches.slice(0, 2).forEach((ad) => {
+        matchesCount++;
+        const item = document.createElement('button');
+        item.className = 'oc-search-item';
+        item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(ad.name || ad.id)}</span><span class="oc-search-item-sub">Mode: ${toStr(ad.plan_mode, 'default')}</span>`;
+        item.onclick = () => {
+          currentSection = 'Runtimes';
+          globalSearchQuery = '';
+          render();
+        };
+        container.appendChild(item);
+      });
+    }
+
+    // Fleet Wings
+    const fleetMatches = (snapshot.fleet || []).filter(
+      (fl) => toStr(fl.id).toLowerCase().includes(q) || toStr(fl.name).toLowerCase().includes(q) || toStr(fl.wing).toLowerCase().includes(q)
+    );
+    if (fleetMatches.length > 0) {
+      const gTitle = document.createElement('div');
+      gTitle.className = 'oc-search-group-title';
+      gTitle.textContent = `Fleet Wings (${fleetMatches.length})`;
+      container.appendChild(gTitle);
+      fleetMatches.slice(0, 2).forEach((fl) => {
+        matchesCount++;
+        const item = document.createElement('button');
+        item.className = 'oc-search-item';
+        item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(fl.name || fl.id)}</span><span class="oc-search-item-sub">Wing: ${toStr(fl.wing)}</span>`;
+        item.onclick = () => {
+          currentSection = 'Fleet';
+          globalSearchQuery = '';
+          render();
+        };
+        container.appendChild(item);
+      });
+    }
+
+    // Acceptance Evidence
+    const accMatches = (snapshot.acceptance || []).filter(
+      (ev) => toStr(ev.id).toLowerCase().includes(q) || toStr(ev.criterion).toLowerCase().includes(q)
+    );
+    if (accMatches.length > 0) {
+      const gTitle = document.createElement('div');
+      gTitle.className = 'oc-search-group-title';
+      gTitle.textContent = `Evidence Criteria (${accMatches.length})`;
+      container.appendChild(gTitle);
+      accMatches.slice(0, 2).forEach((ev) => {
+        matchesCount++;
+        const item = document.createElement('button');
+        item.className = 'oc-search-item';
+        item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(ev.id)}: ${toStr(ev.criterion)}</span><span class="oc-search-item-sub">Status: ${toStr(ev.status)}</span>`;
+        item.onclick = () => {
+          currentSection = 'Evidence';
+          globalSearchQuery = '';
+          render();
+        };
+        container.appendChild(item);
+      });
+    }
+
+    // Documents
+    const docMatches = (snapshot.documents || []).filter(
+      (d) => toStr(d.path).toLowerCase().includes(q) || toStr(d.title).toLowerCase().includes(q)
+    );
+    if (docMatches.length > 0) {
+      const gTitle = document.createElement('div');
+      gTitle.className = 'oc-search-group-title';
+      gTitle.textContent = `Documents (${docMatches.length})`;
+      container.appendChild(gTitle);
+      docMatches.slice(0, 3).forEach((d) => {
+        matchesCount++;
+        const item = document.createElement('button');
+        item.className = 'oc-search-item';
+        item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(d.title || d.path)}</span><span class="oc-search-item-sub">${toStr(d.path)}</span>`;
+        item.onclick = () => {
+          globalSearchQuery = '';
+          openDocViewer(toStr(d.path));
+        };
+        container.appendChild(item);
+      });
+    }
+
+    for (const tab of ['events', 'jobs', 'artifacts', 'approvals'] as const) {
+      const records = snapshot.activity[tab].filter(r => [r.id, r.summary, r.agent, r.status].some(value => toStr(value).toLowerCase().includes(q)));
+      if (!records.length) continue;
+      const group = document.createElement('div'); group.className = 'oc-search-group-title'; group.textContent = `${tab} (${records.length})`; container.appendChild(group);
+      for (const record of records.slice(0, 3)) {
+        matchesCount++;
+        const button = document.createElement('button'); button.className = 'oc-search-item'; button.textContent = `${record.id} · ${record.summary}`;
+        button.onclick = () => { currentSection = 'Activity'; activityFilter.tab = tab; activityFilter.search = record.id; activityFilter.tenant = 'all'; activityFilter.agent = 'all'; globalSearchQuery = ''; render(); };
+        container.appendChild(button);
+      }
+    }
+    if (matchesCount === 0) {
+      const noRes = document.createElement('div');
+      noRes.style.padding = '8px 12px';
+      noRes.style.fontSize = '0.8rem';
+      noRes.style.color = 'var(--oc-text-muted)';
+      noRes.textContent = 'No matching operational entities found.';
+      container.appendChild(noRes);
+    }
+
+    return container;
+  }
+
+  // Overview Section
+  function renderOverview(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1.5rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Operations Overview</h2>
+      <div class="oc-section-desc">Live telemetry, derived inventory statistics, and registered endpoint observations</div>
+    </div>`;
+    frag.appendChild(secHeader);
+
+    if (snapshot?.warnings && snapshot.warnings.length > 0) {
+      snapshot.warnings.forEach((w) => {
+        const alert = document.createElement('div');
+        alert.className = 'oc-alert oc-alert-warning';
+        alert.innerHTML = safeHtml`<strong>[${toStr(w.code)}]</strong> ${toStr(w.message)}`;
+        frag.appendChild(alert);
+      });
+    }
+
+    const statStrip = document.createElement('div');
+    statStrip.className = 'oc-stat-strip';
+    const stats = [
+      { label: 'Module Cards', val: snapshot?.catalog?.cards?.length || 0 },
+      { label: 'Active Agents', val: snapshot?.catalog?.agents?.length || 0 },
+      { label: 'Runtime Adapters', val: snapshot?.catalog?.adapters?.length || 0 },
+      { label: 'Fleet Wings', val: snapshot?.fleet?.length || 0 },
+      { label: 'Tenants Scoped', val: snapshot?.tenants?.length || 0 },
+      { label: 'Acceptance Items', val: snapshot?.acceptance?.length || 0 },
+    ];
+    stats.forEach((s) => {
+      const c = document.createElement('div');
+      c.className = 'oc-stat-card';
+      c.innerHTML = safeHtml`<span class="oc-stat-label">${s.label}</span><span class="oc-stat-value">${s.val}</span>`;
+      statStrip.appendChild(c);
+    });
+    frag.appendChild(statStrip);
+
+    // Endpoint Observations Table (strictly labelled Endpoint-only)
+    const serviceSection = document.createElement('div');
+    serviceSection.innerHTML = safeHtml`<h3 style="font-family: var(--oc-font-title); font-size: 1.3rem; margin-bottom: 0.5rem; text-transform: uppercase;">Endpoint Observations (Endpoint-Only Readiness)</h3>`;
+    const tableCont = document.createElement('div');
+    tableCont.className = 'oc-table-container';
+    const table = document.createElement('table');
+    table.className = 'oc-table';
+    table.innerHTML = safeHtml`<thead>
+      <tr>
+        <th>Service ID</th>
+        <th>Label</th>
+        <th>URL</th>
+        <th>State</th>
+        <th>Scope</th>
+        <th>Latency</th>
+        <th>Checked At</th>
+      </tr>
+    </thead>`;
+    const tbody = document.createElement('tbody');
+    const services = snapshot?.services || [];
+    if (services.length === 0) {
+      tbody.innerHTML = safeHtml`<tr><td colspan="7" style="text-align:center; color: var(--oc-text-muted);">No service endpoint telemetry available</td></tr>`;
+    } else {
+      services.forEach((srv) => {
+        const tr = document.createElement('tr');
+        const stateClass = isStale ? 'oc-badge-stale' : `oc-badge-status-${srv.state}`;
+        tr.innerHTML = safeHtml`<td><strong>${toStr(srv.id)}</strong></td>
+          <td>${toStr(srv.label)}</td>
+          <td><code style="font-size:0.75rem;">${toStr(srv.url)}</code></td>
+          <td><span class="oc-badge ${stateClass}">${isStale ? 'LAST KNOWN: ' : ''}${toStr(srv.state).toUpperCase()}</span></td>
+          <td><span class="oc-badge">${toStr(srv.scope, 'endpoint-only')}</span></td>
+          <td>${srv.latencyMs !== null ? srv.latencyMs + 'ms' : 'n/a'}</td>
+          <td>${toStr(srv.checkedAt || 'n/a')}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    table.appendChild(tbody);
+    tableCont.appendChild(table);
+    serviceSection.appendChild(tableCont);
+    frag.appendChild(serviceSection);
+
+    return frag;
+  }
+
+  // Agents Section
+  function renderAgents(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Agent Roles & Routing Core</h2>
+      <div class="oc-section-desc">Defined roles, verified skill routes, identity manifests, and direct module linkages</div>
+    </div>`;
+
+    if (selectedNodeContext) {
+      const selBadge = document.createElement('div');
+      selBadge.className = 'oc-alert oc-alert-info';
+      selBadge.style.margin = '0';
+      selBadge.innerHTML = safeHtml`Filtering Agent: <strong>${selectedNodeContext}</strong>`;
+      const clearSelBtn = document.createElement('button');
+      clearSelBtn.className = 'oc-btn oc-btn-sm';
+      clearSelBtn.style.marginLeft = '0.5rem';
+      clearSelBtn.textContent = '✕ Clear Selection';
+      clearSelBtn.onclick = () => {
+        selectedNodeContext = null;
+        render();
+      };
+      selBadge.appendChild(clearSelBtn);
+      secHeader.appendChild(selBadge);
+    }
+    frag.appendChild(secHeader);
+
+    const agents = (snapshot?.catalog?.agents || []).filter((a) => {
+      if (selectedNodeContext && toStr(a.slug).toLowerCase() !== selectedNodeContext.toLowerCase()) {
+        return false;
+      }
+      return true;
+    });
+
+    const routingRules = toArr<Record<string, unknown>>(snapshot?.routing?.rules);
+    const routingSkills = toArr<Record<string, unknown>>(snapshot?.routing?.skills);
+
+    const grid = document.createElement('div');
+    grid.className = 'oc-grid';
+
+    agents.forEach((ag) => {
+      const slug = toStr(ag.slug);
+      const card = document.createElement('div');
+      card.className = 'oc-card';
+
+      const header = document.createElement('div');
+      header.className = 'oc-card-header';
+      header.innerHTML = safeHtml`<div>
+        <h3 class="oc-card-title">${slug.toUpperCase()}</h3>
+        <div class="oc-card-subtitle">Layer: ${toStr(ag.layer)} · Declared Skills: ${ag.skill_count || 0}</div>
+      </div>
+      <span class="oc-badge oc-badge-scope-public">ROLE DEFINITION</span>`;
+
+      const body = document.createElement('div');
+      body.className = 'oc-card-body';
+
+      const roleP = document.createElement('p');
+      roleP.innerHTML = safeHtml`<strong>Role:</strong> ${toStr(ag.role)}`;
+      body.appendChild(roleP);
+
+      const hooksList = toArr<string>(ag.hooks);
+      const hooksP = document.createElement('p');
+      hooksP.innerHTML = safeHtml`<strong>Hooks:</strong> ${hooksList.length > 0 ? hooksList.join(', ') : 'none'}`;
+      body.appendChild(hooksP);
+
+      // Routed Skills from snapshot.routing
+      const agentRules = routingRules.filter((r) => toStr(r.agent).toLowerCase() === slug.toLowerCase());
+      const routeSec = document.createElement('div');
+      routeSec.style.marginTop = '0.5rem';
+      routeSec.innerHTML = safeHtml`<div style="font-weight:700;font-size:0.8rem;text-transform:uppercase;color:var(--oc-forest);">Routed Skills (${agentRules.length})</div>`;
+      
+      if (agentRules.length === 0) {
+        const noRules = document.createElement('div');
+        noRules.style.fontSize = '0.78rem';
+        noRules.style.color = 'var(--oc-text-muted)';
+        noRules.textContent = 'No explicit routing rules assigned.';
+        routeSec.appendChild(noRules);
+      } else {
+        const rUl = document.createElement('ul');
+        rUl.style.paddingLeft = '1.2rem';
+        rUl.style.margin = '4px 0 0 0';
+        rUl.style.fontSize = '0.78rem';
+        agentRules.forEach((rule) => {
+          const li = document.createElement('li');
+          const skillId = toArr<string>(rule.skills).join(', ');
+          const hook = toStr(rule.hook);
+          const globs = toArr<string>(rule.globs).join(', ');
+          const src = toStr(rule.source);
+          li.innerHTML = safeHtml`<code>${skillId || hook}</code> ${globs ? `[${globs}]` : ''} ${src ? `(src: ${src})` : ''}`;
+          if (src && snapshot?.documents?.some((d) => d.path === src)) {
+            const viewSrc = document.createElement('button');
+            viewSrc.className = 'oc-btn oc-btn-sm';
+            viewSrc.style.padding = '0 4px';
+            viewSrc.style.marginLeft = '4px';
+            viewSrc.textContent = 'doc';
+            viewSrc.onclick = () => openDocViewer(src);
+            li.appendChild(viewSrc);
+          }
+          rUl.appendChild(li);
+        });
+        routeSec.appendChild(rUl);
+      }
+      body.appendChild(routeSec);
+
+      // Modules related to this agent
+      const relatedCards = (snapshot?.catalog?.cards || []).filter((c) => {
+        const cAgents = toArr<string>(c.agents).map((s) => toStr(s).toLowerCase());
+        return cAgents.includes(slug.toLowerCase());
+      });
+
+      const relatedSec = document.createElement('div');
+      relatedSec.style.marginTop = '0.5rem';
+      relatedSec.innerHTML = safeHtml`<div style="font-weight:700;font-size:0.8rem;text-transform:uppercase;color:var(--oc-forest);">Assigned Modules (${relatedCards.length})</div>`;
+      body.appendChild(relatedSec);
+
+      const footer = document.createElement('div');
+      footer.className = 'oc-card-footer';
+
+      // Identity Doc Link if registered
+      const identityPath = `agents/${slug}/IDENTITY.md`;
+      const hasIdentity = snapshot?.documents?.some((d) => d.path === identityPath);
+      if (hasIdentity) {
+        const docBtn = document.createElement('button');
+        docBtn.className = 'oc-btn oc-btn-sm';
+        docBtn.textContent = '📄 IDENTITY.md';
+        docBtn.onclick = () => openDocViewer(identityPath);
+        footer.appendChild(docBtn);
+      }
+
+      if (relatedCards.length > 0) {
+        const filterModBtn = document.createElement('button');
+        filterModBtn.className = 'oc-btn oc-btn-sm';
+        filterModBtn.textContent = `📦 Filter Modules (${relatedCards.length})`;
+        filterModBtn.onclick = () => {
+          moduleFilter.agent = slug;
+          currentSection = 'Modules';
+          render();
+        };
+        footer.appendChild(filterModBtn);
+      }
+
+      const jumpBtn = document.createElement('button');
+      jumpBtn.className = 'oc-btn oc-btn-sm';
+      jumpBtn.textContent = '📍 Jump to City';
+      jumpBtn.onclick = () => jumpToBuilding(`agent-${slug}`);
+      footer.appendChild(jumpBtn);
+
+      card.append(header, body, footer);
+      grid.appendChild(card);
+    });
+
+    frag.appendChild(grid);
+    return frag;
+  }
+
+  // Modules Section (All 135 Searchable)
+  function renderModules(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Module Catalog</h2>
+      <div class="oc-section-desc">Catalog cards with disposition, governance risk, runtime compatibility, and verified tenant enablement</div>
+    </div>`;
+    frag.appendChild(secHeader);
+
+    const filterBar = document.createElement('div');
+    filterBar.className = 'oc-filter-bar';
+
+    const searchInp = document.createElement('input');
+    searchInp.id = 'oc-module-search-input';
+    searchInp.className = 'oc-input-text';
+    searchInp.placeholder = 'Search id/name/summary/body...';
+    searchInp.value = moduleFilter.search;
+    searchInp.oninput = (e) => {
+      moduleFilter.search = (e.target as HTMLInputElement).value;
+      render();
+    };
+    filterBar.appendChild(searchInp);
+
+    // Category Select
+    const catSelect = document.createElement('select');
+    catSelect.id = 'oc-module-category-select';
+    catSelect.className = 'oc-filter-select';
+    const categories = Array.from(
+      new Set((snapshot?.catalog?.cards || []).map((c) => toStr(c.category)).filter(Boolean))
+    ).sort();
+    catSelect.innerHTML = safeHtml`<option value="all">All Categories (${categories.length})</option>`;
+    categories.forEach((cat) => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      catSelect.appendChild(opt);
+    });
+    catSelect.value = moduleFilter.category;
+    catSelect.onchange = (e) => {
+      moduleFilter.category = (e.target as HTMLSelectElement).value;
+      render();
+    };
+    filterBar.appendChild(catSelect);
+
+    // Disposition Select
+    const dispSelect = document.createElement('select');
+    dispSelect.id = 'oc-module-disp-select';
+    dispSelect.className = 'oc-filter-select';
+    dispSelect.innerHTML = safeHtml`<option value="all">All Dispositions</option>
+      <option value="add">add</option>
+      <option value="pointer">pointer</option>
+      <option value="hold">hold</option>
+      <option value="refuse">refuse</option>`;
+    dispSelect.value = moduleFilter.disposition;
+    dispSelect.onchange = (e) => {
+      moduleFilter.disposition = (e.target as HTMLSelectElement).value;
+      render();
+    };
+    filterBar.appendChild(dispSelect);
+
+    // Risk Select
+    const riskSelect = document.createElement('select');
+    riskSelect.id = 'oc-module-risk-select';
+    riskSelect.className = 'oc-filter-select';
+    riskSelect.innerHTML = safeHtml`<option value="all">All Risk Levels</option>
+      <option value="low">low</option>
+      <option value="medium">medium</option>
+      <option value="high">high</option>`;
+    riskSelect.value = moduleFilter.risk;
+    riskSelect.onchange = (e) => {
+      moduleFilter.risk = (e.target as HTMLSelectElement).value;
+      render();
+    };
+    filterBar.appendChild(riskSelect);
+
+    // Runtime Select
+    const runtimes = Array.from(
+      new Set((snapshot?.catalog?.adapters || []).map((a) => toStr(a.id)).filter(Boolean))
+    ).sort();
+    const runSelect = document.createElement('select');
+    runSelect.id = 'oc-module-runtime-select';
+    runSelect.className = 'oc-filter-select';
+    runSelect.innerHTML = safeHtml`<option value="all">All Runtimes</option>`;
+    runtimes.forEach((r) => {
+      const opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = `Runtime: ${r}`;
+      runSelect.appendChild(opt);
+    });
+    runSelect.value = moduleFilter.runtime;
+    runSelect.onchange = (e) => {
+      moduleFilter.runtime = (e.target as HTMLSelectElement).value;
+      render();
+    };
+    filterBar.appendChild(runSelect);
+
+    // Agent Filter Select
+    const agentSelect = document.createElement('select');
+    agentSelect.id = 'oc-module-agent-select';
+    agentSelect.className = 'oc-filter-select';
+    const agentSlugs = (snapshot?.catalog?.agents || []).map((a) => toStr(a.slug)).filter(Boolean);
+    agentSelect.innerHTML = safeHtml`<option value="all">All Agents</option>`;
+    agentSlugs.forEach((s) => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = `Agent: ${s}`;
+      agentSelect.appendChild(opt);
+    });
+    agentSelect.value = moduleFilter.agent;
+    agentSelect.onchange = (e) => {
+      moduleFilter.agent = (e.target as HTMLSelectElement).value;
+      render();
+    };
+    filterBar.appendChild(agentSelect);
+
+    // Tenant Enablement Selector
+    const tenantSelect = document.createElement('select');
+    tenantSelect.id = 'oc-module-tenant-select';
+    tenantSelect.className = 'oc-filter-select';
+    tenantSelect.innerHTML = safeHtml`<option value="all">Enablement: No Tenant Scoped (Unknown)</option>`;
+    (snapshot?.tenants || []).forEach((t) => {
+      const opt = document.createElement('option');
+      opt.value = toStr(t.slug);
+      opt.textContent = `Tenant: ${toStr(t.name || t.slug)}`;
+      tenantSelect.appendChild(opt);
+    });
+    tenantSelect.value = moduleFilter.tenant;
+    tenantSelect.onchange = (e) => {
+      moduleFilter.tenant = (e.target as HTMLSelectElement).value;
+      render();
+    };
+    filterBar.appendChild(tenantSelect);
+
+    frag.appendChild(filterBar);
+
+    const cards = snapshot?.catalog?.cards || [];
+    const selectedTenantObj = (snapshot?.tenants || []).find((t) => toStr(t.slug) === moduleFilter.tenant);
+
+    const filteredCards = cards.filter((c) => {
+      const q = moduleFilter.search.toLowerCase().trim();
+      if (q) {
+        const matchId = toStr(c.id).toLowerCase().includes(q);
+        const matchName = toStr(c.name).toLowerCase().includes(q);
+        const matchSum = toStr(c.summary).toLowerCase().includes(q);
+        const matchBody = toStr(c.body).toLowerCase().includes(q);
+        if (!matchId && !matchName && !matchSum && !matchBody) return false;
+      }
+      if (moduleFilter.category !== 'all' && toStr(c.category) !== moduleFilter.category) return false;
+      if (moduleFilter.disposition !== 'all' && toStr(c.disposition) !== moduleFilter.disposition) return false;
+      if (moduleFilter.risk !== 'all' && toStr(c.risk) !== moduleFilter.risk) return false;
+      if (moduleFilter.runtime !== 'all') {
+        const cRuntimes = toArr<string>(c.runtimes).map(v => toStr(v));
+        if (!cRuntimes.includes(moduleFilter.runtime)) {
+          return false;
+        }
+      }
+      if (moduleFilter.agent !== 'all') {
+        const cAgents = toArr<string>(c.agents).map((s) => toStr(s).toLowerCase());
+        if (!cAgents.includes(moduleFilter.agent.toLowerCase())) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const countHeader = document.createElement('div');
+    countHeader.style.fontSize = '0.85rem';
+    countHeader.style.color = 'var(--oc-text-muted)';
+    countHeader.textContent = `Showing ${filteredCards.length} of ${cards.length} module cards`;
+    frag.appendChild(countHeader);
+
+    const grid = document.createElement('div');
+    grid.className = 'oc-grid';
+
+    filteredCards.forEach((c) => {
+      const card = document.createElement('div');
+      card.className = 'oc-card';
+
+      const disp = toStr(c.disposition);
+      const isHeldOrRefused = disp === 'hold' || disp === 'refuse';
+      const rawEnableable = Boolean(c.enableable);
+      const catalogEnableable = rawEnableable && !isHeldOrRefused;
+
+      let tenantEnabledBadge = '';
+      if (!selectedTenantObj) {
+        tenantEnabledBadge = 'TENANT: UNKNOWN (NO TENANT SELECTED)';
+      } else {
+        const enabledList = toArr<string>(selectedTenantObj.enabledModules);
+        const isTenantEnabled = enabledList.includes(toStr(c.id));
+        tenantEnabledBadge = isTenantEnabled
+          ? 'TENANT: ENABLED'
+          : 'TENANT: NOT ENABLED';
+      }
+
+      const header = document.createElement('div');
+      header.className = 'oc-card-header';
+      header.innerHTML = safeHtml`<div>
+        <h3 class="oc-card-title">${toStr(c.name || c.id)}</h3>
+        <div class="oc-card-subtitle">ID: ${toStr(c.id)} · Cat: ${toStr(c.category)}</div>
+      </div>`;
+
+      const badges = document.createElement('div');
+      badges.className = 'oc-card-badges';
+
+      const dispBadge = document.createElement('span');
+      dispBadge.className = `oc-badge ${disp === 'refuse' ? 'oc-badge-status-unreachable' : disp === 'hold' ? 'oc-badge-status-warning' : 'oc-badge-status-reachable'}`;
+      dispBadge.textContent = disp.toUpperCase();
+      badges.appendChild(dispBadge);
+
+      if (c.risk) {
+        const riskBadge = document.createElement('span');
+        riskBadge.className = 'oc-badge';
+        riskBadge.textContent = `RISK: ${toStr(c.risk).toUpperCase()}`;
+        badges.appendChild(riskBadge);
+      }
+
+      const enableBadge = document.createElement('span');
+      enableBadge.className = `oc-badge ${catalogEnableable ? 'oc-badge-status-reachable' : 'oc-badge-status-unreachable'}`;
+      enableBadge.textContent = `CATALOG: ${catalogEnableable ? 'ENABLEABLE' : 'NON-ENABLEABLE'}`;
+      badges.appendChild(enableBadge);
+
+      header.appendChild(badges);
+
+      const body = document.createElement('div');
+      body.className = 'oc-card-body';
+
+      const sumP = document.createElement('p');
+      sumP.textContent = toStr(c.summary);
+      body.appendChild(sumP);
+
+      const metaBlock = document.createElement('div');
+      metaBlock.style.marginTop = '6px';
+      metaBlock.style.fontSize = '0.78rem';
+      metaBlock.style.color = 'var(--oc-text-muted)';
+      metaBlock.innerHTML = safeHtml`<div><strong>Approval Required:</strong> ${toStr(c.approval, 'no')}</div>
+        <div><strong>Runtime Rendered State:</strong> UNKNOWN (DTO provides no install proof)</div>
+        <div style="margin-top:4px;">${tenantEnabledBadge}</div>`;
+      body.appendChild(metaBlock);
+
+      // Card details accordion for body/provenance/hooks
+      const details = document.createElement('details');
+      details.style.marginTop = '8px';
+      details.style.fontSize = '0.8rem';
+      const summaryEl = document.createElement('summary');
+      summaryEl.style.cursor = 'pointer';
+      summaryEl.style.fontWeight = '700';
+      summaryEl.style.color = 'var(--oc-forest)';
+      summaryEl.textContent = 'View Card Specification & Hooks';
+      details.appendChild(summaryEl);
+
+      const detailsContent = document.createElement('div');
+      detailsContent.style.padding = '6px 0';
+      if (c.body) {
+        const bodyPre = document.createElement('pre');
+        bodyPre.className = 'oc-pre';
+        bodyPre.style.maxHeight = '140px';
+        bodyPre.textContent = toStr(c.body);
+        detailsContent.appendChild(bodyPre);
+      }
+      if (c.source) {
+        const provDiv = document.createElement('div');
+        provDiv.innerHTML = safeHtml`<strong>Provenance:</strong> ${toStr(c.source)}`;
+        detailsContent.appendChild(provDiv);
+      }
+      if (c.hooks) {
+        const hooksDiv = document.createElement('div');
+        hooksDiv.innerHTML = safeHtml`<strong>Hooks:</strong> ${toArr(c.hooks).join(', ')}`;
+        detailsContent.appendChild(hooksDiv);
+      }
+      details.appendChild(detailsContent);
+      body.appendChild(details);
+
+      const footer = document.createElement('div');
+      footer.className = 'oc-card-footer';
+
+      const rawSrc = toStr(c.source || c.repo);
+      if (rawSrc && snapshot?.documents?.some((d) => d.path === rawSrc)) {
+        const docBtn = document.createElement('button');
+        docBtn.className = 'oc-btn oc-btn-sm oc-btn-primary';
+        docBtn.textContent = '📖 View Registered Doc';
+        docBtn.onclick = () => openDocViewer(rawSrc);
+        footer.appendChild(docBtn);
+      } else {
+        const safeExternal = sanitizeUrl(rawSrc);
+        if (safeExternal) {
+          const extLink = document.createElement('a');
+          extLink.className = 'oc-btn oc-btn-sm';
+          extLink.href = safeExternal;
+          extLink.target = '_blank';
+          extLink.rel = 'noopener noreferrer';
+          extLink.textContent = '↗ Source Repo';
+          footer.appendChild(extLink);
+        }
+      }
+
+      const jumpBtn = document.createElement('button');
+      jumpBtn.className = 'oc-btn oc-btn-sm';
+      jumpBtn.textContent = '📍 Jump to Catalog';
+      jumpBtn.onclick = () => jumpToBuilding('module-catalog');
+      footer.appendChild(jumpBtn);
+
+      card.append(header, body, footer);
+      grid.appendChild(card);
+    });
+
+    frag.appendChild(grid);
+    return frag;
+  }
+
+  // Runtimes Section
+  function renderRuntimes(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Runtime Adapters</h2>
+      <div class="oc-section-desc">Format matrix (object), MCP skill paths, plan modes, and read-only install instructions</div>
+    </div>`;
+    frag.appendChild(secHeader);
+
+    const adapters = snapshot?.catalog?.adapters || [];
+    const grid = document.createElement('div');
+    grid.className = 'oc-grid';
+
+    adapters.forEach((ad) => {
+      const card = document.createElement('div');
+      card.className = 'oc-card';
+
+      const header = document.createElement('div');
+      header.className = 'oc-card-header';
+      header.innerHTML = safeHtml`<div>
+        <h3 class="oc-card-title">${toStr(ad.name || ad.id)}</h3>
+        <div class="oc-card-subtitle">ID: ${toStr(ad.id)} · Plan Mode: ${toStr(ad.plan_mode, 'default')}</div>
+      </div>
+      <span class="oc-badge">ADAPTER</span>`;
+
+      const body = document.createElement('div');
+      body.className = 'oc-card-body';
+
+      // Formats is an object shape
+      const formatsObj = isRecord(ad.formats) ? ad.formats : { formats: ad.formats };
+      const formatsP = document.createElement('div');
+      formatsP.style.fontSize = '0.8rem';
+      formatsP.innerHTML = safeHtml`<strong>Formats Matrix:</strong>
+        <pre class="oc-pre" style="margin:4px 0;">${prettyJson(formatsObj)}</pre>`;
+      body.appendChild(formatsP);
+
+      if (ad.paths) {
+        const pathsP = document.createElement('div');
+        pathsP.style.fontSize = '0.8rem';
+        pathsP.innerHTML = safeHtml`<strong>Skill / MCP / Rules Paths:</strong>
+          <pre class="oc-pre" style="margin:4px 0;">${prettyJson(ad.paths)}</pre>`;
+        body.appendChild(pathsP);
+      }
+
+      if (ad.question_tool !== undefined || ad.verify !== undefined) {
+        const verifyDiv = document.createElement('div');
+        verifyDiv.style.fontSize = '0.78rem';
+        verifyDiv.style.color = 'var(--oc-text-muted)';
+        verifyDiv.style.marginTop = '4px';
+        verifyDiv.innerHTML = safeHtml`<div><strong>Question Tool:</strong> ${toStr(ad.question_tool, 'n/a')}</div>
+          <div><strong>Verification:</strong> ${isRecord(ad.verify) ? prettyJson(ad.verify) : toStr(ad.verify, 'Standard')}</div>`;
+        body.appendChild(verifyDiv);
+      }
+
+      const notesP = document.createElement('p');
+      notesP.style.margin = '6px 0 0 0';
+      notesP.innerHTML = safeHtml`<strong>Notes:</strong> ${toStr(ad.notes, 'None specified')}`;
+      body.appendChild(notesP);
+
+      const installSteps = toArr<string>(ad.install);
+      const installDiv = document.createElement('div');
+      installDiv.style.marginTop = '6px';
+      installDiv.innerHTML = safeHtml`<strong>Install Instructions (Read-Only):</strong>
+        <pre class="oc-pre" style="margin:4px 0;">${installSteps.join('\n') || '# No specific install instructions'}</pre>`;
+      body.appendChild(installDiv);
+
+      const footer = document.createElement('div');
+      footer.className = 'oc-card-footer';
+      const jumpBtn = document.createElement('button');
+      jumpBtn.className = 'oc-btn oc-btn-sm';
+      jumpBtn.textContent = '📍 Jump to Runtimes';
+      jumpBtn.onclick = () => jumpToBuilding('runtime-adapters');
+      footer.appendChild(jumpBtn);
+
+      card.append(header, body, footer);
+      grid.appendChild(card);
+    });
+
+    frag.appendChild(grid);
+    return frag;
+  }
+
+  // Connectors Section
+  function renderConnectors(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Connector Gateways</h2>
+      <div class="oc-section-desc">Structured authentication models, connector capabilities, and tenant gating states</div>
+    </div>`;
+    frag.appendChild(secHeader);
+
+    const rawConnectors = snapshot?.catalog.connectors;
+    const connList: Array<{ id: string; auth?: unknown; capabilities?: unknown; raw: unknown }> = [];
+    if (Array.isArray(rawConnectors)) {
+      rawConnectors.forEach((c) => {
+        if (isRecord(c)) connList.push({ id: toStr(c.id || c.name), auth: c.auth, capabilities: c.capabilities, raw: c });
+      });
+    } else if (isRecord(rawConnectors)) {
+      Object.entries(rawConnectors).forEach(([k, v]) => {
+        if (isRecord(v)) connList.push({ id: k, auth: v.auth, capabilities: v.capabilities, raw: v });
+        else connList.push({ id: k, capabilities: v, raw: v });
+      });
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'oc-grid';
+
+    connList.forEach((conn) => {
+      const card = document.createElement('div');
+      card.className = 'oc-card';
+
+      const header = document.createElement('div');
+      header.className = 'oc-card-header';
+      header.innerHTML = safeHtml`<div>
+        <h3 class="oc-card-title">${conn.id.toUpperCase()}</h3>
+        <div class="oc-card-subtitle">Gateway Connector</div>
+      </div>
+      <span class="oc-badge">GATEWAY</span>`;
+
+      const body = document.createElement('div');
+      body.className = 'oc-card-body';
+
+      const authBlock = document.createElement('div');
+      authBlock.style.fontSize = '0.8rem';
+      authBlock.innerHTML = safeHtml`<strong>Authentication Configuration:</strong>
+        <pre class="oc-pre" style="margin:4px 0;">${isRecord(conn.auth) ? prettyJson(conn.auth) : toStr(conn.auth, 'None / Open')}</pre>`;
+      body.appendChild(authBlock);
+
+      const capBlock = document.createElement('div');
+      capBlock.style.fontSize = '0.8rem';
+      capBlock.style.marginTop = '6px';
+      capBlock.innerHTML = safeHtml`<strong>Capabilities & Gate Policies:</strong>
+        <pre class="oc-pre" style="margin:4px 0;">${isRecord(conn.capabilities) || Array.isArray(conn.capabilities) ? prettyJson(conn.capabilities) : toStr(conn.capabilities, 'standard')}</pre>`;
+      body.appendChild(capBlock);
+
+      const stateDiv = document.createElement('div');
+      stateDiv.style.fontSize = '0.78rem';
+      stateDiv.style.color = 'var(--oc-text-muted)';
+      stateDiv.style.marginTop = '6px';
+      stateDiv.textContent = 'Tenant Gate Status: UNKNOWN (DTO does not provide per-connector enable state mapping)';
+      body.appendChild(stateDiv);
+
+      const footer = document.createElement('div');
+      footer.className = 'oc-card-footer';
+      const jumpBtn = document.createElement('button');
+      jumpBtn.className = 'oc-btn oc-btn-sm';
+      jumpBtn.textContent = '📍 Jump to Connector Gate';
+      jumpBtn.onclick = () => jumpToBuilding('connector-gate');
+      footer.appendChild(jumpBtn);
+
+      card.append(header, body, footer);
+      grid.appendChild(card);
+    });
+
+    frag.appendChild(grid);
+    return frag;
+  }
+
+  // Tenants Section
+  function renderTenants(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Tenant Vault Scope</h2>
+      <div class="oc-section-desc">Approved modules inventory, assigned agents, approval ledgers, and registered sources</div>
+    </div>`;
+    frag.appendChild(secHeader);
+
+    const tenants = snapshot?.tenants || [];
+    const grid = document.createElement('div');
+    grid.className = 'oc-grid';
+
+    tenants.forEach((t) => {
+      const card = document.createElement('div');
+      card.className = 'oc-card';
+
+      const slug = toStr(t.slug);
+      const enabled = toArr<string>(t.enabledModules);
+      const ags = toArr<string>(t.agents);
+
+      const header = document.createElement('div');
+      header.className = 'oc-card-header';
+      header.innerHTML = safeHtml`<div>
+        <h3 class="oc-card-title">${toStr(t.name || t.slug)}</h3>
+        <div class="oc-card-subtitle">Slug: ${slug} · Runtime: ${toStr(t.primaryRuntime, 'default')}</div>
+      </div>
+      <span class="oc-badge oc-badge-scope-private">TENANT VAULT</span>`;
+
+      const body = document.createElement('div');
+      body.className = 'oc-card-body';
+
+      const modP = document.createElement('p');
+      modP.innerHTML = safeHtml`<strong>Enabled Modules (${enabled.length}):</strong> ${enabled.join(', ') || 'None'}`;
+      body.appendChild(modP);
+
+      const agP = document.createElement('p');
+      agP.innerHTML = safeHtml`<strong>Assigned Agents (${ags.length}):</strong> ${ags.join(', ') || 'None'}`;
+      body.appendChild(agP);
+
+      const appP = document.createElement('div');
+      appP.style.fontSize = '0.8rem';
+      appP.innerHTML = safeHtml`<strong>Approval Counts:</strong>
+        <pre class="oc-pre" style="margin:4px 0;">${isRecord(t.approvalCounts) ? prettyJson(t.approvalCounts) : toStr(t.approvalCounts, '0')}</pre>`;
+      body.appendChild(appP);
+
+      const availP = document.createElement('p');
+      availP.style.margin = '4px 0 0 0';
+      availP.innerHTML = safeHtml`<strong>Availability Warning:</strong> ${toStr(t.availability, 'Ready / Normal')}`;
+      body.appendChild(availP);
+
+      const footer = document.createElement('div');
+      footer.className = 'oc-card-footer';
+
+      const filterModsBtn = document.createElement('button');
+      filterModsBtn.className = 'oc-btn oc-btn-sm';
+      filterModsBtn.textContent = `📦 Filter Modules`;
+      filterModsBtn.onclick = () => {
+        moduleFilter.tenant = slug;
+        currentSection = 'Modules';
+        render();
+      };
+      footer.appendChild(filterModsBtn);
+
+      const jumpBtn = document.createElement('button');
+      jumpBtn.className = 'oc-btn oc-btn-sm';
+      jumpBtn.textContent = '📍 Jump to Tenant Vault';
+      jumpBtn.onclick = () => jumpToBuilding('tenant-vault');
+      footer.appendChild(jumpBtn);
+
+      card.append(header, body, footer);
+      grid.appendChild(card);
+    });
+
+    frag.appendChild(grid);
+    return frag;
+  }
+
+  // Fleet Section
+  function renderFleet(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Fleet Wings & Profiles</h2>
+      <div class="oc-section-desc">Physical profiles, contract prerequisites (component, lifecycle, provider, remote, physical), and public recovery documents</div>
+    </div>`;
+    frag.appendChild(secHeader);
+
+    const fleet = snapshot?.fleet || [];
+    const grid = document.createElement('div');
+    grid.className = 'oc-grid';
+
+    fleet.forEach((fl) => {
+      const card = document.createElement('div');
+      card.className = 'oc-card';
+
+      const header = document.createElement('div');
+      header.className = 'oc-card-header';
+      header.innerHTML = safeHtml`<div>
+        <h3 class="oc-card-title">${toStr(fl.name || fl.id)}</h3>
+        <div class="oc-card-subtitle">Wing: ${toStr(fl.wing)} · Runtime: ${toStr(fl.runtime)}</div>
+      </div>
+      <span class="oc-badge">FLEET WING</span>`;
+
+      const body = document.createElement('div');
+      body.className = 'oc-card-body';
+
+      const profP = document.createElement('p');
+      profP.innerHTML = safeHtml`<strong>Profile:</strong> ${prettyJson(fl.profile)}`;
+      body.appendChild(profP);
+
+      const evP = document.createElement('p');
+      evP.innerHTML = safeHtml`<strong>Evidence / Recovery:</strong> ${toStr(fl.evidence)}`;
+      body.appendChild(evP);
+
+      const footer = document.createElement('div');
+      footer.className = 'oc-card-footer';
+
+      const recDocPath = snapshot?.documents.find(d => d.path === 'docs/fleet/09-RUNTIME-SUPERVISOR.md')?.path || '';
+      if (recDocPath && snapshot?.documents?.some((d) => d.path === recDocPath)) {
+        const recBtn = document.createElement('button');
+        recBtn.className = 'oc-btn oc-btn-sm oc-btn-primary';
+        recBtn.textContent = '📖 Recovery Doc';
+        recBtn.onclick = () => openDocViewer(recDocPath);
+        footer.appendChild(recBtn);
+      }
+
+      const jumpBtn = document.createElement('button');
+      jumpBtn.className = 'oc-btn oc-btn-sm';
+      jumpBtn.textContent = '📍 Jump to Wings';
+      jumpBtn.onclick = () => jumpToBuilding('fleet-wings');
+      footer.appendChild(jumpBtn);
+
+      card.append(header, body, footer);
+      grid.appendChild(card);
+    });
+
+    frag.appendChild(grid);
+    return frag;
+  }
+
+  // Activity Section
+  function renderActivity(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Hermes Activity Bus</h2>
+      <div class="oc-section-desc">Filtered projection log of events, jobs, artifacts, and approvals</div>
+    </div>`;
+    frag.appendChild(secHeader);
+
+    const filterBar = document.createElement('div');
+    filterBar.className = 'oc-filter-bar';
+
+    // Tabs
+    (['events', 'jobs', 'artifacts', 'approvals'] as const).forEach((t) => {
+      const btn = document.createElement('button');
+      btn.id = `oc-activity-tab-${t}`;
+      btn.className = `oc-btn oc-btn-sm ${activityFilter.tab === t ? 'oc-btn-primary' : ''}`;
+      btn.textContent = t.toUpperCase();
+      btn.onclick = () => {
+        activityFilter.tab = t;
+        render();
+      };
+      filterBar.appendChild(btn);
+    });
+
+    // Activity Search Filter
+    const searchInp = document.createElement('input');
+    searchInp.id = 'oc-activity-search-input';
+    searchInp.className = 'oc-input-text';
+    searchInp.placeholder = 'Filter activity text...';
+    searchInp.value = activityFilter.search;
+    searchInp.oninput = (e) => {
+      activityFilter.search = (e.target as HTMLInputElement).value;
+      render();
+    };
+    filterBar.appendChild(searchInp);
+
+    // Tenant Filter
+    const tenantSel = document.createElement('select');
+    tenantSel.id = 'oc-activity-tenant-select';
+    tenantSel.className = 'oc-filter-select';
+    tenantSel.innerHTML = safeHtml`<option value="all">All Tenants</option>`;
+    (snapshot?.tenants || []).forEach((t) => {
+      const opt = document.createElement('option');
+      opt.value = toStr(t.slug);
+      opt.textContent = `Tenant: ${toStr(t.slug)}`;
+      tenantSel.appendChild(opt);
+    });
+    tenantSel.value = activityFilter.tenant;
+    tenantSel.onchange = (e) => {
+      activityFilter.tenant = (e.target as HTMLSelectElement).value;
+      render();
+    };
+    filterBar.appendChild(tenantSel);
+
+    // Agent Filter
+    const agentSel = document.createElement('select');
+    agentSel.id = 'oc-activity-agent-select';
+    agentSel.className = 'oc-filter-select';
+    agentSel.innerHTML = safeHtml`<option value="all">All Agents</option>`;
+    (snapshot?.catalog?.agents || []).forEach((a) => {
+      const opt = document.createElement('option');
+      opt.value = toStr(a.slug);
+      opt.textContent = `Agent: ${toStr(a.slug)}`;
+      agentSel.appendChild(opt);
+    });
+    agentSel.value = activityFilter.agent;
+    agentSel.onchange = (e) => {
+      activityFilter.agent = (e.target as HTMLSelectElement).value;
+      render();
+    };
+    filterBar.appendChild(agentSel);
+
+    frag.appendChild(filterBar);
+
+    const rawActivityData = snapshot?.activity ? snapshot.activity[activityFilter.tab] || [] : [];
+    const normalizedList: ActivityRowItem[] = toArr<Record<string, unknown>>(rawActivityData).map((item) => ({
+      id: toStr(item.id),
+      timestamp: toStr(item.timestamp || item.created || item.time),
+      tenant: toStr(item.tenant),
+      agent: toStr(item.agent),
+      summary: toStr(item.summary || item.title || item.name || item.action),
+      status: toStr(item.status || 'unknown'),
+      jobId: toStr(item.jobId),
+      artifactId: toStr(item.artifactId),
+      source: toStr(toArr<string>(item.sources)[0]),
+      payload: item,
+    }));
+
+    const filteredData = normalizedList.filter((act) => {
+      const q = activityFilter.search.toLowerCase().trim();
+      if (q) {
+        const matchId = act.id.toLowerCase().includes(q);
+        const matchSum = (act.summary || '').toLowerCase().includes(q);
+        if (!matchId && !matchSum) return false;
+      }
+      if (activityFilter.tenant !== 'all' && act.tenant && act.tenant !== activityFilter.tenant) return false;
+      if (activityFilter.agent !== 'all' && act.agent && act.agent !== activityFilter.agent) return false;
+      return true;
+    });
+
+    const tableCont = document.createElement('div');
+    tableCont.className = 'oc-table-container';
+    const table = document.createElement('table');
+    table.className = 'oc-table';
+    table.innerHTML = safeHtml`<thead>
+      <tr>
+        <th>ID</th>
+        <th>Timestamp</th>
+        <th>Tenant</th>
+        <th>Agent</th>
+        <th>Summary</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>`;
+    const tbody = document.createElement('tbody');
+
+    if (filteredData.length === 0) {
+      tbody.innerHTML = safeHtml`<tr><td colspan="7" style="text-align:center; color:var(--oc-text-muted);">No activity records found matching active filter.</td></tr>`;
+    } else {
+      filteredData.forEach((act) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = safeHtml`<td><code>${act.id}</code></td>
+          <td>${act.timestamp || '—'}</td>
+          <td>${act.tenant || '—'}</td>
+          <td>${act.agent || '—'}</td>
+          <td>${act.summary || '—'}</td>
+          <td><span class="oc-badge">${act.status || 'n/a'}</span></td>
+          <td></td>`;
+
+        const actionTd = tr.querySelector('td:last-child')!;
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'oc-btn oc-btn-sm';
+        viewBtn.textContent = '🔍 Details';
+        viewBtn.onclick = () => openActivityDialog(act);
+        actionTd.appendChild(viewBtn);
+
+        tbody.appendChild(tr);
+      });
+    }
+    table.appendChild(tbody);
+    tableCont.appendChild(table);
+    frag.appendChild(tableCont);
+
+    return frag;
+  }
+
+  // Workbench Section
+  function renderWorkbenchSection(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1.5rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Operations Workbench</h2>
+      <div class="oc-section-desc">Read-only planning simulation with tenant context, route projection, step verification, and authorization guarantees</div>
+    </div>`;
+    frag.appendChild(secHeader);
+
+    // Display Server Authorized Capabilities Status Card (No mutations allowed)
+    const capCard = document.createElement('div');
+    capCard.className = 'oc-card';
+    capCard.innerHTML = safeHtml`<div class="oc-card-header">
+      <div>
+        <h3 class="oc-card-title">Server Authorized Capabilities Ledger</h3>
+        <div class="oc-card-subtitle">Strict read-only operational boundary enforcement</div>
+      </div>
+      <span class="oc-badge oc-badge-scope-public">STRICT READ-ONLY</span>
+    </div>
+    <div class="oc-card-body">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.5rem;">
+        <div class="oc-badge">EXECUTING: FALSE</div>
+        <div class="oc-badge">ENABLING: FALSE</div>
+        <div class="oc-badge">APPROVING: FALSE</div>
+        <div class="oc-badge">PLAN PREVIEW: READ-ONLY ONLY</div>
+      </div>
+      <div style="margin-top:6px;font-size:0.78rem;color:var(--oc-text-muted);">
+        Mutation, execution, and direct policy approvals are completely disallowed through the Operations Cockpit interface.
+      </div>
+    </div>`;
+    frag.appendChild(capCard);
+
+    const isDisconnected = isStale || lastLoadedSource === 'fixture';
+    if (isDisconnected) {
+      const warn = document.createElement('div');
+      warn.className = 'oc-alert oc-alert-warning';
+      warn.innerHTML = safeHtml`<strong>⚠️ Plan simulation offline:</strong> Fallback fixture active or disconnected. Plan preview requires active connected API verification.`;
+      frag.appendChild(warn);
+    }
+
+    const form = document.createElement('div');
+    form.className = 'oc-card';
+    form.style.display = 'flex';
+    form.style.flexDirection = 'column';
+    form.style.gap = '1rem';
+
+    // Tenant select (required)
+    const tenantGroup = document.createElement('div');
+    tenantGroup.className = 'oc-form-group';
+    tenantGroup.innerHTML = safeHtml`<label class="oc-form-label" for="oc-wb-tenant-select">Target Tenant * (Required)</label>`;
+    const tenantSel = document.createElement('select');
+    tenantSel.id = 'oc-wb-tenant-select';
+    tenantSel.className = 'oc-filter-select';
+    tenantSel.innerHTML = safeHtml`<option value="">-- Select Target Tenant --</option>`;
+    (snapshot?.tenants || []).forEach((t) => {
+      const opt = document.createElement('option');
+      opt.value = toStr(t.slug);
+      opt.textContent = `${toStr(t.name || t.slug)} (${toStr(t.slug)})`;
+      tenantSel.appendChild(opt);
+    });
+    tenantSel.value = workbenchForm.tenant;
+    tenantSel.onchange = (e) => {
+      workbenchForm.tenant = (e.target as HTMLSelectElement).value;
+      currentPlanPreview = null;
+      render();
+    };
+    tenantGroup.appendChild(tenantSel);
+    form.appendChild(tenantGroup);
+
+    // Proposal Title
+    const titleGroup = document.createElement('div');
+    titleGroup.className = 'oc-form-group';
+    titleGroup.innerHTML = safeHtml`<label class="oc-form-label" for="oc-wb-title-input">Proposal Title * (Max 160 Chars)</label>`;
+    const titleInp = document.createElement('input');
+    titleInp.id = 'oc-wb-title-input';
+    titleInp.className = 'oc-input-text';
+    titleInp.maxLength = 160;
+    titleInp.value = workbenchForm.title;
+    titleInp.oninput = (e) => {
+      workbenchForm.title = (e.target as HTMLInputElement).value;
+      currentPlanPreview = null;
+    };
+    titleGroup.appendChild(titleInp);
+    form.appendChild(titleGroup);
+
+    // Runtime Dropdown (Actual Adapters)
+    const runGroup = document.createElement('div');
+    runGroup.className = 'oc-form-group';
+    runGroup.innerHTML = safeHtml`<label class="oc-form-label" for="oc-wb-runtime-select">Runtime Adapter (Optional)</label>`;
+    const runSel = document.createElement('select');
+    runSel.id = 'oc-wb-runtime-select';
+    runSel.className = 'oc-filter-select';
+    runSel.innerHTML = safeHtml`<option value="">Default Runtime</option>`;
+    (snapshot?.catalog?.adapters || []).forEach((ad) => {
+      const opt = document.createElement('option');
+      opt.value = toStr(ad.id);
+      opt.textContent = `${toStr(ad.name || ad.id)} (${toStr(ad.plan_mode, 'default')})`;
+      runSel.appendChild(opt);
+    });
+    runSel.value = workbenchForm.runtime;
+    runSel.onchange = (e) => {
+      workbenchForm.runtime = (e.target as HTMLSelectElement).value;
+      currentPlanPreview = null;
+      render();
+    };
+    runGroup.appendChild(runSel);
+    form.appendChild(runGroup);
+
+    // Wing Dropdown (Actual Unique Fleet Wings)
+    const wingGroup = document.createElement('div');
+    wingGroup.className = 'oc-form-group';
+    wingGroup.innerHTML = safeHtml`<label class="oc-form-label" for="oc-wb-wing-select">Target Fleet Wing (Optional)</label>`;
+    const wingSel = document.createElement('select');
+    wingSel.id = 'oc-wb-wing-select';
+    wingSel.className = 'oc-filter-select';
+    const uniqueWings = Array.from(new Set((snapshot?.fleet || []).map((f) => toStr(f.wing)).filter(Boolean))).sort();
+    wingSel.innerHTML = safeHtml`<option value="">All Fleet Wings</option>`;
+    uniqueWings.forEach((w) => {
+      const opt = document.createElement('option');
+      opt.value = w;
+      opt.textContent = `Wing: ${w}`;
+      wingSel.appendChild(opt);
+    });
+    wingSel.value = workbenchForm.wing;
+    wingSel.onchange = (e) => {
+      workbenchForm.wing = (e.target as HTMLSelectElement).value;
+      currentPlanPreview = null;
+      render();
+    };
+    wingGroup.appendChild(wingSel);
+    form.appendChild(wingGroup);
+
+    // Module selection list (Allows selection of held modules to observe backend refusal)
+    const modGroup = document.createElement('div');
+    modGroup.className = 'oc-form-group';
+    modGroup.innerHTML = safeHtml`<label class="oc-form-label">Select Candidate Modules (${workbenchForm.modules.size} selected)</label>`;
+    const modBox = document.createElement('div');
+    modBox.className = 'oc-checkbox-list';
+    (snapshot?.catalog?.cards || []).forEach((c) => {
+      const id = toStr(c.id);
+      const disp = toStr(c.disposition);
+      const isHeldOrRefused = disp === 'hold' || disp === 'refuse';
+      const lbl = document.createElement('label');
+      lbl.className = 'oc-checkbox-label';
+      const chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.id = `oc-wb-mod-${id}`;
+      chk.checked = workbenchForm.modules.has(id);
+      chk.onchange = () => {
+        if (chk.checked) workbenchForm.modules.add(id);
+        else workbenchForm.modules.delete(id);
+        currentPlanPreview = null;
+        render();
+      };
+      lbl.append(chk, document.createTextNode(`${toStr(c.name || id)} [${disp}]${isHeldOrRefused ? ' ⚠️' : ''}`));
+      modBox.appendChild(lbl);
+    });
+    modGroup.appendChild(modBox);
+    form.appendChild(modGroup);
+
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.gap = '0.75rem';
+    actions.style.alignItems = 'center';
+    actions.style.flexWrap = 'wrap';
+
+    const previewBtn = document.createElement('button');
+    previewBtn.id = 'oc-wb-btn-simulate';
+    previewBtn.className = 'oc-btn oc-btn-primary';
+    previewBtn.textContent = isPlanning ? 'Simulating Plan...' : 'Generate Plan Preview (Read-Only)';
+    const isTitleValid = Boolean(workbenchForm.title.trim()) && workbenchForm.title.length <= 160;
+    previewBtn.disabled = isPlanning || !workbenchForm.tenant || !isTitleValid || isDisconnected;
+    previewBtn.onclick = () => handlePlanPreview();
+    actions.appendChild(previewBtn);
+
+    const clearPropsBtn = document.createElement('button');
+    clearPropsBtn.id = 'oc-wb-btn-clear';
+    clearPropsBtn.className = 'oc-btn';
+    clearPropsBtn.textContent = 'Clear Form';
+    clearPropsBtn.onclick = () => {
+      workbenchForm.tenant = '';
+      workbenchForm.title = defaultProposalTitle;
+      workbenchForm.modules.clear();
+      workbenchForm.runtime = '';
+      workbenchForm.wing = '';
+      currentPlanPreview = null;
+      planErrorMsg = null;
+      render();
+    };
+    actions.appendChild(clearPropsBtn);
+
+    form.appendChild(actions);
+    frag.appendChild(form);
+
+    if (planErrorMsg) {
+      const err = document.createElement('div');
+      err.className = 'oc-alert oc-alert-error';
+      err.textContent = planErrorMsg;
+      frag.appendChild(err);
+    }
+
+    if (currentPlanPreview) {
+      const planResult = document.createElement('div');
+      planResult.className = 'oc-card';
+      planResult.style.display = 'flex';
+      planResult.style.flexDirection = 'column';
+      planResult.style.gap = '1rem';
+
+      planResult.innerHTML = safeHtml`<div class="oc-card-header">
+        <div>
+          <h3 class="oc-card-title">Preview Result: ${toStr(currentPlanPreview.title)}</h3>
+          <div class="oc-card-subtitle">Generated: ${toStr(currentPlanPreview.generatedAt)} · Schema: ${toStr(currentPlanPreview.schema)}</div>
+        </div>
+        <div class="oc-card-badges">
+          <span class="oc-badge oc-badge-status-warning">READ-ONLY PROPOSAL</span>
+          <span class="oc-badge oc-badge-status-unreachable">EXECUTABLE: FALSE</span>
+        </div>
+      </div>`;
+
+      // Module Decisions
+      const modSec = document.createElement('div');
+      modSec.innerHTML = safeHtml`<h4 style="font-family: var(--oc-font-title); font-size:1.1rem; text-transform:uppercase;">Module Decisions</h4>`;
+      const mList = document.createElement('ul');
+      mList.style.paddingLeft = '1.2rem';
+      toArr<Record<string, unknown>>(currentPlanPreview.modules).forEach((m) => {
+        const li = document.createElement('li');
+        li.innerHTML = safeHtml`<strong>${toStr(m.id)}</strong>: <span class="oc-badge">${toStr(m.decision)}</span> — <em>${toStr(m.reason, 'No reason provided')}</em>`;
+        mList.appendChild(li);
+      });
+      modSec.appendChild(mList);
+      planResult.appendChild(modSec);
+
+      // Projected Routes & Skills
+      const routeSec = document.createElement('div');
+      routeSec.innerHTML = safeHtml`<h4 style="font-family: var(--oc-font-title); font-size:1.1rem; text-transform:uppercase;">Projected Agent Routes & Skills</h4>`;
+      const rList = document.createElement('ul');
+      rList.style.paddingLeft = '1.2rem';
+      toArr<Record<string, unknown>>(currentPlanPreview.routes).forEach((r) => {
+        const li = document.createElement('li');
+        li.innerHTML = safeHtml`Agent <strong>${toStr(r.agent)}</strong> via <code>${toStr(r.hook)}</code> · Skills: ${toArr<string>(r.skills).join(', ')} (Source: ${toStr(r.source, 'catalogue')})`;
+        rList.appendChild(li);
+      });
+      routeSec.appendChild(rList);
+      planResult.appendChild(routeSec);
+
+      // Steps / Reason / Warnings
+      if (currentPlanPreview.steps) {
+        const stepSec = document.createElement('div');
+        stepSec.innerHTML = safeHtml`<h4 style="font-family: var(--oc-font-title); font-size:1.1rem; text-transform:uppercase;">Execution Steps (Simulation Only)</h4>`;
+        const sList = document.createElement('ol');
+        sList.style.paddingLeft = '1.2rem';
+        toArr<Record<string, unknown>>(currentPlanPreview.steps).forEach((s) => {
+          const li = document.createElement('li');
+          li.innerHTML = safeHtml`<strong>${toStr(s.label)}</strong> [${toStr(s.status)}]: ${toStr(s.reason)}`;
+          sList.appendChild(li);
+        });
+        stepSec.appendChild(sList);
+        planResult.appendChild(stepSec);
+      }
+
+      if (currentPlanPreview.warnings && toArr(currentPlanPreview.warnings).length > 0) {
+        const warnSec = document.createElement('div');
+        toArr<Record<string, unknown>>(currentPlanPreview.warnings).forEach((w) => {
+          const alert = document.createElement('div');
+          alert.className = 'oc-alert oc-alert-warning';
+          alert.innerHTML = safeHtml`<strong>Warning:</strong> ${toStr(w.message || w)}`;
+          warnSec.appendChild(alert);
+        });
+        planResult.appendChild(warnSec);
+      }
+
+      // Download sanitized Proposal JSON
+      const dlBtn = document.createElement('button');
+      dlBtn.id = 'oc-wb-btn-download';
+      dlBtn.className = 'oc-btn oc-btn-accent';
+      dlBtn.textContent = '⬇ Download Full Proposal JSON';
+      dlBtn.onclick = () => {
+        const safeName = (workbenchForm.tenant || 'proposal').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const blob = new Blob([JSON.stringify(currentPlanPreview, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `plan-preview-${safeName}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+      planResult.appendChild(dlBtn);
+
+      frag.appendChild(planResult);
+    }
+
+    return frag;
+  }
+
+  // Evidence Section
+  function renderEvidence(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Acceptance Evidence Matrix</h2>
+      <div class="oc-section-desc">ISA.md criteria compliance ledger and formal acceptance status verification</div>
+    </div>`;
+    frag.appendChild(secHeader);
+
+    const filterBar = document.createElement('div');
+    filterBar.className = 'oc-filter-bar';
+    const sel = document.createElement('select');
+    sel.id = 'oc-evidence-status-select';
+    sel.className = 'oc-filter-select';
+    sel.innerHTML = safeHtml`<option value="all">All Criteria</option>
+      <option value="open">Open</option>
+      <option value="accepted">Accepted</option>`;
+    sel.value = evidenceFilter.status;
+    sel.onchange = (e) => {
+      evidenceFilter.status = (e.target as HTMLSelectElement).value as 'all' | 'open' | 'accepted';
+      render();
+    };
+    filterBar.appendChild(sel);
+    frag.appendChild(filterBar);
+
+    const rawList = snapshot?.acceptance || [];
+    const totalCount = rawList.length;
+    const acceptedCount = rawList.filter((i) => i.status === 'accepted').length;
+    const openCount = totalCount - acceptedCount;
+
+    const statSummary = document.createElement('div');
+    statSummary.style.fontSize = '0.85rem';
+    statSummary.style.color = 'var(--oc-text-muted)';
+    statSummary.textContent = `Total: ${totalCount} | Accepted: ${acceptedCount} | Open: ${openCount}`;
+    frag.appendChild(statSummary);
+
+    const list = rawList.filter((item) => {
+      if (evidenceFilter.status !== 'all' && item.status !== evidenceFilter.status) return false;
+      return true;
+    });
+
+    const tableCont = document.createElement('div');
+    tableCont.className = 'oc-table-container';
+    const table = document.createElement('table');
+    table.className = 'oc-table';
+    table.innerHTML = safeHtml`<thead>
+      <tr>
+        <th>ID</th>
+        <th>Criterion</th>
+        <th>Status</th>
+        <th>Source Specification</th>
+      </tr>
+    </thead>`;
+    const tbody = document.createElement('tbody');
+    list.forEach((ev) => {
+      const tr = document.createElement('tr');
+      const isAcc = ev.status === 'accepted';
+      const srcDoc = toStr(ev.source, 'ISA.md');
+      tr.innerHTML = safeHtml`<td><strong>${toStr(ev.id)}</strong></td>
+        <td>${toStr(ev.criterion)}</td>
+        <td><span class="oc-badge ${isAcc ? 'oc-badge-status-reachable' : 'oc-badge-status-warning'}">${toStr(ev.status).toUpperCase()}</span></td>
+        <td></td>`;
+
+      const srcTd = tr.querySelector('td:last-child')!;
+      if (snapshot?.documents?.some((d) => d.path === srcDoc)) {
+        const docBtn = document.createElement('button');
+        docBtn.className = 'oc-btn oc-btn-sm';
+        docBtn.textContent = `📖 ${srcDoc}`;
+        docBtn.onclick = () => openDocViewer(srcDoc);
+        srcTd.appendChild(docBtn);
+      } else {
+        const codeEl = document.createElement('code');
+        codeEl.textContent = srcDoc;
+        srcTd.appendChild(codeEl);
+      }
+
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    tableCont.appendChild(table);
+    frag.appendChild(tableCont);
+
+    return frag;
+  }
+
+  // Resources Section
+  function renderResources(): HTMLElement {
+    const frag = document.createElement('div');
+    frag.style.display = 'flex';
+    frag.style.flexDirection = 'column';
+    frag.style.gap = '1rem';
+
+    const secHeader = document.createElement('div');
+    secHeader.className = 'oc-section-header';
+    secHeader.innerHTML = safeHtml`<div>
+      <h2 class="oc-section-title">Operations Knowledge Archive</h2>
+      <div class="oc-section-desc">Authorized registered documents catalog, source architecture references, and contract specifications</div>
+    </div>`;
+    frag.appendChild(secHeader);
+
+    const filterBar = document.createElement('div');
+    filterBar.className = 'oc-filter-bar';
+
+    const searchInp = document.createElement('input');
+    searchInp.id = 'oc-resource-search-input';
+    searchInp.className = 'oc-input-text';
+    searchInp.placeholder = 'Search document path/title/description...';
+    searchInp.value = resourceFilter.search;
+    searchInp.oninput = (e) => {
+      resourceFilter.search = (e.target as HTMLInputElement).value;
+      render();
+    };
+    filterBar.appendChild(searchInp);
+
+    const kindSel = document.createElement('select');
+    kindSel.id = 'oc-resource-kind-select';
+    kindSel.className = 'oc-filter-select';
+    const kinds = Array.from(
+      new Set((snapshot?.documents || []).map((d) => toStr(d.kind)).filter(Boolean))
+    ).sort();
+    kindSel.innerHTML = safeHtml`<option value="all">All Document Kinds (${kinds.length})</option>`;
+    kinds.forEach((k) => {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = `Kind: ${k}`;
+      kindSel.appendChild(opt);
+    });
+    kindSel.value = resourceFilter.kind;
+    kindSel.onchange = (e) => {
+      resourceFilter.kind = (e.target as HTMLSelectElement).value;
+      render();
+    };
+    filterBar.appendChild(kindSel);
+    frag.appendChild(filterBar);
+
+    const docs = snapshot?.documents || [];
+    const filteredDocs = docs.filter((d) => {
+      const q = resourceFilter.search.toLowerCase().trim();
+      if (q) {
+        const matchPath = toStr(d.path).toLowerCase().includes(q);
+        const matchTitle = toStr(d.title).toLowerCase().includes(q);
+        const matchDesc = false;
+        if (!matchPath && !matchTitle && !matchDesc) return false;
+      }
+      if (resourceFilter.kind !== 'all' && toStr(d.kind) !== resourceFilter.kind) {
+        return false;
+      }
+      return true;
+    });
+
+    const countHeader = document.createElement('div');
+    countHeader.style.fontSize = '0.85rem';
+    countHeader.style.color = 'var(--oc-text-muted)';
+    countHeader.textContent = `Showing ${filteredDocs.length} of ${docs.length} registered documents`;
+    frag.appendChild(countHeader);
+
+    const grid = document.createElement('div');
+    grid.className = 'oc-grid';
+
+    filteredDocs.forEach((d) => {
+      const card = document.createElement('div');
+      card.className = 'oc-card';
+
+      const docPath = toStr(d.path);
+      const docTitle = toStr(d.title || d.path);
+      const docKind = toStr(d.kind, 'general');
+
+      const header = document.createElement('div');
+      header.className = 'oc-card-header';
+      header.innerHTML = safeHtml`<div>
+        <h3 class="oc-card-title">${docTitle}</h3>
+        <div class="oc-card-subtitle"><code>${docPath}</code></div>
+      </div>
+      <span class="oc-badge">${docKind.toUpperCase()}</span>`;
+
+      const body = document.createElement('div');
+      body.className = 'oc-card-body';
+
+      const metaBlock = document.createElement('div');
+      metaBlock.style.marginTop = '6px';
+      metaBlock.style.fontSize = '0.78rem';
+      metaBlock.style.color = 'var(--oc-text-muted)';
+      metaBlock.innerHTML = safeHtml`<div><strong>SHA256:</strong> <code>Computed when document is opened</code></div>
+        <div><strong>Size:</strong> ${d.bytes !== undefined ? `${d.bytes} bytes` : 'n/a'}</div>`;
+      body.appendChild(metaBlock);
+
+      const footer = document.createElement('div');
+      footer.className = 'oc-card-footer';
+
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'oc-btn oc-btn-sm oc-btn-primary';
+      viewBtn.textContent = '📖 Inspect Document';
+      viewBtn.onclick = () => openDocViewer(docPath);
+      footer.appendChild(viewBtn);
+
+      const jumpBtn = document.createElement('button');
+      jumpBtn.className = 'oc-btn oc-btn-sm';
+      jumpBtn.textContent = '📍 Jump to Archive';
+      jumpBtn.onclick = () => jumpToBuilding('knowledge-archive');
+      footer.appendChild(jumpBtn);
+
+      card.append(header, body, footer);
+      grid.appendChild(card);
+    });
+
+    frag.appendChild(grid);
+    return frag;
+  }
+
+  // Global Keydown Listener for accessibility
+  const handleGlobalKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && isOpen && !docDialog.open) {
+      e.preventDefault();
+      closeOverlay();
+    }
+  };
+  window.addEventListener('keydown', handleGlobalKeydown);
+
+  return {
+    open(nodeId?: string) {
+      lastFocusedElement = (document.activeElement as HTMLElement) || null;
+      isOpen = true;
+      rootEl.removeAttribute('hidden');
+      if (!rootEl.open) rootEl.showModal();
+
+      if (nodeId && BUILDING_ROUTING[nodeId]) {
+        const route = BUILDING_ROUTING[nodeId];
+        currentSection = route.section;
+        selectedNodeContext = route.slugMatch || null;
+      } else if (nodeId && nodeId.startsWith('agent-')) {
+        currentSection = 'Agents';
+        selectedNodeContext = nodeId.replace(/^agent-/, '');
+      } else {
+        currentSection = 'Overview';
+        selectedNodeContext = null;
+      }
+
+      startPolling();
+      fetchOperationsData(false);
+      render();
+
+      const returnBtn = document.getElementById('oc-btn-return');
+      if (returnBtn) {
+        returnBtn.focus();
+      } else {
+        rootEl.focus();
+      }
+    },
+
+    async openDocument(path: string) {
+      lastFocusedElement = (document.activeElement as HTMLElement) || null;
+      isOpen = true;
+      rootEl.removeAttribute('hidden');
+      if (!rootEl.open) rootEl.showModal();
+      startPolling();
+
+      if (!snapshot) {
+        await fetchOperationsData(false);
+      }
+      render();
+      await openDocViewer(path);
+    },
+  };
+}
