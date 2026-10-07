@@ -3,11 +3,11 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: verify
+phase: build
 progress: 25/51
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-06
+updated: 2026-10-07
 ---
 
 ## Problem
@@ -152,6 +152,8 @@ until the actual mini supplies evidence.
 | PhysicalFleetAcceptance | wing jobs, eventing, cloud, recovery and session/resource evidence | ISC-41..51 | CapabilityProof and existing specs 005/007/008 | no |
 
 ## Decisions
+
+- 2026-10-07: User authorized implementation of the same-cipher local HTTP/R2 recovery plan and preparation of subsequent cloud/device packets. Use the accepted bundled management routes /_management/import and /_management/restore; the proposed /v1 management paths were corrected by source inspection. AWS stays deferred; no push, PR, deployment or provider activation is included.
 
 - refined: 2026-10-05 — Founder explicitly deferred all HeyZack AWS work. Use the existing scoped HeyZack Wrangler setup and company zone hey-zack.fr. Withdraw AWS account/SSO prerequisites. Verify CLI account/zone scope and select a compatible Cloudflare runtime before deployment; old EC2 implementation is historical.
 
