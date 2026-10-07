@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 25/71
+progress: 33/71
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-07
@@ -116,26 +116,26 @@ until the actual mini supplies evidence.
 - [ ] ISC-50: The required fleet session soak records accepted capacity with measured resource pressure.
 - [ ] ISC-51: Anti: no source, sandbox or historical receipt is reported as physical or live acceptance.
 
-- [ ] ISC-52: Antecedent: Sixteen diorama landmarks correspond to source-backed infrastructure entities.
-- [ ] ISC-53: Each landmark exposes its source paths and evidence boundary.
+- [x] ISC-52: Antecedent: Sixteen diorama landmarks correspond to source-backed infrastructure entities.
+- [x] ISC-53: Each landmark exposes its source paths and evidence boundary.
 - [ ] ISC-54: A synchronized keyboard-accessible list selects the same landmark as the scene.
 - [ ] ISC-55: Layer filters preserve inspector and list navigation.
 - [ ] ISC-56: The walkthrough highlights the sourced event-to-artifact route.
 - [ ] ISC-57: Three distinct procedural characters remain selectable.
-- [ ] ISC-58: Seeded layout repeats across retry and challenge links.
+- [x] ISC-58: Seeded layout repeats across retry and challenge links.
 - [ ] ISC-59: The sandbox round ends after 45 active seconds.
 - [ ] ISC-60: Pause freezes scoring and time and clears held input.
-- [ ] ISC-61: Claw damage and cadence follow the supplied rules.
-- [ ] ISC-62: Stomp damage and cooldown follow the supplied rules.
+- [x] ISC-61: Claw damage and cadence follow the supplied rules.
+- [x] ISC-62: Stomp damage and cooldown follow the supplied rules.
 - [ ] ISC-63: Car grab and throw produce separate visible states.
-- [ ] ISC-64: Demolition combos expire without ordinary hits extending them.
+- [x] ISC-64: Demolition combos expire without ordinary hits extending them.
 - [ ] ISC-65: Results support retry and a same-map challenge link.
 - [ ] ISC-66: Scorecard export creates a local PNG.
 - [ ] ISC-67: Desktop and narrow mobile layouts remain usable.
 - [ ] ISC-68: Reduced-motion mode removes nonessential effects.
 - [ ] ISC-69: WebGL failure preserves access to the infrastructure list.
-- [ ] ISC-70: Production static build and focused rules tests pass.
-- [ ] ISC-71: Anti: browser simulation performs no infrastructure mutation or live-readiness promotion.
+- [x] ISC-70: Production static build and focused rules tests pass.
+- [x] ISC-71: Anti: browser simulation performs no infrastructure mutation or live-readiness promotion.
 
 ## Test Strategy
 
@@ -659,3 +659,5 @@ Independent final readback confirms no proof containers remain, all34held proof 
 Fresh results for this implementation:747platform passes/271Linux skips/23subtests,61candidate-image managed Linux checks,184transport tests plus strict typecheck,142private Python proof checks,16source-diagnostic controller checks and19Node tests. Native R2 process stress and controlled Miniflare lifecycle each passed ten runs. Private final receipt and independent acceptance inventory bind exact controller/image/source hashes.
 
 Evidence is local only: native Miniflare R2 and real Durable Object storage with a simulated Cloudflare Container API adapter. The automatic fixture uses the confirmed fresh source export; first-bootstrap/checkpoint scheduling acceptance remains regression evidence rather than an actual company deployment drill. Company credentials, published OCI manifest, live deployment, provider activation, physical wings/recovery/handoff/soak and publication authority remain open. Custody names are deferred; company billing entitlements and spend ceiling remain unverified. ISA stays25/51 with no criterion promoted.
+
+- 2026-10-07 frontend checkpoint: sixteen source-mapped nodes and local-only contracts verified; 33 focused game/controller tests and strict TypeScript/production Vite build pass. Full integrated desktop renders with no console errors. Browser interaction, responsive/export/fallback criteria remain pending. Historical fleet criteria unchanged.
