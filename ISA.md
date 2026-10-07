@@ -3,14 +3,16 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: execute
-progress: 45/71
+phase: plan
+progress: 45/107
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-07
 ---
 
 ## Problem
+
+Current frontend integration lane: the toy city lacks connected catalog, tenant, fleet, activity and workflow data. Add a bounded loopback projection and a complete operations workspace using actual platform contracts.
 
 Current continuation: tenant contexts and matching research are bound into verified source plans; sandbox renders, selected host connector reads and company Cloudflare scope are verified. Physical wing jobs, gateway runtime, eventing, recovery and capacity acceptance remain open. The September pilot below is retained as a historical delivery lane, not evidence that the broader fleet works.
 
@@ -21,6 +23,8 @@ port with service identity. The confirmed installation target for 1 October is
 one Mac mini running a local bootstrap and recovery pilot.
 
 ## Vision
+
+The operator moves from a landmark to its real source inventory, scope, routing and evidence, then prepares a gate-checked proposal without confusing a preview with execution. Connection loss stays visible and preserves access to public source information.
 
 The operator can trace a brand-specific source through an admitted capability, scoped wing execution and a verifiable artifact. Fleet readiness records distinguish source, sandbox, installed host, actual device and cloud acceptance.
 
@@ -52,6 +56,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Deliver an integrated local infrastructure cockpit over the existing city: versioned scoped snapshots, complete catalog/agent/adapter/connector views, tenant and fleet metadata, bounded activity/evidence, document inspection, pure routing/gate previews and local proposal exports. Verify backend isolation, frontend interactions and the existing game regression.
 
 Bind the existing portfolio records to source-linked tenant knowledge, prove admitted capabilities through actual runtime outputs, and complete measured physical fleet acceptance including eventing, recovery, the selected company gateway and session/resource acceptance. Keep every requirement open until its own current evidence proves it; the historical pilot remains a contributing lane with stable criteria.
 
@@ -137,7 +143,47 @@ until the actual mini supplies evidence.
 - [x] ISC-70: Production static build and focused rules tests pass.
 - [x] ISC-71: Anti: browser simulation performs no infrastructure mutation or live-readiness promotion.
 
+- [ ] ISC-72: Antecedent: The cockpit derives inventory from the repository catalog.
+- [ ] ISC-73: The snapshot labels public fixtures and opted-in private metadata.
+- [ ] ISC-74: Selected tenant scope excludes other tenants activity records.
+- [ ] ISC-75: Public mode ignores the ambient private data root.
+- [ ] ISC-76: Projected instance metadata omits credentials and raw tenant content.
+- [ ] ISC-77: Documents are limited to indexed public source files.
+- [ ] ISC-78: Document traversal and symlink escape requests are denied.
+- [ ] ISC-79: HTTP Host and Origin validation deny foreign callers.
+- [ ] ISC-80: Snapshot and plan-preview readers produce no filesystem mutations.
+- [ ] ISC-81: Routing preview applies constraints before hook matching.
+- [ ] ISC-82: Held and refused modules remain blocked in previews.
+- [ ] ISC-83: Module enablement decisions match the selected tenant file.
+- [ ] ISC-84: High-risk module previews explain the required approval.
+- [ ] ISC-85: Invalid preview payloads return bounded errors.
+- [ ] ISC-86: The overview shows snapshot age and connection state.
+- [ ] ISC-87: Agent panels expose their native skills and routing hooks.
+- [ ] ISC-88: The module explorer filters the full catalog by disposition.
+- [ ] ISC-89: Runtime panels expose adapter verification gaps.
+- [ ] ISC-90: Connector panels expose capability risk and approval requirements.
+- [ ] ISC-91: Tenant panels distinguish available modules from enabled modules.
+- [ ] ISC-92: Fleet templates retain their source-level evidence label.
+- [ ] ISC-93: Service health observations remain endpoint-only evidence.
+- [ ] ISC-94: Activity views explain absent or unavailable records.
+- [ ] ISC-95: The evidence board exposes accepted and open ledger criteria.
+- [ ] ISC-96: Source documents open in an escaped readable viewer.
+- [ ] ISC-97: The workbench returns a real backend plan preview.
+- [ ] ISC-98: Plan proposals export as local JSON files.
+- [ ] ISC-99: Global search jumps to the corresponding operational record.
+- [ ] ISC-100: City selection opens the matching operational workspace.
+- [ ] ISC-101: Operations navigation remains usable on narrow screens.
+- [ ] ISC-102: Offline source fallback is visibly disconnected and stale.
+- [ ] ISC-103: The connected frontend passes strict production compilation.
+- [ ] ISC-104: The original game rule regression tests remain passing.
+- [ ] ISC-105: Anti: Browser controls cannot execute infrastructure mutations.
+- [ ] ISC-106: Recovery panels distinguish available source contracts from deployment.
+- [ ] ISC-107: Manual refresh updates the snapshot without duplicate renderers.
+
 ## Test Strategy
+
+| 72-85 | backend contracts and boundaries | focused reader/HTTP tests and root probes | actual source parity; no writes or cross-scope leakage | pytest + loopback requests |
+| 86-107 | integrated operations | client tests, production build and IAB desktop/mobile/offline flows | useful scoped UI, true failure states, preserved game | vitest + IAB |
 
 | 52-56 | source mapping | data paths, IAB landmark/list/filter/walkthrough | sixteen named entities and source boundary | file checks + IAB |
 | 57-66 | sandbox rules | deterministic layout, actions, timers, scoring, export | vitest assertions + actual UI | vitest + IAB |
@@ -165,6 +211,10 @@ until the actual mini supplies evidence.
 
 ## Features
 
+| CockpitProjection | Catalog/instance/probe/document/preview API | ISC-72..85 | public contracts | yes |
+| CockpitClient | Versioned DTO validation, bounded transport, scope guards | ISC-73..85,102 | CockpitProjection contract | yes |
+| OperationsWorkspace | Source-connected panels, proposals and evidence | ISC-86..107 | CockpitClient | yes |
+
 | InfrastructureDiorama | Source-mapped tabletop explorer, scene/list parity and browser-only sandbox | ISC-52..71 | public repo contracts | yes |
 
 | Name | Description | Satisfies | Depends on | Parallelizable |
@@ -179,6 +229,9 @@ until the actual mini supplies evidence.
 | PhysicalFleetAcceptance | wing jobs, eventing, cloud, recovery and session/resource evidence | ISC-41..51 | CapabilityProof and existing specs 005/007/008 | no |
 
 ## Decisions
+
+- 2026-10-07 refined: Follow-up explicitly requests fan-out and deep infrastructure integration. Active lane uses classifier E3 and noesis-execute workers in three managed worktrees. Existing historical fleet/pilot criteria remain unchanged. FirstPrinciples separates inventory, instance metadata, observations and commands; SystemsThinking maps tenant-enablements -> connector gate -> routing -> artifact -> evidence feedback; IterativeDepth functional/operator/failure/experiential lenses add scope, stale-state, document and usability probes. ISA completeness is checked against E3;36 new atomic criteria carry this integration lane.
+- 2026-10-07: Existing Hermes raw events are unscoped and import creates an audit directory. Add a pure bounded projection rather than exposing raw Hermes/private files to the browser. All infrastructure mutation capabilities remain false until an actual authorized control-plane contract exists. Missing sessions, recovery runtime and physical acceptance remain unavailable or source-level.
 
 - 2026-10-07: Frontend thinking capabilities: FirstPrinciples deconstructs source/runtime/device evidence; SystemsThinking maps event and permissions relationships; BeCreative selects the infrastructure tabletop from city/organism/workshop/transit/archive directions; IterativeDepth reviews experiential, stakeholder, literal and failure lenses; ISA checks 12-section completeness and stable criteria; ReReadCheck binds the final frontend to the user request. E4 criterion count is intentionally scoped to 20 new atomic UI probes; retain 51 historical criteria. Native seat coordinates bounded routed code generation.
 - 2026-10-07: Frontend advisor invocation timed out after 30000ms. It supplies no review evidence. Initial routed workers inherited ceremony and returned weak partial scaffolds; preserve source and restart bounded jobs from clean scratch contexts with inline contracts.

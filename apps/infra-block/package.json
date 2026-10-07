@@ -7,7 +7,9 @@
     "dev": "vite --host 127.0.0.1 --port 18760 --strictPort",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 18760 --strictPort",
-    "test": "vitest run"
+    "test": "vitest run",
+    "api": "python3 ../../scripts/infra_cockpit.py",
+    "snapshot": "python3 ../../scripts/infra_cockpit.py --snapshot --no-probe"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "^5.2.0",
