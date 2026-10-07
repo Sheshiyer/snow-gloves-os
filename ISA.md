@@ -3,8 +3,8 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: build
-progress: 25/51
+phase: execute
+progress: 25/71
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-07
@@ -116,7 +116,32 @@ until the actual mini supplies evidence.
 - [ ] ISC-50: The required fleet session soak records accepted capacity with measured resource pressure.
 - [ ] ISC-51: Anti: no source, sandbox or historical receipt is reported as physical or live acceptance.
 
+- [ ] ISC-52: Antecedent: Sixteen diorama landmarks correspond to source-backed infrastructure entities.
+- [ ] ISC-53: Each landmark exposes its source paths and evidence boundary.
+- [ ] ISC-54: A synchronized keyboard-accessible list selects the same landmark as the scene.
+- [ ] ISC-55: Layer filters preserve inspector and list navigation.
+- [ ] ISC-56: The walkthrough highlights the sourced event-to-artifact route.
+- [ ] ISC-57: Three distinct procedural characters remain selectable.
+- [ ] ISC-58: Seeded layout repeats across retry and challenge links.
+- [ ] ISC-59: The sandbox round ends after 45 active seconds.
+- [ ] ISC-60: Pause freezes scoring and time and clears held input.
+- [ ] ISC-61: Claw damage and cadence follow the supplied rules.
+- [ ] ISC-62: Stomp damage and cooldown follow the supplied rules.
+- [ ] ISC-63: Car grab and throw produce separate visible states.
+- [ ] ISC-64: Demolition combos expire without ordinary hits extending them.
+- [ ] ISC-65: Results support retry and a same-map challenge link.
+- [ ] ISC-66: Scorecard export creates a local PNG.
+- [ ] ISC-67: Desktop and narrow mobile layouts remain usable.
+- [ ] ISC-68: Reduced-motion mode removes nonessential effects.
+- [ ] ISC-69: WebGL failure preserves access to the infrastructure list.
+- [ ] ISC-70: Production static build and focused rules tests pass.
+- [ ] ISC-71: Anti: browser simulation performs no infrastructure mutation or live-readiness promotion.
+
 ## Test Strategy
+
+| 52-56 | source mapping | data paths, IAB landmark/list/filter/walkthrough | sixteen named entities and source boundary | file checks + IAB |
+| 57-66 | sandbox rules | deterministic layout, actions, timers, scoring, export | vitest assertions + actual UI | vitest + IAB |
+| 67-71 | delivery/boundary | responsive/reduced motion/WebGL fallback/build/static behavior | usable local surface and no infrastructure mutations | IAB + npm build + source audit |
 
 | ISC | Type | Check | Threshold | Tool |
 | --- | --- | --- | --- | --- |
@@ -140,6 +165,8 @@ until the actual mini supplies evidence.
 
 ## Features
 
+| InfrastructureDiorama | Source-mapped tabletop explorer, scene/list parity and browser-only sandbox | ISC-52..71 | public repo contracts | yes |
+
 | Name | Description | Satisfies | Depends on | Parallelizable |
 | --- | --- | --- | --- | --- |
 | PilotCLI | inspect, plan, doctor, debug, lifecycle entry | ISC-1..4,15..16 | contract | yes |
@@ -152,6 +179,11 @@ until the actual mini supplies evidence.
 | PhysicalFleetAcceptance | wing jobs, eventing, cloud, recovery and session/resource evidence | ISC-41..51 | CapabilityProof and existing specs 005/007/008 | no |
 
 ## Decisions
+
+- 2026-10-07: Frontend thinking capabilities: FirstPrinciples deconstructs source/runtime/device evidence; SystemsThinking maps event and permissions relationships; BeCreative selects the infrastructure tabletop from city/organism/workshop/transit/archive directions; IterativeDepth reviews experiential, stakeholder, literal and failure lenses; ISA checks 12-section completeness and stable criteria; ReReadCheck binds the final frontend to the user request. E4 criterion count is intentionally scoped to 20 new atomic UI probes; retain 51 historical criteria. Native seat coordinates bounded routed code generation.
+- 2026-10-07: Frontend advisor invocation timed out after 30000ms. It supplies no review evidence. Initial routed workers inherited ceremony and returned weak partial scaffolds; preserve source and restart bounded jobs from clean scratch contexts with inline contracts.
+
+- 2026-10-07 refined: User requested a Monster Block-inspired infrastructure frontend and explicitly authorized fan-out. Add the isolated apps/infra-block source-map explorer and browser-only sandbox; preserve historical fleet criteria and handoff. The current UI lane is ISC-52..71, with source mapping, tests, build and IAB desktop/mobile probes. No cloud, provider or device activation is part of this frontend.
 
 - 2026-10-07: User authorized implementation of the same-cipher local HTTP/R2 recovery plan and preparation of subsequent cloud/device packets. Use the accepted bundled management routes /_management/import and /_management/restore; the proposed /v1 management paths were corrected by source inspection. AWS stays deferred; no push, PR, deployment or provider activation is included.
 
