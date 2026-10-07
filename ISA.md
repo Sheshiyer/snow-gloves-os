@@ -3,8 +3,8 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: plan
-progress: 45/107
+phase: verify
+progress: 81/107
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-07
@@ -143,42 +143,42 @@ until the actual mini supplies evidence.
 - [x] ISC-70: Production static build and focused rules tests pass.
 - [x] ISC-71: Anti: browser simulation performs no infrastructure mutation or live-readiness promotion.
 
-- [ ] ISC-72: Antecedent: The cockpit derives inventory from the repository catalog.
-- [ ] ISC-73: The snapshot labels public fixtures and opted-in private metadata.
-- [ ] ISC-74: Selected tenant scope excludes other tenants activity records.
-- [ ] ISC-75: Public mode ignores the ambient private data root.
-- [ ] ISC-76: Projected instance metadata omits credentials and raw tenant content.
-- [ ] ISC-77: Documents are limited to indexed public source files.
-- [ ] ISC-78: Document traversal and symlink escape requests are denied.
-- [ ] ISC-79: HTTP Host and Origin validation deny foreign callers.
-- [ ] ISC-80: Snapshot and plan-preview readers produce no filesystem mutations.
-- [ ] ISC-81: Routing preview applies constraints before hook matching.
-- [ ] ISC-82: Held and refused modules remain blocked in previews.
-- [ ] ISC-83: Module enablement decisions match the selected tenant file.
-- [ ] ISC-84: High-risk module previews explain the required approval.
-- [ ] ISC-85: Invalid preview payloads return bounded errors.
-- [ ] ISC-86: The overview shows snapshot age and connection state.
-- [ ] ISC-87: Agent panels expose their native skills and routing hooks.
-- [ ] ISC-88: The module explorer filters the full catalog by disposition.
-- [ ] ISC-89: Runtime panels expose adapter verification gaps.
-- [ ] ISC-90: Connector panels expose capability risk and approval requirements.
-- [ ] ISC-91: Tenant panels distinguish available modules from enabled modules.
-- [ ] ISC-92: Fleet templates retain their source-level evidence label.
-- [ ] ISC-93: Service health observations remain endpoint-only evidence.
-- [ ] ISC-94: Activity views explain absent or unavailable records.
-- [ ] ISC-95: The evidence board exposes accepted and open ledger criteria.
-- [ ] ISC-96: Source documents open in an escaped readable viewer.
-- [ ] ISC-97: The workbench returns a real backend plan preview.
-- [ ] ISC-98: Plan proposals export as local JSON files.
-- [ ] ISC-99: Global search jumps to the corresponding operational record.
-- [ ] ISC-100: City selection opens the matching operational workspace.
-- [ ] ISC-101: Operations navigation remains usable on narrow screens.
-- [ ] ISC-102: Offline source fallback is visibly disconnected and stale.
-- [ ] ISC-103: The connected frontend passes strict production compilation.
-- [ ] ISC-104: The original game rule regression tests remain passing.
-- [ ] ISC-105: Anti: Browser controls cannot execute infrastructure mutations.
-- [ ] ISC-106: Recovery panels distinguish available source contracts from deployment.
-- [ ] ISC-107: Manual refresh updates the snapshot without duplicate renderers.
+- [x] ISC-72: Antecedent: The cockpit derives inventory from the repository catalog.
+- [x] ISC-73: The snapshot labels public fixtures and opted-in private metadata.
+- [x] ISC-74: Selected tenant scope excludes other tenants activity records.
+- [x] ISC-75: Public mode ignores the ambient private data root.
+- [x] ISC-76: Projected instance metadata omits credentials and raw tenant content.
+- [x] ISC-77: Documents are limited to indexed public source files.
+- [x] ISC-78: Document traversal and symlink escape requests are denied.
+- [x] ISC-79: HTTP Host and Origin validation deny foreign callers.
+- [x] ISC-80: Snapshot and plan-preview readers produce no filesystem mutations.
+- [x] ISC-81: Routing preview applies constraints before hook matching.
+- [x] ISC-82: Held and refused modules remain blocked in previews.
+- [x] ISC-83: Module enablement decisions match the selected tenant file.
+- [x] ISC-84: High-risk module previews explain the required approval.
+- [x] ISC-85: Invalid preview payloads return bounded errors.
+- [x] ISC-86: The overview shows snapshot age and connection state.
+- [x] ISC-87: Agent panels expose their native skills and routing hooks.
+- [x] ISC-88: The module explorer filters the full catalog by disposition.
+- [x] ISC-89: Runtime panels expose adapter verification gaps.
+- [x] ISC-90: Connector panels expose capability risk and approval requirements.
+- [x] ISC-91: Tenant panels distinguish available modules from enabled modules.
+- [x] ISC-92: Fleet templates retain their source-level evidence label.
+- [x] ISC-93: Service health observations remain endpoint-only evidence.
+- [x] ISC-94: Activity views explain absent or unavailable records.
+- [x] ISC-95: The evidence board exposes accepted and open ledger criteria.
+- [x] ISC-96: Source documents open in an escaped readable viewer.
+- [x] ISC-97: The workbench returns a real backend plan preview.
+- [x] ISC-98: Plan proposals export as local JSON files.
+- [x] ISC-99: Global search jumps to the corresponding operational record.
+- [x] ISC-100: City selection opens the matching operational workspace.
+- [x] ISC-101: Operations navigation remains usable on narrow screens.
+- [x] ISC-102: Offline source fallback is visibly disconnected and stale.
+- [x] ISC-103: The connected frontend passes strict production compilation.
+- [x] ISC-104: The original game rule regression tests remain passing.
+- [x] ISC-105: Anti: Browser controls cannot execute infrastructure mutations.
+- [x] ISC-106: Recovery panels distinguish available source contracts from deployment.
+- [x] ISC-107: Manual refresh updates the snapshot without duplicate renderers.
 
 ## Test Strategy
 
@@ -257,6 +257,8 @@ until the actual mini supplies evidence.
 - 2026-10-05: Ingestion checkpoint: undefined relative-path root is the data seam defect. Resolve through data_root rather than patching each manifest with host-specific absolute paths.
 
 - 2026-10-07 refined: Local company recovery implementation authorized: latest verified durable-confirmed checkpoint, 15-minute active checkpoint cadence, 24-hour reviewed expiry eligibility, explicit one-time zero-provider bootstrap, company vault plus distinct runtime secret. Exact 17 newer proof volumes may be removed after ownership and all-container mount checks; preserve original volumes, migration exports and accepted image. Publication, provisioning and deployment remain separate gates.
+
+- 2026-10-07 19:42 UTC: Cockpit integration lane accepted after three routed managed-worktree implementations, controller test reruns, root IAB flows and independent source/receipt review. Owned loopback API explicitly selects private ops metadata; public fixture stays public. General fleet inventory, session execution, recovery control, connector activation, provider credentials, company deployment and physical acceptance keep their separate contracts. Historical 26 open criteria remain unchanged.
 
 ## Changelog
 
@@ -485,6 +487,11 @@ until the actual mini supplies evidence.
   learned: private thin probe now passes eight host/eight Linux phase fixtures with unchanged accepted client prefix; readonly observer passes nineteen host/twenty-two Linux fixtures. R2 cleanup passes ten bounded source assertions; process ownership repair and actual full lifecycle proof remain pending.
   criterion now: ISC-47..51 remain open; mock HTTP and isolated source assertions do not establish actual fresh-image service, remote or physical acceptance.
 
+- 2026-10-07 | conjectured: A connected catalog workspace would be complete once the worker suites and first desktop build passed.
+  refuted by: Independent source review and actual UI flows exposed stale draft exports, scope failure retention, adapter verify-flag inversion, modal cancellation locks and document focus loss.
+  learned: Validate operator lifecycle and failed scope transitions against source contracts; then rerun boundary tests and save explicit browser receipts.
+  criterion now: ISC-72..107 accepted 36/36 with backend and IAB evidence; historical ISC-1..51 keep their existing acceptance, overall 81/107.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -658,6 +665,47 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 - 2026-10-06: Shared metadata staging refactor accepted after135Linux checks, actual owned native-R2/restore/fresh-process proof and575platform passes,252Linux skips,12subtests58.00s; catalog current. Original immutable image unchanged and modules injected for local proof only. ISA25/51.
 
 - 2026-10-06: First body bridge28564 refuted before promotion by four independent owned socketpair/subprocess faults. No aggregate suite success claimed; no runtime/cloud/physical execution. ISA25/51.
+
+- ISC-72: backend/source regression — "test_repository_inventory_and_native_routing_parity"; controller rerun "44 passed in 10.71s".
+- ISC-73: backend/source regression — "test_snapshot_structure_and_scope"; controller rerun "44 passed in 10.71s".
+- ISC-74: backend/source regression — "test_activity_events_parsing_and_tenant_filtering"; controller rerun "44 passed in 10.71s".
+- ISC-75: backend/source regression — "test_public_default_ignores_environment_and_loads_public"; controller rerun "44 passed in 10.71s".
+- ISC-76: backend/source regression — "test_node_secret_omission"; controller rerun "44 passed in 10.71s".
+- ISC-77: backend/source regression — "test_indexed_documents_return_exact_bounded_source_and_exclude_private"; controller rerun "44 passed in 10.71s".
+- ISC-78: backend/source regression — "test_document_ancestor_symlink_and_isa_body_denied"; controller rerun "44 passed in 10.71s".
+- ISC-79: backend/source regression — "test_host_validation / test_cors_origin_validation"; controller rerun "44 passed in 10.71s".
+- ISC-80: backend/source regression — "test_reads_produce_no_filesystem_writes"; controller rerun "44 passed in 10.71s".
+- ISC-81: backend/source regression — "test_real_hook_preview_matches_source_and_is_never_executable"; controller rerun "44 passed in 10.71s".
+- ISC-82: backend/source regression — "test_real_catalog_hold_and_high_risk_gates"; controller rerun "44 passed in 10.71s".
+- ISC-83: backend/source regression — "test_plan_preview_decisions"; controller rerun "44 passed in 10.71s".
+- ISC-84: backend/source regression — "test_real_catalog_hold_and_high_risk_gates"; controller rerun "44 passed in 10.71s".
+- ISC-85: backend/source regression — "test_plan_preview_strict_validation / test_http_ambiguous_input_rejected"; controller rerun "44 passed in 10.71s".
+- ISC-86: integrated UI/build probe — "AGE: 0s"; "SOURCE: API (CONNECTED)".
+- ISC-87: integrated UI/build probe — "Native Skills (1): snowgloves:sg-onboard"; "ROUTED SKILLS (4)".
+- ISC-88: integrated UI/build probe — "Showing 1 of 135 module cards"; refused Agent-Reach found after held filter.
+- ISC-89: integrated UI/build probe — "Fields Still to Verify: plugin_install"; "Runtime installation has not been observed by this workspace.".
+- ISC-90: integrated UI/build probe — "finance.create_invoice"; "risk": "high"; "approval": "yes".
+- ISC-91: integrated UI/build probe — "Enabled Modules (0): None" in public fixture; private HeyZack enabledModuleCount "57".
+- ISC-92: integrated UI/build probe — "Profile Evidence: Local instance metadata"; "Device execution is tracked separately in the evidence ledger."; public templates labelled Source Definition.
+- ISC-93: integrated UI/build probe — "ENDPOINT OBSERVATIONS · ENDPOINT EVIDENCE ONLY"; "ENDPOINT-ONLY".
+- ISC-94: integrated UI/build probe — "No scoped events records are available in this snapshot."; "not a live execution feed.".
+- ISC-95: integrated UI/build probe — "Total: 107 | Accepted: 45 | Open: 62" before acceptance update; accepted-only rows 46 including header.
+- ISC-96: integrated UI/build probe — "literalHtml": true; "imageCount": 0; full README SHA256 retained in browser receipt.
+- ISC-97: integrated UI/build probe — "Preview Result: Build architecture and executive assistant proposal"; actual CTO hook route.
+- ISC-98: integrated UI/build probe — "proposalDownload": "/Users/sheshnarayaniyer/Downloads/plan-preview-acme.json"; parsed snowgloves.cockpit.plan.v1.
+- ISC-99: integrated UI/build probe — "Global search overrides conflicting disposition filter"; matching refused card visible.
+- ISC-100: integrated UI/build probe — "Chief of Staff city landmark opens matching agent workspace"; chief-of-staff role visible.
+- ISC-101: integrated UI/build probe — "bodyWidth": 355; "width": 355; mobile preview returned CTO source route.
+- ISC-102: integrated UI/build probe — "SOURCE: PUBLIC FIXTURE (DISCONNECTED)"; "AGE: 15M"; private failure cleared all snapshot data; final source adds literal STALE.
+- ISC-103: integrated UI/build probe — "productionBuild": "passed"; strict TypeScript and Vite compilation.
+- ISC-104: integrated UI/build probe — "frontendTests": 53; includes all original 33 game/controller tests.
+- ISC-105: integrated UI/build probe — "EXECUTABLE: FALSE"; denied held/refused and approval-required decisions; HTTP unsupported mutations rejected.
+- ISC-106: integrated UI/build probe — "This workspace has no session execution or restore control API."; real cloud recovery source opened with focus restored.
+- ISC-107: integrated UI/build probe — "generation": "GEN: 2026-10-07T19:39:26.701584+00:00" before manual refresh; "GEN: 2026-10-07T19:39:41.700796+00:00" after; "cockpitCount": 1; "rendererCount": 1.
+
+Cockpit verification receipts: /Users/sheshnarayaniyer/.codex/visualizations/2026/10/07/01a1176d-6b04-79c3-9549-9884312e0e4b/infra-cockpit-browser.json and /Users/sheshnarayaniyer/.codex/visualizations/2026/10/07/01a1176d-6b04-79c3-9549-9884312e0e4b/infra-cockpit-receipt.json. Root executed IAB; independent agent reviewed source and saved receipts. Focused backend 44 passed; frontend 53 passed; full repository 791 passed, 271 skipped, 23 subtests; catalog current. Full suite precedes final presentation/timestamp validation fixes; latest focused rerun and production build cover those changes.
+
+ReReadCheck — latest user request: "Fan out and integrate all the infra and do a deep pass on implementing all the features on top of this". Three independently owned API/client/UI lanes integrated above the existing city. Eleven workspaces cover all current source inventory and bounded private metadata; full browser flows and gate-checked local proposal export are implemented. Runtime operations without an existing control contract are explicitly unavailable; existing game remains functional. This finishes the cockpit lane and does not close historical physical/deployment requirements.
 
 ## Change log — standalone import body bridge, 6 October 2026
 

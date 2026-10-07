@@ -14,6 +14,7 @@ import datetime
 import fnmatch
 import hashlib
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -59,6 +60,7 @@ ALLOWED_DOC_PREFIXES = (
     "docs/catalog.md",
     "docs/adapters.md",
     "docs/onboarding.md",
+    "docs/infra-cockpit.md",
     "docs/SESSION-WORLD-DESIGN.md",
     "docs/FLEET-CONTROL-PLANE-PLAN.md",
     "docs/fleet/09-RUNTIME-SUPERVISOR.md",
@@ -504,7 +506,18 @@ def _load_activity(
 
             # Extract actual timestamp or ts or created_at, else null
             raw_ts = r.get("timestamp") if "timestamp" in r else (r.get("ts") if "ts" in r else r.get("created_at"))
-            ts = str(raw_ts)[:128] if raw_ts is not None and isinstance(raw_ts, (str, int, float)) else None
+            ts = None
+            if isinstance(raw_ts, int) and not isinstance(raw_ts, bool) and len(str(raw_ts)) <= 21:
+                ts = str(raw_ts)
+            elif isinstance(raw_ts, float) and math.isfinite(raw_ts):
+                ts = str(raw_ts)[:128]
+            elif isinstance(raw_ts, str) and len(raw_ts) <= 128:
+                try:
+                    datetime.datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
+                    ts = raw_ts
+                except ValueError:
+                    if re.fullmatch(r"-?\d{1,20}(?:\.\d{1,9})?", raw_ts):
+                        ts = raw_ts
 
             # Extract actual status
             if force_status is not None:

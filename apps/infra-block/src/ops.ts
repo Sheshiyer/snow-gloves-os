@@ -181,7 +181,11 @@ export function mountCockpit(
   activityDialog.setAttribute('aria-label', 'Hermes Activity Record Details');
   host.appendChild(activityDialog);
   rootEl.addEventListener('cancel', e => { e.preventDefault(); closeOverlay(); });
-  docDialog.addEventListener('close', () => { docGeneration++; docAbortController?.abort(); docLoading = false; });
+  let documentTriggerId = '';
+  docDialog.addEventListener('close', () => {
+    docGeneration++; docAbortController?.abort(); docLoading = false;
+    if (isOpen) (document.getElementById(documentTriggerId) || document.getElementById('oc-btn-return'))?.focus();
+  });
 
   function closeOverlay() {
     if (docDialog.open) {
@@ -196,6 +200,7 @@ export function mountCockpit(
     rootEl.close();
     rootEl.setAttribute('hidden', '');
     isFetching = false;
+    isPlanning = false;
     fetchGeneration++; docGeneration++; planGeneration++;
     stopPolling();
     if (searchDebounceTimer) {
@@ -234,7 +239,7 @@ export function mountCockpit(
     render();
 
     const requestedTenant = selectedTenantScope || undefined;
-    const isExplicitPrivate = Boolean(requestedTenant) || snapshot?.scope.mode === 'local-private';
+    const requiresScopedResponse = Boolean(requestedTenant) || snapshot?.scope.mode === 'local-private';
 
     try {
       if (!forceFixtureFallback) {
@@ -243,6 +248,7 @@ export function mountCockpit(
           if (signal.aborted || currentGen !== fetchGeneration) return;
           if (data && data.schema === 'snowgloves.cockpit.v1') {
             snapshot = data;
+            selectedTenantScope = data.scope.tenant || '';
             isStale = false;
             lastLoadedSource = 'api';
             genericFetchError = null;
@@ -251,12 +257,12 @@ export function mountCockpit(
           throw new Error('Invalid snapshot schema response');
         } catch (err: unknown) {
           if (signal.aborted || currentGen !== fetchGeneration) return;
-          if (isExplicitPrivate) {
+          if (requiresScopedResponse) {
             snapshot = null;
             currentPlanPreview = null;
             currentDocModal = null;
             isStale = false;
-            genericFetchError = `Failed to load authorized private sources for tenant "${requestedTenant}". Access was refused or endpoint is unreachable.`;
+            genericFetchError = `Failed to load the selected scope${requestedTenant ? ` for tenant "${requestedTenant}"` : ''}. Access was refused or the endpoint is unreachable.`;
             return;
           }
           if (!snapshot) {
@@ -269,11 +275,26 @@ export function mountCockpit(
         }
       }
 
-      if (!isExplicitPrivate) {
-        const res = await fetch('/cockpit-fixture.json', { signal });
-        if (signal.aborted || currentGen !== fetchGeneration) return;
-        if (res.ok) {
-          const fixture = validateSnapshot(await res.json());
+      if (!requiresScopedResponse) {
+        const fixtureController = new AbortController();
+        const cancelFixture = () => fixtureController.abort();
+        signal.addEventListener('abort', cancelFixture, { once: true });
+        let fixtureDeadline: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const rawFixture = await Promise.race([
+            fetch('/cockpit-fixture.json', { signal: fixtureController.signal }).then(res => {
+              if (!res.ok) throw new Error('Public fixture is unavailable');
+              return res.json();
+            }),
+            new Promise<never>((_, reject) => {
+              fixtureDeadline = setTimeout(() => {
+                reject(new Error('Public fixture request timed out'));
+                fixtureController.abort();
+              }, 8000);
+            }),
+          ]);
+          if (signal.aborted || currentGen !== fetchGeneration) return;
+          const fixture = validateSnapshot(rawFixture);
           if (
             fixture &&
             fixture.schema === 'snowgloves.cockpit.v1' &&
@@ -285,12 +306,15 @@ export function mountCockpit(
             genericFetchError = null;
             return;
           }
+        } finally {
+          clearTimeout(fixtureDeadline);
+          signal.removeEventListener('abort', cancelFixture);
         }
         throw new Error('Public fixture validation failed');
       }
     } catch (e: unknown) {
       if (signal.aborted || currentGen !== fetchGeneration) return;
-      if (isExplicitPrivate) {
+      if (requiresScopedResponse) {
         snapshot = null;
         currentPlanPreview = null;
         currentDocModal = null;
@@ -325,6 +349,7 @@ export function mountCockpit(
   async function openDocViewer(docPath: string) {
     const targetPath = toStr(docPath).trim();
     if (!targetPath) return;
+    documentTriggerId = (document.activeElement as HTMLElement | null)?.id || '';
 
     const currentGen = ++docGeneration;
     if (docAbortController) {
@@ -415,7 +440,9 @@ export function mountCockpit(
 
       const shaBadge = document.createElement('span');
       shaBadge.className = 'oc-badge';
-      shaBadge.textContent = 'SHA256: ' + (currentDocModal.sha256 ? currentDocModal.sha256.slice(0, 16) + '...' : 'n/a');
+      shaBadge.textContent = 'SHA256: ' + (currentDocModal.sha256 || 'n/a');
+      shaBadge.style.overflowWrap = 'anywhere';
+      shaBadge.style.minWidth = '0';
       metaBar.appendChild(shaBadge);
 
       if (new TextEncoder().encode(currentDocModal.content).length !== undefined) {
@@ -649,8 +676,14 @@ export function mountCockpit(
     scopeSel.className = 'oc-filter-select';
     const optPublic = document.createElement('option');
     optPublic.value = '';
-    optPublic.textContent = 'Public (All Scope)';
+    optPublic.textContent = snapshot?.scope.mode === 'local-private' ? 'Instance (All Tenants)' : 'Public (All Scope)';
     scopeSel.appendChild(optPublic);
+    if (selectedTenantScope && !snapshot?.tenants.some(tenant => tenant.slug === selectedTenantScope)) {
+      const pendingScope = document.createElement('option');
+      pendingScope.value = selectedTenantScope;
+      pendingScope.textContent = `Tenant: ${selectedTenantScope} (${isFetching ? 'loading' : 'unavailable'})`;
+      scopeSel.appendChild(pendingScope);
+    }
 
     (snapshot?.tenants || []).forEach((t) => {
       const opt = document.createElement('option');
@@ -675,16 +708,16 @@ export function mountCockpit(
     };
     tags.appendChild(scopeSel);
 
-    const scopeMode = snapshot?.scope.mode || (selectedTenantScope ? 'local-private' : 'public');
+    const scopeMode = snapshot?.scope.mode || 'unavailable';
     const scopeBadge = document.createElement('span');
-    scopeBadge.className = `oc-badge oc-badge-scope-${scopeMode === 'public-fixtures' || scopeMode === 'public' ? 'public' : 'private'}`;
+    scopeBadge.className = `oc-badge oc-badge-scope-${scopeMode === 'public-fixtures' ? 'public' : 'private'}`;
     scopeBadge.textContent = `MODE: ${scopeMode.toUpperCase()}`;
     tags.appendChild(scopeBadge);
 
     const sourceBadge = document.createElement('span');
     const isDisconnected = isStale || lastLoadedSource === 'fixture';
     sourceBadge.className = `oc-badge ${isDisconnected ? 'oc-badge-stale' : 'oc-badge-status-reachable'}`;
-    sourceBadge.textContent = !snapshot ? 'SOURCE: UNAVAILABLE' : lastLoadedSource === 'fixture' ? 'SOURCE: PUBLIC FIXTURE (DISCONNECTED)' : isStale ? 'SOURCE: LAST API SNAPSHOT (STALE)' : 'SOURCE: API (CONNECTED)';
+    sourceBadge.textContent = !snapshot ? 'SOURCE: UNAVAILABLE' : lastLoadedSource === 'fixture' ? 'SOURCE: PUBLIC FIXTURE (DISCONNECTED · STALE)' : isStale ? 'SOURCE: LAST API SNAPSHOT (STALE)' : 'SOURCE: API (CONNECTED)';
     tags.appendChild(sourceBadge);
 
     if (snapshot?.generatedAt) {
@@ -692,6 +725,11 @@ export function mountCockpit(
       genBadge.className = 'oc-badge';
       genBadge.textContent = `GEN: ${snapshot.generatedAt}`;
       tags.appendChild(genBadge);
+      const ageBadge = document.createElement('span');
+      ageBadge.className = 'oc-badge';
+      const age = Math.max(0, Math.floor((Date.now() - Date.parse(snapshot.generatedAt)) / 1000));
+      ageBadge.textContent = `AGE: ${age < 60 ? `${age}s` : age < 3600 ? `${Math.floor(age / 60)}m` : `${Math.floor(age / 3600)}h`}`;
+      tags.appendChild(ageBadge);
     }
 
     // Global Search box
@@ -841,7 +879,7 @@ export function mountCockpit(
       const emptyCard = document.createElement('div');
       emptyCard.className = 'oc-card';
       emptyCard.innerHTML = safeHtml`<h3 class="oc-card-title">No Snapshot Loaded</h3>
-        <p class="oc-card-body">Operations telemetry is unavailable for the current scope (${selectedTenantScope ? 'Tenant: ' + selectedTenantScope : 'Public'}).</p>`;
+        <p class="oc-card-body">Operations metadata is unavailable for the current scope (${selectedTenantScope ? 'Tenant: ' + selectedTenantScope : 'Server default'}).</p>`;
       const btnRow = document.createElement('div');
       btnRow.style.display = 'flex';
       btnRow.style.gap = '0.5rem';
@@ -1010,7 +1048,7 @@ export function mountCockpit(
         item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(c.name || c.id)}</span><span class="oc-search-item-sub">${toStr(c.category)} · ${toStr(c.disposition)}</span>`;
         item.onclick = () => {
           currentSection = 'Modules';
-          moduleFilter.search = toStr(c.id);
+          Object.assign(moduleFilter, { search: toStr(c.id), category: 'all', disposition: 'all', risk: 'all', runtime: 'all', agent: 'all', tenant: 'all' });
           globalSearchQuery = '';
           render();
         };
@@ -1143,7 +1181,7 @@ export function mountCockpit(
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
       <h2 class="oc-section-title">Operations Overview</h2>
-      <div class="oc-section-desc">Live telemetry, derived inventory statistics, and registered endpoint observations</div>
+      <div class="oc-section-desc">Source inventory, scoped metadata, and current loopback endpoint observations</div>
     </div>`;
     frag.appendChild(secHeader);
 
@@ -1160,7 +1198,7 @@ export function mountCockpit(
     statStrip.className = 'oc-stat-strip';
     const stats = [
       { label: 'Module Cards', val: snapshot?.catalog?.cards?.length || 0 },
-      { label: 'Active Agents', val: snapshot?.catalog?.agents?.length || 0 },
+      { label: 'Agent Definitions', val: snapshot?.catalog?.agents?.length || 0 },
       { label: 'Runtime Adapters', val: snapshot?.catalog?.adapters?.length || 0 },
       { label: 'Fleet Wings', val: snapshot?.fleet?.length || 0 },
       { label: 'Tenants Scoped', val: snapshot?.tenants?.length || 0 },
@@ -1176,7 +1214,7 @@ export function mountCockpit(
 
     // Endpoint Observations Table (strictly labelled Endpoint-only)
     const serviceSection = document.createElement('div');
-    serviceSection.innerHTML = safeHtml`<h3 style="font-family: var(--oc-font-title); font-size: 1.3rem; margin-bottom: 0.5rem; text-transform: uppercase;">Endpoint Observations (Endpoint-Only Readiness)</h3>`;
+    serviceSection.innerHTML = safeHtml`<h3 style="font-family: var(--oc-font-title); font-size: 1.3rem; margin-bottom: 0.5rem; text-transform: uppercase;">Endpoint Observations · Endpoint Evidence Only</h3>`;
     const tableCont = document.createElement('div');
     tableCont.className = 'oc-table-container';
     const table = document.createElement('table');
@@ -1288,6 +1326,11 @@ export function mountCockpit(
       hooksP.innerHTML = safeHtml`<strong>Hooks:</strong> ${hooksList.length > 0 ? hooksList.join(', ') : 'none'}`;
       body.appendChild(hooksP);
 
+      const nativeBindings = routingSkills.filter(skill => toStr(skill.agent) === slug);
+      const nativeP = document.createElement('p');
+      nativeP.textContent = `Native Skills (${nativeBindings.length}): ${nativeBindings.map(skill => toStr(skill.id)).join(', ') || 'No native bindings declared'}`;
+      body.appendChild(nativeP);
+
       // Routed Skills from snapshot.routing
       const agentRules = routingRules.filter((r) => toStr(r.agent).toLowerCase() === slug.toLowerCase());
       const routeSec = document.createElement('div');
@@ -1335,7 +1378,7 @@ export function mountCockpit(
 
       const relatedSec = document.createElement('div');
       relatedSec.style.marginTop = '0.5rem';
-      relatedSec.innerHTML = safeHtml`<div style="font-weight:700;font-size:0.8rem;text-transform:uppercase;color:var(--oc-forest);">Assigned Modules (${relatedCards.length})</div>`;
+      relatedSec.innerHTML = safeHtml`<div style="font-weight:700;font-size:0.8rem;text-transform:uppercase;color:var(--oc-forest);">Catalog Modules for This Role (${relatedCards.length})</div>`;
       body.appendChild(relatedSec);
 
       const footer = document.createElement('div');
@@ -1346,6 +1389,7 @@ export function mountCockpit(
       const hasIdentity = snapshot?.documents?.some((d) => d.path === identityPath);
       if (hasIdentity) {
         const docBtn = document.createElement('button');
+        docBtn.id = `oc-doc-${identityPath}`;
         docBtn.className = 'oc-btn oc-btn-sm';
         docBtn.textContent = '📄 IDENTITY.md';
         docBtn.onclick = () => openDocViewer(identityPath);
@@ -1409,6 +1453,7 @@ export function mountCockpit(
 
     // Category Select
     const catSelect = document.createElement('select');
+    catSelect.setAttribute('aria-label', 'Module category');
     catSelect.id = 'oc-module-category-select';
     catSelect.className = 'oc-filter-select';
     const categories = Array.from(
@@ -1430,6 +1475,7 @@ export function mountCockpit(
 
     // Disposition Select
     const dispSelect = document.createElement('select');
+    dispSelect.setAttribute('aria-label', 'Module disposition');
     dispSelect.id = 'oc-module-disp-select';
     dispSelect.className = 'oc-filter-select';
     dispSelect.innerHTML = safeHtml`<option value="all">All Dispositions</option>
@@ -1446,6 +1492,7 @@ export function mountCockpit(
 
     // Risk Select
     const riskSelect = document.createElement('select');
+    riskSelect.setAttribute('aria-label', 'Module risk');
     riskSelect.id = 'oc-module-risk-select';
     riskSelect.className = 'oc-filter-select';
     riskSelect.innerHTML = safeHtml`<option value="all">All Risk Levels</option>
@@ -1464,6 +1511,7 @@ export function mountCockpit(
       new Set((snapshot?.catalog?.adapters || []).map((a) => toStr(a.id)).filter(Boolean))
     ).sort();
     const runSelect = document.createElement('select');
+    runSelect.setAttribute('aria-label', 'Module runtime');
     runSelect.id = 'oc-module-runtime-select';
     runSelect.className = 'oc-filter-select';
     runSelect.innerHTML = safeHtml`<option value="all">All Runtimes</option>`;
@@ -1482,6 +1530,7 @@ export function mountCockpit(
 
     // Agent Filter Select
     const agentSelect = document.createElement('select');
+    agentSelect.setAttribute('aria-label', 'Module agent');
     agentSelect.id = 'oc-module-agent-select';
     agentSelect.className = 'oc-filter-select';
     const agentSlugs = (snapshot?.catalog?.agents || []).map((a) => toStr(a.slug)).filter(Boolean);
@@ -1501,6 +1550,7 @@ export function mountCockpit(
 
     // Tenant Enablement Selector
     const tenantSelect = document.createElement('select');
+    tenantSelect.setAttribute('aria-label', 'Module tenant enablement');
     tenantSelect.id = 'oc-module-tenant-select';
     tenantSelect.className = 'oc-filter-select';
     tenantSelect.innerHTML = safeHtml`<option value="all">Enablement: No Tenant Scoped (Unknown)</option>`;
@@ -1619,7 +1669,7 @@ export function mountCockpit(
       metaBlock.style.fontSize = '0.78rem';
       metaBlock.style.color = 'var(--oc-text-muted)';
       metaBlock.innerHTML = safeHtml`<div><strong>Approval Required:</strong> ${toStr(c.approval, 'no')}</div>
-        <div><strong>Runtime Rendered State:</strong> UNKNOWN (DTO provides no install proof)</div>
+        <div><strong>Runtime Installation:</strong> Not verified by this source snapshot</div>
         <div style="margin-top:4px;">${tenantEnabledBadge}</div>`;
       body.appendChild(metaBlock);
 
@@ -1748,8 +1798,10 @@ export function mountCockpit(
         verifyDiv.style.fontSize = '0.78rem';
         verifyDiv.style.color = 'var(--oc-text-muted)';
         verifyDiv.style.marginTop = '4px';
+        const unverifiedFields = ad.verify === true ? 'Entire adapter definition' : isRecord(ad.verify) ? Object.entries(ad.verify).filter(([, pending]) => pending === true).map(([field]) => field).join(', ') : '';
         verifyDiv.innerHTML = safeHtml`<div><strong>Question Tool:</strong> ${toStr(ad.question_tool, 'n/a')}</div>
-          <div><strong>Verification:</strong> ${isRecord(ad.verify) ? prettyJson(ad.verify) : toStr(ad.verify, 'Standard')}</div>`;
+          <div><strong>Fields Still to Verify:</strong> ${unverifiedFields || 'No unconfirmed fields declared'}</div>
+          <div>Runtime installation has not been observed by this workspace.</div>`;
         body.appendChild(verifyDiv);
       }
 
@@ -1844,7 +1896,7 @@ export function mountCockpit(
       stateDiv.style.fontSize = '0.78rem';
       stateDiv.style.color = 'var(--oc-text-muted)';
       stateDiv.style.marginTop = '6px';
-      stateDiv.textContent = 'Tenant Gate Status: UNKNOWN (DTO does not provide per-connector enable state mapping)';
+      stateDiv.textContent = 'Connection Status: Not observed. Capability definitions do not verify credentials or live access.';
       body.appendChild(stateDiv);
 
       const footer = document.createElement('div');
@@ -1874,7 +1926,7 @@ export function mountCockpit(
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
       <h2 class="oc-section-title">Tenant Vault Scope</h2>
-      <div class="oc-section-desc">Approved modules inventory, assigned agents, approval ledgers, and registered sources</div>
+      <div class="oc-section-desc">Tenant enablements, assigned agents, approval records, and source metadata</div>
     </div>`;
     frag.appendChild(secHeader);
 
@@ -1894,7 +1946,7 @@ export function mountCockpit(
       header.className = 'oc-card-header';
       header.innerHTML = safeHtml`<div>
         <h3 class="oc-card-title">${toStr(t.name || t.slug)}</h3>
-        <div class="oc-card-subtitle">Slug: ${slug} · Runtime: ${toStr(t.primaryRuntime, 'default')}</div>
+        <div class="oc-card-subtitle">Slug: ${slug} · Runtime: ${toStr(t.primaryRuntime, 'Unconfigured')}</div>
       </div>
       <span class="oc-badge oc-badge-scope-private">TENANT VAULT</span>`;
 
@@ -1917,8 +1969,17 @@ export function mountCockpit(
 
       const availP = document.createElement('p');
       availP.style.margin = '4px 0 0 0';
-      availP.innerHTML = safeHtml`<strong>Availability Warning:</strong> ${toStr(t.availability, 'Ready / Normal')}`;
+      availP.innerHTML = safeHtml`<strong>Dataset:</strong> ${toStr(t.availability, 'unavailable')} · <strong>Registered Sources:</strong> ${t.sourceCount}`;
       body.appendChild(availP);
+      const provenanceP = document.createElement('p');
+      provenanceP.textContent = `Source References: ${t.sources.join(', ') || 'None available'}`;
+      body.appendChild(provenanceP);
+      if (t.warnings.length) {
+        const warningsP = document.createElement('p');
+        warningsP.className = 'oc-alert oc-alert-warning';
+        warningsP.textContent = t.warnings.join(' · ');
+        body.appendChild(warningsP);
+      }
 
       const footer = document.createElement('div');
       footer.className = 'oc-card-footer';
@@ -1958,7 +2019,7 @@ export function mountCockpit(
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
       <h2 class="oc-section-title">Fleet Wings & Profiles</h2>
-      <div class="oc-section-desc">Physical profiles, contract prerequisites (component, lifecycle, provider, remote, physical), and public recovery documents</div>
+      <div class="oc-section-desc">Wing profile definitions, contract prerequisites, and public recovery documents</div>
     </div>`;
     frag.appendChild(secHeader);
 
@@ -1986,7 +2047,7 @@ export function mountCockpit(
       body.appendChild(profP);
 
       const evP = document.createElement('p');
-      evP.innerHTML = safeHtml`<strong>Evidence / Recovery:</strong> ${toStr(fl.evidence)}`;
+      evP.innerHTML = safeHtml`<strong>Profile Evidence:</strong> ${fl.evidence === 'local' ? 'Local instance metadata' : fl.evidence === 'source' ? 'Source definition' : 'Pending'} · Device execution is tracked separately in the evidence ledger.`;
       body.appendChild(evP);
 
       const footer = document.createElement('div');
@@ -2012,6 +2073,36 @@ export function mountCockpit(
     });
 
     frag.appendChild(grid);
+    const contracts = document.createElement('div');
+    contracts.className = 'oc-card';
+    const contractsTitle = document.createElement('h3');
+    contractsTitle.className = 'oc-card-title';
+    contractsTitle.textContent = 'Sessions & Recovery Contracts';
+    const contractsNote = document.createElement('p');
+    contractsNote.textContent = 'Session supervision and cloud recovery have source contracts. This workspace has no session execution or restore control API. Company deployment, provider admission, and physical recovery require their own evidence.';
+    const contractsLinks = document.createElement('div');
+    contractsLinks.className = 'oc-card-footer';
+    for (const [label, path] of [
+      ['Runtime Supervisor', 'docs/fleet/09-RUNTIME-SUPERVISOR.md'],
+      ['Cloud Gateway & Recovery', 'docs/fleet/08-CLOUD-GATEWAY.md'],
+      ['Session World', 'docs/SESSION-WORLD-DESIGN.md'],
+      ['Control Plane Plan', 'docs/FLEET-CONTROL-PLANE-PLAN.md'],
+    ]) {
+      if (!snapshot?.documents.some(doc => doc.path === path)) continue;
+      const button = document.createElement('button');
+      button.id = `oc-doc-${path}`;
+      button.className = 'oc-btn oc-btn-sm';
+      button.textContent = label;
+      button.onclick = () => openDocViewer(path);
+      contractsLinks.appendChild(button);
+    }
+    const evidenceButton = document.createElement('button');
+    evidenceButton.className = 'oc-btn oc-btn-sm';
+    evidenceButton.textContent = 'Review Open Evidence';
+    evidenceButton.onclick = () => { currentSection = 'Evidence'; evidenceFilter.status = 'open'; render(); };
+    contractsLinks.appendChild(evidenceButton);
+    contracts.append(contractsTitle, contractsNote, contractsLinks);
+    frag.appendChild(contracts);
     return frag;
   }
 
@@ -2094,6 +2185,25 @@ export function mountCockpit(
     };
     filterBar.appendChild(agentSel);
 
+    const statusSel = document.createElement('select');
+    statusSel.id = 'oc-activity-status-select';
+    statusSel.className = 'oc-filter-select';
+    statusSel.setAttribute('aria-label', 'Activity status');
+    const allStatus = document.createElement('option');
+    allStatus.value = 'all';
+    allStatus.textContent = 'All Statuses';
+    statusSel.appendChild(allStatus);
+    const statuses = new Set((snapshot?.activity?.[activityFilter.tab] || []).map(item => item.status));
+    for (const status of [...statuses].sort()) {
+      const opt = document.createElement('option');
+      opt.value = status;
+      opt.textContent = status;
+      statusSel.appendChild(opt);
+    }
+    statusSel.value = statuses.has(activityFilter.status) ? activityFilter.status : 'all';
+    statusSel.onchange = () => { activityFilter.status = statusSel.value; render(); };
+    filterBar.appendChild(statusSel);
+
     frag.appendChild(filterBar);
 
     const rawActivityData = snapshot?.activity ? snapshot.activity[activityFilter.tab] || [] : [];
@@ -2117,8 +2227,9 @@ export function mountCockpit(
         const matchSum = (act.summary || '').toLowerCase().includes(q);
         if (!matchId && !matchSum) return false;
       }
-      if (activityFilter.tenant !== 'all' && act.tenant && act.tenant !== activityFilter.tenant) return false;
-      if (activityFilter.agent !== 'all' && act.agent && act.agent !== activityFilter.agent) return false;
+      if (activityFilter.tenant !== 'all' && act.tenant !== activityFilter.tenant) return false;
+      if (activityFilter.agent !== 'all' && act.agent !== activityFilter.agent) return false;
+      if (statuses.has(activityFilter.status) && act.status !== activityFilter.status) return false;
       return true;
     });
 
@@ -2140,7 +2251,7 @@ export function mountCockpit(
     const tbody = document.createElement('tbody');
 
     if (filteredData.length === 0) {
-      tbody.innerHTML = safeHtml`<tr><td colspan="7" style="text-align:center; color:var(--oc-text-muted);">No activity records found matching active filter.</td></tr>`;
+      tbody.innerHTML = safeHtml`<tr><td colspan="7" style="text-align:center; color:var(--oc-text-muted);">${rawActivityData.length ? 'No activity records match the selected filters.' : `No scoped ${activityFilter.tab} records are available in this snapshot. This view shows projected records, not a live execution feed.`}</td></tr>`;
     } else {
       filteredData.forEach((act) => {
         const tr = document.createElement('tr');
@@ -2256,6 +2367,7 @@ export function mountCockpit(
     titleInp.oninput = (e) => {
       workbenchForm.title = (e.target as HTMLInputElement).value;
       currentPlanPreview = null;
+      render();
     };
     titleGroup.appendChild(titleInp);
     form.appendChild(titleGroup);
@@ -2452,6 +2564,7 @@ export function mountCockpit(
       dlBtn.className = 'oc-btn oc-btn-accent';
       dlBtn.textContent = '⬇ Download Full Proposal JSON';
       dlBtn.onclick = () => {
+        if (!currentPlanPreview || isPlanning) return;
         const safeName = (workbenchForm.tenant || 'proposal').replace(/[^a-zA-Z0-9_-]/g, '_');
         const blob = new Blob([JSON.stringify(currentPlanPreview, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -2590,6 +2703,7 @@ export function mountCockpit(
     filterBar.appendChild(searchInp);
 
     const kindSel = document.createElement('select');
+    kindSel.setAttribute('aria-label', 'Document kind');
     kindSel.id = 'oc-resource-kind-select';
     kindSel.className = 'oc-filter-select';
     const kinds = Array.from(
@@ -2665,6 +2779,7 @@ export function mountCockpit(
       footer.className = 'oc-card-footer';
 
       const viewBtn = document.createElement('button');
+      viewBtn.id = `oc-doc-${docPath}`;
       viewBtn.className = 'oc-btn oc-btn-sm oc-btn-primary';
       viewBtn.textContent = '📖 Inspect Document';
       viewBtn.onclick = () => openDocViewer(docPath);
@@ -2731,9 +2846,11 @@ export function mountCockpit(
       if (!rootEl.open) rootEl.showModal();
       startPolling();
 
+      const expectedFetchGeneration = fetchGeneration + (snapshot ? 0 : 1);
       if (!snapshot) {
         await fetchOperationsData(false);
       }
+      if (!isOpen || fetchGeneration !== expectedFetchGeneration) return;
       render();
       await openDocViewer(path);
     },
