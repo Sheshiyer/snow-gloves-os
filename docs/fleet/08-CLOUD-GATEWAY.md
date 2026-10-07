@@ -1,168 +1,61 @@
-# 08. Company gateway — Cloudflare-only active lane
+# 08. Company gateway — Cloudflare recovery lane
 
-AWS is deferred by the founder decision of 2026-10-05. The EC2 design below is historical; its commands are not the active execution queue.
+AWS has been deferred since the founder decision of 2026-10-05. The active design uses a Cloudflare Worker, one Gateway Durable Object, an owned OmniRoute container and a company R2 backup bucket. Account, zone, hostname, resource names and custody references belong in the private data checkout. The legacy EC2 modules remain historical source; their AWS commands are not the current bring-up procedure.
 
-Use the named company Wrangler authentication and private target pins to verify read-only scope:
+## Authority and evidence
+
+Local implementation and synthetic recovery tests are authorized. `GATEWAY_START_ALLOWED=false` remains the deployment default. Publishing a branch or image, creating a PR, provisioning company credentials, deploying resources, selecting providers and running a Coding Mac canary require their separate recorded gates. Local Docker evidence does not establish Cloudflare deployment or physical fleet readiness.
+
+Use the private target pins and named company authentication for the read-only scope check:
 
 ```sh
 python3 scripts/fleet/cloudflare_scope.py --target "$SNOWGLOVES_DATA/specs/008-heyzack-cloud-gateway/cloudflare-target.json"
 ```
 
-The guard clears inherited credential overrides, validates the named identity and account membership, and reads the pinned active zone. It performs no AWS call or cloud mutation and never emits tokens. Actual deployment tooling must retain these account/domain checks. A passing read-only guard is not streaming, persistence or recovery acceptance.
+A successful scope check verifies identity/account/zone scope. It does not authorize deployment or prove streaming, backups or recovery. Keep inherited personal credentials and instance data outside the company runtime.
 
-The installed OmniRoute 3.8.50 source uses SQLite for the normal Node runtime; its cloud path creates an in-memory database. Running it unchanged as a Worker does not prove durable company credentials. Containers also require a verified persistent state/restore strategy. Select and test the runtime before staging a gateway cutover.
+## Disk and readiness
 
-## Deferred EC2 architecture
+[Cloudflare container disks are ephemeral](https://developers.cloudflare.com/containers/concepts/architecture/). A stopped container can restart from its image with an empty disk. The Durable Object stores orchestration state; encrypted checkpoint objects and their commit receipts live in R2. An active process or an open port is insufficient for inference readiness.
 
-# 08. Cloud gateway: OmniRoute on EC2 behind Cloudflare
+Startup must verify and restore the latest durably confirmed checkpoint before admitting inference. A temporary zero-provider runtime may initialize an empty disk solely to serve internal recovery operations. A missing, replaced, mismatched or undecryptable backup holds startup. It must never become an implicit empty bootstrap.
 
-An alternative to [04-GATEWAY.md](04-GATEWAY.md)'s Coding Mac host. One OmniRoute instance runs on a small EC2
-instance with an Elastic IP in the company's AWS account. Cloudflare, in the company's own Cloudflare account,
-fronts it at `https://gw.<company-zone>`. Every wing uses that URL. The tailnet stays as the admin path and the
-fallback route.
+The explicit first-launch bootstrap gate is consumed durably once. Bootstrap uses zero providers and must export, commit and durably confirm its first encrypted checkpoint before traffic is admitted. Replaying the gate does not create a second empty instance. Provider activation remains a later human decision.
 
-Which accounts, zone and IPs an instance uses is private and lives in the data checkout's `fleet.yaml`
-(`cloud_gateway:` block). This repo holds only the code.
+## Recovery contract
 
-## Topology
+The Gateway serializes bootstrap, checkpoint, recovery and reviewed pruning. Durable Object storage records runtime generation, operation identity, progress and confirmed checkpoint references. Recovery retries within one generation reuse their restore identity; a genuinely new empty disk must install the checkpoint again.
 
-```
- wing Macs, team laptops  ── Claude Code / Codex / Grok / OpenCode ──  https://gw.<zone>  + scoped key
-        │
-        ▼  Cloudflare (company account, one zone)
-           WAF      /v1/* and /healthz only from the office egress IPs
-           Access   everything else (dashboard, management API) needs an allowed email
-        │  443, origin = Elastic IP, Full (strict) with an Origin CA certificate
-        ▼
- EC2 (Ubuntu 24.04 arm64, t4g.medium), security group: 443 from Cloudflare ranges, 41641/udp, no SSH
-   caddy :443  ──►  127.0.0.1:20128  snowgloves-omniroute (systemd, data /var/lib/omniroute/.omniroute)
-   tailscale   joins the company tailnet as tag:gateway; `tailscale serve` exposes :20128 on the tailnet only
-   backups     nightly sqlite .backup + .env → private S3 bucket (versioned, KMS); 7 daily EBS snapshots
-```
+An authenticated container-internal identity response binds the generation to the configured instance, immutable image and backup-key identifier. A recreated Durable Object may adopt an owned running container only after verifying that binding. Unknown or mismatched containers remain held. Identity responses never expose keys.
 
-The Elastic IP is two things: the fixed origin behind Cloudflare, and the single stable egress IP every
-provider sees.
+Recovery has a 120-second overall budget. Management handlers retain their existing 15-second deadline after headers, bounded 25–30-second probe calls and reviewed shutdown containment limits. Transient failures retry the same operation at most three times, with 60 seconds between attempts; the overall budget still applies. Verification failures remain held. A disconnected client ends its own wait while shared recovery continues for other callers.
 
-## Keep it apart from any personal setup
+Existing public inference routes and scoped-key behavior remain unchanged. Checkpoint, ciphertext export/import, restore and runtime identity are internal operations authenticated with the management role. Do not publish management mutation endpoints or reuse inference keys for management.
 
-Snow Gloves is the company's system. If the operator also runs a personal gateway (their own OmniRoute on their
-Mac, their own Cloudflare zones and AWS profiles), none of it may be reused here. These guards enforce that:
+## Checkpoints and expiry review
 
-| Guard | Where |
-|---|---|
-| Gateway hostnames must sit under `cloud_gateway.zone` and under none of `deny_domains`. The AWS profile must be named, and not `default` or anything in `deny_aws_profiles` | `doctor.py` check `fleet-boundary` (critical when the block exists) |
-| `aws sts get-caller-identity` must equal `aws_account_id`. The Cloudflare token must read `cf_zone_id`, which must be named `zone` and owned by `cf_account_id` | `scripts/fleet/cloud_guard.py check` |
-| Every infra command runs the guard first and stops on any failure | `scripts/fleet/cloud_gateway.sh` |
-| The Cloudflare stack refuses a hostname or zone under a denied domain | `infra/cloudflare-gateway` precondition |
-| Nothing on the instance is named after the personal runtime, and the provider store starts empty (never a copy of a personal `~/.omniroute`) | `infra/aws-gateway/cloud-init.yaml.tftpl`, step 6 below |
+While the owned runtime is active, checkpoint alarms run every 15 minutes. An alarm must not wake a stopped container merely to back it up. Checkpoint status explicitly reports failures or overdue work. The latest-good pointer advances only after the exported ciphertext, R2 object/commit versions, canonical context and durable confirmation have all been verified.
 
-## fleet.yaml
+Completed checkpoints become eligible for expiry review after 24 hours. Eligibility does not authorize deletion. Always protect the latest good checkpoint regardless of age, active recovery references and active or held jobs. Present candidates for review before deleting backups.
 
-```yaml
-gateway:
-  kind: cloud
-  port: 20128
-  url: "https://gw.<zone>"               # clients
-  tailnet_url: "http://<tailnet_hostname>:20128"   # fallback; gateway_client.py --via tailnet
-cloud_gateway:
-  name: snowgloves-gw                    # resource prefix and SSM path /<name>/...
-  region: <aws-region>                  # required; no default in the platform
-  hostname: gw.<zone>
-  zone: <zone>
-  aws_profile: <company-profile>         # never `default`
-  aws_account_id: "<12 digits>"
-  cf_account_id: <cloudflare account id>
-  cf_zone_id: <cloudflare zone id>
-  cf_token_keychain: snowgloves-cloudflare            # Keychain service holding the scoped API token
-  tailscale_authkey_keychain: snowgloves-tailscale-authkey
-  tailnet_hostname: snowgloves-gw
-  allow_ips: ["<office egress IP>"]
-  access_emails: ["<operator email>"]
-  alarm_email: "<ops email>"
-  budget_alarm_usd: 60
-  omniroute_version: "3.8.50"
-  deny_domains: ["<personal zones and Access team names>"]
-  deny_aws_profiles: ["<personal profiles>"]
-```
+Deletion requires ownership and exact object/commit version readback. The current R2 binding does not offer a version-conditional delete operation: reviewed pruning must account for this race and remain held if version exclusivity cannot be established. An uncertain deletion retains its durable record. Never report pruning success merely because a delete call returned. Both checkpoint registries currently cap at 256 entries; without an approved retention procedure, a 15-minute cadence reaches capacity in approximately 64 hours and then holds checkpoint creation before export. Resolve that procedure before a longer company soak.
 
-## Bring-up
+## Keys and deployment overlay
 
-Steps 1 and 2 are done by a person in the AWS and Cloudflare consoles. The agent never types credentials.
+Use a company password manager as recovery-key custody and a separate Cloudflare runtime secret as the runtime delivery channel. Planning files contain custody references and key identifiers only. Keep management, backend, storage-encryption, backup and scoped inference roles separate. Synthetic keys belong only in isolated local runs and are removed only after verified orderly cleanup.
 
-1. **AWS.** Create an IAM Identity Center user with an admin permission set in the company account, then run
-   `aws configure sso --profile <company-profile>` and `aws sso login --profile <company-profile>`.
-2. **Cloudflare**, in the company account:
-   - add the zone;
-   - enable Zero Trust (the free plan is enough) for Access;
-   - create an API token with:
-     - Zone: DNS Edit, Zone Settings Edit, SSL and Certificates Edit, Firewall Services Edit, all on that zone only;
-     - Account: Access Apps and Policies Edit;
-   - store the token without it reaching shell history:
-     `security add-generic-password -a snowgloves -s snowgloves-cloudflare -w`.
-3. **Tailscale.** In the company tailnet's admin console:
-   - create a single-use, pre-authorized auth key tagged `tag:gateway`;
-   - store it with `security add-generic-password -a snowgloves -s snowgloves-tailscale-authkey -w`;
-   - add an ACL rule allowing `tag:gateway:20128` from company devices only.
-4. **Guard.** `bash scripts/fleet/cloud_gateway.sh guard` should print three `OK` lines.
-5. **Provision**, with `SNOWGLOVES_DATA` pointing at the data checkout:
-   ```bash
-   bash scripts/fleet/cloud_gateway.sh bootstrap-state     # private, versioned, encrypted tofu state bucket
-   bash scripts/fleet/cloud_gateway.sh aws plan            # read it
-   bash scripts/fleet/cloud_gateway.sh aws apply
-   bash scripts/fleet/cloud_gateway.sh cloudflare plan
-   bash scripts/fleet/cloud_gateway.sh cloudflare apply    # DNS, Origin CA cert → SSM, WAF, Access
-   bash scripts/fleet/cloud_gateway.sh tls-refresh         # instance installs the cert, caddy starts
-   bash scripts/fleet/cloud_gateway.sh tailnet-join        # one-shot key → SSM → join → key deleted
-   ```
-6. **Providers.**
-   - Open `https://gw.<zone>/dashboard`, which asks for the Access email code.
-   - Set the dashboard password first.
-   - Add API-key providers.
-   - Sign in to account providers only for accounts the company is entitled to use from a server. Sign-ins from a
-     datacenter IP are challenged more often than office sign-ins; check each provider's terms.
-   - Recreate the combos. Never restore a personal gateway's database here.
-7. **Keys.** Mint one scoped key per machine and per person. Set `allowed_endpoints = ["chat","models"]`, that
-   wing's combos, a daily limit, and `ip_allowlist` = the office egress IP. Caddy passes Cloudflare's
-   `CF-Connecting-IP` as the client IP.
-8. **Clients**, on each wing:
-   ```bash
-   python3 scripts/fleet/gateway_client.py set-url --url https://gw.<zone> --key-ref keychain:snowgloves-gateway-<wing>          # dry-run
-   python3 scripts/fleet/gateway_client.py set-url --url https://gw.<zone> --key-ref keychain:snowgloves-gateway-<wing> --apply
-   python3 scripts/fleet/gateway_client.py doctor --key-ref keychain:snowgloves-gateway-<wing>    # tailscale is optional for an https gateway
-   ```
-   Fallback when Cloudflare is down, or for a non-streaming call longer than Cloudflare's 100-second limit:
-   `set-url --via tailnet ...` points the surfaces at `http://<tailnet_hostname>:20128`.
+Prepare the private overlay with company account/zone pins, a company backup-bucket binding, immutable image reference and runtime instance identity. Leave runtime start disabled. A local Docker image identity is distinct from a future published OCI manifest digest; record both only at their actual evidence level.
 
-## Verify
+The narrow runner proposal must limit deployment and secret delivery to the company Worker, Durable Object, container image and backup bucket. A previously verified administrator profile is a scope reference, not an unattended runtime identity. Resource budget, recovery-key provisioning and rotation, provider selection, deployment and canary authority are resolved after the local packet is reviewable.
 
-| Claim | Proof |
-|---|---|
-| The right accounts | `cloud_gateway.sh guard` prints three OK lines |
-| Only Cloudflare reaches the origin | `curl -m 5 https://<elastic-ip>` from outside times out |
-| OmniRoute is not on a public interface | over Tailscale SSH: `ss -ltnp \| grep 20128` shows `127.0.0.1` (and `tailscale serve`) only |
-| The edge rules work | from outside the office, `/v1/models` returns 403; `/dashboard` asks for the Access code |
-| The gateway serves | from the office, `curl -H "Authorization: Bearer $KEY" https://gw.<zone>/v1/models` returns 200, and a streaming Claude Code / Codex call completes |
-| Egress is the static IP | on the instance, `curl -s https://checkip.amazonaws.com` equals the Elastic IP |
-| Backups restore | `cloud_gateway.sh backup-now`, then restore the archive on a fresh instance and `/v1/models` answers |
+## Local acceptance packet
 
-## Operate
+Run in Docker context `colima-sg-runtime-proof`, using isolated owned containers with no published host ports. Preserve the accepted image and receipts, the three original held volumes and migration-export containers. Remove additional proof volumes only after saved receipt ownership, labels and all running/stopped container mounts agree. Do not use shared prune commands.
 
-- **Backups.** Nightly at 02:00 UTC to `s3://<name>-backups-<account>/backups/` (35 days), plus 7 daily EBS
-  snapshots. The archive holds the storage key (`.env`), so the bucket is private, versioned and KMS-encrypted.
-- **Alarms.** A failed host check triggers EC2 auto-recover, and a failed OS check triggers a reboot. Both email
-  `alarm_email`, as does the monthly budget at 100% actual or forecast.
-- **Upgrades.** Bump `omniroute_version` in fleet.yaml. On the instance, run
-  `sudo npm i -g omniroute@<v> && sudo systemctl restart snowgloves-omniroute`. Take a snapshot first.
-- **Rollback.** Point clients back at the Mac gateway with `set-url --host <mac> --port 20128`.
-  `cloud_gateway.sh cloudflare destroy` then `aws destroy` removes everything. The backups bucket refuses to
-  delete while it holds objects, which is intended.
+The candidate image must contain every runtime core module, including identity handling. Receiver fixtures contain only ciphertext, manifest, receipt and a thin HTTP probe. Pin the image and verify bundled runtime hashes before execution.
 
-## Known limits
+Required proof includes a fresh source fixture and ciphertext with its synthetic key retained throughout the same execution; a native local R2 round trip with exact byte count, SHA-256, canonical context and object/commit versions; wrong-key held restore; correct-key recovery; same-volume fresh-container replay; and complete receiver disk loss followed by restoration into a new empty volume. Capture settled source database/content and process identity before receiver work and verify they remain unchanged.
 
-- **Cloudflare ranges on the instance.** The security group follows Cloudflare's published ranges on every
-  `aws apply`, but Caddy's `trusted_proxies` list is written once at first boot (`user_data` changes are
-  ignored so the instance is never replaced). If Cloudflare adds a range, re-run the Caddyfile step by hand
-  until a refresh job exists.
-- **Storage key in the backup.** Each nightly archive carries the database and its `.env` storage key together;
-  whoever can read the backups bucket can open the provider credentials. Keep bucket access to the instance role
-  and the operator; moving the key to its own SSM parameter is a planned change.
+Concurrency, Durable Object recreation, generation mismatch, bootstrap replay, wrong-key correction, retry exhaustion, interrupted confirmation, checkpoint scheduling, expiry protections, truncation, cancellation and deadlines require regression coverage. Core recovery and cleanup are separate outcomes. Acceptance requires both; uncertain cleanup retains owned evidence and exits unsuccessfully.
+
+Record fresh TypeScript, runtime, controller and platform results separately from historical counts. Native local R2/Docker evidence remains local. Company streaming, physical wing execution, recovery, durable handoff and capacity/soak acceptance remain open until their complete contracts are demonstrated.
