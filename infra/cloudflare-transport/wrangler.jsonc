@@ -39,5 +39,11 @@
         "class_name": "Gateway"
       }
     ]
-  }
+  },
+  "r2_buckets": [
+    {
+      "binding": "COMPANY_BACKUPS",
+      "bucket_name": "company-gateway-backups-placeholder"
+    }
+  ]
 }

@@ -186,7 +186,7 @@ export async function checkManagedReady(
   }
 }
 
-function validateEnv(env: LifecycleEnv): { imageDigest: string; envToInject: Record<string, string> } {
+export function validateEnv(env: LifecycleEnv): { imageDigest: string; envToInject: Record<string, string> } {
   if (env.GATEWAY_START_ALLOWED !== 'true') throw new Error('GATEWAY_START_HOLD');
   if (env.GATEWAY_INITIALIZE_FRESH !== undefined && env.GATEWAY_INITIALIZE_FRESH !== '1') throw new Error('INVALID_INITIALIZE_POLICY');
 

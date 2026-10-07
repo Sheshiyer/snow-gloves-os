@@ -1,7 +1,9 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { BackendFetcher, GatewayConfig } from './transport.ts';
 import { authorizeGateway, handleGateway, REDACTED_503 } from './transport.ts';
-import { ContainerLifecycleManager } from './lifecycle.ts';
+import { GatewayRecovery } from './recovery.ts';
+import { createRecoveryIO, runtimeContext } from './recovery-io.ts';
+import type { LifecycleEnv } from './lifecycle.ts';
 
 export interface SecretEnv {
   SCOPED_KEYS_JSON: string;
@@ -11,12 +13,24 @@ export interface SecretEnv {
   SG_BACKUP_KEY: string;
   SG_BACKUP_KEY_ID: string;
   GATEWAY_INITIALIZE_FRESH?: string;
+  GATEWAY_BOOTSTRAP_ONCE?: string;
 }
 
 export type RuntimeEnv = Cloudflare.Env & SecretEnv;
 
 export class Gateway extends DurableObject<RuntimeEnv> {
-  private lifecycleManager = new ContainerLifecycleManager();
+  private recoveryCoordinator: GatewayRecovery | null = null;
+
+  private coordinator(): GatewayRecovery {
+    if (this.recoveryCoordinator) return this.recoveryCoordinator;
+    if (!this.ctx.container || !this.env.COMPANY_BACKUPS) throw new Error('RECOVERY_BINDING_HELD');
+    const env: LifecycleEnv = this.env;
+    if (this.env.GATEWAY_BOOTSTRAP_ONCE !== undefined && this.env.GATEWAY_BOOTSTRAP_ONCE !== '1') throw new Error('BOOTSTRAP_POLICY_HELD');
+    this.recoveryCoordinator = new GatewayRecovery(this.ctx.storage, createRecoveryIO(this.ctx.storage,this.env.COMPANY_BACKUPS,this.ctx.container,env),runtimeContext(this.ctx.container,env),this.env.GATEWAY_BOOTSTRAP_ONCE === '1');
+    return this.recoveryCoordinator;
+  }
+
+  async alarm(): Promise<void> { await this.coordinator().alarm(); }
 
   async fetch(request: Request): Promise<Response> {
     const config: GatewayConfig = {
@@ -30,20 +44,11 @@ export class Gateway extends DurableObject<RuntimeEnv> {
 
     const lazyFetcher: BackendFetcher = {
       fetch: async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-        const port = await this.lifecycleManager.ensureReady(
-          this.ctx.container,
-          {
-            MANAGEMENT_KEY: this.env.MANAGEMENT_KEY,
-            BACKEND_API_KEY: this.env.BACKEND_API_KEY,
-            STORAGE_ENCRYPTION_KEY: this.env.STORAGE_ENCRYPTION_KEY,
-            SG_BACKUP_KEY: this.env.SG_BACKUP_KEY,
-            SG_BACKUP_KEY_ID: this.env.SG_BACKUP_KEY_ID,
-            GATEWAY_INSTANCE_ID: this.env.GATEWAY_INSTANCE_ID,
-            GATEWAY_START_ALLOWED: this.env.GATEWAY_START_ALLOWED,
-            ...(this.env.GATEWAY_INITIALIZE_FRESH !== undefined ? { GATEWAY_INITIALIZE_FRESH: this.env.GATEWAY_INITIALIZE_FRESH } : {}),
-          },
-          init?.signal ?? request.signal
-        );
+        const coordinator=this.coordinator();
+        const recovery=coordinator.ensureReady();
+        this.ctx.waitUntil(recovery.catch(() => {}));
+        await coordinator.ensureReady(init?.signal ?? request.signal);
+        const port=this.ctx.container!.getTcpPort(8080);
         return port.fetch(input, init);
       },
     };
