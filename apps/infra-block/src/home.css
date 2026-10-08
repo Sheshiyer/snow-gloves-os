@@ -672,3 +672,39 @@ body.home-explore:not(.field-kit-open) .sg-hero-watermark { display:none !import
  .ih-token-btn{width:100px;min-width:100px;max-width:100px;}
  .ih-token-portrait{width:28px;height:28px;}
 }
+
+/* Notes and encounters share the town without intercepting its controls. */
+.ih-mission-strip{top:var(--ih-header-bottom,70px);}
+body.source-notes-open .ih-belt-wrap,body.source-notes-open .ih-dialogue-layer{display:none!important;}
+body.source-notes-open .ih-mission-title-group,body.source-notes-open .ih-connection-details,body.source-notes-open .ih-mission-actions>button:not(#ih-btn-notes-toggle){display:none;}
+body.source-notes-open .ih-mission-strip{width:auto;left:auto;right:20px;transform:none;padding:4px 6px;}
+.ih-ticket-mission{margin:0;font-size:12px;line-height:1.45;color:#64756f;}
+@media(max-width:760px) and (min-height:481px){
+ body.home-explore:not(.field-kit-open) .sg-header{height:auto;min-height:0;display:grid;grid-template-columns:1fr auto;gap:4px;margin:6px 8px 0;padding:6px 8px;}
+ body.home-explore:not(.field-kit-open) .sg-brand{width:auto;min-width:0;}
+ body.home-explore:not(.field-kit-open) .sg-logo-title{font-size:14px;}
+ body.home-explore:not(.field-kit-open) .sg-subbrand,body.home-explore:not(.field-kit-open) .sg-slash{display:none;}
+ body.home-explore:not(.field-kit-open) .sg-header-actions{grid-column:1/-1;display:flex;flex-wrap:nowrap;overflow-x:auto;min-width:0;max-width:100%;gap:4px;padding-bottom:4px;}
+ body.home-explore:not(.field-kit-open) .sg-header-actions>button{flex-shrink:0;min-height:44px;}
+ .ih-mission-strip{top:var(--ih-header-bottom,104px);padding:6px 8px;gap:3px;width:calc(100vw - 16px);}
+ .ih-mission-header-bar{display:block;min-width:0;}
+ .ih-stamp-tag{display:none;}
+ .ih-mission-headline{font-size:16px;line-height:20px;margin-bottom:3px;white-space:nowrap;}
+ .ih-mission-actions{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:5px;padding-bottom:4px;scrollbar-width:thin;}
+ .ih-mission-actions>.ih-btn{flex-shrink:0;min-height:44px;white-space:nowrap;padding:0 10px;font-size:12px;}
+ .ih-connection-details{margin:0;}
+ .ih-conn-summary{font-size:10px;min-height:20px;padding:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+ .ih-conn-label-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+ .ih-ticket-dialogue{height:var(--ih-encounter-height,230px);max-height:var(--ih-encounter-height,230px);overflow-y:auto;}
+ .ih-dialogue-layer{bottom:98px;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open){--ih-encounter-height:0px;}
+ body.home-explore.home-encounter-open:not(.field-kit-open):not(.source-notes-open){--ih-encounter-height:min(30dvh,230px);}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-stage-container{position:fixed;top:calc(var(--ih-header-bottom,104px) + var(--ih-mission-height,100px) + 6px);left:8px;right:8px;width:calc(100vw - 16px);height:max(120px,calc(100dvh - var(--ih-header-bottom,104px) - var(--ih-mission-height,100px) - var(--ih-encounter-height) - 114px));min-height:120px;flex:none;}
+ body.source-notes-open .ih-mission-strip{left:auto;right:8px;width:auto;}
+}
+@media(max-height:480px){
+ .ih-mission-strip{top:var(--ih-header-bottom,66px);}
+ .ih-mission-actions{flex-wrap:nowrap;overflow-x:auto;max-width:100%;}
+ .ih-mission-actions>.ih-btn{flex-shrink:0;white-space:nowrap;min-height:44px;}
+ body.source-notes-open .ih-mission-strip{right:8px;width:auto;}
+}

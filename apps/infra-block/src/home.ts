@@ -250,6 +250,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
           </div>
 
           <div class="ih-ticket-body">
+            <p class="ih-ticket-mission" id="ih-ticket-mission"></p>
             <p class="ih-ticket-greeting" id="ih-ticket-greeting"></p>
             <div class="ih-ticket-evidence-box">
               <div class="ih-ticket-field">
@@ -394,7 +395,8 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
     const btnAgent = host.querySelector('#ih-ticket-btn-agent') as HTMLButtonElement;
 
     portraitSlot.innerHTML = getFixedPortraitSvg(res.slug);
-    roleEl.textContent = res.role;
+    roleEl.textContent = res.slug === 'chief-of-staff' ? 'Routing' : res.slug.toUpperCase();
+    host.querySelector('#ih-ticket-mission')!.textContent = res.role;
     nameEl.textContent = res.name;
     greetingEl.textContent = `“${res.greeting}”`;
     stationEl.textContent = `${res.station} (${res.nodeId})`;
@@ -440,6 +442,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
     };
 
     dialogueLayerEl.hidden = false;
+    document.body.classList.add('home-encounter-open');
     renderBelt();
     if (activeControl) document.getElementById(activeControl)?.focus();
   }
@@ -448,6 +451,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
     const previous = selectedSlug;
     selectedSlug = null;
     dialogueLayerEl.hidden = true;
+    document.body.classList.remove('home-encounter-open');
     renderBelt();
     if (previous) {
       const btn = host.querySelector(`#ih-token-${previous}`) as HTMLButtonElement | null;
@@ -724,6 +728,17 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   document.addEventListener('cockpit-snapshot', handleSnapshotEvent as EventListener);
   window.addEventListener('keydown', handleKeyDown);
 
+  const measureHome = () => {
+    const header = document.querySelector<HTMLElement>('.sg-header');
+    document.documentElement.style.setProperty('--ih-header-bottom', `${Math.ceil(header?.getBoundingClientRect().bottom || 64) + 6}px`);
+    document.documentElement.style.setProperty('--ih-mission-height', `${Math.ceil((host.querySelector('#ih-mission-strip') as HTMLElement).getBoundingClientRect().height)}px`);
+  };
+  const layoutObserver = new ResizeObserver(measureHome);
+  const appHeader = document.querySelector('.sg-header');
+  if (appHeader) layoutObserver.observe(appHeader);
+  layoutObserver.observe(host.querySelector('#ih-mission-strip')!);
+  window.addEventListener('resize', measureHome);
+  measureHome();
   document.body.classList.add('home-explore');
   renderBelt();
   updateConnectionUI();
@@ -775,6 +790,9 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
     },
 
     dispose(): void {
+      layoutObserver.disconnect();
+      window.removeEventListener('resize', measureHome);
+      document.body.classList.remove('home-encounter-open');
       if (pollTimer) clearInterval(pollTimer);
       if (freshnessTimer !== null) clearInterval(freshnessTimer);
       if (tourTimer) clearTimeout(tourTimer);
