@@ -540,7 +540,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
       const requestedTenant = projection.tenant;
       const requestedMode = expectedScopeMode;
       const snap = await loadSnapshot(requestedTenant || undefined, {signal: controller.signal, timeoutMs: 8000});
-      if (requestedMode && snap.scope.mode !== requestedMode) throw new Error('Snapshot mode changed');
+      if (requestedMode === 'local-private' && snap.scope.mode !== 'local-private') throw new Error('Snapshot mode changed');
       if (requestedTenant && snap.scope.tenant !== requestedTenant) throw new Error('Snapshot tenant changed');
       clearTimeout(timeoutId);
       if (gen !== requestGeneration || controller.signal.aborted) return;
@@ -628,6 +628,10 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
     requestGeneration++;
 
     const detail = customEvent.detail;
+    if (expectedScopeMode === 'local-private' && (detail.scopeMode === 'public-fixtures' || detail.snapshot?.scope.mode === 'public-fixtures')) {
+      applyProjection({snapshot:null, scopeMode:'local-private', tenant:projection.tenant, source:'unavailable', stale:true, label:'Unavailable · private scope downgrade refused'});
+      return;
+    }
     if (detail.scopeMode) {
       expectedScopeMode = detail.scopeMode;
     }
