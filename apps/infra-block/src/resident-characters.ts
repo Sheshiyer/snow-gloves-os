@@ -140,6 +140,16 @@ export function createResidentCrew(
 
   const residents: ResidentVisuals[] = [];
 
+  // Shared low-poly humanoid geometry library
+  const sharedHeadGeo = trackGeo(new THREE.SphereGeometry(0.38, 12, 8));
+  const sharedTorsoGeo = trackGeo(new THREE.CylinderGeometry(0.38, 0.44, 1.0, 12));
+  const sharedLimbGeo = trackGeo(new THREE.CylinderGeometry(0.12, 0.14, 0.75, 8));
+  const sharedFootGeo = trackGeo(new THREE.SphereGeometry(0.18, 8, 6));
+  const sharedHandGeo = trackGeo(new THREE.SphereGeometry(0.11, 8, 6));
+  const sharedEyeGeo = trackGeo(new THREE.SphereGeometry(0.045, 8, 6));
+  const sharedBrowGeo = trackGeo(new THREE.BoxGeometry(0.12, 0.03, 0.04));
+
+
   for (const def of definitions) {
     const bPos = buildingFronts.get(def.nodeId);
     if (!bPos) continue;
@@ -183,174 +193,219 @@ export function createResidentCrew(
     leftArm.position.set(-0.65, 2.1, 0);
     rightArm.position.set(0.65, 2.1, 0);
 
-    const legGeo = trackGeo(new RoundedBoxGeometry(0.3, 0.8, 0.35, 2, 0.05));
-    const footGeo = trackGeo(new RoundedBoxGeometry(0.34, 0.2, 0.5, 2, 0.04));
-
-    const lLegMesh = new THREE.Mesh(legGeo, suitMat);
+    const lLegMesh = new THREE.Mesh(sharedLimbGeo, suitMat);
     lLegMesh.position.y = -0.35;
-    const lFootMesh = new THREE.Mesh(footGeo, rubberMat);
-    lFootMesh.position.set(0, -0.75, 0.08);
+    const lFootMesh = new THREE.Mesh(sharedFootGeo, rubberMat);
+    lFootMesh.scale.set(0.9, 0.6, 1.4);
+    lFootMesh.position.set(0, -0.73, 0.08);
     leftLeg.add(lLegMesh, lFootMesh);
 
-    const rLegMesh = new THREE.Mesh(legGeo, suitMat);
+    const rLegMesh = new THREE.Mesh(sharedLimbGeo, suitMat);
     rLegMesh.position.y = -0.35;
-    const rFootMesh = new THREE.Mesh(footGeo, rubberMat);
-    rFootMesh.position.set(0, -0.75, 0.08);
+    const rFootMesh = new THREE.Mesh(sharedFootGeo, rubberMat);
+    rFootMesh.scale.set(0.9, 0.6, 1.4);
+    rFootMesh.position.set(0, -0.73, 0.08);
     rightLeg.add(rLegMesh, rFootMesh);
 
-    const armGeo = trackGeo(new RoundedBoxGeometry(0.25, 0.8, 0.25, 2, 0.05));
-    const lArmMesh = new THREE.Mesh(armGeo, suitMat);
+    const lArmMesh = new THREE.Mesh(sharedLimbGeo, suitMat);
     lArmMesh.position.y = -0.35;
-    leftArm.add(lArmMesh);
-    const rArmMesh = new THREE.Mesh(armGeo, suitMat);
+    const lHandMesh = new THREE.Mesh(sharedHandGeo, skinMat);
+    lHandMesh.position.y = -0.72;
+    leftArm.add(lArmMesh, lHandMesh);
+
+    const rArmMesh = new THREE.Mesh(sharedLimbGeo, suitMat);
     rArmMesh.position.y = -0.35;
-    rightArm.add(rArmMesh);
+    const rHandMesh = new THREE.Mesh(sharedHandGeo, skinMat);
+    rHandMesh.position.y = -0.72;
+    rightArm.add(rArmMesh, rHandMesh);
 
     actorGroup.add(leftLeg, rightLeg, leftArm, rightArm);
 
     // Build specific silhouettes & props
-    const eyeGeo = trackGeo(new THREE.SphereGeometry(0.06, 12, 8));
-    const browGeo = trackGeo(new THREE.BoxGeometry(0.14, 0.04, 0.05));
+    let headCenterY = 2.6;
+    let showStandardEyes = true;
 
     if (def.slug === 'ceo') {
-      const torsoGeo = trackGeo(new RoundedBoxGeometry(1.05, 1.4, 0.7, 2, 0.1));
-      const torso = new THREE.Mesh(torsoGeo, suitMat);
+      headCenterY = 2.65;
+      const torso = new THREE.Mesh(sharedTorsoGeo, suitMat);
+      torso.scale.set(1.35, 1.4, 0.95);
       torso.position.y = 1.6;
-      const headGeo = trackGeo(new RoundedBoxGeometry(0.65, 0.65, 0.65, 2, 0.1));
-      const head = new THREE.Mesh(headGeo, skinMat);
-      head.position.y = 2.65;
-      const hatGeo = trackGeo(new THREE.CylinderGeometry(0.48, 0.52, 0.35, 16));
+
+      const head = new THREE.Mesh(sharedHeadGeo, skinMat);
+      head.scale.set(0.95, 1.05, 0.95);
+      head.position.y = headCenterY;
+
+      const hatGeo = trackGeo(new THREE.CylinderGeometry(0.38, 0.44, 0.32, 12));
       const hat = new THREE.Mesh(hatGeo, accentMat);
       hat.position.y = 3.08;
-      const brimGeo = trackGeo(new THREE.CylinderGeometry(0.7, 0.7, 0.06, 16));
+
+      const brimGeo = trackGeo(new THREE.CylinderGeometry(0.62, 0.62, 0.05, 12));
       const brim = new THREE.Mesh(brimGeo, accentMat);
       brim.position.y = 2.92;
-      const compassGeo = trackGeo(new THREE.CylinderGeometry(0.2, 0.2, 0.08, 16));
+
+      const compassGeo = trackGeo(new THREE.CylinderGeometry(0.18, 0.18, 0.06, 10));
       const compass = new THREE.Mesh(compassGeo, metalMat);
       compass.rotation.x = Math.PI / 2;
       compass.position.set(0, 1.9, 0.38);
-      const mapGeo = trackGeo(new THREE.BoxGeometry(0.2, 0.5, 0.2));
+
+      const mapGeo = trackGeo(new THREE.BoxGeometry(0.18, 0.45, 0.18));
       const mapMesh = new THREE.Mesh(mapGeo, trackMat(new THREE.MeshStandardMaterial({ color: 0xfff9e6 })));
       mapMesh.position.set(0, -0.4, 0.2);
       rightArm.add(mapMesh);
+
       actorGroup.add(torso, head, hat, brim, compass);
     } else if (def.slug === 'cto') {
-      const torsoGeo = trackGeo(new RoundedBoxGeometry(1.2, 1.1, 0.9, 2, 0.12));
-      const torso = new THREE.Mesh(torsoGeo, suitMat);
+      headCenterY = 2.35;
+      showStandardEyes = false;
+      const torso = new THREE.Mesh(sharedTorsoGeo, suitMat);
+      torso.scale.set(1.5, 1.15, 1.15);
       torso.position.y = 1.45;
-      const headGeo = trackGeo(new RoundedBoxGeometry(0.75, 0.6, 0.7, 2, 0.1));
-      const head = new THREE.Mesh(headGeo, metalMat);
-      head.position.y = 2.35;
-      const visorGeo = trackGeo(new RoundedBoxGeometry(0.6, 0.2, 0.25, 2, 0.05));
+
+      const head = new THREE.Mesh(sharedHeadGeo, skinMat);
+      head.scale.set(1.05, 0.9, 0.95);
+      head.position.y = headCenterY;
+
+      const visorGeo = trackGeo(new THREE.BoxGeometry(0.55, 0.16, 0.22));
       const visor = new THREE.Mesh(visorGeo, accentMat);
       visor.position.set(0, 2.38, 0.32);
-      const wrenchGeo = trackGeo(new THREE.BoxGeometry(0.12, 0.9, 0.2));
+
+      const wrenchGeo = trackGeo(new THREE.BoxGeometry(0.1, 0.8, 0.18));
       const wrench = new THREE.Mesh(wrenchGeo, darkInkMat);
       wrench.position.set(0, -0.4, 0.2);
       rightArm.add(wrench);
+
       actorGroup.add(torso, head, visor);
     } else if (def.slug === 'chief-of-staff') {
-      const torsoGeo = trackGeo(new RoundedBoxGeometry(0.9, 1.3, 0.6, 2, 0.1));
-      const torso = new THREE.Mesh(torsoGeo, suitMat);
+      headCenterY = 2.5;
+      const torso = new THREE.Mesh(sharedTorsoGeo, suitMat);
+      torso.scale.set(1.15, 1.3, 0.85);
       torso.position.y = 1.55;
-      const headGeo = trackGeo(new THREE.SphereGeometry(0.42, 12, 8));
-      const head = new THREE.Mesh(headGeo, skinMat);
-      head.position.y = 2.5;
-      const cupGeo = trackGeo(new THREE.CylinderGeometry(0.18, 0.18, 0.15, 12));
+
+      const head = new THREE.Mesh(sharedHeadGeo, skinMat);
+      head.scale.set(0.9, 1.0, 0.9);
+      head.position.y = headCenterY;
+
+      const cupGeo = trackGeo(new THREE.CylinderGeometry(0.14, 0.14, 0.12, 10));
       const lCup = new THREE.Mesh(cupGeo, accentMat);
       lCup.rotation.z = Math.PI / 2;
-      lCup.position.set(-0.44, 2.5, 0);
+      lCup.position.set(-0.4, 2.5, 0);
       const rCup = lCup.clone();
-      rCup.position.set(0.44, 2.5, 0);
-      const clipGeo = trackGeo(new THREE.BoxGeometry(0.4, 0.6, 0.06));
+      rCup.position.set(0.4, 2.5, 0);
+
+      const clipGeo = trackGeo(new THREE.BoxGeometry(0.35, 0.55, 0.05));
       const clipboard = new THREE.Mesh(clipGeo, accentMat);
       clipboard.position.set(0, -0.4, 0.2);
       leftArm.add(clipboard);
+
       actorGroup.add(torso, head, lCup, rCup);
     } else if (def.slug === 'librarian') {
-      const torsoGeo = trackGeo(new RoundedBoxGeometry(1.1, 1.3, 0.8, 2, 0.2));
-      const torso = new THREE.Mesh(torsoGeo, suitMat);
+      headCenterY = 2.55;
+      const torso = new THREE.Mesh(sharedTorsoGeo, suitMat);
+      torso.scale.set(1.35, 1.3, 1.05);
       torso.position.y = 1.55;
-      const headGeo = trackGeo(new RoundedBoxGeometry(0.65, 0.65, 0.65, 2, 0.1));
-      const head = new THREE.Mesh(headGeo, skinMat);
-      head.position.y = 2.55;
-      const glassesGeo = trackGeo(new THREE.TorusGeometry(0.12, 0.03, 8, 16));
+
+      const head = new THREE.Mesh(sharedHeadGeo, skinMat);
+      head.scale.set(0.95, 1.02, 0.95);
+      head.position.y = headCenterY;
+
+      const glassesGeo = trackGeo(new THREE.TorusGeometry(0.1, 0.025, 6, 12));
       const lGlass = new THREE.Mesh(glassesGeo, darkInkMat);
-      lGlass.position.set(-0.16, 2.58, 0.35);
+      lGlass.position.set(-0.15, 2.58, 0.34);
       const rGlass = lGlass.clone();
-      rGlass.position.set(0.16, 2.58, 0.35);
-      const bookGeo = trackGeo(new THREE.BoxGeometry(0.35, 0.5, 0.45));
+      rGlass.position.set(0.15, 2.58, 0.34);
+
+      const bookGeo = trackGeo(new THREE.BoxGeometry(0.32, 0.45, 0.4));
       const books = new THREE.Mesh(bookGeo, accentMat);
       books.position.set(0, -0.35, 0.25);
       leftArm.add(books);
+
       actorGroup.add(torso, head, lGlass, rGlass);
     } else if (def.slug === 'interpreter') {
-      const torsoGeo = trackGeo(new THREE.ConeGeometry(0.7, 1.4, 6));
-      const torso = new THREE.Mesh(torsoGeo, suitMat);
+      headCenterY = 2.6;
+      const torso = new THREE.Mesh(sharedTorsoGeo, suitMat);
+      torso.scale.set(1.15, 1.4, 0.9);
       torso.position.y = 1.6;
-      const headGeo = trackGeo(new RoundedBoxGeometry(0.6, 0.6, 0.6, 2, 0.1));
-      const head = new THREE.Mesh(headGeo, skinMat);
-      head.position.y = 2.6;
-      const prismHatGeo = trackGeo(new THREE.ConeGeometry(0.45, 0.6, 4));
+
+      const head = new THREE.Mesh(sharedHeadGeo, skinMat);
+      head.scale.set(0.92, 1.02, 0.92);
+      head.position.y = headCenterY;
+
+      const prismHatGeo = trackGeo(new THREE.ConeGeometry(0.4, 0.55, 4));
       const prismHat = new THREE.Mesh(prismHatGeo, accentMat);
       prismHat.position.y = 3.15;
-      const lensGeo = trackGeo(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 16));
+
+      const lensGeo = trackGeo(new THREE.CylinderGeometry(0.18, 0.18, 0.04, 12));
       const lens = new THREE.Mesh(lensGeo, trackMat(new THREE.MeshStandardMaterial({ color: 0xffaa00, transparent: true, opacity: 0.7 })));
       lens.rotation.x = Math.PI / 2;
       lens.position.set(0, -0.3, 0.25);
       rightArm.add(lens);
+
       actorGroup.add(torso, head, prismHat);
     } else if (def.slug === 'dispatcher') {
-      const torsoGeo = trackGeo(new RoundedBoxGeometry(0.95, 1.35, 0.65, 2, 0.1));
-      const torso = new THREE.Mesh(torsoGeo, suitMat);
+      headCenterY = 2.55;
+      const torso = new THREE.Mesh(sharedTorsoGeo, suitMat);
+      torso.scale.set(1.2, 1.35, 0.9);
       torso.position.y = 1.55;
-      const headGeo = trackGeo(new RoundedBoxGeometry(0.65, 0.65, 0.65, 2, 0.1));
-      const head = new THREE.Mesh(headGeo, skinMat);
-      head.position.y = 2.55;
-      const capGeo = trackGeo(new THREE.CylinderGeometry(0.45, 0.48, 0.2, 16));
+
+      const head = new THREE.Mesh(sharedHeadGeo, skinMat);
+      head.scale.set(0.92, 1.0, 0.92);
+      head.position.y = headCenterY;
+
+      const capGeo = trackGeo(new THREE.CylinderGeometry(0.38, 0.42, 0.18, 12));
       const cap = new THREE.Mesh(capGeo, suitMat);
       cap.position.y = 2.95;
-      const brimGeo = trackGeo(new THREE.BoxGeometry(0.55, 0.05, 0.3));
+
+      const brimGeo = trackGeo(new THREE.BoxGeometry(0.48, 0.04, 0.25));
       const brim = new THREE.Mesh(brimGeo, darkInkMat);
-      brim.position.set(0, 2.88, 0.32);
-      const bagGeo = trackGeo(new RoundedBoxGeometry(0.3, 0.45, 0.55, 2, 0.08));
+      brim.position.set(0, 2.88, 0.3);
+
+      const bagGeo = trackGeo(new THREE.BoxGeometry(0.28, 0.4, 0.48));
       const bag = new THREE.Mesh(bagGeo, accentMat);
       bag.position.set(-0.55, 1.4, 0);
+
       actorGroup.add(torso, head, cap, brim, bag);
     } else {
       // Sentinel
-      const torsoGeo = trackGeo(new RoundedBoxGeometry(1.15, 1.4, 0.75, 2, 0.1));
-      const torso = new THREE.Mesh(torsoGeo, suitMat);
+      headCenterY = 2.6;
+      const torso = new THREE.Mesh(sharedTorsoGeo, suitMat);
+      torso.scale.set(1.45, 1.4, 1.05);
       torso.position.y = 1.6;
-      const headGeo = trackGeo(new RoundedBoxGeometry(0.65, 0.7, 0.65, 2, 0.1));
-      const head = new THREE.Mesh(headGeo, skinMat);
-      head.position.y = 2.6;
-      const helmGeo = trackGeo(new THREE.CylinderGeometry(0.42, 0.45, 0.45, 16));
+
+      const head = new THREE.Mesh(sharedHeadGeo, skinMat);
+      head.scale.set(0.95, 1.08, 0.95);
+      head.position.y = headCenterY;
+
+      const helmGeo = trackGeo(new THREE.CylinderGeometry(0.38, 0.42, 0.4, 12));
       const helm = new THREE.Mesh(helmGeo, trackMat(new THREE.MeshStandardMaterial({ color: 0xedebe4 })));
       helm.position.y = 2.95;
-      const shieldGeo = trackGeo(new RoundedBoxGeometry(0.6, 1.1, 0.12, 2, 0.05));
+
+      const shieldGeo = trackGeo(new THREE.BoxGeometry(0.55, 1.0, 0.08));
       const shield = new THREE.Mesh(shieldGeo, metalMat);
       shield.position.set(0, -0.2, 0.2);
       leftArm.add(shield);
-      const lanternGeo = trackGeo(new THREE.BoxGeometry(0.22, 0.35, 0.22));
+
+      const lanternGeo = trackGeo(new THREE.BoxGeometry(0.2, 0.3, 0.2));
       const lanternMat = trackMat(new THREE.MeshStandardMaterial({ color: 0xffe28a, emissive: 0xffb700, emissiveIntensity: 0.6 }));
       const lantern = new THREE.Mesh(lanternGeo, lanternMat);
       lantern.position.set(0, -0.4, 0.2);
       rightArm.add(lantern);
+
       actorGroup.add(torso, head, helm);
     }
 
     // Friendly face details
-    const lEye = new THREE.Mesh(eyeGeo, darkInkMat);
-    lEye.position.set(-0.16, 2.62, 0.34);
-    const rEye = lEye.clone();
-    rEye.position.set(0.16, 2.62, 0.34);
-    const lBrow = new THREE.Mesh(browGeo, darkInkMat);
-    lBrow.position.set(-0.16, 2.74, 0.35);
-    const rBrow = lBrow.clone();
-    rBrow.position.set(0.16, 2.74, 0.35);
-    actorGroup.add(lEye, rEye, lBrow, rBrow);
+    if (showStandardEyes) {
+      const lEye = new THREE.Mesh(sharedEyeGeo, darkInkMat);
+      lEye.position.set(-0.14, headCenterY + 0.02, 0.34);
+      const rEye = lEye.clone();
+      rEye.position.set(0.14, headCenterY + 0.02, 0.34);
 
+      const lBrow = new THREE.Mesh(sharedBrowGeo, darkInkMat);
+      lBrow.position.set(-0.14, headCenterY + 0.12, 0.34);
+      const rBrow = lBrow.clone();
+      rBrow.position.set(0.14, headCenterY + 0.12, 0.34);
+      actorGroup.add(lEye, rEye, lBrow, rBrow);
+    }
     // Build Station Plinth
     const plinthGeo = trackGeo(new RoundedBoxGeometry(4.0, 0.3, 2.7, 2, 0.1));
     const plinth = new THREE.Mesh(plinthGeo, woodPlinthMat);
