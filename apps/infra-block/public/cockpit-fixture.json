@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.cockpit.v1",
-  "generatedAt": "2026-10-08T14:12:19.313434+00:00",
+  "generatedAt": "2026-10-08T16:31:43.567352+00:00",
   "scope": {
     "mode": "public-fixtures",
     "tenant": null,
@@ -3857,6 +3857,56 @@
       "evidence": "source"
     }
   ],
+  "fleetNodes": [
+    {
+      "id": "mac-coding-1",
+      "name": "Mac Coding 01",
+      "wing": "coding",
+      "profileId": "node-coding",
+      "assignment": "template",
+      "evidence": "source",
+      "sources": [
+        "catalog/fleet-topology.json"
+      ],
+      "observedAt": null
+    },
+    {
+      "id": "mac-coding-2",
+      "name": "Mac Coding 02",
+      "wing": "coding",
+      "profileId": "node-coding",
+      "assignment": "template",
+      "evidence": "source",
+      "sources": [
+        "catalog/fleet-topology.json"
+      ],
+      "observedAt": null
+    },
+    {
+      "id": "mac-creative",
+      "name": "Mac Creative",
+      "wing": "design",
+      "profileId": "node-design",
+      "assignment": "template",
+      "evidence": "source",
+      "sources": [
+        "catalog/fleet-topology.json"
+      ],
+      "observedAt": null
+    },
+    {
+      "id": "mac-marketing",
+      "name": "Mac Marketing",
+      "wing": "marketing",
+      "profileId": "node-marketing",
+      "assignment": "template",
+      "evidence": "source",
+      "sources": [
+        "catalog/fleet-topology.json"
+      ],
+      "observedAt": null
+    }
+  ],
   "activity": {
     "events": [],
     "jobs": [],
@@ -5465,6 +5515,198 @@
       "criterion": "The documented new-Mac startup executes in an isolated extracted workspace.",
       "status": "accepted",
       "source": "ISA.md"
+    },
+    {
+      "id": "ISC-268",
+      "criterion": "Antecedent: The fleet topology contains exactly four founder-defined islands.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-269",
+      "criterion": "Two coding, one creative and one marketing island retain distinct roles.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-270",
+      "criterion": "Every island has a unique stable device-slot identifier.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-271",
+      "criterion": "Configured island assignments derive from the explicit private fleet inventory.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-272",
+      "criterion": "The second coding slot remains planned when no device is registered.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-273",
+      "criterion": "Public fixtures omit private machine assignments and host identifiers.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-274",
+      "criterion": "Anti: Fleet projection excludes credentials, network addresses and remote command controls.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-275",
+      "criterion": "Activity records bind to recognized exact fleet node identifiers.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-276",
+      "criterion": "Unattributed activity never becomes a selected island work signal.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-277",
+      "criterion": "Tenant-scoped island activity excludes other tenants records.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-278",
+      "criterion": "Node work signals reject stale and future activity timestamps.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-279",
+      "criterion": "Node work signals honor terminal supersession.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-280",
+      "criterion": "Disconnected or revoked projection clears node work signals.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-281",
+      "criterion": "Client validation bounds the optional fleet-node projection.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-282",
+      "criterion": "The selected island has a visible irregular coastline and landform volume.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-283",
+      "criterion": "Water, shoreline and distant islands extend beyond the town view.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-284",
+      "criterion": "Four named fleet islands are available in the archipelago.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-285",
+      "criterion": "Selecting an island updates its matching town identity and role.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-286",
+      "criterion": "Seven resident identities remain navigable on each selected island.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-287",
+      "criterion": "Selected island activity labels distinguish observed work from local exploration.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-288",
+      "criterion": "Archipelago view frames the fleet without cloning four full renderers.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-289",
+      "criterion": "Island travel is a reversible local interface action.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-290",
+      "criterion": "World exploration recycles a bounded set of distant scenery chunks.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-291",
+      "criterion": "The same scenery coordinates produce deterministic landforms.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-292",
+      "criterion": "Archipelago geometry stays within its declared submission and triangle budget.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-293",
+      "criterion": "Balanced and Eco retain the existing resolution and shadow caps.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-294",
+      "criterion": "Actual WASD and station interaction work after island travel.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-295",
+      "criterion": "Portrait and landscape island controls remain reachable without page overflow.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-296",
+      "criterion": "The original sandbox and Field Kit pause behavior remain functional.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-297",
+      "criterion": "Island switching disposes owned resources without retaining previous detailed towns.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-298",
+      "criterion": "Anti: Island visual states do not promote configured metadata to live device acceptance.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-299",
+      "criterion": "Integrated fleet projection and frontend pass focused regressions and strict compilation.",
+      "status": "accepted",
+      "source": "ISA.md"
     }
   ],
   "routing": {
@@ -6904,6 +7146,12 @@
       "title": "youtube-skills",
       "kind": "md",
       "bytes": 837
+    },
+    {
+      "path": "catalog/fleet-topology.json",
+      "title": "fleet-topology",
+      "kind": "json",
+      "bytes": 466
     },
     {
       "path": "catalog/modules.json",

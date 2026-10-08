@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 257/299
+progress: 273/299
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
@@ -400,26 +400,26 @@ until the actual mini supplies evidence.
 - [x] ISC-277: Tenant-scoped island activity excludes other tenants records.
 - [x] ISC-278: Node work signals reject stale and future activity timestamps.
 - [x] ISC-279: Node work signals honor terminal supersession.
-- [ ] ISC-280: Disconnected or revoked projection clears node work signals.
+- [x] ISC-280: Disconnected or revoked projection clears node work signals.
 - [x] ISC-281: Client validation bounds the optional fleet-node projection.
-- [ ] ISC-282: The selected island has a visible irregular coastline and landform volume.
-- [ ] ISC-283: Water, shoreline and distant islands extend beyond the town view.
-- [ ] ISC-284: Four named fleet islands are available in the archipelago.
-- [ ] ISC-285: Selecting an island updates its matching town identity and role.
-- [ ] ISC-286: Seven resident identities remain navigable on each selected island.
-- [ ] ISC-287: Selected island activity labels distinguish observed work from local exploration.
-- [ ] ISC-288: Archipelago view frames the fleet without cloning four full renderers.
-- [ ] ISC-289: Island travel is a reversible local interface action.
+- [x] ISC-282: The selected island has a visible irregular coastline and landform volume.
+- [x] ISC-283: Water, shoreline and distant islands extend beyond the town view.
+- [x] ISC-284: Four named fleet islands are available in the archipelago.
+- [x] ISC-285: Selecting an island updates its matching town identity and role.
+- [x] ISC-286: Seven resident identities remain navigable on each selected island.
+- [x] ISC-287: Selected island activity labels distinguish observed work from local exploration.
+- [x] ISC-288: Archipelago view frames the fleet without cloning four full renderers.
+- [x] ISC-289: Island travel is a reversible local interface action.
 - [x] ISC-290: World exploration recycles a bounded set of distant scenery chunks.
 - [x] ISC-291: The same scenery coordinates produce deterministic landforms.
 - [x] ISC-292: Archipelago geometry stays within its declared submission and triangle budget.
-- [ ] ISC-293: Balanced and Eco retain the existing resolution and shadow caps.
-- [ ] ISC-294: Actual WASD and station interaction work after island travel.
-- [ ] ISC-295: Portrait and landscape island controls remain reachable without page overflow.
-- [ ] ISC-296: The original sandbox and Field Kit pause behavior remain functional.
-- [ ] ISC-297: Island switching disposes owned resources without retaining previous detailed towns.
-- [ ] ISC-298: Anti: Island visual states do not promote configured metadata to live device acceptance.
-- [ ] ISC-299: Integrated fleet projection and frontend pass focused regressions and strict compilation.
+- [x] ISC-293: Balanced and Eco retain the existing resolution and shadow caps.
+- [x] ISC-294: Actual WASD and station interaction work after island travel.
+- [x] ISC-295: Portrait and landscape island controls remain reachable without page overflow.
+- [x] ISC-296: The original sandbox and Field Kit pause behavior remain functional.
+- [x] ISC-297: Island switching disposes owned resources without retaining previous detailed towns.
+- [x] ISC-298: Anti: Island visual states do not promote configured metadata to live device acceptance.
+- [x] ISC-299: Integrated fleet projection and frontend pass focused regressions and strict compilation.
 
 ## Test Strategy
 
@@ -593,6 +593,8 @@ _Last refreshed: 2026-10-08T15:37:31.160Z_
 
 - 2026-10-08 refined: Latest screenshot reproduces complete-platform camera fitting with excessive blank space, and main input dispatch is sandbox-only. FirstPrinciples separates viewport/camera/input ownership from actual work presence. SystemsThinking concept map: keyboard -> input eligibility -> camera basis -> collision model -> selected actor -> camera/HUD; selected actor -> nearby station -> existing encounter -> source/Field Kit; snapshot -> observed presence remains a separate authority. ISA Append adds32 atomic navigation criteria and CheckCompleteness preserves all required E3 sections. ReReadCheck will bind fullscreen, WASD, every role and shared toy design to actual shipped evidence. Native root owns bounded integration; two disjoint workers own world and UI production. Historical26 requirements remain separate.
 - 2026-10-08: Fullscreen navigation source and browser checks pass. The independently reviewed input rail suspends movement continuously when editing, inspecting or hidden; the selected identity remains separate from observed presence. Advisor attempts returned cached quota429 for antigravity/claude-sonnet-4-6, with no verdict. Heavy source generation resolved through antigravity/gemini-3.7-flash-low. Four invoked thinking capabilities are FirstPrinciples, SystemsThinking, ISA and ReReadCheck; independent source review and root IAB provide distinct evidence.
+
+- 2026-10-08 18:31: Fleet frontend lane complete at source/browser boundaries: exactly two coding, one creative and one marketing slot. Three configured source assignments and planned Coding 02 remain distinct from current work and physical acceptance. Independent QATester passes; final Advisor quota429 supplies no verdict. The 26 historical device/cloud requirements remain open and master phase stays execute. Protected managed worktrees and unrelated architecture-hook changes are preserved.
 
 ## Changelog
 
@@ -840,6 +842,11 @@ _Last refreshed: 2026-10-08T15:37:31.160Z_
   refuted by: Independent source review and actual UI flows exposed stale draft exports, scope failure retention, adapter verify-flag inversion, modal cancellation locks and document focus loss.
   learned: Validate operator lifecycle and failed scope transitions against source contracts; then rerun boundary tests and save explicit browser receipts.
   criterion now: ISC-72..107 accepted 36/36 with backend and IAB evidence; historical ISC-1..51 keep their existing acceptance, overall 81/107.
+
+- 2026-10-08 | conjectured: A fixed diagonal chart camera and unchanged phone overlays could frame the four-island fleet usefully.
+  refuted by: Actual IAB screenshots showed Coding 01 and Marketing coasts behind desktop HUD, overlapping short-landscape labels, and the town atlas covering the North touch key.
+  learned: Measured HUD margins, a north-oriented chart, settled layout refits, mode-specific depth planes and a compact landscape helm preserve coast visibility and control reachability.
+  criterion now: ISC-288 and ISC-295 accepted only after actual desktop/portrait/landscape screenshots and all nine control center points were unobstructed.
 
 ## Verification
 
@@ -1221,3 +1228,29 @@ Canonical four-slot topology, private inventory agreement, public template isola
 ## Verification — fleet browser interim checkpoint
 
 Actual Codex IAB chart WASD worked with no controlled resident: worldZ35→-396.874 over2.4seconds; cached scenery remained9chunks. Field Kit froze chartcoordinates underheldW; packingaway preservedpan. Creativeisland travel updated slot,rolecaption andTown canvasaria; allworkremainedUnknown. ActualBalancedchart401calls,53,866submittedtriangles and242geometries; staticarchipelago15calls/7,856triangles plus13,798environmenttriangles. Chart HUD occlusion and sidekitfourcolumnwrapping were found; responsivecamera repair underway and sidekitcontainergrid now corrected. These are intermediate observations, not final browser acceptance.
+
+
+## Verification — fleet archipelago complete, 8 October 2026
+
+- ISC-280: Root IAB — healthy local-private projection was disconnected without reload by stopping only the owned preview API. Selected scope remained local-private; all assignments became Planned, work stayed Unknown and brand marker count became zero. The exact private API was restored and fresh assignments returned.
+- ISC-282: Root IAB — Town Overview frames the irregular raised coastline, complete shore and dock in fleet-town-overview-final.png. Walking retains its close camera and grounded town.
+- ISC-283: Root IAB — water surrounds the town; named fleet islands and deterministic unmapped scenery are visible in desktop and portrait chart images.
+- ISC-284: Root IAB — four available controls read Mac Coding 01, Mac Coding 02, Mac Creative and Mac Marketing.
+- ISC-285: Root IAB — four reversible visits match exact selected slot IDs, town names and logical island coordinates. Creative retains the existing node-design role profile.
+- ISC-286: Root IAB — seven identities on each island produced 28 recorded selection/movement checks; all seven Coding 01 station encounters showed matching role titles.
+- ISC-287: Source + IAB — absent device-attributed records produce Work unknown and No active evidence; controlled characters explicitly display Local exploration. Exact-node/tenant composition, stale/future/superseded and revoked records are covered by tests.
+- ISC-288: Root IAB + source — the chart frames all four coasts within measured HUD margins; one renderer and one detailed town are retained. Compact screens use the atlas for names without overlapping scene labels.
+- ISC-289: Root IAB — Coding 01 to Creative to Marketing to Coding 02 to Coding 01 returns matching identity and all seven roles. Scene-label travel uses the same root input-clearing path.
+- ISC-293: Root IAB — Eco reports pixel ratio0.8, shadowsfalse and30FPS cap; Balanced reports pixel ratio1.1, shadow1024 and60FPS cap on this display. These are renderer settings, without a battery or low-end FPS claim.
+- ISC-294: Root IAB — native held WASD changes crew coordinates after each island trip; E opens station files on all four islands. Chart keys also work without controlled crew.
+- ISC-295: Root IAB — actual355x767 portrait and767x355 landscape have zero page overflow; all four island controls and five movement keys have unobstructed centers inside viewport, with44px CSS movement targets. Both chart and town touch movement change coordinates.
+- ISC-296: Root IAB — Field Kit freezes chart coordinates and preserves pan on return; Sandbox attacks score1410 with2destroyed, and the Field Kit holds the timer exactly42.4s before the pause dialog resumes normal navigation. Final Sandbox aria advertises monster controls.
+- ISC-297: Source + IAB — four travel cycles retain one detailed town and24textures; renderer geometry count stays bounded around242..250 through island changes and long chart pan, with9cached scenery chunks. Source disposal evicts owned chunk geometry and removes layout listeners.
+- ISC-298: Source + IAB — configured inventory assignments retain observedAtnull and no device health/CPU/current-job claim. Coding 02 stays planned until a unique explicit inventory/profile agreement exists. All current work remains Unknown.
+- ISC-299: Root commands — "Tests 188 passed (188)" across14frontend files; "70 passed in 11.76s" focused cockpit backend regressions; strictTypeScript/Vite build and gitdiffcheck pass after final repairs. Independent QATester source/visual review passes at9e9bc6a. The existing large-bundle build advisory remains informational.
+
+Root browser receipt: /Users/sheshnarayaniyer/.codex/visualizations/2026/10/08/01a1176d-6b04-79c3-9549-9884312e0e4b/fleet-browser-receipt.json. Fresh diagnostic window from2026-10-08T16:25:06.729Z contains zero exceptions, failed requests, bad HTTP responses or console warnings/errors, without truncation. Earlier intentional offline probes are retained separately. Settled portrait chart confirms cameraNear10; Town Overview uses1 and walking/Sandbox0.1. Deterministic static geometry remains18extra submissions and22,838combined environment/archipelago triangles maximum, below35,000 budget. Long nativeW/D chart movement reaches approximately1170units on both axes with9chunks and1town.
+
+ReReadCheck — latest request verbatim: "we ll have 4 island 2 mac-coding, 1 mac-creative and 1 mac-marketing". The canonical topology, actual chart, travel controls and Field Kit expose exactly those four islands. Each town remains playable through all seven agent identities. Earlier full-screen, game aesthetics, grounded world and efficient graphics requirements are preserved. No physical installation or device readiness is inferred from source metadata. Current32fleet criteria are accepted; master remains273/299 with26historical requirements open.
+
+Final public-source check: regenerated with SNOWGLOVES_DATA unset and --snapshot --no-probe. Four Template fleet slots, three public tenants, empty events/jobs/artifacts/approvals,299criteria/273accepted and readOnlytrue verified; built dist fixture equals public source byte-for-byte. Six post-ledger acceptance regressions pass; final production build passes.
