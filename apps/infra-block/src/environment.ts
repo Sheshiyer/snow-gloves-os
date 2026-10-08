@@ -128,6 +128,103 @@ export function getTerrainSurfaceHeight(x: number, z: number, noise: (x: number,
     : h11 + (h01 - h11) * (1 - tx) + (h10 - h11) * (1 - tz);
 }
 
+function conformPathGeometry(source: THREE.BufferGeometry, noise: (x: number, z: number) => number): THREE.BufferGeometry {
+  type P2 = [number, number];
+  const clipPoly = (poly: P2[], clipTri: [P2, P2, P2]): P2[] => {
+    const cross = (a: P2, b: P2, p: P2) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+    const ccw = cross(clipTri[0], clipTri[1], clipTri[2]) >= 0 ? 1 : -1;
+    let out = poly;
+    for (let i = 0; i < 3; i++) {
+      const a = clipTri[i], b = clipTri[(i + 1) % 3];
+      const input = out;
+      out = [];
+      if (!input.length) break;
+      for (let j = 0; j < input.length; j++) {
+        const curr = input[j], prev = input[(j + input.length - 1) % input.length];
+        const currIn = cross(a, b, curr) * ccw >= -1e-7;
+        const prevIn = cross(a, b, prev) * ccw >= -1e-7;
+        if (currIn) {
+          if (!prevIn) {
+            const dx1 = b[0] - a[0], dz1 = b[1] - a[1];
+            const dx2 = curr[0] - prev[0], dz2 = curr[1] - prev[1];
+            const denom = dx1 * dz2 - dz1 * dx2;
+            const t = Math.abs(denom) > 1e-9 ? ((prev[0] - a[0]) * dz2 - (prev[1] - a[1]) * dx2) / denom : 0;
+            out.push([a[0] + t * dx1, a[1] + t * dz1]);
+          }
+          out.push(curr);
+        } else if (prevIn) {
+          const dx1 = b[0] - a[0], dz1 = b[1] - a[1];
+          const dx2 = curr[0] - prev[0], dz2 = curr[1] - prev[1];
+          const denom = dx1 * dz2 - dz1 * dx2;
+          const t = Math.abs(denom) > 1e-9 ? ((prev[0] - a[0]) * dz2 - (prev[1] - a[1]) * dx2) / denom : 0;
+          out.push([a[0] + t * dx1, a[1] + t * dz1]);
+        }
+      }
+    }
+    return out;
+  };
+
+  const pos = source.getAttribute('position');
+  const idx = source.getIndex();
+  const triCount = idx ? idx.count / 3 : pos.count / 3;
+  const outCoords: number[] = [];
+
+  for (let t = 0; t < triCount; t++) {
+    const i0 = idx ? idx.getX(t * 3) : t * 3;
+    const i1 = idx ? idx.getX(t * 3 + 1) : t * 3 + 1;
+    const i2 = idx ? idx.getX(t * 3 + 2) : t * 3 + 2;
+    const p0: P2 = [pos.getX(i0), pos.getZ(i0)];
+    const p1: P2 = [pos.getX(i1), pos.getZ(i1)];
+    const p2: P2 = [pos.getX(i2), pos.getZ(i2)];
+
+    const minX = Math.min(p0[0], p1[0], p2[0]), maxX = Math.max(p0[0], p1[0], p2[0]);
+    const minZ = Math.min(p0[1], p1[1], p2[1]), maxZ = Math.max(p0[1], p1[1], p2[1]);
+    const cMinX = Math.max(0, Math.min(47, Math.floor((minX + 120) / 5)));
+    const cMaxX = Math.max(0, Math.min(47, Math.floor((maxX + 120) / 5)));
+    const cMinZ = Math.max(0, Math.min(47, Math.floor((minZ + 120) / 5)));
+    const cMaxZ = Math.max(0, Math.min(47, Math.floor((maxZ + 120) / 5)));
+
+    for (let cx = cMinX; cx <= cMaxX; cx++) {
+      const x0 = -120 + cx * 5, x1 = x0 + 5;
+      for (let cz = cMinZ; cz <= cMaxZ; cz++) {
+        const z0 = -120 + cz * 5, z1 = z0 + 5;
+        const cellTris: [P2, P2, P2][] = [
+          [[x0, z0], [x0, z1], [x1, z0]],
+          [[x0, z1], [x1, z1], [x1, z0]]
+        ];
+        for (const ct of cellTris) {
+          const clipped = clipPoly([p0, p1, p2], ct);
+          const clean: P2[] = [];
+          for (let k = 0; k < clipped.length; k++) {
+            const pt = clipped[k], nxt = clipped[(k + 1) % clipped.length];
+            if (Math.hypot(pt[0] - nxt[0], pt[1] - nxt[1]) > 1e-4) clean.push(pt);
+          }
+          if (clean.length < 3) continue;
+          let area = 0;
+          for (let k = 0; k < clean.length; k++) {
+            const curr = clean[k], nxt = clean[(k + 1) % clean.length];
+            area += curr[0] * nxt[1] - nxt[0] * curr[1];
+          }
+          if (Math.abs(area) * 0.5 < 1e-5) continue;
+          const origCross = (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p1[1] - p0[1]) * (p2[0] - p0[0]);
+          const ordered = (area >= 0) === (origCross >= 0) ? clean : clean.slice().reverse();
+          for (let k = 1; k < ordered.length - 1; k++) {
+            const triPts = [ordered[0], ordered[k], ordered[k + 1]];
+            for (const pt of triPts) {
+              outCoords.push(pt[0], getTerrainSurfaceHeight(pt[0], pt[1], noise) + 0.06, pt[1]);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const res = new THREE.BufferGeometry();
+  res.setAttribute('position', new THREE.Float32BufferAttribute(outCoords, 3));
+  res.computeVertexNormals();
+  return res;
+}
+
 /**
  * Builds a grounded continuous landscape with roads, road marks, peripheral foliage, and continuous paths.
  */
@@ -211,6 +308,8 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
   const vRoadMesh = new THREE.InstancedMesh(vRoadGeo, roadMat, 5);
   hRoadMesh.name = 'RoadsHorizontal';
   vRoadMesh.name = 'RoadsVertical';
+  hRoadMesh.receiveShadow = true;
+  vRoadMesh.receiveShadow = true;
 
   const dummy = new THREE.Object3D();
   ROAD_COORDINATES.forEach((coord, idx) => {
@@ -397,7 +496,9 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
     pathRibbonGeos.push(exitGeo);
   }
 
-  const mergedPathGeo = BufferGeometryUtils.mergeGeometries(pathRibbonGeos, false);
+  const rawPathGeo = BufferGeometryUtils.mergeGeometries(pathRibbonGeos, false);
+  const mergedPathGeo = rawPathGeo ? conformPathGeometry(rawPathGeo, noise) : null;
+  rawPathGeo?.dispose();
   pathRibbonGeos.forEach((g) => g.dispose());
   if (mergedPathGeo) {
     mergedPathGeo.computeVertexNormals();

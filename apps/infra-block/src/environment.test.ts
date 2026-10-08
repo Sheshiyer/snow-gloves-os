@@ -266,4 +266,31 @@ describe('Grounded Square Landscape Environment', () => {
     }
   });
 
+  it.each(['pastel_city', 'ground-contact', 'perf-seed'])('keeps path interiors above mesh terrain for %s', seed => {
+    const env = createEnvironment(seed);
+    env.updateMatrixWorld(true);
+    const terrain = env.getObjectByName('Terrain') as THREE.Mesh;
+    const path = env.getObjectByName('ContinuousFootpaths') as THREE.Mesh;
+    const pos = path.geometry.attributes.position;
+    const ray = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0));
+    let minClearance = Infinity, maxClearance = -Infinity;
+    const weights = [[1/3,1/3,1/3],[0.5,0.5,0],[0,0.5,0.5],[0.5,0,0.5]];
+    for (let i = 0; i < pos.count; i += 3) {
+      for (const weight of weights) {
+        let x=0,y=0,z=0;
+        for (let j=0;j<3;j++) { x+=pos.getX(i+j)*weight[j]; y+=pos.getY(i+j)*weight[j]; z+=pos.getZ(i+j)*weight[j]; }
+        ray.ray.origin.set(x,100,z);
+        const hit = ray.intersectObject(terrain, false)[0];
+        expect(hit).toBeDefined();
+        const clearance = y-hit.point.y;
+        minClearance = Math.min(minClearance, clearance);
+        maxClearance = Math.max(maxClearance, clearance);
+      }
+    }
+    expect(minClearance).toBeGreaterThan(0.0599);
+    expect(maxClearance).toBeLessThan(0.0601);
+    expect(calculateEnvironmentTriangles(env)).toBeLessThanOrEqual(35000);
+    expect(calculateEnvironmentDrawCalls(env)).toBe(8);
+  });
+
 });
