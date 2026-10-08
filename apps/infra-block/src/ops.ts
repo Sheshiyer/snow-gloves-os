@@ -331,6 +331,7 @@ export function mountCockpit(
   let genericFetchError: string | null = null;
 
   let pollTimer: number | null = null;
+  let fleetFreshnessTimer: number | null = null;
   let fetchGeneration = 0;
   let fetchAbortController: AbortController | null = null;
   let docGeneration = 0;
@@ -602,12 +603,32 @@ export function mountCockpit(
         fetchOperationsData(false);
       }
     }, 15000);
+    fleetFreshnessTimer = window.setInterval(() => {
+      if (isOpen && currentSection === 'Fleet' && document.visibilityState === 'visible') refreshFleetWorkCaptions();
+    }, 1000);
   }
 
   function stopPolling() {
     if (pollTimer !== null) {
       clearInterval(pollTimer);
       pollTimer = null;
+    }
+    if (fleetFreshnessTimer !== null) {
+      clearInterval(fleetFreshnessTimer);
+      fleetFreshnessTimer = null;
+    }
+  }
+
+  function refreshFleetWorkCaptions(): void {
+    const now = Date.now(), age = now - Date.parse(snapshot?.generatedAt || '');
+    const stale = isStale || lastLoadedSource === 'fixture' || !Number.isFinite(age) || age < 0 || age > 120000;
+    for (const node of fleetNodes(snapshot)) {
+      const work = host.querySelector<HTMLElement>(`.oc-island-work[data-node-id="${node.id}"]`);
+      if (!work) continue;
+      const presence = derivePresence(snapshot ? {...snapshot,activity:fleetActivity(snapshot,node.id)} : null,now,stale);
+      const observed = presence.filter(item=>item.evidence==='observed');
+      const label = observed.length ? `Work observed · ${observed.filter(item=>item.state==='active').length} active crew` : 'Work unknown · No current device-bound activity';
+      if (work.textContent !== label) work.textContent = label;
     }
   }
 
@@ -2544,6 +2565,8 @@ function renderOverview(): HTMLElement {
       const presence = derivePresence(snapshot ? { ...snapshot, activity: fleetActivity(snapshot, node.id) } : null, Date.now(), workStale || node.assignment === 'planned');
       const observed = presence.filter(item => item.evidence === 'observed');
       const work = document.createElement('p');
+      work.className = 'oc-island-work';
+      work.dataset.nodeId = node.id;
       work.textContent = observed.length ? `Work observed · ${observed.filter(item => item.state === 'active').length} active crew` : 'Work unknown · No current device-bound activity';
       const role = document.createElement('p');
       role.className = 'oc-island-role';

@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 241/299
+progress: 255/299
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
@@ -388,20 +388,20 @@ until the actual mini supplies evidence.
 - [x] ISC-266: Bundle verification rejects changed or symlinked files.
 - [x] ISC-267: The documented new-Mac startup executes in an isolated extracted workspace.
 
-- [ ] ISC-268: Antecedent: The fleet topology contains exactly four founder-defined islands.
-- [ ] ISC-269: Two coding, one creative and one marketing island retain distinct roles.
-- [ ] ISC-270: Every island has a unique stable device-slot identifier.
-- [ ] ISC-271: Configured island assignments derive from the explicit private fleet inventory.
-- [ ] ISC-272: The second coding slot remains planned when no device is registered.
-- [ ] ISC-273: Public fixtures omit private machine assignments and host identifiers.
-- [ ] ISC-274: Anti: Fleet projection excludes credentials, network addresses and remote command controls.
-- [ ] ISC-275: Activity records bind to recognized exact fleet node identifiers.
-- [ ] ISC-276: Unattributed activity never becomes a selected island work signal.
-- [ ] ISC-277: Tenant-scoped island activity excludes other tenants records.
-- [ ] ISC-278: Node work signals reject stale and future activity timestamps.
-- [ ] ISC-279: Node work signals honor terminal supersession.
+- [x] ISC-268: Antecedent: The fleet topology contains exactly four founder-defined islands.
+- [x] ISC-269: Two coding, one creative and one marketing island retain distinct roles.
+- [x] ISC-270: Every island has a unique stable device-slot identifier.
+- [x] ISC-271: Configured island assignments derive from the explicit private fleet inventory.
+- [x] ISC-272: The second coding slot remains planned when no device is registered.
+- [x] ISC-273: Public fixtures omit private machine assignments and host identifiers.
+- [x] ISC-274: Anti: Fleet projection excludes credentials, network addresses and remote command controls.
+- [x] ISC-275: Activity records bind to recognized exact fleet node identifiers.
+- [x] ISC-276: Unattributed activity never becomes a selected island work signal.
+- [x] ISC-277: Tenant-scoped island activity excludes other tenants records.
+- [x] ISC-278: Node work signals reject stale and future activity timestamps.
+- [x] ISC-279: Node work signals honor terminal supersession.
 - [ ] ISC-280: Disconnected or revoked projection clears node work signals.
-- [ ] ISC-281: Client validation bounds the optional fleet-node projection.
+- [x] ISC-281: Client validation bounds the optional fleet-node projection.
 - [ ] ISC-282: The selected island has a visible irregular coastline and landform volume.
 - [ ] ISC-283: Water, shoreline and distant islands extend beyond the town view.
 - [ ] ISC-284: Four named fleet islands are available in the archipelago.
@@ -411,7 +411,7 @@ until the actual mini supplies evidence.
 - [ ] ISC-288: Archipelago view frames the fleet without cloning four full renderers.
 - [ ] ISC-289: Island travel is a reversible local interface action.
 - [ ] ISC-290: World exploration recycles a bounded set of distant scenery chunks.
-- [ ] ISC-291: The same scenery coordinates produce deterministic landforms.
+- [x] ISC-291: The same scenery coordinates produce deterministic landforms.
 - [ ] ISC-292: Archipelago geometry stays within its declared submission and triangle budget.
 - [ ] ISC-293: Balanced and Eco retain the existing resolution and shadow caps.
 - [ ] ISC-294: Actual WASD and station interaction work after island travel.
@@ -1213,3 +1213,7 @@ Final ledger/public-source check: six focused backend acceptance regressions pas
 
 - ISC-247..248,254..263: Strict TypeScript build and 138 frontend checks pass. Root IAB verifies eleven private atlas entries/markers, direct AXIO marker selection and Metagration product-wing parent, Axtech-only shop/channel projects, CEE-only iVerif, HeyZack provenance, retained Knowledge/Blueprint scope and preselected proposal tenant. Actual API loss clears marker count to zero and removes passports without public downgrade. Public API shows only three blue fixture entries. CEO moves from(-11.7,-10.6) to(-9.4,-13.0); sandbox starts and remains33.2s while brand passport is open. Station sample:416 Balanced draws,24textures; no marker lights/shadows. Screenshot saved in current local visualization artifacts.
 - ISC-264..267: Explicit allowlist bundle contains378hashed platformfiles,3,750,851bytes and zero private-instance paths. Nine bundle fixtures verify hashing, changed files, symlink files/directories, unsafe outputs, untracked files and installed-dependency exclusions. Candidate verifies before installation; npm ci and isolated Python venv with PyYAML6.0.3 succeed. Actual extracted API+UI starts on18770/18771; IAB reads CEE iVerif passport and indexed Mac guide. Physical new-Mac acceptance remains unverified. Final archive will be regenerated from accepted source and rechecked before delivery.
+
+## Verification — fleet archipelago source checkpoint, 8 October 2026
+
+Canonical four-slot topology, private inventory agreement, public template isolation, safe exact-node projection and planned-slot gates are integrated. Root composition tests plus frontend regressions:181 passed; focused cockpit backend:57 passed. Explicit private island enrollment seam received worker40backend/82focusedfrontend/strictTS checks and independent QA14backend/45frontend checks. Strict root production build passed before that additive seam and final travel fixes; final integrated compile remains required. World geometry tests prove deterministic nine-chunk caching, grounding and single town:18extra submissions,22,838combined triangles maximum. Root IAB actual four-slot projection and first chart were captured; cameraHUDocclusion was found and repair is underway. Browser acceptance remains open. Configured metadata is not physical-device proof.

@@ -1,4 +1,6 @@
 import { mountBrandAtlas } from './brand-atlas';
+import { mountFleetAtlas } from './fleet-atlas';
+import { FLEET_LAYOUT, type FleetProjection } from './fleet-model';
 import type { OpsSnapshot } from './ops-contracts';
 import './style.css';
 import '@fontsource/barlow-condensed/700.css';
@@ -161,6 +163,9 @@ let gameState: GameState = createGame(currentSeed, selectedCharacter);
 let worldController: WorldController | null = null;
 let cockpit: ReturnType<typeof mountCockpit> | null = null;
 let home: ReturnType<typeof mountHome> | null = null;
+let fleetAtlas: ReturnType<typeof mountFleetAtlas> | null = null;
+let fleetIslandId: string = 'mac-coding-1';
+let fleetWorldView: 'town' | 'archipelago' = 'town';
 let crewNavigation: CrewControlState = { slug: null, x: 0, z: 0, moving: false, nearbySlug: null };
 let preferredCrewSlug = 'ceo';
 function openOperations(nodeId?: string): void {
@@ -177,6 +182,7 @@ function setFieldKitOpen(open: boolean): void {
   }
   document.body.classList.toggle('field-kit-open', open);
   home?.setKitOpen(open);
+  fleetAtlas?.setVisible(activeTab === 'explore' && !open);
   document.querySelectorAll<HTMLElement>('.sg-sidebar, .sg-inspector').forEach(el => { el.inert = open; });
   document.getElementById('btn-operations')?.setAttribute('aria-expanded', String(open));
   if (!open) {
@@ -230,7 +236,7 @@ function editableElement(target: EventTarget | null): boolean {
 function crewMayMove(target: EventTarget | null = document.activeElement, requireControl = true): boolean {
   return !!worldController && crewInputAllowed({
     explore: activeTab === 'explore',
-    hasControl: requireControl ? !!home?.getControlledSlug() : true,
+    hasControl: requireControl ? fleetWorldView === 'archipelago' || !!home?.getControlledSlug() : true,
     hidden: document.hidden,
     dialog: !!document.querySelector('dialog[open]'),
     fieldKit: document.body.classList.contains('field-kit-open'),
@@ -667,6 +673,8 @@ function switchTab(mode: 'explore' | 'sandbox'): void {
     : 'Monster sandbox. WASD or arrows to move, Space to attack, E to grab or throw, R to stomp.');
   document.body.classList.toggle('home-explore', mode === 'explore');
   home?.setVisible(mode === 'explore');
+  fleetAtlas?.setVisible(mode === 'explore' && !document.body.classList.contains('field-kit-open'));
+  if (mode === 'sandbox') worldController?.setWorldView('town');
   canvasMount.dispatchEvent(new CustomEvent('resident-visible', { detail: mode === 'explore' }));
   if (mode === 'explore') {
     tabExplore.classList.add('active');
@@ -835,6 +843,7 @@ window.addEventListener('keydown', (e: KeyboardEvent) => {
     if (/^(Key[WASD]|Arrow(Up|Down|Left|Right))$/.test(e.code)) {
       // Arrow keys retain native button/toolbar navigation; WASD works from the crew belt.
       if (e.code.startsWith('Arrow') && (e.target as HTMLElement)?.closest('button, [role="toolbar"], [role="tablist"]')) return;
+      if (e.repeat) { e.preventDefault(); return; }
       e.preventDefault(); (keyState as Record<string, boolean | number>)[e.code] = true;
     }
     return;
@@ -1071,6 +1080,46 @@ notesReturn.onclick = () => document.querySelector<HTMLButtonElement>('#ih-btn-n
 document.querySelector('.sg-sidebar')?.prepend(notesReturn);
 const homeHost = document.createElement('div');
 document.body.append(homeHost);
+const fleetHost = document.createElement('div');
+document.body.append(fleetHost);
+function setFleetView(view: 'town' | 'archipelago'): void {
+  clearInputs();
+  fleetWorldView = view;
+  worldController?.setWorldView(view);
+  fleetAtlas?.setSelection(fleetIslandId, view);
+  canvasMount.setAttribute('aria-label', view === 'archipelago'
+    ? 'Mac mini fleet archipelago. WASD or arrows to explore the chart; select an island to enter its town.'
+    : 'Infrastructure town. WASD or arrows to walk, one through seven to switch crew, E to meet a nearby station.');
+  if (view === 'town' && activeTab === 'explore' && worldController) home?.walkAsResident(preferredCrewSlug);
+  canvasMount.focus({preventScroll:true});
+}
+function visitFleetIsland(id: string): void {
+  if (!FLEET_LAYOUT.some(node => node.id === id)) return;
+  if (activeTab !== 'explore') switchTab('explore');
+  if (document.body.classList.contains('field-kit-open')) setFieldKitOpen(false);
+  clearInputs();
+  fleetIslandId = id;
+  home?.setFleetSelection(id);
+  worldController?.visitIsland(id);
+  setFleetView('town');
+}
+fleetAtlas = mountFleetAtlas(fleetHost, {visitIsland:visitFleetIsland,setWorldView:setFleetView});
+document.addEventListener('fleet-projection', event => {
+  const projection = (event as CustomEvent<FleetProjection>).detail;
+  fleetAtlas?.setProjection(projection);
+  worldController?.setFleet(projection);
+});
+canvasMount.addEventListener('fleet-selection', event => {
+  const {id,view} = (event as CustomEvent<{id:string;view:'town'|'archipelago'}>).detail;
+  if (!FLEET_LAYOUT.some(node => node.id === id)) return;
+  clearInputs();
+  fleetIslandId = id; fleetWorldView = view;
+  home?.setFleetSelection(id); fleetAtlas?.setSelection(id,view);
+  canvasMount.setAttribute('aria-label', view === 'archipelago'
+    ? 'Mac mini fleet archipelago. WASD or arrows to explore the chart; select an island to enter its town.'
+    : 'Infrastructure town. WASD or arrows to walk, one through seven to switch crew, E to meet a nearby station.');
+});
+document.addEventListener('fleet-visit', event => visitFleetIsland((event as CustomEvent<{id:string}>).detail.id));
 function focusHomeNode(id: string): void {
   if (!nodes.some(node => node.id === id)) return;
   activeLayer = 'all'; activeSearch = '';
@@ -1090,6 +1139,10 @@ home = mountHome(homeHost, {
   followTour: () => { triggerWalkthrough(1); },
   openBlueprint: () => { openOperations(); document.querySelector<HTMLButtonElement>('#oc-nav-tab-workbench')?.click(); },
   controlResident: slug => {
+    if (slug && fleetWorldView === 'archipelago') {
+      fleetWorldView = 'town'; worldController?.setWorldView('town');
+      fleetAtlas?.setSelection(fleetIslandId,'town');
+    }
     if (slug && RESIDENTS.some(resident => resident.slug === slug)) preferredCrewSlug = slug;
     clearInputs(); worldController?.controlResident(slug);
     crewNavigation = worldController?.moveResident(0, 0, 0) || { slug: null, x: 0, z: 0, moving: false, nearbySlug: null };
@@ -1109,6 +1162,8 @@ document.addEventListener('brand-projection', event => {
 canvasMount.addEventListener('resident-select', event => home?.selectResident((event as CustomEvent<{slug:string}>).detail.slug));
 document.body.classList.toggle('home-explore', activeTab === 'explore');
 home.setVisible(activeTab === 'explore');
+home.setFleetSelection(fleetIslandId);
+fleetAtlas.setVisible(activeTab === 'explore');
 canvasMount.tabIndex = 0;
 canvasMount.setAttribute('aria-label', !worldController ? 'Accessible infrastructure source map. Select a landmark or crew portrait to inspect its source.' : activeTab === 'explore'
   ? 'Infrastructure town. WASD or arrows to walk, one through seven to switch crew, E to meet a nearby station.'
@@ -1118,6 +1173,7 @@ canvasMount.dispatchEvent(new CustomEvent('resident-visible', { detail: activeTa
 renderInspector();
 renderNavigator();
 worldController?.select(selectedNodeId);
+if (activeTab === 'explore' && worldController) setFleetView('archipelago');
 if (challengeTarget) {
   const hint = document.createElement('p');
   hint.className = 'sg-section-lbl';
@@ -1127,7 +1183,7 @@ if (challengeTarget) {
 dlgPause.addEventListener('cancel', e => e.preventDefault());
 dlgResult.addEventListener('cancel', e => e.preventDefault());
 dlgHelp.addEventListener('close', () => { if (gameState.mode === 'paused' && !dlgPause.open) openDialog(dlgPause); });
-window.addEventListener('beforeunload', () => { clearInputs(); replay.dispose(); home?.dispose(); worldController?.dispose(); });
+window.addEventListener('beforeunload', () => { clearInputs(); replay.dispose(); fleetAtlas?.dispose(); home?.dispose(); worldController?.dispose(); });
 requestAnimationFrame(mainLoop);
 if (prefersMap) {
   document.getElementById('btn-start-round')!.setAttribute('disabled', '');
