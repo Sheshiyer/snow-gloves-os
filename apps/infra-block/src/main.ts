@@ -1087,7 +1087,9 @@ function setFleetView(view: 'town' | 'archipelago'): void {
   fleetWorldView = view;
   worldController?.setWorldView(view);
   fleetAtlas?.setSelection(fleetIslandId, view);
-  canvasMount.setAttribute('aria-label', view === 'archipelago'
+  canvasMount.setAttribute('aria-label', activeTab === 'sandbox'
+    ? 'Monster sandbox. WASD or arrows to move, Space to attack, E to grab or throw, R to stomp.'
+    : view === 'archipelago'
     ? 'Mac mini fleet archipelago. WASD or arrows to explore the chart; select an island to enter its town.'
     : 'Infrastructure town. WASD or arrows to walk, one through seven to switch crew, E to meet a nearby station.');
   if (view === 'town' && activeTab === 'explore' && worldController) home?.walkAsResident(preferredCrewSlug);
@@ -1115,7 +1117,9 @@ canvasMount.addEventListener('fleet-selection', event => {
   clearInputs();
   fleetIslandId = id; fleetWorldView = view;
   home?.setFleetSelection(id); fleetAtlas?.setSelection(id,view);
-  canvasMount.setAttribute('aria-label', view === 'archipelago'
+  canvasMount.setAttribute('aria-label', activeTab === 'sandbox'
+    ? 'Monster sandbox. WASD or arrows to move, Space to attack, E to grab or throw, R to stomp.'
+    : view === 'archipelago'
     ? 'Mac mini fleet archipelago. WASD or arrows to explore the chart; select an island to enter its town.'
     : 'Infrastructure town. WASD or arrows to walk, one through seven to switch crew, E to meet a nearby station.');
 });
