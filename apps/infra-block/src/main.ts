@@ -4,7 +4,9 @@ import '@fontsource/dm-sans/400.css';
 import { nodes } from './data';
 import { createWorld } from './world';
 import { createGame, tick, stomp, grabThrow, start, pause, resume } from './game';
-import type { GameState, CharacterId, WorldController, Layer, WorldEvent } from './contracts';
+import type { GameState, CharacterId, WorldController, Layer, WorldEvent, CrewControlState } from './contracts';
+import { crewInputAllowed } from './crew-input';
+import { RESIDENTS } from './residents';
 import { Audio as SoundEngine } from './audio';
 import { exportScorecard, challengeUrl, ReplayRecorder } from './export';
 import { mountCockpit } from './ops';
@@ -66,7 +68,7 @@ const i18n = {
     copyLink: 'Copy Challenge Link',
     copied: 'Link copied to clipboard!',
     helpTitle: 'Snow Gloves OS · Operations Manual',
-    helpBody: 'Explore: Inspect source-defined systems, their evidence, and relationships. This map is a browser simulation, with no live telemetry.\n\nSandbox: Move toy monsters through a miniature infrastructure city.\nControls: WASD / Arrows to navigate, Space (hold) to attack, E to Grab/Throw items, R to Stomp, ESC to Pause.',
+    helpBody: 'Explore: Walk as a crew member with WASD / arrows. Press 1–7 to switch roles and E to meet a nearby station. Choose Overview to return to the town view. Touch directions provide the same movement. Manual walking is local exploration; observed work status comes from the connected source projection.\n\nSandbox: Move toy monsters through the miniature city.\nControls: WASD / arrows to move, Space (hold) to attack, E to Grab/Throw items, R to Stomp, ESC to Pause.',
     close: 'Close',
     webglFail: 'WebGL 3D canvas could not initialize. Rendering 2D fallback data map.'
   },
@@ -115,7 +117,7 @@ const i18n = {
     copyLink: '复制挑战链接',
     copied: '挑战链接已复制到剪贴板！',
     helpTitle: 'Snow Gloves OS · 操作手册',
-    helpBody: '拓扑浏览：检查源码定义的系统节点、证据及相互关联。这是浏览器模拟，不是实时监控。\n\n沙盒模式：在 3D 基础设施玩具城中操纵单元。\n键位：WASD / 方向键移动，长按 Space 普攻，E 抓取/投掷，R 重踏，ESC 暂停。',
+    helpBody: '探索：使用 WASD / 方向键操纵成员，按 1–7 切换角色，按 E 与附近站点互动。选择 Overview 返回城镇总览；触屏方向键提供相同移动。手动行走仅为本地探索，工作状态来自连接的来源数据。\n\n沙盒：在玩具城中操纵怪兽。\n键位：WASD / 方向键移动，长按 Space 普攻，E 抓取/投掷，R 重踏，ESC 暂停。',
     close: '关闭',
     webglFail: 'WebGL 画布未能启动。当前启用纯数据降级视图。'
   }
@@ -157,6 +159,8 @@ let gameState: GameState = createGame(currentSeed, selectedCharacter);
 let worldController: WorldController | null = null;
 let cockpit: ReturnType<typeof mountCockpit> | null = null;
 let home: ReturnType<typeof mountHome> | null = null;
+let crewNavigation: CrewControlState = { slug: null, x: 0, z: 0, moving: false, nearbySlug: null };
+let preferredCrewSlug = 'ceo';
 function openOperations(nodeId?: string): void {
   if (gameState.mode === 'playing') { pause(gameState); clearInputs(); }
   cockpit?.open(nodeId);
@@ -164,6 +168,7 @@ function openOperations(nodeId?: string): void {
 let fieldKitReturnFocus: HTMLElement | null = null;
 let fieldKitReturnFocusId = '';
 function setFieldKitOpen(open: boolean): void {
+  clearInputs();
   if (open && !document.body.classList.contains('field-kit-open')) {
     fieldKitReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     fieldKitReturnFocusId = fieldKitReturnFocus?.id || '';
@@ -214,6 +219,23 @@ function clearInputs(): void {
   keyState.touchX = 0;
   keyState.touchZ = 0;
   keyState.touchAttack = false;
+}
+
+function editableElement(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && !!target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
+}
+
+function crewMayMove(target: EventTarget | null = document.activeElement, requireControl = true): boolean {
+  return !!worldController && crewInputAllowed({
+    explore: activeTab === 'explore',
+    hasControl: requireControl ? !!home?.getControlledSlug() : true,
+    hidden: document.hidden,
+    dialog: !!document.querySelector('dialog[open]'),
+    fieldKit: document.body.classList.contains('field-kit-open'),
+    sourceNotes: document.body.classList.contains('source-notes-open'),
+    encounter: document.body.classList.contains('home-encounter-open'),
+    editable: editableElement(target)
+  });
 }
 
 const app = document.getElementById('app') as HTMLElement;
@@ -411,6 +433,7 @@ try {
     if (id.startsWith('agent-')) home?.selectResident(id.slice(6));
   });
 } catch (e) {
+  document.body.classList.add('home-flat-map');
   if (!prefersMap) console.warn('WebGL init failed; using fallback view', e);
   if (fallbackMount) fallbackMount.style.display = 'block';
 }
@@ -428,7 +451,11 @@ function renderNavigator(): void {
   const filtered = getFilteredNodes();
   if (!worldController && fallbackMount) {
     fallbackMount.innerHTML = `<div class="sg-map-view"><p>${prefersMap ? 'Accessible source map · 3D rendering disabled by preference' : escapeHtml(i18n[lang].webglFail)}</p><div class="sg-map-grid">${filtered.map(n => `<button class="sg-map-node" data-map-id="${escapeHtml(n.id)}" aria-pressed="${n.id === selectedNodeId}"><span style="background:${escapeHtml(n.color)}"></span>${escapeHtml(n.name)}<small>${escapeHtml(n.layer)}</small></button>`).join('')}</div></div>`;
-    fallbackMount.querySelectorAll<HTMLButtonElement>('[data-map-id]').forEach(b => b.onclick = () => { selectedNodeId = b.dataset.mapId || null; renderInspector(); renderNavigator(); });
+    fallbackMount.querySelectorAll<HTMLButtonElement>('[data-map-id]').forEach(b => b.onclick = () => {
+      selectedNodeId = b.dataset.mapId || null; renderInspector(); renderNavigator();
+      if (selectedNodeId?.startsWith('agent-')) home?.selectResident(selectedNodeId.slice(6));
+      else if (selectedNodeId) openOperations(selectedNodeId);
+    });
   }
   navNodes.innerHTML = filtered.map((n, idx) => {
     const isSelected = n.id === selectedNodeId;
@@ -625,6 +652,9 @@ const hud = document.getElementById('sg-hud') as HTMLElement;
 function switchTab(mode: 'explore' | 'sandbox'): void {
   clearInputs();
   activeTab = mode;
+  canvasMount.setAttribute('aria-label', !worldController ? 'Accessible infrastructure source map. Select a landmark or crew portrait to inspect its source.' : mode === 'explore'
+    ? 'Infrastructure town. WASD or arrows to walk, one through seven to switch crew, E to meet a nearby station.'
+    : 'Monster sandbox. WASD or arrows to move, Space to attack, E to grab or throw, R to stomp.');
   document.body.classList.toggle('home-explore', mode === 'explore');
   home?.setVisible(mode === 'explore');
   canvasMount.dispatchEvent(new CustomEvent('resident-visible', { detail: mode === 'explore' }));
@@ -639,6 +669,7 @@ function switchTab(mode: 'explore' | 'sandbox'): void {
     }
     gameState = createGame(currentSeed, selectedCharacter);
     worldController?.reset(gameState);
+    if (worldController) home?.walkAsResident(preferredCrewSlug);
     document.getElementById('sg-touch-controls')!.style.display = 'none';
   } else {
     tabSandbox.classList.add('active');
@@ -779,6 +810,25 @@ document.getElementById('btn-res-share')?.addEventListener('click', () => {
 });
 
 window.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (activeTab === 'explore') {
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || !crewMayMove(e.target, false)) return;
+    const crewIndex = /^Digit[1-7]$/.test(e.code) ? Number(e.code.slice(5)) - 1 : -1;
+    if (crewIndex >= 0 && !e.repeat) {
+      e.preventDefault(); clearInputs(); home?.walkAsResident(RESIDENTS[crewIndex].slug); return;
+    }
+    if (!crewMayMove(e.target)) return;
+    if (e.code === 'KeyE' && !e.repeat) {
+      e.preventDefault(); clearInputs();
+      if (crewNavigation.nearbySlug) home?.selectResident(crewNavigation.nearbySlug);
+      return;
+    }
+    if (/^(Key[WASD]|Arrow(Up|Down|Left|Right))$/.test(e.code)) {
+      // Arrow keys retain native button/toolbar navigation; WASD works from the crew belt.
+      if (e.code.startsWith('Arrow') && (e.target as HTMLElement)?.closest('button, [role="toolbar"], [role="tablist"]')) return;
+      e.preventDefault(); (keyState as Record<string, boolean | number>)[e.code] = true;
+    }
+    return;
+  }
   if ((e.target as HTMLElement)?.closest('.oc-cockpit, .oc-nav, .oc-dialog, .ih-home-root')) return;
   if (document.body.classList.contains('field-kit-open') && e.code === 'Escape') return;
   const tag = (e.target as HTMLElement)?.tagName;
@@ -905,6 +955,15 @@ function mainLoop(now: number): void {
   const dt = Math.min((now - lastFrameTime) / 1000, 0.1);
   lastFrameTime = now;
 
+  if (activeTab === 'explore' && worldController) {
+    const allowed = crewMayMove();
+    if (!allowed) clearInputs();
+    const moveX = allowed ? Number(keyState.KeyD || keyState.ArrowRight) - Number(keyState.KeyA || keyState.ArrowLeft) + keyState.touchX : 0;
+    const moveZ = allowed ? Number(keyState.KeyS || keyState.ArrowDown) - Number(keyState.KeyW || keyState.ArrowUp) + keyState.touchZ : 0;
+    crewNavigation = worldController.moveResident(moveX, moveZ, dt);
+    home?.setNavigation(crewNavigation);
+  }
+
   if (gameState.mode === 'playing') {
     let moveX = 0;
     let moveZ = 0;
@@ -1016,14 +1075,26 @@ home = mountHome(homeHost, {
   focusNode: focusHomeNode,
   openAgent: id => openOperations(id),
   openDocument: path => { setFieldKitOpen(true); void cockpit?.openDocument(path); },
-  toggleNotes: open => document.body.classList.toggle('source-notes-open', open),
+  toggleNotes: open => { clearInputs(); document.body.classList.toggle('source-notes-open', open); },
   onPresence: presence => canvasMount.dispatchEvent(new CustomEvent('resident-presence', { detail: presence })),
   followTour: () => { triggerWalkthrough(1); },
   openBlueprint: () => { openOperations(); document.querySelector<HTMLButtonElement>('#oc-nav-tab-workbench')?.click(); },
+  controlResident: slug => {
+    if (slug && RESIDENTS.some(resident => resident.slug === slug)) preferredCrewSlug = slug;
+    clearInputs(); worldController?.controlResident(slug);
+    crewNavigation = worldController?.moveResident(0, 0, 0) || { slug: null, x: 0, z: 0, moving: false, nearbySlug: null };
+    home?.setNavigation(crewNavigation);
+  },
+  moveInput: (x, z) => { keyState.touchX = x; keyState.touchZ = z; },
 });
 canvasMount.addEventListener('resident-select', event => home?.selectResident((event as CustomEvent<{slug:string}>).detail.slug));
 document.body.classList.toggle('home-explore', activeTab === 'explore');
 home.setVisible(activeTab === 'explore');
+canvasMount.tabIndex = 0;
+canvasMount.setAttribute('aria-label', !worldController ? 'Accessible infrastructure source map. Select a landmark or crew portrait to inspect its source.' : activeTab === 'explore'
+  ? 'Infrastructure town. WASD or arrows to walk, one through seven to switch crew, E to meet a nearby station.'
+  : 'Monster sandbox. WASD or arrows to move, Space to attack, E to grab or throw, R to stomp.');
+if (activeTab === 'explore' && worldController) home.walkAsResident('ceo');
 canvasMount.dispatchEvent(new CustomEvent('resident-visible', { detail: activeTab === 'explore' }));
 renderInspector();
 renderNavigator();

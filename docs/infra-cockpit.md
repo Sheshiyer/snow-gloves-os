@@ -138,6 +138,14 @@ late responses cannot restore the cleared projection. The city and original game
 
 ## Verification
 
+The home supports direct local exploration as any of the seven crew residents.
+WASD/arrows walk relative to the camera, digits1–7 select a role, and E opens a
+nearby station encounter. A compact edge HUD and close following camera keep the
+town as the primary surface. Manual character movement is explicitly labeled
+local exploration and never becomes job/activity evidence. Field Kit, encounter,
+notes and typing interactions suspend movement; the original sandbox remains a
+separate round with its existing pause behavior.
+
 Backend reader and HTTP tests cover scope, path isolation, gate previews and
 read-only behavior. Client tests cover schemas, scope binding and transport
 failures. Production compilation and IAB desktop/mobile flows are the combined

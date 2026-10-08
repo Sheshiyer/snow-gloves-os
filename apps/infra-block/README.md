@@ -184,3 +184,21 @@ portrait/landscape layouts, reduced motion, private-scope loss and successful
 response scope downgrades. The phone layouts are browser emulation. Current
 private all-scope activity is absent, so observed running jobs have not been
 demonstrated in the live instance; the labeled tour supplies the visual preview.
+
+## Walk through the town
+
+Explore starts with the CEO selected for local walking. **WASD** or **arrow keys**
+move relative to the current camera; **1–7** switch to the matching crew member.
+Choose **Walk as** from an encounter to control that resident, or **Overview** to
+return to the town view. **E** opens a nearby personal station's encounter. Touch
+direction controls provide the same movement on narrow screens.
+
+The close camera follows the resident. Buildings and the platform boundary block
+movement, diagonals preserve speed, and resizing keeps the selected perspective.
+Field Kit, encounters, source notes, editable controls and modal dialogs suspend
+movement. Blur and hidden-page transitions clear held input. Reduced motion keeps
+essential direct movement while suppressing decorative gait and smooth following.
+
+**Local exploration** moves a visual character only. It does not run the agent or
+alter its observed work state, tenant activity, approvals or source configuration.
+Leaving manual control returns that resident to the evidence-driven projection.

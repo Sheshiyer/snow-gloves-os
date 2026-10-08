@@ -710,6 +710,12 @@ body.home-explore.source-notes-open .ih-notes-return {display:inline-flex;min-he
 .ih-token-btn{flex-shrink:0;}
 @media(max-width:768px){.ih-token-btn{flex-direction:column;gap:3px;padding:3px 5px;}.ih-belt-wrap{width:max-content;max-width:calc(100vw - 16px);}}
 
+/* Keep short-screen movement controls clear of both the tools and crew belt. */
+@media(max-height:500px) and (orientation:landscape){
+ .ih-mission-strip{left:auto;right:8px;}
+ .ih-touch-pad,.ih-walk-hud{bottom:84px;}
+}
+
 /* Give the crew belt its intrinsic width instead of the centered shrink-to-fit width. */
 @media(min-width:769px){
  .ih-belt-wrap{width:max-content;max-width:calc(100vw - 350px);}

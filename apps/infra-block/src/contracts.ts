@@ -15,9 +15,15 @@ export interface GameState {
   multiplier: number; stompCooldown: number; heldCar: number | null; elapsed: number;
 }
 export interface WorldEvent { type: 'hit' | 'demolish' | 'stomp' | 'grab' | 'throw' | 'miss' | 'result'; x: number; z: number; value?: number; id?: string; }
+/** Reversible local exploration. This is never evidence of an infrastructure job. */
+export interface CrewControlState {
+  slug: string | null; x: number; z: number; moving: boolean; nearbySlug: string | null;
+}
 export interface WorldController {
   update(state: GameState, dt: number): void; event(event: WorldEvent): void;
   select(id: string | null): void; filter(layer: Layer | 'all'): void;
   route(ids: string[]): void; reset(state: GameState): void; dispose(): void;
+  controlResident(slug: string | null): void;
+  moveResident(x: number, z: number, dt: number): CrewControlState;
 }
 export interface InputState { x: number; z: number; attack: boolean; }

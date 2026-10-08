@@ -4,13 +4,15 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 145/171
+progress: 177/203
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
 ---
 
 ## Problem
+
+Current navigation lane: the wide home wastes most screen space and only the monster sandbox accepts WASD. Make the infrastructure town directly playable through any of its seven residents, a following camera, nearby station interaction and one cohesive toy HUD.
 
 Current inhabited-home lane: the town shows infrastructure buildings but lacks role-specific residents, personal stations and immediate character interactions. Make the home feel inhabited while keeping observed activity distinct from visual demonstrations.
 
@@ -27,6 +29,8 @@ port with service identity. The confirmed installation target for 1 October is
 one Mac mini running a local bootstrap and recovery pilot.
 
 ## Vision
+
+The town fills the available screen. The operator walks as an actual crew character, switches roles and encounters their stations from the streets; the compact edge HUD retains the miniature materials and keeps local exploration distinct from observed infrastructure work.
 
 Seven recognizable residents embody the actual agent roles. The operator meets them in the town, visits their personal stations, follows a demonstration route and opens their real source/workspace contracts. Recent scoped active evidence sends a resident walking; absent evidence parks the character with an honest unknown label.
 
@@ -64,6 +68,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Deliver fullscreen exploration with selectable control of all seven agent characters, camera-relative WASD/arrows, collision-safe movement, following camera, contextual station interaction, keyboard and touch controls, and consistent toy UI. Verify actual browser movement, role switching, input suspension, responsive layouts and sandbox/source regressions.
 
 Deliver an inhabited game home with seven distinct role-specific characters and stations, clickable encounters and keyboard crew navigation, scoped read-only activity projection, a clearly labeled crew tour, and connected document/agent/blueprint interactions. Verify identity parity, state freshness/supersession/isolation, actual walking/parking, mobile/reduced motion and original game/field-kit regression.
 
@@ -258,7 +264,45 @@ until the actual mini supplies evidence.
 - [x] ISC-170: Anti: Health reachability or configured roles never imply an active agent.
 - [x] ISC-171: Anti: Home encounters introduce no infrastructure execution or approval actions.
 
+- [x] ISC-172: Antecedent: The previous wide home framing is captured in the actual in-app browser.
+- [x] ISC-173: The exploration canvas occupies the full available viewport beneath the compact header.
+- [x] ISC-174: The controlled-agent camera visibly fills the town viewport with walkable surroundings.
+- [x] ISC-175: The home mission controls occupy a compact edge rather than a central banner.
+- [x] ISC-176: Navigation controls use the existing toy palette, borders, fonts and portrait materials.
+- [x] ISC-177: Each of the seven source-defined residents can be selected for manual walking.
+- [x] ISC-178: WASD keys visibly move the controlled resident in the actual browser.
+- [x] ISC-179: Arrow keys provide equivalent exploration movement from the world.
+- [x] ISC-180: Movement direction remains relative to the camera after changing its bearing.
+- [x] ISC-181: Diagonal movement does not exceed the configured movement speed.
+- [x] ISC-182: Invalid input and excessive elapsed frame time cannot produce an unbounded move.
+- [x] ISC-183: The controlled resident cannot enter an expanded building footprint.
+- [x] ISC-184: The controlled resident remains inside the walkable platform boundary.
+- [x] ISC-185: All seven selected resident spawn points are clear of building collision bounds.
+- [x] ISC-186: The selected resident has a visible role-colored control marker.
+- [x] ISC-187: The camera follows the controlled resident during local exploration.
+- [x] ISC-188: E opens the matching nearby station encounter from the world.
+- [x] ISC-189: The navigation prompt names the nearby station from actual distance calculations.
+- [x] ISC-190: Keyboard digits one through seven switch to their matching crew identities.
+- [x] ISC-191: Overview releases manual control and restores the evidence-driven resident projection.
+- [x] ISC-192: Anti: Manual walking never changes the observed work status or activity records.
+- [x] ISC-193: Anti: Typing inside an editable control never moves a resident.
+- [x] ISC-194: Opening the field kit suspends manual movement.
+- [x] ISC-195: Opening an encounter suspends manual movement.
+- [x] ISC-196: Window blur and hidden-page transitions clear held exploration input.
+- [x] ISC-197: Touch direction controls move the resident and stop on release or cancellation.
+- [x] ISC-198: Portrait mobile retains usable crew, movement and encounter controls without overflow.
+- [x] ISC-199: Short landscape retains usable crew, movement and encounter controls without overflow.
+- [x] ISC-200: Reduced-motion mode preserves essential manual navigation without decorative gait or camera smoothing.
+- [x] ISC-201: The accessible source map remains usable when WebGL is disabled.
+- [x] ISC-202: The original sandbox round and field-kit pause behavior remain unchanged.
+- [x] ISC-203: The integrated navigation lane passes strict production build and meaningful regression tests.
+
 ## Test Strategy
+
+| 172-178,186-190 | root IAB | fullscreen layout, actual movement and seven role interactions | screenshot/readback | Codex IAB |
+| 179-185 | pure movement | camera basis, normalization, bounded dt, collision and seven homes | passing regression cases | Vitest |
+| 191-201 | root IAB + source | release, evidence boundary, input suspension, responsive/reduced motion/map | actual state and movement observations | Codex IAB + Vitest |
+| 202-203 | regression | original game pause, strict build and tests | passing result | Codex IAB + npm |
 
 | 140-171 | inhabited home | actual seven-role source parity; presence freshness/scope/supersession tests; IAB character/station/tour/source/proposal/mobile/keyboard/reduced-motion/game flows | source-grounded resident interactions and honest walking/parking | Vitest + IAB + strict build |
 
@@ -292,6 +336,10 @@ until the actual mini supplies evidence.
 | 51 | claims | receipt evidence-level audit | no readiness promotion | receipt audit |
 
 ## Features
+
+| CrewNavigationWorld | manual role characters, collision, camera-relative movement and follow | ISC-177..192 | existing residents | yes |
+| FullscreenToyHUD | compact edge HUD, role walking actions, nearby prompt and touch controls | ISC-173..176,188..201 | existing home | yes |
+| ExplorationInputBridge | WASD/arrows/digits/E, overlay/editable/blur input boundaries | ISC-178..179,188..190,193..196,202..203 | navigation world and HUD | no |
 
 | ResidentIdentityPresence | source-grounded seven roles and bounded scoped evidence projection | ISC-140..141,148,156..162,170 | existing snapshot | yes |
 | InhabitedWorld | distinct procedural residents, home stations, click targets, deterministic walking and parking | ISC-142..145,149,154,163..164 | ResidentIdentityPresence | yes |
@@ -356,7 +404,15 @@ until the actual mini supplies evidence.
 
 - 2026-10-08 refined: Current E3 lane extends the toy field kit into an inhabited home. FirstPrinciples deconstruction: identity is actual agent role/source, presence is explicit timestamped scoped evidence, character behavior is a visual projection, interaction is a reversible source/proposal path. Health endpoints and enabled modules are not activity evidence. SystemsThinking concept map links identity→station, record→presence→motion, encounter→source→field kit, and scope revocation→presence clearing; demo motion has a separate labeled input. ISA analytical refinement adds32atomic checks and retains113accepted/26historicalopen; ReReadCheck is the final latest-request gate. Three disjoint resident-model/world/home owners use existing routed rails; root owns snapshot bridge/ISA/QA. No service/provider/enablement/deployment change.
 
+- 2026-10-08 refined: Latest screenshot reproduces complete-platform camera fitting with excessive blank space, and main input dispatch is sandbox-only. FirstPrinciples separates viewport/camera/input ownership from actual work presence. SystemsThinking concept map: keyboard -> input eligibility -> camera basis -> collision model -> selected actor -> camera/HUD; selected actor -> nearby station -> existing encounter -> source/Field Kit; snapshot -> observed presence remains a separate authority. ISA Append adds32 atomic navigation criteria and CheckCompleteness preserves all required E3 sections. ReReadCheck will bind fullscreen, WASD, every role and shared toy design to actual shipped evidence. Native root owns bounded integration; two disjoint workers own world and UI production. Historical26 requirements remain separate.
+- 2026-10-08: Fullscreen navigation source and browser checks pass. The independently reviewed input rail suspends movement continuously when editing, inspecting or hidden; the selected identity remains separate from observed presence. Advisor attempts returned cached quota429 for antigravity/claude-sonnet-4-6, with no verdict. Heavy source generation resolved through antigravity/gemini-3.7-flash-low. Four invoked thinking capabilities are FirstPrinciples, SystemsThinking, ISA and ReReadCheck; independent source review and root IAB provide distinct evidence.
+
 ## Changelog
+
+- 2026-10-08 | conjectured: fitting the entire town platform would provide an immersive home once resident characters existed.
+  refuted by: the user's wide screenshot and root IAB show a small central town with excessive unused viewport; main keyboard movement was sandbox-only. The initial short-landscape navigation HUD also overlapped the touch pad and crew belt.
+  learned: a full-viewport canvas, close following camera and explicitly selected resident make streets the primary interaction surface. Camera-relative bounded collision movement, continuous input eligibility and compact independently measured edge controls preserve source inspection and game behavior. Seven portraits share their resident clothing colors; local walking remains distinct from observed work.
+  criterion now: ISC-172..203 is32/32 accepted from116frontend tests,45backend checks, strict production build, independent source review and actual IAB navigation/responsive checks. Master177/203 retains26historical criteria open; browser emulation and local exploration do not supply physical or running-job acceptance.
 
 - 2026-10-08 | conjectured: source-backed operations could stay inside the miniature game with a visible city and physical station objects.
   refuted by: root screenshots exposed an oversized lid, letter-by-letter guide and badge captions, mobile belt/city overlap; independent review found stale scoped dialog DOM, polling focus loss, internal landmark mismatch, short-landscape canvas collapse and disconnected initiating-control focus.
@@ -904,3 +960,19 @@ ReReadCheck — latest user request: "this still looks like saas dashboard and h
 Root executed IAB; separate workers reviewed source and tested models/renderer. Heavy generation resolved through local OmniRoute to antigravity/gemini-3.7-flash-low; host model configuration and shared services were untouched. Advisor returned quota429, providing no reviewer verdict. Public fixture regenerated from public defaults only. Receipts and actual screenshots are under /Users/sheshnarayaniyer/.codex/visualizations/2026/10/08/01a1176d-6b04-79c3-9549-9884312e0e4b/inhabited-home-receipt.json. Owned Vite18760 and explicit private API18761 remain available; no push, deployment or physical readiness follows.
 
 ReReadCheck — latest user request: "how do we make the home and the ecossytem we have more interactive and have agent sprcifc and rolespecifc identities and characters thats are woalking around when active and have station where they are when inactive and overall game liek interface and the more interaction on the home page rather than just hte buuldings". The home now has seven source-specific characters, personal stations, direct encounters and role portraits, walking driven by scoped evidence, a labeled tour, source/workspace visits and a blueprint interaction. The32 current criteria are accepted;145/171 overall retains26 historical installation/device/cloud criteria open.
+
+## Verification — fullscreen crew navigation complete, 8 October 2026
+
+- ISC-172..176: Root IAB saved the previous small-town framing and final close walking view. Actual canvas is2126.35x849.08CSS pixels at0,0 in a2126x849 viewport, with compact header overlays, an edge mission ticket and zero horizontal page overflow. All seven portrait tokens fit the final wide belt. Toy fonts, outlined cream controls, circular touch pad and actor-matching clothing colors continue the existing miniature materials.
+- ISC-177..179,186..190: Actual native keyboard digits1..7 select the seven matching slugs; each then visibly moves under heldD. Saved before/after HUD coordinates prove all seven moves in walk-crew-proof.json. HeldW1200ms moves CEO from(-11.7,-10.6) to(-16.5,-11.4), sliding along the building boundary; final repeat ends(-16.4,-11.4). Native ArrowDown500ms moves CEO from(-11.7,-10.6) to(-9.7,-8.3). The role-colored ring stays at the controlled character; successive screenshots show the camera following. E at the actual CEO home opens the CEO encounter; actual-distance calculations drive the matching nearby prompt and disable it after walking away.
+- ISC-180..185: Six meaningful pure navigation cases verify rotated camera basis, equal diagonal speed, finite input and bounded0.1s elapsed time, microstep wall sliding without tunneling, platform edges and all seven deterministic safe homes. The renderer integrates actual camera.getWorldDirection into that basis, expands building footprints by1.2units and bounds centers within24.1units. Manual renderer regression verifies all seven selected actors, preserved presence and return to authoritative home on release. These bounds and camera-rotation invariants are source/test evidence, rather than a physical-device acceptance claim.
+- ISC-191..196: Actual Overview clears the controlled slug; starting the explicitly labeled Demo tour also releases manual control, and Stop restores No active evidence for all seven current residents. Current private all-scope activity remains empty throughout local walking. HoldingW900ms inside the encounter preserves(-11.7,-10.6); typingw in Field Kit search preserves(-9.7,-8.3). Help and source notes similarly suspend held movement. Eight input policy regressions include continuously appearing overlays, editing, hidden state, overview and sandbox exclusion. Source handlers clear keyboard/touch input on keyup, window blur and visibilitychange. Blur/hidden event wiring is inspected and policy-tested; actual OS focus loss was not separately induced.
+- ISC-197..199: Portrait390x844 device emulation (CSS355x767) keeps the full-height canvas, separate touch pad/HUD and reachable crew/encounter controls with no horizontal overflow. Actual native held East800ms moves CEO from(-11.7,-10.6) to(-9.4,-13.8); Halt plus elapsed400ms retains that position. Pointer-up/cancel/lostcapture source clears directional state. Short landscape667x375 (CSS606x341) has a50px header, mission at65.99..119.98, pad and HUD ending256.92, and belt starting262.13; none overlap. Town tools and44px actions remain reachable. These are actual IAB browser-emulation checks, not a physical-phone pass.
+- ISC-200..202: Reduced-motion emulation still permits essentialD500ms movement from(-11.7,-10.6) to(-9.4,-12.6); source disables decorative gait and smooth following. Media override is cleared and actual reducedMotion=false restored. Deliberate2D map preference retains16source node buttons and matching crew encounters, hides walking HUD/pad/mission and disables Walk as with its3D-required explanation. CEO node opens CEO encounter and Hermes node opens Field Kit. The actual WebGL-init failure catch uses that map path and is source-inspected, not fault-injected. Sandbox starts45seconds; opening Field Kit pauses at44.7seconds, unchanged after1.5s; Pack away restores Simulation Paused and Return to Source Map restores the preferred controlled crew identity.
+- ISC-203: Final strict TypeScript/Vite production build passes after the complete source integration;116frontend tests across7files pass in1.67s.45focused backend reader/HTTP/acceptance checks pass in10.87s. git diff --check passes. Final JavaScript bundle773.12KB/gzip195.91KB retains the existing Vite500KB advisory; no measured frame-rate or low-end-device claim is made. Four console errors retained from12:01..12:04UTC came from interim main/home API mismatch during generation; final integrated reload/navigation introduces no newer error in the captured log set. The final Help DOM has actual line breaks and no literal backslash-n.
+
+Root operated the actual Codex IAB. Separate workers reviewed source and ran model/renderer checks; no worker browser acceptance is inferred. Final source review found no material blocker; its tentative Help separator finding was disproved by literal source inspection and actual rendered DOM. Both Advisor attempts returned quota429 and provide no verdict. Public fixture is rebuilt from public defaults only, without endpoint probes or private root. Owned Vite18760 and explicit private API18761 remain available; shared host services, provider configuration and source activity authority remain unchanged.
+
+Receipt: /Users/sheshnarayaniyer/.codex/visualizations/2026/10/08/01a1176d-6b04-79c3-9549-9884312e0e4b/walk-town-receipt.json. Final image: walk-town-final.png. Current32navigation criteria are accepted; master177/203 keeps26historical installation/device/cloud criteria open.
+
+ReReadCheck — latest user request: "hwo do we leverage the whole scren and make it wasd navigabble wit heach agent achatacter movmenet and everyhign in the same deisgn style". Whole screen: full available canvas and close following camera verified in IAB. WASD navigation: actual held keyboard movement, arrows and equivalent touch pad verified. Each agent character: all seven exact role selections and coordinate changes saved. Same design style: compact mission, role-colored portraits/ring, paper encounters, field kit and movement controls use the existing toy palette and materials. All four explicit asks are addressed; this completes the current navigation lane only.

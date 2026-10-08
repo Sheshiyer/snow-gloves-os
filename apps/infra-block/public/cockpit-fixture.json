@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.cockpit.v1",
-  "generatedAt": "2026-10-08T10:49:43.107909+00:00",
+  "generatedAt": "2026-10-08T12:36:11.899217+00:00",
   "scope": {
     "mode": "public-fixtures",
     "tenant": null,
@@ -4889,6 +4889,198 @@
       "criterion": "Anti: Home encounters introduce no infrastructure execution or approval actions.",
       "status": "accepted",
       "source": "ISA.md"
+    },
+    {
+      "id": "ISC-172",
+      "criterion": "Antecedent: The previous wide home framing is captured in the actual in-app browser.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-173",
+      "criterion": "The exploration canvas occupies the full available viewport beneath the compact header.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-174",
+      "criterion": "The controlled-agent camera visibly fills the town viewport with walkable surroundings.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-175",
+      "criterion": "The home mission controls occupy a compact edge rather than a central banner.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-176",
+      "criterion": "Navigation controls use the existing toy palette, borders, fonts and portrait materials.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-177",
+      "criterion": "Each of the seven source-defined residents can be selected for manual walking.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-178",
+      "criterion": "WASD keys visibly move the controlled resident in the actual browser.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-179",
+      "criterion": "Arrow keys provide equivalent exploration movement from the world.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-180",
+      "criterion": "Movement direction remains relative to the camera after changing its bearing.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-181",
+      "criterion": "Diagonal movement does not exceed the configured movement speed.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-182",
+      "criterion": "Invalid input and excessive elapsed frame time cannot produce an unbounded move.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-183",
+      "criterion": "The controlled resident cannot enter an expanded building footprint.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-184",
+      "criterion": "The controlled resident remains inside the walkable platform boundary.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-185",
+      "criterion": "All seven selected resident spawn points are clear of building collision bounds.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-186",
+      "criterion": "The selected resident has a visible role-colored control marker.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-187",
+      "criterion": "The camera follows the controlled resident during local exploration.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-188",
+      "criterion": "E opens the matching nearby station encounter from the world.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-189",
+      "criterion": "The navigation prompt names the nearby station from actual distance calculations.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-190",
+      "criterion": "Keyboard digits one through seven switch to their matching crew identities.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-191",
+      "criterion": "Overview releases manual control and restores the evidence-driven resident projection.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-192",
+      "criterion": "Anti: Manual walking never changes the observed work status or activity records.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-193",
+      "criterion": "Anti: Typing inside an editable control never moves a resident.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-194",
+      "criterion": "Opening the field kit suspends manual movement.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-195",
+      "criterion": "Opening an encounter suspends manual movement.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-196",
+      "criterion": "Window blur and hidden-page transitions clear held exploration input.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-197",
+      "criterion": "Touch direction controls move the resident and stop on release or cancellation.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-198",
+      "criterion": "Portrait mobile retains usable crew, movement and encounter controls without overflow.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-199",
+      "criterion": "Short landscape retains usable crew, movement and encounter controls without overflow.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-200",
+      "criterion": "Reduced-motion mode preserves essential manual navigation without decorative gait or camera smoothing.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-201",
+      "criterion": "The accessible source map remains usable when WebGL is disabled.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-202",
+      "criterion": "The original sandbox round and field-kit pause behavior remain unchanged.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-203",
+      "criterion": "The integrated navigation lane passes strict production build and meaningful regression tests.",
+      "status": "accepted",
+      "source": "ISA.md"
     }
   ],
   "routing": {
@@ -6405,7 +6597,7 @@
       "path": "docs/infra-cockpit.md",
       "title": "infra-cockpit",
       "kind": "md",
-      "bytes": 7798
+      "bytes": 8327
     },
     {
       "path": "docs/onboarding.md",
