@@ -444,6 +444,19 @@ export function mountCockpit(
   }
 
   // Revocation clears both state and rendered source bodies before any late request can settle.
+  function publishSnapshot(): void {
+    host.dispatchEvent(new CustomEvent('cockpit-snapshot', {
+      bubbles: true,
+      detail: {
+        snapshot,
+        scopeMode: expectedScopeMode,
+        tenant: selectedTenantScope || null,
+        source: snapshot ? lastLoadedSource || 'unavailable' : 'unavailable',
+        stale: isStale || !snapshot,
+      },
+    }));
+  }
+
   function clearScopedProjection(): void {
     snapshot = null;
     docGeneration++;
@@ -469,6 +482,7 @@ export function mountCockpit(
     if (activityDialog.open) activityDialog.close();
     docDialog.replaceChildren();
     activityDialog.replaceChildren();
+    publishSnapshot();
   }
 
   async function fetchOperationsData(forceFixtureFallback = false) {
@@ -568,6 +582,7 @@ export function mountCockpit(
     } finally {
       if (!signal.aborted && currentGen === fetchGeneration) {
         isFetching = false;
+        publishSnapshot();
         render();
       }
     }

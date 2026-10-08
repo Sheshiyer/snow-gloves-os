@@ -4,13 +4,15 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 113/139
+progress: 113/171
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
 ---
 
 ## Problem
+
+Current inhabited-home lane: the town shows infrastructure buildings but lacks role-specific residents, personal stations and immediate character interactions. Make the home feel inhabited while keeping observed activity distinct from visual demonstrations.
 
 Current visual correction: the operations cockpit uses a full-screen enterprise shell and loses the miniature game experience. Rebuild its navigation, record presentation and world integration so every infrastructure flow stays within the toy town.
 
@@ -25,6 +27,8 @@ port with service identity. The confirmed installation target for 1 October is
 one Mac mini running a local bootstrap and recovery pilot.
 
 ## Vision
+
+Seven recognizable residents embody the actual agent roles. The operator meets them in the town, visits their personal stations, follows a demonstration route and opens their real source/workspace contracts. Recent scoped active evidence sends a resident walking; absent evidence parks the character with an honest unknown label.
 
 The operator stays at the miniature town while opening a physical field kit. Infrastructure roles become crew badges, modules collectible parts, adapters cartridges, connectors signal plugs, tenants neighborhood passports, proposals blueprints and evidence stamps; each still traces the actual source contract.
 
@@ -60,6 +64,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Deliver an inhabited game home with seven distinct role-specific characters and stations, clickable encounters and keyboard crew navigation, scoped read-only activity projection, a clearly labeled crew tour, and connected document/agent/blueprint interactions. Verify identity parity, state freshness/supersession/isolation, actual walking/parking, mobile/reduced motion and original game/field-kit regression.
 
 Deliver a world-visible field kit with a horizontal station toolbelt and miniature material treatment across all eleven operations panes. Preserve tenant scope, source reading, proposal gates, failure handling and the original game; verify desktop, mobile, keyboard and reduced-motion behavior in the in-app browser.
 
@@ -219,7 +225,42 @@ until the actual mini supplies evidence.
 - [x] ISC-138: Anti: The miniature interface introduces no infrastructure execution controls.
 - [x] ISC-139: Anti: The miniature interface invents no live activity or acceptance records.
 
+- [ ] ISC-140: Antecedent: Seven residents correspond exactly to the current seven repository agent slugs.
+- [ ] ISC-141: Each resident identity cites its actual public role source.
+- [ ] ISC-142: Each three-dimensional character has a distinct role-specific prop.
+- [ ] ISC-143: Each agent has a personal station associated with its actual landmark.
+- [ ] ISC-144: Clicking a character opens its matching resident encounter.
+- [ ] ISC-145: Clicking a personal station opens its matching resident encounter.
+- [ ] ISC-146: The keyboard crew belt reaches all seven resident encounters.
+- [ ] ISC-147: Each encounter shows its actual role and source-grounded greeting.
+- [ ] ISC-148: Encounter state explains its evidence and observation time.
+- [ ] ISC-149: Encounter Meet at station selects the matching real landmark.
+- [ ] ISC-150: Encounter source action opens an indexed actual document.
+- [ ] ISC-151: Encounter field-kit action opens the matching actual agent workspace.
+- [ ] ISC-152: The home provides a direct blueprint-bench interaction.
+- [ ] ISC-153: The crew tour is explicitly labeled as a demonstration.
+- [ ] ISC-154: Activating the crew tour visibly moves its selected resident along a route.
+- [ ] ISC-155: Stopping the crew tour restores actual projected presence.
+- [ ] ISC-156: Only recent explicit scoped active records can produce observed active presence.
+- [ ] ISC-157: Newer terminal evidence suppresses older active evidence for the same job.
+- [ ] ISC-158: Future or expired active records do not produce current active presence.
+- [ ] ISC-159: Absent or stale activity evidence produces an unobserved state.
+- [ ] ISC-160: Records outside the selected tenant cannot produce observed presence.
+- [ ] ISC-161: Private projection failure clears previously projected home state.
+- [ ] ISC-162: A disconnected public fallback is explicitly stale.
+- [ ] ISC-163: Inactive and unobserved residents remain at their personal stations.
+- [ ] ISC-164: Reduced-motion mode suppresses nonessential resident walking animations.
+- [ ] ISC-165: The narrow mobile home retains usable crew and encounter controls.
+- [ ] ISC-166: The short landscape home retains a visible town and usable encounters.
+- [ ] ISC-167: The source-map list remains accessible from the inhabited home.
+- [ ] ISC-168: Sandbox and field-kit pause behavior survives the home integration.
+- [ ] ISC-169: The integrated inhabited home passes strict build and meaningful regression tests.
+- [ ] ISC-170: Anti: Health reachability or configured roles never imply an active agent.
+- [ ] ISC-171: Anti: Home encounters introduce no infrastructure execution or approval actions.
+
 ## Test Strategy
+
+| 140-171 | inhabited home | actual seven-role source parity; presence freshness/scope/supersession tests; IAB character/station/tour/source/proposal/mobile/keyboard/reduced-motion/game flows | source-grounded resident interactions and honest walking/parking | Vitest + IAB + strict build |
 
 | 108-139 | miniature-world correction | screenshots of all eleven stations; canvas/drawer bounds; actual scope/filter/document/plan/offline/game flows; build and regression | source-connected toy experience with visible city throughout | IAB + Vitest + strict build |
 
@@ -251,6 +292,10 @@ until the actual mini supplies evidence.
 | 51 | claims | receipt evidence-level audit | no readiness promotion | receipt audit |
 
 ## Features
+
+| ResidentIdentityPresence | source-grounded seven roles and bounded scoped evidence projection | ISC-140..141,148,156..162,170 | existing snapshot | yes |
+| InhabitedWorld | distinct procedural residents, home stations, click targets, deterministic walking and parking | ISC-142..145,149,154,163..164 | ResidentIdentityPresence | yes |
+| ResidentEncounters | keyboard crew belt, paper dialogue, source/workspace actions, scope notes and explicit demo tour | ISC-146..155,165..169,171 | ResidentIdentityPresence + existing field kit | yes |
 
 | ToyFieldKit | Nonmodal world-visible station and record interface | ISC-108..125,131..135,138..139 | Existing cockpit client | yes |
 | MiniatureMaterials | Physical toolbelt, tokens, tickets, blueprint and book styling | ISC-109..123,126..128,130 | ToyFieldKit DOM contract | yes |
@@ -308,6 +353,8 @@ until the actual mini supplies evidence.
 - 2026-10-08 refined: User rejects the accepted cockpit screenshot as a SaaS dashboard and requires the mini-game aesthetic throughout. Root cause enters at the fullscreen showModal shell, vertical navigation, KPI grids and default tables. Display-down correction replaces structure and materials while preserving source/client contracts. Six analytical capabilities invoked: FirstPrinciples (shell necessity), SystemsThinking (landmark/section/evidence loop), BeCreative (five directions: toy field kit, resident dialog, tactical hologram, train delivery, papercraft expedition; selected field kit plus paper artifacts), IterativeDepth (experiential, keyboard, failure, temporal lenses), ISA (32 atomic criteria and twelve-section audit), ReReadCheck (final user-intent gate). Current visual lane E4; historical effort and acceptance remain preserved. Three disjoint source owners implement interface, CSS and world continuity; no host/provider/deployment change.
 
 - 2026-10-08: Pre-commit Advisor invocation returned quota 429 for antigravity/claude-sonnet-4-6; no Advisor pass is claimed. Independent source review identified and repaired stale scoped dialog DOM and late-response revival; the visual redesign keeps privacy revocation at the shared projection boundary. Root browser verification remains required before any visual criterion closes.
+
+- 2026-10-08 refined: Current E3 lane extends the toy field kit into an inhabited home. FirstPrinciples deconstruction: identity is actual agent role/source, presence is explicit timestamped scoped evidence, character behavior is a visual projection, interaction is a reversible source/proposal path. Health endpoints and enabled modules are not activity evidence. SystemsThinking concept map links identity→station, record→presence→motion, encounter→source→field kit, and scope revocation→presence clearing; demo motion has a separate labeled input. ISA analytical refinement adds32atomic checks and retains113accepted/26historicalopen; ReReadCheck is the final latest-request gate. Three disjoint resident-model/world/home owners use existing routed rails; root owns snapshot bridge/ISA/QA. No service/provider/enablement/deployment change.
 
 ## Changelog
 
