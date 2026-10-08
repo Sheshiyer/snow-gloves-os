@@ -1,6 +1,6 @@
 # Infra Block
 
-A playable tabletop city maps sixteen infrastructure components to inspectable buildings. Explore source relationships or play a 45-second demolition round.
+A playable tabletop city maps sixteen infrastructure components to inspectable buildings. Seven role-specific residents inhabit the town, with personal work stations and clickable encounters. Explore their sources and tools or play a 45-second demolition round.
 
 ## Installation
 
@@ -146,3 +146,41 @@ specified in [Infrastructure Field Kit](../../docs/infra-cockpit.md).
 Current visual acceptance results belong in `ISA.md`; the earlier city delivery
 receipts above do not by themselves verify this revised layout on physical
 phones.
+
+## Inhabited home
+
+Meet the CEO, CTO, Chief of Staff, Librarian, Interpreter, Dispatcher and Sentinel
+by selecting a character, a personal station or a portrait in the crew belt.
+Each encounter shows the actual role, its identity and soul source files, the
+current presence evidence, and actions to meet at the landmark or open the
+matching agent Field Kit. The home also provides a Blueprint bench and optional
+Map & source notes for the complete infrastructure list and original inspector.
+
+Characters carry role-specific props: a compass, engineering tools, routing
+board, books, interpretation lens, courier bag and audit shield. Their stations
+use the same role metaphors. These visuals illustrate source roles; they do not
+invent personal biographies or prove runtime activity.
+
+Recent explicit job or event records can send a resident walking along town
+roads only when the agent and selected tenant match. Active evidence expires
+after two minutes. A newer terminal record for the same job suppresses the older
+active record. Unknown or stale evidence parks residents at their stations with
+an honest absence-of-evidence label. Endpoint health and configured adapters
+never imply that an agent is working.
+
+**Try crew tour** demonstrates the routes locally with a visible DEMO label.
+**Stop tour** restores the actual projected presence. The tour creates no job,
+event or approval records. Reduced motion suppresses nonessential walking.
+The home refreshes its read-only snapshot while visible; the Field Kit owns
+polling while open. Private failure clears the home projection, and public
+offline fixtures remain explicitly disconnected and stale.
+
+The inhabited-home verification adds 48 meaningful presence and renderer checks
+to the original 53 frontend checks, for 101 passing tests. Renderer checks cover
+all seven complete deterministic routes and building-footprint clearance.
+Actual IAB checks cover character/station clicks, all seven keyboard encounters,
+indexed source reading, exact agent workspaces, tour walking and parking,
+portrait/landscape layouts, reduced motion, private-scope loss and successful
+response scope downgrades. The phone layouts are browser emulation. Current
+private all-scope activity is absent, so observed running jobs have not been
+demonstrated in the live instance; the labeled tour supplies the visual preview.

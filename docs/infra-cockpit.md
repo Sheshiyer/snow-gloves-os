@@ -23,6 +23,30 @@ Open `http://127.0.0.1:18760/` and select **FIELD KIT**. The API listens on
 The production build can be used with `npm --prefix apps/infra-block run preview`
 while the same local API is running.
 
+## Residents and home encounters
+
+The home projects seven source-backed agent identities as distinct procedural
+characters and personal stations. Character and station clicks open the same
+encounter as the keyboard-accessible portrait belt. Encounters link the actual
+public `IDENTITY.md` and `SOUL.md` documents, focus the matching landmark and open
+the matching agent workspace. Blueprint proposals remain available directly
+from the home. Optional Map & source notes retain the sixteen-node source list,
+filters, inspector and accessible map fallback.
+
+`residents.ts` derives presence separately from scene motion. Only explicit,
+nonfuture activity for the exact selected tenant and agent can be observed.
+Active job/event evidence expires after 120 seconds; a newer terminal record for
+the same job supersedes its older active record. Absent or stale activity is
+unobserved, so residents remain at their stations without a claim of actual idle
+runtime. Pending approval evidence produces a held stance. Health observations,
+catalog entries and installed configuration cannot produce active presence.
+
+The optional crew tour is a labeled local demonstration. It drives the scene
+through a separate `demo` presence input and creates no synthetic snapshot or
+job records. Stopping the tour returns to the current evidence projection.
+Reduced-motion preference suppresses walking. The original demolition game
+keeps its separate characters, scoring, pause and timer rules.
+
 ## Data and authority
 
 The default API reads public catalog and fixture data from this checkout. It

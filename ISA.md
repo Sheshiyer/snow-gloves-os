@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 113/171
+progress: 145/171
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
@@ -225,38 +225,38 @@ until the actual mini supplies evidence.
 - [x] ISC-138: Anti: The miniature interface introduces no infrastructure execution controls.
 - [x] ISC-139: Anti: The miniature interface invents no live activity or acceptance records.
 
-- [ ] ISC-140: Antecedent: Seven residents correspond exactly to the current seven repository agent slugs.
-- [ ] ISC-141: Each resident identity cites its actual public role source.
-- [ ] ISC-142: Each three-dimensional character has a distinct role-specific prop.
-- [ ] ISC-143: Each agent has a personal station associated with its actual landmark.
-- [ ] ISC-144: Clicking a character opens its matching resident encounter.
-- [ ] ISC-145: Clicking a personal station opens its matching resident encounter.
-- [ ] ISC-146: The keyboard crew belt reaches all seven resident encounters.
-- [ ] ISC-147: Each encounter shows its actual role and source-grounded greeting.
-- [ ] ISC-148: Encounter state explains its evidence and observation time.
-- [ ] ISC-149: Encounter Meet at station selects the matching real landmark.
-- [ ] ISC-150: Encounter source action opens an indexed actual document.
-- [ ] ISC-151: Encounter field-kit action opens the matching actual agent workspace.
-- [ ] ISC-152: The home provides a direct blueprint-bench interaction.
-- [ ] ISC-153: The crew tour is explicitly labeled as a demonstration.
-- [ ] ISC-154: Activating the crew tour visibly moves its selected resident along a route.
-- [ ] ISC-155: Stopping the crew tour restores actual projected presence.
-- [ ] ISC-156: Only recent explicit scoped active records can produce observed active presence.
-- [ ] ISC-157: Newer terminal evidence suppresses older active evidence for the same job.
-- [ ] ISC-158: Future or expired active records do not produce current active presence.
-- [ ] ISC-159: Absent or stale activity evidence produces an unobserved state.
-- [ ] ISC-160: Records outside the selected tenant cannot produce observed presence.
-- [ ] ISC-161: Private projection failure clears previously projected home state.
-- [ ] ISC-162: A disconnected public fallback is explicitly stale.
-- [ ] ISC-163: Inactive and unobserved residents remain at their personal stations.
-- [ ] ISC-164: Reduced-motion mode suppresses nonessential resident walking animations.
-- [ ] ISC-165: The narrow mobile home retains usable crew and encounter controls.
-- [ ] ISC-166: The short landscape home retains a visible town and usable encounters.
-- [ ] ISC-167: The source-map list remains accessible from the inhabited home.
-- [ ] ISC-168: Sandbox and field-kit pause behavior survives the home integration.
-- [ ] ISC-169: The integrated inhabited home passes strict build and meaningful regression tests.
-- [ ] ISC-170: Anti: Health reachability or configured roles never imply an active agent.
-- [ ] ISC-171: Anti: Home encounters introduce no infrastructure execution or approval actions.
+- [x] ISC-140: Antecedent: Seven residents correspond exactly to the current seven repository agent slugs.
+- [x] ISC-141: Each resident identity cites its actual public role source.
+- [x] ISC-142: Each three-dimensional character has a distinct role-specific prop.
+- [x] ISC-143: Each agent has a personal station associated with its actual landmark.
+- [x] ISC-144: Clicking a character opens its matching resident encounter.
+- [x] ISC-145: Clicking a personal station opens its matching resident encounter.
+- [x] ISC-146: The keyboard crew belt reaches all seven resident encounters.
+- [x] ISC-147: Each encounter shows its actual role and source-grounded greeting.
+- [x] ISC-148: Encounter state explains its evidence and observation time.
+- [x] ISC-149: Encounter Meet at station selects the matching real landmark.
+- [x] ISC-150: Encounter source action opens an indexed actual document.
+- [x] ISC-151: Encounter field-kit action opens the matching actual agent workspace.
+- [x] ISC-152: The home provides a direct blueprint-bench interaction.
+- [x] ISC-153: The crew tour is explicitly labeled as a demonstration.
+- [x] ISC-154: Activating the crew tour visibly moves its selected resident along a route.
+- [x] ISC-155: Stopping the crew tour restores actual projected presence.
+- [x] ISC-156: Only recent explicit scoped active records can produce observed active presence.
+- [x] ISC-157: Newer terminal evidence suppresses older active evidence for the same job.
+- [x] ISC-158: Future or expired active records do not produce current active presence.
+- [x] ISC-159: Absent or stale activity evidence produces an unobserved state.
+- [x] ISC-160: Records outside the selected tenant cannot produce observed presence.
+- [x] ISC-161: Private projection failure clears previously projected home state.
+- [x] ISC-162: A disconnected public fallback is explicitly stale.
+- [x] ISC-163: Inactive and unobserved residents remain at their personal stations.
+- [x] ISC-164: Reduced-motion mode suppresses nonessential resident walking animations.
+- [x] ISC-165: The narrow mobile home retains usable crew and encounter controls.
+- [x] ISC-166: The short landscape home retains a visible town and usable encounters.
+- [x] ISC-167: The source-map list remains accessible from the inhabited home.
+- [x] ISC-168: Sandbox and field-kit pause behavior survives the home integration.
+- [x] ISC-169: The integrated inhabited home passes strict build and meaningful regression tests.
+- [x] ISC-170: Anti: Health reachability or configured roles never imply an active agent.
+- [x] ISC-171: Anti: Home encounters introduce no infrastructure execution or approval actions.
 
 ## Test Strategy
 
@@ -888,3 +888,19 @@ Root IAB traversed all eleven stations and saved desktop images and rendered sou
 Current receipts/screenshots: /Users/sheshnarayaniyer/.codex/visualizations/2026/10/08/01a1176d-6b04-79c3-9549-9884312e0e4b/field-kit-receipt.json and final-stations-proof.json. Root executed IAB; workers independently reviewed source and performed corrections. Public fixture regenerated only from public defaults without probes. Owned loopback Vite/API stay available; shared host services unchanged. Routed Advisor still returns quota429; requested GPT5.4 Cato is unsupported for this ChatGPT account, with no reviewer verdict claimed.
 
 ReReadCheck — latest user request: "this still looks like saas dashboard and how do we not have htis and sty in the mini game aesthrtics throught out". The fullscreen enterprise shell, vertical operations menu, KPI grid and table records were replaced with a nonmodal toy field kit, colored station belt, companion guide and physical record materials across all11panes, while actual city interaction and source contracts remain present. This completes the visual correction lane; it does not accept the26historical installation/device/cloud requirements.
+
+
+## Verification — inhabited home complete, 8 October 2026
+
+- ISC-140..143: Seven definitions match the actual repository slugs and cite fourteen public IDENTITY/SOUL files. Seven distinct procedural 4.2-unit toy actors, role props and personal installations belong to their canonical agent landmarks. Station visits use a steeper camera above neighboring towers.
+- ISC-144..151: Root IAB directly clicked the visible CEO character and its map desk, each opening the CEO encounter. All seven portrait buttons opened matching identities through keyboard Enter; roles, greetings, station IDs and both source paths were read back. CEO identity opened the indexed source with full SHA256 fc1a86f4e7d736fb7577995d5665898824f0b41db9c5ec63d379e46be3ecde57. CEO and Sentinel encounter actions opened their exact filtered agent Field Kit; Meet at station closes the paper before framing its actual station. Escape restores the initiating portrait focus.
+- ISC-152..155: Direct Open blueprint opens the actual proposal bench. The manual crew tour displays DEMO and local demonstration text. Two frames within one CEO step show the actor leaving its plinth and walking the avenue; Stop tour returns all seven to their stations with No active evidence. Actual current private all-scope activity is zero; no running-session acceptance is inferred from the tour.
+- ISC-156..160,170: Thirty-seven pure presence tests cover exact agent/tenant activity, the 120-second active window, terminal supersession including anonymous same-job revocation, unrelated jobs, malformed/future timestamps, held approval, absent/stale evidence and health/configuration non-authority. A one-second independent freshness calculation also runs while the kit leaves the town visible; presence changes alone update scene and home controls.
+- ISC-161..162: Root IAB selected actual HeyZack scope; transport loss after the bounded deadline closed its encounter and cleared reason/evidence DOM text to zero characters. Actual owned API HTTP200 public-fixtures response was rejected after established private intent in both home and kit; no public fixture action appeared. API-blocked fresh client loaded explicit Disconnected/public source fixture/stale. Browser network overrides were removed, the owned API restored to its exact explicit private data root and current private scope reverified.
+- ISC-163..164: Renderer tests verify authoritative unknown/resting/held parking, held gates, sandbox isolation and reduced motion. IAB reduced-motion emulation produces zero-second transitions and frozen walking; preference restored. Eleven renderer tests include sampling all seven full 2400-frame deterministic loops, home return, actor-center exclusion from every building footprint, peer parking and unique resource disposal.
+- ISC-165..167: Portrait390x844 emulation (CSS355x767) leaves a separate194.62px-high actual canvas above the230px encounter and below116.51px mission strip; all seven encounters and Sentinel workspace usable, no page overflow. Short landscape667x375 (CSS606x341) leaves149.26px-high town with a right ticket and reachable workspace action. Source notes hide competing home overlays; Archive tab now selects the actual Knowledge Archive inspector. Back to crew restores encounters. Accessible map retains16 node buttons and7 crew tokens without WebGL. These are browser-emulation checks, not physical phone proof.
+- ISC-168..171: Actual game starts, kit opening pauses44.7seconds, which remains44.7 after wall time; packing away restores Simulation Paused and Return to Source Map restores residents. Final strict TypeScript/Vite and101 Vitest checks pass, alongside45 focused backend checks. No execution, enablement or approval action was introduced. Acceptance reader now has a separate bounded256KiB ledger limit and explicitly warns on oversize; no arbitrary document limit was widened.
+
+Root executed IAB; separate workers reviewed source and tested models/renderer. Heavy generation resolved through local OmniRoute to antigravity/gemini-3.7-flash-low; host model configuration and shared services were untouched. Advisor returned quota429, providing no reviewer verdict. Public fixture regenerated from public defaults only. Receipts and actual screenshots are under /Users/sheshnarayaniyer/.codex/visualizations/2026/10/08/01a1176d-6b04-79c3-9549-9884312e0e4b/inhabited-home-receipt.json. Owned Vite18760 and explicit private API18761 remain available; no push, deployment or physical readiness follows.
+
+ReReadCheck — latest user request: "how do we make the home and the ecossytem we have more interactive and have agent sprcifc and rolespecifc identities and characters thats are woalking around when active and have station where they are when inactive and overall game liek interface and the more interaction on the home page rather than just hte buuldings". The home now has seven source-specific characters, personal stations, direct encounters and role portraits, walking driven by scoped evidence, a labeled tour, source/workspace visits and a blueprint interaction. The32 current criteria are accepted;145/171 overall retains26 historical installation/device/cloud criteria open.

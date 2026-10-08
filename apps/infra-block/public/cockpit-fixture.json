@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.cockpit.v1",
-  "generatedAt": "2026-10-08T09:15:39.646203+00:00",
+  "generatedAt": "2026-10-08T10:49:43.107909+00:00",
   "scope": {
     "mode": "public-fixtures",
     "tenant": null,
@@ -4697,6 +4697,198 @@
       "criterion": "Anti: The miniature interface invents no live activity or acceptance records.",
       "status": "accepted",
       "source": "ISA.md"
+    },
+    {
+      "id": "ISC-140",
+      "criterion": "Antecedent: Seven residents correspond exactly to the current seven repository agent slugs.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-141",
+      "criterion": "Each resident identity cites its actual public role source.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-142",
+      "criterion": "Each three-dimensional character has a distinct role-specific prop.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-143",
+      "criterion": "Each agent has a personal station associated with its actual landmark.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-144",
+      "criterion": "Clicking a character opens its matching resident encounter.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-145",
+      "criterion": "Clicking a personal station opens its matching resident encounter.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-146",
+      "criterion": "The keyboard crew belt reaches all seven resident encounters.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-147",
+      "criterion": "Each encounter shows its actual role and source-grounded greeting.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-148",
+      "criterion": "Encounter state explains its evidence and observation time.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-149",
+      "criterion": "Encounter Meet at station selects the matching real landmark.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-150",
+      "criterion": "Encounter source action opens an indexed actual document.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-151",
+      "criterion": "Encounter field-kit action opens the matching actual agent workspace.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-152",
+      "criterion": "The home provides a direct blueprint-bench interaction.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-153",
+      "criterion": "The crew tour is explicitly labeled as a demonstration.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-154",
+      "criterion": "Activating the crew tour visibly moves its selected resident along a route.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-155",
+      "criterion": "Stopping the crew tour restores actual projected presence.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-156",
+      "criterion": "Only recent explicit scoped active records can produce observed active presence.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-157",
+      "criterion": "Newer terminal evidence suppresses older active evidence for the same job.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-158",
+      "criterion": "Future or expired active records do not produce current active presence.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-159",
+      "criterion": "Absent or stale activity evidence produces an unobserved state.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-160",
+      "criterion": "Records outside the selected tenant cannot produce observed presence.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-161",
+      "criterion": "Private projection failure clears previously projected home state.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-162",
+      "criterion": "A disconnected public fallback is explicitly stale.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-163",
+      "criterion": "Inactive and unobserved residents remain at their personal stations.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-164",
+      "criterion": "Reduced-motion mode suppresses nonessential resident walking animations.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-165",
+      "criterion": "The narrow mobile home retains usable crew and encounter controls.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-166",
+      "criterion": "The short landscape home retains a visible town and usable encounters.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-167",
+      "criterion": "The source-map list remains accessible from the inhabited home.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-168",
+      "criterion": "Sandbox and field-kit pause behavior survives the home integration.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-169",
+      "criterion": "The integrated inhabited home passes strict build and meaningful regression tests.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-170",
+      "criterion": "Anti: Health reachability or configured roles never imply an active agent.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-171",
+      "criterion": "Anti: Home encounters introduce no infrastructure execution or approval actions.",
+      "status": "accepted",
+      "source": "ISA.md"
     }
   ],
   "routing": {
@@ -6213,7 +6405,7 @@
       "path": "docs/infra-cockpit.md",
       "title": "infra-cockpit",
       "kind": "md",
-      "bytes": 6324
+      "bytes": 7798
     },
     {
       "path": "docs/onboarding.md",
