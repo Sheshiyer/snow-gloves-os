@@ -66,7 +66,7 @@ export function mountFleetAtlas(
     button.type = 'button';
     button.className = 'sg-fleet-island';
     button.dataset.island = layout.id;
-    const color = typeof layout.color === 'number' ? `#${layout.color.toString(16).padStart(6, '0')}` : layout.color;
+    const color = layout.color;
     button.style.setProperty('--island-accent', color);
     const thumbnail = document.createElement('span');
     thumbnail.className = 'sg-fleet-thumbnail';
