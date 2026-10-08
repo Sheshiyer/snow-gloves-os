@@ -2,6 +2,8 @@ import { renderBrandPassport } from './brand-summary';
 import './ops.css';
 import { loadSnapshot, loadDocument, previewPlan, validateSnapshot } from './ops-client';
 import type { OpsSnapshot, OpsDocument, PlanRequest, PlanPreview } from './ops-contracts';
+import { fleetNodes, fleetActivity } from './fleet-model';
+import { derivePresence } from './residents';
 
 function safeHtml(parts: TemplateStringsArray, ...values: unknown[]): string {
   const escape = (v: unknown): string => {
@@ -2510,10 +2512,57 @@ function renderOverview(): HTMLElement {
     const secHeader = document.createElement('div');
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Wing hangar</h2>
-      <div class="oc-section-desc">Wing profile definitions, contract prerequisites, and public recovery documents</div>
+      <h2 class="oc-section-title">Fleet archipelago</h2>
+      <div class="oc-section-desc">Four island towns, three role profiles, and source evidence for the fleet</div>
     </div>`;
     frag.appendChild(secHeader);
+
+    const islandChart = document.createElement('section');
+    islandChart.className = 'oc-island-chart';
+    islandChart.setAttribute('aria-label', 'Four Mac mini island slots');
+    const chartHeading = document.createElement('h3');
+    chartHeading.className = 'oc-island-chart-title';
+    chartHeading.textContent = 'Two Coding · One Creative · One Marketing';
+    const chartNote = document.createElement('p');
+    chartNote.className = 'oc-island-chart-note';
+    chartNote.textContent = 'Visit each island to explore its town. Inventory assignment and current work evidence are separate. Brand stations are shared portfolio sources without a device assignment.';
+    const islandGrid = document.createElement('div');
+    islandGrid.className = 'oc-island-grid';
+    const generatedMs = Date.parse(snapshot?.generatedAt || '');
+    const age = Date.now() - generatedMs;
+    const workStale = isStale || lastLoadedSource === 'fixture' || !Number.isFinite(age) || age < 0 || age > 120000;
+    for (const node of fleetNodes(snapshot)) {
+      const slot = document.createElement('article');
+      slot.className = 'oc-island-slot';
+      slot.dataset.wing = node.wing;
+      slot.dataset.assignment = node.assignment;
+      const name = document.createElement('h4');
+      name.textContent = node.name;
+      const assignment = document.createElement('span');
+      assignment.className = 'oc-island-assignment';
+      assignment.textContent = node.assignment === 'configured' ? 'Configured inventory slot' : node.assignment === 'template' ? 'Public template' : 'Planned · Device pending';
+      const presence = derivePresence(snapshot ? { ...snapshot, activity: fleetActivity(snapshot, node.id) } : null, Date.now(), workStale || node.assignment === 'planned');
+      const observed = presence.filter(item => item.evidence === 'observed');
+      const work = document.createElement('p');
+      work.textContent = observed.length ? `Work observed · ${observed.filter(item => item.state === 'active').length} active crew` : 'Work unknown · No current device-bound activity';
+      const role = document.createElement('p');
+      role.className = 'oc-island-role';
+      role.textContent = `Role: ${node.wing === 'design' ? 'Creative' : node.wing === 'coding' ? 'Coding' : 'Marketing'} · Profile: ${node.profileId}`;
+      const visit = document.createElement('button');
+      visit.type = 'button';
+      visit.className = 'oc-btn oc-btn-sm oc-island-visit';
+      visit.textContent = `Visit ${node.name}`;
+      visit.onclick = () => host.dispatchEvent(new CustomEvent('fleet-visit', { bubbles: true, detail: { id: node.id } }));
+      slot.append(name, assignment, role, work, visit);
+      islandGrid.appendChild(slot);
+    }
+    islandChart.append(chartHeading, chartNote, islandGrid);
+    frag.appendChild(islandChart);
+
+    const profilesHeading = document.createElement('h3');
+    profilesHeading.className = 'oc-section-title';
+    profilesHeading.textContent = 'Wing profile contracts';
+    frag.appendChild(profilesHeading);
 
     const setup = document.createElement('button'); setup.className = 'oc-btn'; setup.textContent = 'New Mac setup guide';
     setup.onclick = () => { void openDocViewer('docs/OPS-WORKSPACE.md'); }; frag.appendChild(setup);

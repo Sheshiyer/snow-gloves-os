@@ -8,6 +8,7 @@ import {
 } from './residents';
 import type { OpsSnapshot } from './ops-contracts';
 import { loadSnapshot, validateSnapshot } from './ops-client';
+import { FLEET_LAYOUT, fleetActivity, fleetNodes, type FleetProjection } from './fleet-model';
 
 export interface HomeNavigation { slug: string | null; x: number; z: number; moving: boolean; nearbySlug: string | null; }
 
@@ -24,6 +25,7 @@ export interface MountHomeCallbacks {
 }
 
 export interface HomeHandle {
+  setFleetSelection(id: string): void;
   setNavigation(state: HomeNavigation): void;
   getControlledSlug(): string | null;
   walkAsResident(slug: string): void;
@@ -176,6 +178,8 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   let requestGeneration = 0;
   let expectedScopeMode: 'public-fixtures' | 'local-private' | null = null;
   let notesOpen = false;
+  let selectedIslandId = 'mac-coding-1';
+  let worldView: 'town' | 'archipelago' = 'town';
 
   let projection: ProjectionState = {
     snapshot: null,
@@ -192,8 +196,9 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
       <header class="ih-mission-strip" id="ih-mission-strip">
         <div class="ih-mission-header-bar">
           <div class="ih-mission-title-group">
-            <div class="ih-stamp-tag">SNOW GLOVES · TOY TOWN</div>
+            <div class="ih-stamp-tag">SNOW GLOVES · ISLAND TOWN</div>
             <h1 class="ih-mission-headline">Meet the crew.</h1>
+            <div class="ih-island-caption" id="ih-island-caption">Mac Coding 01 · Local exploration</div>
             <button type="button" class="ih-btn ih-btn-accent" id="ih-btn-walk-start">Walk as CEO</button>
           </div>
           <details class="ih-town-tools"><summary>Town tools</summary><div class="ih-mission-actions">
@@ -342,6 +347,10 @@ function walkResident(slug: string): void {
   clearManualInput();
   stopDemoTour();
   closeDialogue();
+  if (worldView === 'archipelago') {
+    // Travel is handled by the same root bridge as Fleet Kit visits.
+    host.dispatchEvent(new CustomEvent('fleet-visit', { bubbles: true, detail: { id: selectedIslandId } }));
+  }
   callbacks.controlResident(slug);
   canvas.setAttribute('tabindex', '0');
   canvas.focus();
@@ -412,7 +421,7 @@ touchPad.innerHTML = `
 const touchButtons = touchPad.querySelectorAll<HTMLButtonElement>('.ih-touch-btn');
 
 function recalculateTouchInput(): void {
-  if (isBlocked() || !controlledSlug) {
+  if (isBlocked() || (!controlledSlug && worldView !== 'archipelago')) {
     clearManualInput();
     return;
   }
@@ -500,7 +509,7 @@ function updateNavigation(state: HomeNavigation): void {
     if (resident) {
       if (identityChanged) hudPortraitEl.innerHTML = getFixedPortraitSvg(resident.slug);
       hudNameEl.textContent = resident.name;
-      hudSubEl.textContent = 'LOCAL EXPLORATION';
+      hudSubEl.textContent = `${selectedIslandName()} · Local exploration`;
     } else {
       hudPortraitEl.innerHTML = '';
       hudNameEl.textContent = state.slug;
@@ -521,11 +530,11 @@ function updateNavigation(state: HomeNavigation): void {
   } else {
     hudWrap.classList.remove('ih-walk-active');
     hudPortraitEl.innerHTML = '';
-    hudNameEl.textContent = 'Town Overview';
-    hudMovingEl.textContent = 'Overview';
+    hudNameEl.textContent = worldView === 'archipelago' ? 'Fleet chart' : selectedIslandName();
+    hudMovingEl.textContent = worldView === 'archipelago' ? 'Chart' : 'Overview';
     hudMovingEl.className = 'ih-walk-badge';
     hudCoordsEl.textContent = `Grid: ${state.x.toFixed(1)}, ${state.z.toFixed(1)}`;
-    hudSubEl.textContent = 'Select resident to explore';
+    hudSubEl.textContent = worldView === 'archipelago' ? 'WASD / arrows · Explore the horizon' : 'Select resident · Local exploration';
     hudNearbyBtn.disabled = true;
     hudNearbyBtn.textContent = 'Meet nearby (E)';
   }
@@ -560,8 +569,67 @@ function disposeNavigation(): void {
       const activeSlug = tourActiveSlug;
       return demoPresence(activeSlug);
     }
-    return derivePresence(projection.snapshot, Date.now(), projection.stale);
+    const fleetProjection = currentFleetProjection();
+    const scopedSnapshot = fleetProjection.snapshot ? {
+      ...fleetProjection.snapshot,
+      activity: fleetActivity(fleetProjection.snapshot, selectedIslandId)
+    } : null;
+    const assignment = fleetNodes(fleetProjection.snapshot).find(node => node.id === selectedIslandId)?.assignment;
+    return derivePresence(scopedSnapshot, Date.now(), fleetProjection.stale || assignment === 'planned');
   }
+
+  function selectedIslandName(): string {
+    return FLEET_LAYOUT.find(node => node.id === selectedIslandId)?.name || 'Fleet island';
+  }
+
+  function currentFleetProjection(): FleetProjection {
+    const timestamp = Date.parse(projection.snapshot?.generatedAt || '');
+    const age = Date.now() - timestamp;
+    return {
+      snapshot: projection.source === 'unavailable' ? null : projection.snapshot,
+      scopeMode: projection.scopeMode,
+      tenant: projection.tenant,
+      stale: projection.stale || projection.source === 'unavailable' || !Number.isFinite(age) || age < 0 || age > 120000,
+      source: projection.source
+    };
+  }
+
+  function broadcastFleetProjection(): void {
+    if (disposed) return;
+    const caption = host.querySelector('#ih-island-caption');
+    if (caption) caption.textContent = `${selectedIslandName()} · ${worldView === 'archipelago' ? 'Fleet chart' : 'Local exploration'}`;
+    host.dispatchEvent(new CustomEvent<FleetProjection>('fleet-projection', { bubbles: true, detail: currentFleetProjection() }));
+  }
+
+  function setFleetSelection(id: string): void {
+    if (disposed || !FLEET_LAYOUT.some(node => node.id === id)) return;
+    const changed = selectedIslandId !== id;
+    selectedIslandId = id;
+    rootEl.dataset.fleetIsland = id;
+    if (changed) {
+      clearManualInput();
+      stopDemoTour();
+      if (selectedSlug) closeDialogue();
+      presenceSignature = '';
+    }
+    // Island identity can change while every resident still has Unknown evidence.
+    broadcastFleetProjection();
+    broadcastPresence();
+    if (controlledSlug) hudSubEl.textContent = `${selectedIslandName()} · Local exploration`;
+    else hudNameEl.textContent = worldView === 'archipelago' ? 'Fleet chart' : selectedIslandName();
+  }
+
+  const handleFleetSelection = (event: Event): void => {
+    const detail = (event as CustomEvent<{ id?: string; view?: string }>).detail;
+    if (!detail || (detail.view !== 'town' && detail.view !== 'archipelago')) return;
+    worldView = detail.view;
+    document.body.classList.toggle('home-archipelago', worldView === 'archipelago');
+    clearManualInput();
+    if (typeof detail.id === 'string') setFleetSelection(detail.id);
+    hudNearbyBtn.disabled = true;
+    hudNameEl.textContent = worldView === 'archipelago' ? 'Fleet chart' : selectedIslandName();
+    hudSubEl.textContent = worldView === 'archipelago' ? 'WASD / arrows · Explore the horizon' : 'Select resident · Local exploration';
+  };
 
   function renderBelt(): void {
     const presences = getActivePresenceList();
@@ -659,7 +727,7 @@ function disposeNavigation(): void {
       stateEl.textContent = pres.label;
       stateEl.className = `ih-ticket-state-badge ih-state-${pres.state}`;
       evidenceEl.textContent = `${pres.evidence}`;
-      reasonEl.textContent = pres.reason;
+      reasonEl.textContent = `${selectedIslandName()} · ${pres.reason}`;
       if (pres.recordId || pres.observedAt) {
         recordWrap.hidden = false;
         recordEl.textContent = `${pres.recordId || 'No-ID'} ${pres.observedAt ? '· ' + pres.observedAt : ''}`;
@@ -736,12 +804,14 @@ function disposeNavigation(): void {
       expectedScopeMode = next.scopeMode;
     }
     projection = { ...projection, ...next };
+    if (projection.source === 'unavailable') projection.snapshot = null;
     if (next.snapshot === null && expectedScopeMode === 'local-private') {
       if (selectedSlug) closeDialogue();
       for (const id of ['ih-ticket-reason', 'ih-ticket-record', 'ih-ticket-evidence']) { const field = host.querySelector('#' + id); if (field) field.textContent = ''; }
     }
     updateConnectionUI();
     broadcastPresence();
+    broadcastFleetProjection();
     host.dispatchEvent(new CustomEvent('brand-projection', {bubbles:true, detail:{snapshot:projection.snapshot, mode:projection.scopeMode, stale:projection.stale}}));
   }
 
@@ -992,6 +1062,7 @@ function disposeNavigation(): void {
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
   document.addEventListener('cockpit-snapshot', handleSnapshotEvent as EventListener);
+  document.addEventListener('fleet-selection', handleFleetSelection);
   window.addEventListener('keydown', handleKeyDown);
 
   const measureHome = () => {
@@ -1010,11 +1081,12 @@ function disposeNavigation(): void {
   updateConnectionUI();
   setupPolling();
   freshnessTimer = window.setInterval(() => {
-    if (isVisible && !document.hidden) { updateConnectionUI(); if (!isDemoTourRunning) broadcastPresence(); }
+    if (isVisible && !document.hidden) { updateConnectionUI(); if (!isDemoTourRunning) broadcastPresence(); broadcastFleetProjection(); }
   }, 1000);
   requestSnapshotPoll();
 
   return {
+    setFleetSelection,
     setNavigation(state: HomeNavigation): void { updateNavigation(state); },
     getControlledSlug(): string | null { return controlledSlug; },
     walkAsResident(slug: string): void { walkResident(slug); },
@@ -1077,10 +1149,12 @@ function disposeNavigation(): void {
       pendingController = null;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('cockpit-snapshot', handleSnapshotEvent as EventListener);
+      document.removeEventListener('fleet-selection', handleFleetSelection);
       window.removeEventListener('keydown', handleKeyDown);
       document.body.classList.remove('home-explore');
       document.body.classList.remove('field-kit-open');
       document.body.classList.remove('source-notes-open');
+      document.body.classList.remove('home-archipelago');
       host.innerHTML = '';
     }
   };
