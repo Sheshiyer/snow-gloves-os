@@ -1326,3 +1326,50 @@ details.oc-connection-notes[open] summary::before {
 @media (max-width: 760px) {
   .oc-dialog { max-height: 70dvh; margin: auto 12px 12px; width: calc(100vw - 24px); }
 }
+
+/* Compact kit lid: glyph and two text lines share one horizontal badge. */
+.oc-header { padding: 8px 12px; min-height: 66px; gap: 10px; }
+.oc-brand-block { display: grid; grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: 25px 19px; column-gap: 9px; row-gap: 0; align-items: center; }
+.oc-brand-block > .oc-object-mark { grid-column: 1; grid-row: 1 / 3; width: 40px; height: 44px; }
+.oc-brand-title { grid-column: 2; grid-row: 1; font-size: 23px; line-height: 1; }
+.oc-brand-subtitle { grid-column: 2; grid-row: 2; justify-self: start; font-size: 9px; padding: 1px 5px; max-width: 100%; overflow-wrap: anywhere; }
+.oc-btn-return { min-height: 44px; font-size: 13px; white-space: nowrap; }
+.oc-cockpit > .oc-search-box { margin-block: 8px; }
+.oc-search-icon { width: 22px; height: 22px; left: 12px; }
+.oc-search-icon .oc-toy-icon { width: 22px; height: 22px; flex-shrink: 0; }
+.oc-search-input { padding-left: 42px; }
+.oc-contextbar { padding: 0 12px; }
+.oc-contextbar summary { min-height: 44px; }
+.oc-content { padding: 12px; }
+.oc-town-welcome { display: grid !important; grid-template-columns: minmax(0, 1fr); padding: 12px !important; gap: 8px !important; align-items: start !important; }
+.oc-town-welcome > div { min-width: 0; }
+.oc-town-welcome h2 { font-size: 22px !important; line-height: 1.05; }
+.oc-town-welcome > div:first-child > div:last-child { font-size: 12px !important; line-height: 1.4; }
+.oc-companion { width: 100%; min-height: 44px; padding: 6px 10px !important; gap: 10px !important; }
+.oc-companion > div { min-width: 0; }
+.oc-companion > div > div { white-space: nowrap; letter-spacing: 0; }
+.oc-card { padding: 10px; gap: 6px; }
+.oc-station-grid { gap: 8px !important; }
+.oc-station-token { padding: 8px 5px !important; gap: 5px !important; min-height: 86px; }
+.oc-nav-list > li:nth-child(6n + 1) .oc-nav-btn,
+.oc-station-token:nth-child(6n + 1) { background: #d4b873 !important; }
+.oc-nav-list > li:nth-child(6n + 2) .oc-nav-btn,
+.oc-station-token:nth-child(6n + 2) { background: #b4c698 !important; }
+.oc-nav-list > li:nth-child(6n + 3) .oc-nav-btn,
+.oc-station-token:nth-child(6n + 3) { background: #d5aaa4 !important; }
+.oc-nav-list > li:nth-child(6n + 4) .oc-nav-btn,
+.oc-station-token:nth-child(6n + 4) { background: #a9c2c8 !important; }
+.oc-nav-list > li:nth-child(6n + 5) .oc-nav-btn,
+.oc-station-token:nth-child(6n + 5) { background: #a8c5b9 !important; }
+.oc-nav-list > li:nth-child(6n + 6) .oc-nav-btn,
+.oc-station-token:nth-child(6n + 6) { background: #dfc59d !important; }
+.oc-nav-list .oc-nav-btn.oc-active { background: #d99f79 !important; color: var(--oc-ink); box-shadow: 3px 4px 0 var(--oc-ink), inset 0 0 0 2px var(--oc-paper); }
+.oc-nav-btn .oc-toy-icon { width: 32px; height: 32px; }
+@media (max-width: 480px) {
+  .oc-header { padding: 7px 10px; }
+  .oc-brand-block { grid-template-columns: 40px minmax(0, 1fr); column-gap: 6px; }
+  .oc-brand-title { font-size: 21px; }
+  .oc-brand-subtitle { font-size: 8px; }
+  .oc-btn-return { font-size: 12px; }
+  .oc-town-welcome { padding: 10px !important; }
+}
