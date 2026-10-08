@@ -12,7 +12,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from lib.cockpit_snapshot import build_snapshot, preview_plan, read_document
+from lib.cockpit_snapshot import MAX_ACCEPTANCE_BYTES, MAX_DOC_BYTES, build_snapshot, preview_plan, read_document
 
 
 def write(path: Path, value: object) -> None:
@@ -70,6 +70,18 @@ def test_real_hook_preview_matches_source_and_is_never_executable():
     preview = preview_plan(ROOT, {"tenant": "acme", "title": "Refresh GTM brief and brand registration", "modules": []})
     assert any(r["agent"] == "interpreter" and r["hook"] == "gtm-brief-synthesis" and "snowgloves:gtm-brief-synthesis" in r["skills"] for r in preview["routes"])
     assert preview["executable"] is False
+
+
+def test_acceptance_history_has_a_separate_bounded_reader(tmp_path):
+    ledger = tmp_path / "ISA.md"
+    ledger.write_text("- [x] ISC-1: Source proof\n" + "Historical context\n" * (MAX_DOC_BYTES // 18 + 1))
+    assert MAX_DOC_BYTES < ledger.stat().st_size < MAX_ACCEPTANCE_BYTES
+    snap = build_snapshot(tmp_path, probe=False)
+    assert snap["acceptance"] == [{"id": "ISC-1", "criterion": "Source proof", "status": "accepted", "source": "ISA.md"}]
+    ledger.write_text("- [x] ISC-1: Source proof\n" + "X" * MAX_ACCEPTANCE_BYTES)
+    snap = build_snapshot(tmp_path, probe=False)
+    assert snap["acceptance"] == []
+    assert any(w["code"] == "acceptance_unavailable" for w in snap["warnings"])
 
 
 def test_scoped_instance_and_ambient_default_are_read_only(tmp_path, monkeypatch):

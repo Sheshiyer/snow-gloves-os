@@ -28,6 +28,7 @@ from lib.redact import redact_text
 MAX_FILE_BYTES = 4 * 1024 * 1024       # 4 MB max YAML/JSON
 MAX_CATALOG_BYTES = 1 * 1024 * 1024    # 1 MB max catalog
 MAX_DOC_BYTES = 128 * 1024             # 128 KiB max doc read
+MAX_ACCEPTANCE_BYTES = 256 * 1024      # Ledger history grows independently of document previews
 MAX_AUDIT_TAIL_BYTES = 256 * 1024      # 256 KiB max audit tail
 MAX_AUDIT_LINE_BYTES = 8 * 1024        # 8 KiB per audit line
 MAX_AUDIT_RECORDS = 100
@@ -573,8 +574,9 @@ def _load_acceptance(repo_root: Path) -> Tuple[List[Dict[str, Any]], List[Dict[s
     if not _is_safe_path(repo_root, isa_path) or not isa_path.is_file():
         return acceptance, warnings
 
-    content = _safe_read_text(isa_path, max_bytes=MAX_DOC_BYTES, reject_oversize=True)
+    content = _safe_read_text(isa_path, max_bytes=MAX_ACCEPTANCE_BYTES, reject_oversize=True)
     if not content:
+        warnings.append({"code": "acceptance_unavailable", "message": "Acceptance ledger unreadable or exceeds its bounded reader limit."})
         return acceptance, warnings
 
     # Only parse markdown checkbox ISC criterion lines: e.g. - [x] ISC-101: description or - [ ] ISC-102: desc
