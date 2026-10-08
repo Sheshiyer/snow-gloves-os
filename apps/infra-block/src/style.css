@@ -1018,7 +1018,7 @@ body.field-kit-open .sg-map-view {
     top: 0;
     left: 0;
     width: 100% !important;
-    height: calc(40dvh - 76px) !important;
+    height: calc(40dvh - 184px) !important;
     min-height: 0 !important;
     border-radius: var(--toy-radius);
   }

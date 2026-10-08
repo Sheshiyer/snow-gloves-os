@@ -767,7 +767,7 @@ document.getElementById('btn-res-share')?.addEventListener('click', () => {
 });
 
 window.addEventListener('keydown', (e: KeyboardEvent) => {
-  if ((e.target as HTMLElement)?.closest('.oc-cockpit, .oc-nav, dialog')) return;
+  if ((e.target as HTMLElement)?.closest('.oc-cockpit, .oc-nav, .oc-dialog')) return;
   if (document.body.classList.contains('field-kit-open') && e.code === 'Escape') return;
   const tag = (e.target as HTMLElement)?.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;

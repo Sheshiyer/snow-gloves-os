@@ -317,6 +317,8 @@ export function mountCockpit(
   let currentSection: SectionName = 'Overview';
   let selectedNodeContext: string | null = null;
   let selectedTenantScope: string = '';
+  let expectedScopeMode: OpsSnapshot['scope']['mode'] | null = null;
+  let renderedSection: SectionName | null = null;
 
   let snapshot: OpsSnapshot | null = null;
   let isFetching = false;
@@ -479,7 +481,7 @@ export function mountCockpit(
     render();
 
     const requestedTenant = selectedTenantScope || undefined;
-    const requiresScopedResponse = Boolean(requestedTenant) || snapshot?.scope.mode === 'local-private';
+    const requiresScopedResponse = Boolean(requestedTenant) || expectedScopeMode === 'local-private';
 
     try {
       if (!forceFixtureFallback) {
@@ -488,6 +490,7 @@ export function mountCockpit(
           if (signal.aborted || currentGen !== fetchGeneration) return;
           if (data && data.schema === 'snowgloves.cockpit.v1') {
             snapshot = data;
+            expectedScopeMode = data.scope.mode;
             selectedTenantScope = data.scope.tenant || '';
             isStale = false;
             lastLoadedSource = 'api';
@@ -539,6 +542,7 @@ export function mountCockpit(
             fixture.scope.mode === 'public-fixtures'
           ) {
             snapshot = fixture;
+            expectedScopeMode = fixture.scope.mode;
             isStale = true;
             lastLoadedSource = 'fixture';
             genericFetchError = null;
@@ -850,6 +854,11 @@ export function mountCockpit(
     onSelectNode(buildingId);
   }
 
+  function visitStation(section: SectionName): void {
+    currentSection = section;
+    focusStation(section);
+  }
+
   function focusStation(section: SectionName) {
     const landmarks: Record<SectionName, string> = {Overview:'hermes-bus', Agents:'agent-chief-of-staff', Modules:'module-catalog', Runtimes:'runtime-adapters', Connectors:'connector-gate', Tenants:'tenant-vault', Fleet:'fleet-wings', Activity:'hermes-bus', Workbench:'agent-cto', Evidence:'agent-sentinel', Resources:'knowledge-archive'};
     host.dispatchEvent(new CustomEvent('cockpit-station', {detail:{nodeId:landmarks[section]}}));
@@ -860,6 +869,7 @@ export function mountCockpit(
 
     const focused = document.activeElement as HTMLElement | null;
     const activeId = focused?.id || null;
+    const focusWasInKit = Boolean(focused && rootEl.contains(focused));
     let selStart: number | null = null;
     let selEnd: number | null = null;
     if (focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement) {
@@ -870,7 +880,8 @@ export function mountCockpit(
     }
 
     const prevContent = rootEl.querySelector('.oc-content');
-    const prevScrollTop = prevContent ? prevContent.scrollTop : 0;
+    const prevScrollTop = renderedSection === currentSection && prevContent ? prevContent.scrollTop : 0;
+    renderedSection = currentSection;
 
     rootEl.innerHTML = '';
 
@@ -921,7 +932,7 @@ export function mountCockpit(
     scopeSel.className = 'oc-filter-select';
     const optPublic = document.createElement('option');
     optPublic.value = '';
-    optPublic.textContent = snapshot?.scope.mode === 'local-private' ? 'Instance (All Tenants)' : 'Public (All Scope)';
+    optPublic.textContent = expectedScopeMode === 'local-private' ? 'Instance (All Tenants)' : 'Public (All Scope)';
     scopeSel.appendChild(optPublic);
     if (selectedTenantScope && !snapshot?.tenants.some(tenant => tenant.slug === selectedTenantScope)) {
       const pendingScope = document.createElement('option');
@@ -1060,8 +1071,7 @@ export function mountCockpit(
       }
 
       btn.onclick = () => {
-        currentSection = sec;
-        focusStation(sec);
+        visitStation(sec);
         selectedNodeContext = null;
         render();
       };
@@ -1083,8 +1093,7 @@ export function mountCockpit(
         }
         if (targetIdx !== idx) {
           const nextSec = SECTIONS[targetIdx];
-          currentSection = nextSec;
-          focusStation(nextSec);
+          visitStation(nextSec);
           selectedNodeContext = null;
           render();
           const nextBtn = document.getElementById(`oc-nav-tab-${nextSec.toLowerCase()}`);
@@ -1132,7 +1141,7 @@ export function mountCockpit(
       retryBtn.onclick = () => fetchOperationsData(false);
       btnRow.appendChild(retryBtn);
 
-      if (!selectedTenantScope) {
+      if (!selectedTenantScope && expectedScopeMode !== 'local-private') {
         const fixtureBtn = document.createElement('button');
         fixtureBtn.id = 'oc-btn-empty-fixture';
         fixtureBtn.className = 'oc-btn';
@@ -1185,12 +1194,25 @@ export function mountCockpit(
     drawer.append(header, searchBox, contextBar, main);
     content.querySelectorAll<HTMLElement>('.oc-card').forEach(card => { const mark = document.createElement('span'); mark.className = 'oc-object-mark'; mark.append(toyIcon(currentSection)); card.prepend(mark); });
     rootEl.append(drawer, nav);
+    // Stable identities keep keyboard focus across polling without relying on list position.
+    const focusKeys = new Map<string, number>();
+    rootEl.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href], summary').forEach(control => {
+      if (control.id) return;
+      const cardTitle = control.closest('.oc-card, .oc-record-ticket, .oc-lantern-ticket')?.querySelector('h3, .oc-card-title, .oc-ticket-head')?.textContent || '';
+      const label = control.getAttribute('aria-label') || control.textContent || control.getAttribute('name') || control.tagName;
+      const key = `${currentSection}|${cardTitle.trim()}|${label.trim()}`;
+      let hash = 2166136261;
+      for (const char of key) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+      const count = focusKeys.get(key) || 0;
+      focusKeys.set(key, count + 1);
+      control.id = `oc-action-${(hash >>> 0).toString(36)}-${count}`;
+    });
 
     content.scrollTop = prevScrollTop;
 
     // Focus/Cursor Restoration
     if (activeId) {
-      const elToRestore = document.getElementById(activeId);
+      const elToRestore = document.getElementById(activeId) || (focusWasInKit ? document.getElementById(`oc-nav-tab-${currentSection.toLowerCase()}`) : null);
       if (elToRestore) {
         elToRestore.focus();
         if (
@@ -1264,7 +1286,7 @@ export function mountCockpit(
         item.className = 'oc-search-item';
         item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(a.slug)}</span><span class="oc-search-item-sub">Role: ${toStr(a.role)}</span>`;
         item.onclick = () => {
-          currentSection = 'Agents';
+          visitStation('Agents');
           selectedNodeContext = toStr(a.slug);
           globalSearchQuery = '';
           render();
@@ -1292,7 +1314,7 @@ export function mountCockpit(
         item.className = 'oc-search-item';
         item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(c.name || c.id)}</span><span class="oc-search-item-sub">${toStr(c.category)} · ${toStr(c.disposition)}</span>`;
         item.onclick = () => {
-          currentSection = 'Modules';
+          visitStation('Modules');
           Object.assign(moduleFilter, { search: toStr(c.id), category: 'all', disposition: 'all', risk: 'all', runtime: 'all', agent: 'all', tenant: 'all' });
           globalSearchQuery = '';
           render();
@@ -1316,7 +1338,7 @@ export function mountCockpit(
         item.className = 'oc-search-item';
         item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(ad.name || ad.id)}</span><span class="oc-search-item-sub">Mode: ${toStr(ad.plan_mode, 'default')}</span>`;
         item.onclick = () => {
-          currentSection = 'Runtimes';
+          visitStation('Runtimes');
           globalSearchQuery = '';
           render();
         };
@@ -1339,7 +1361,7 @@ export function mountCockpit(
         item.className = 'oc-search-item';
         item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(fl.name || fl.id)}</span><span class="oc-search-item-sub">Wing: ${toStr(fl.wing)}</span>`;
         item.onclick = () => {
-          currentSection = 'Fleet';
+          visitStation('Fleet');
           globalSearchQuery = '';
           render();
         };
@@ -1362,7 +1384,7 @@ export function mountCockpit(
         item.className = 'oc-search-item';
         item.innerHTML = safeHtml`<span class="oc-search-item-title">${toStr(ev.id)}: ${toStr(ev.criterion)}</span><span class="oc-search-item-sub">Status: ${toStr(ev.status)}</span>`;
         item.onclick = () => {
-          currentSection = 'Evidence';
+          visitStation('Evidence');
           globalSearchQuery = '';
           render();
         };
@@ -1399,7 +1421,7 @@ export function mountCockpit(
       for (const record of records.slice(0, 3)) {
         matchesCount++;
         const button = document.createElement('button'); button.className = 'oc-search-item'; button.textContent = `${record.id} · ${record.summary}`;
-        button.onclick = () => { currentSection = 'Activity'; activityFilter.tab = tab; activityFilter.search = record.id; activityFilter.tenant = 'all'; activityFilter.agent = 'all'; globalSearchQuery = ''; render(); };
+        button.onclick = () => { visitStation('Activity'); activityFilter.tab = tab; activityFilter.search = record.id; activityFilter.tenant = 'all'; activityFilter.agent = 'all'; globalSearchQuery = ''; render(); };
         container.appendChild(button);
       }
     }
@@ -1554,7 +1576,7 @@ function renderOverview(): HTMLElement {
     btn.style.boxShadow = isCurrent ? '0 3px 0 var(--oc-color-orange-dark, #b55318)' : '0 3px 0 var(--oc-shadow-tactile, #ded5c2)';
     btn.style.cursor = 'pointer';
     btn.style.textAlign = 'center';
-    btn.onclick = () => { currentSection = sec; selectedNodeContext = null; focusStation(sec); render(); };
+    btn.onclick = () => { visitStation(sec); selectedNodeContext = null; render(); };
 
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'oc-object-mark';
@@ -1843,7 +1865,7 @@ function renderOverview(): HTMLElement {
         filterModBtn.textContent = `Find parts (${relatedCards.length})`;
         filterModBtn.onclick = () => {
           moduleFilter.agent = slug;
-          currentSection = 'Modules';
+          visitStation('Modules');
           render();
         };
         footer.appendChild(filterModBtn);
@@ -2430,7 +2452,7 @@ function renderOverview(): HTMLElement {
       filterModsBtn.textContent = `Find parts`;
       filterModsBtn.onclick = () => {
         moduleFilter.tenant = slug;
-        currentSection = 'Modules';
+        visitStation('Modules');
         render();
       };
       footer.appendChild(filterModsBtn);
@@ -2540,7 +2562,7 @@ function renderOverview(): HTMLElement {
     const evidenceButton = document.createElement('button');
     evidenceButton.className = 'oc-btn oc-btn-sm';
     evidenceButton.textContent = 'Review Open Evidence';
-    evidenceButton.onclick = () => { currentSection = 'Evidence'; evidenceFilter.status = 'open'; render(); };
+    evidenceButton.onclick = () => { visitStation('Evidence'); evidenceFilter.status = 'open'; render(); };
     contractsLinks.appendChild(evidenceButton);
     contracts.append(contractsTitle, contractsNote, contractsLinks);
     frag.appendChild(contracts);
@@ -3374,13 +3396,13 @@ function renderEvidence(): HTMLElement {
 
       if (nodeId && BUILDING_ROUTING[nodeId]) {
         const route = BUILDING_ROUTING[nodeId];
-        currentSection = route.section;
+        visitStation(route.section);
         selectedNodeContext = route.slugMatch || null;
       } else if (nodeId && nodeId.startsWith('agent-')) {
-        currentSection = 'Agents';
+        visitStation('Agents');
         selectedNodeContext = nodeId.replace(/^agent-/, '');
       } else {
-        currentSection = 'Overview';
+        visitStation('Overview');
         selectedNodeContext = null;
       }
 
