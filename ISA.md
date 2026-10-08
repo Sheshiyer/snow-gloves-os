@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 81/139
+progress: 102/139
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
@@ -186,32 +186,32 @@ until the actual mini supplies evidence.
 - [x] ISC-106: Recovery panels distinguish available source contracts from deployment.
 - [x] ISC-107: Manual refresh updates the snapshot without duplicate renderers.
 
-- [ ] ISC-108: Antecedent: The real miniature town remains visible while the field kit is open.
-- [ ] ISC-109: The town-square view presents source-backed destination stations.
-- [ ] ISC-110: The agent view presents the actual roles as toy crew badges.
-- [ ] ISC-111: The module view presents actual catalog records as collectible parts.
-- [ ] ISC-112: The runtime view presents actual adapters as platform cartridges.
-- [ ] ISC-113: The connector view presents actual capabilities as signal-plug records.
-- [ ] ISC-114: The tenant view presents scoped metadata as neighborhood passports.
-- [ ] ISC-115: The fleet view presents actual profiles as wing-hangar pieces.
-- [ ] ISC-116: The activity view presents scoped records as courier tickets.
-- [ ] ISC-117: The proposal workbench uses a blueprint-desk visual treatment.
-- [ ] ISC-118: The evidence view presents ledger criteria as stamped records.
-- [ ] ISC-119: The resource view presents indexed documents as field-note records.
-- [ ] ISC-120: All eleven operational stations are reachable through a horizontal toolbelt.
-- [ ] ISC-121: Tenant selection retains the actual scoped metadata contract.
-- [ ] ISC-122: Technical connection metadata is available in an optional foldout.
-- [ ] ISC-123: The document viewer preserves escaped source text and full content hashes.
+- [x] ISC-108: Antecedent: The real miniature town remains visible while the field kit is open.
+- [x] ISC-109: The town-square view presents source-backed destination stations.
+- [x] ISC-110: The agent view presents the actual roles as toy crew badges.
+- [x] ISC-111: The module view presents actual catalog records as collectible parts.
+- [x] ISC-112: The runtime view presents actual adapters as platform cartridges.
+- [x] ISC-113: The connector view presents actual capabilities as signal-plug records.
+- [x] ISC-114: The tenant view presents scoped metadata as neighborhood passports.
+- [x] ISC-115: The fleet view presents actual profiles as wing-hangar pieces.
+- [x] ISC-116: The activity view presents scoped records as courier tickets.
+- [x] ISC-117: The proposal workbench uses a blueprint-desk visual treatment.
+- [x] ISC-118: The evidence view presents ledger criteria as stamped records.
+- [x] ISC-119: The resource view presents indexed documents as field-note records.
+- [x] ISC-120: All eleven operational stations are reachable through a horizontal toolbelt.
+- [x] ISC-121: Tenant selection retains the actual scoped metadata contract.
+- [x] ISC-122: Technical connection metadata is available in an optional foldout.
+- [x] ISC-123: The document viewer preserves escaped source text and full content hashes.
 - [ ] ISC-124: The field kit allows pointer interaction with the visible town.
 - [ ] ISC-125: Station navigation selects the corresponding infrastructure landmark.
-- [ ] ISC-126: The desktop field kit leaves at least forty-five percent of the viewport available to the town.
+- [x] ISC-126: The desktop field kit leaves at least forty-five percent of the viewport available to the town.
 - [ ] ISC-127: The narrow mobile field kit leaves the town visible above its sheet.
-- [ ] ISC-128: The narrow mobile layout produces no horizontal page overflow.
+- [x] ISC-128: The narrow mobile layout produces no horizontal page overflow.
 - [ ] ISC-129: Closing the field kit restores keyboard focus to its initiating control.
 - [ ] ISC-130: Reduced-motion mode suppresses nonessential new movement.
-- [ ] ISC-131: The collectible catalog filters the complete source module inventory.
-- [ ] ISC-132: The blueprint desk generates a real backend plan proposal.
-- [ ] ISC-133: The blueprint desk exports the generated proposal as local JSON.
+- [x] ISC-131: The collectible catalog filters the complete source module inventory.
+- [x] ISC-132: The blueprint desk generates a real backend plan proposal.
+- [x] ISC-133: The blueprint desk exports the generated proposal as local JSON.
 - [ ] ISC-134: Failed private-scope requests clear the projected private metadata.
 - [ ] ISC-135: Disconnected public fallback remains visibly stale.
 - [ ] ISC-136: Opening the field kit preserves the paused game timer.
@@ -817,3 +817,7 @@ Evidence is local only: native Miniflare R2 and real Durable Object storage with
 ISC-52/53: sixteen unique nodes, 31 source references, all paths present, relationship IDs valid; explicit source/local/pending evidence. ISC-54..56: IAB scene/list/keyboard selection, four-node Knowledge filter, archive search and repaired walkthrough clearing incompatible filters pass. ISC-57: MUNCH/BONGO/BOLT visibly distinct. ISC-58..64: 33 focused rules/controller assertions pass, same seed replay checked; desktop keyboard and mobile touch actions show score/destruction/cooldown; actual 45-active-second result pass; pause/retry and touch grab then throw (425 points, one demolition) pass. ISC-65/66: result retry and visible seed/character/beat URL, clipboard success/manual fallback and actual 1080×1350 PNG download pass. ISC-67/68: narrow viewport/touch and reduced-motion emulation pass; canvas mount corrected from165px to full420px stage. ISC-69: deliberate map preference exposes16 keyboard-selectable nodes with inspector/list synchronization; actual WebGL failure catch inspected, not fault-injected. ISC-70/71: strict build/33 tests and static boundary audit pass; no host service or infrastructure mutations.
 
 Actual replay:1,238,450 bytes, EBML VP9 WebM independently read by ffprobe. Browser warnings/errors empty after final source-map and game probes. The required GPT-5.4 Cato invocation was rejected as unsupported by the ChatGPT account; advisor timed out after30seconds. No model audit pass is claimed. Procedural toys replace unavailable original GLBs; principal UI localization excludes English source contracts. No physical phone, company deployment or fleet readiness acceptance follows. Historical ISC-1..51 remain unchanged; frontend lane20/20, overall45/71.
+
+## Verification — miniature field kit checkpoint, 8 October 2026
+
+Root IAB traversed all eleven stations and saved desktop images and rendered source text. The nonmodal drawer is 420px inside a 1164px viewport; actual WebGL canvas width is 703.98px (60.48%). The toolbelt reaches all eleven tabs. All eleven stations fit the 390x844 device override (355x767 CSS pixels under current browser zoom), with no horizontal page overflow. Optional Connection notes reveals real private/API/scope/age metadata. HeyZack passport has the actual 57 enabled modules; held catalog filter returns 14 of135, then source search two matching held records. README reader displays literal HTML with zero rendered images and full SHA256 c7ee17373f1cb78ca5bbc12a0734324ed04a40c4724c246894e46316beb6d061 equal to source. Blueprint returns backend schema snowgloves.cockpit.plan.v1, github-mcp allowed, agent-skills held/refused and executable false; actual downloaded plan-preview-heyzack.json hash ac0e5e862cc840c8e7baa484a15e64f6100c37f8eace73b67b1c16677d7a8342. Existing53frontend tests and strict build pass. Remaining world/keyboard/mobile-city framing/reduced motion/private-failure/public-offline/paused-game verification remains open; source audit identified internal focus transitions, polling focus, private instance fallback and pause Escape for repair before acceptance.
