@@ -109,6 +109,25 @@ export function getTerrainHeight(x: number, z: number, noiseFn: (x: number, z: n
   return rawElevation * ramp;
 }
 
+/** Exact barycentric height of the same indexed PlaneGeometry triangles. */
+export function getTerrainSurfaceHeight(x: number, z: number, noise: (x: number, z: number) => number): number {
+  const step = GROUND_SIZE / GROUND_SEGMENTS;
+  const half = GROUND_SIZE / 2;
+  const gx = Math.max(0, Math.min(GROUND_SEGMENTS, (x + half) / step));
+  const gz = Math.max(0, Math.min(GROUND_SEGMENTS, (z + half) / step));
+  const ix = Math.min(GROUND_SEGMENTS - 1, Math.floor(gx));
+  const iz = Math.min(GROUND_SEGMENTS - 1, Math.floor(gz));
+  const tx = gx - ix, tz = gz - iz;
+  const x0 = ix * step - half, z0 = iz * step - half;
+  const h00 = getTerrainHeight(x0, z0, noise);
+  const h10 = getTerrainHeight(x0 + step, z0, noise);
+  const h01 = getTerrainHeight(x0, z0 + step, noise);
+  const h11 = getTerrainHeight(x0 + step, z0 + step, noise);
+  return tx + tz <= 1
+    ? h00 + (h10 - h00) * tx + (h01 - h00) * tz
+    : h11 + (h01 - h11) * (1 - tx) + (h10 - h11) * (1 - tz);
+}
+
 /**
  * Builds a grounded continuous landscape with roads, road marks, peripheral foliage, and continuous paths.
  */
@@ -282,7 +301,7 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
   const pathMat = new THREE.MeshLambertMaterial({ color: colorStone, side: THREE.DoubleSide });
 
   // A. Outer continuous circular ribbon ring outside Chebyshev 34+
-  const ringSegments = 100;
+  const ringSegments = 300;
   const ringWidth = 1.8;
   const ringPositions = new Float32Array((ringSegments + 1) * 2 * 3);
   const ringIndices: number[] = [];
@@ -298,11 +317,11 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
 
     const inX = cosA * innerR;
     const inZ = sinA * innerR;
-    const inY = getTerrainHeight(inX, inZ, noise) + 0.06;
+    const inY = getTerrainSurfaceHeight(inX, inZ, noise) + 0.06;
 
     const outX = cosA * outerR;
     const outZ = sinA * outerR;
-    const outY = getTerrainHeight(outX, outZ, noise) + 0.06;
+    const outY = getTerrainSurfaceHeight(outX, outZ, noise) + 0.06;
 
     const vIdx = i * 2;
     ringPositions[vIdx * 3] = inX;
@@ -329,7 +348,7 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
   pathRibbonGeos.push(ringGeo);
 
   // B. Connecting Avenue Exit Ribbons (from avenue exits Chebyshev 34+ to ring, outside central city)
-  const exitRibbonSegments = 15;
+  const exitRibbonSegments = 45;
   const exitConfigs = [
     { startX: 34.0, startZ: 0, endX: 52.0, endZ: 0, nx: 0, nz: 1 },
     { startX: -34.0, startZ: 0, endX: -52.0, endZ: 0, nx: 0, nz: 1 },
@@ -347,11 +366,11 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
 
       const leftX = cx + cfg.nx * halfW;
       const leftZ = cz + cfg.nz * halfW;
-      const leftY = getTerrainHeight(leftX, leftZ, noise) + 0.06;
+      const leftY = getTerrainSurfaceHeight(leftX, leftZ, noise) + 0.06;
 
       const rightX = cx - cfg.nx * halfW;
       const rightZ = cz - cfg.nz * halfW;
-      const rightY = getTerrainHeight(rightX, rightZ, noise) + 0.06;
+      const rightY = getTerrainSurfaceHeight(rightX, rightZ, noise) + 0.06;
 
       const vIdx = i * 2;
       ribbonPos[vIdx * 3] = leftX;
@@ -443,7 +462,7 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
   let crownIdx = 0;
   for (let i = 0; i < treeCoords.length; i++) {
     const tc = treeCoords[i]!;
-    const y = getTerrainHeight(tc.x, tc.z, noise);
+    const y = getTerrainSurfaceHeight(tc.x, tc.z, noise);
 
     dummy.position.set(tc.x, y, tc.z);
     dummy.rotation.set(0, rng() * Math.PI * 2, 0);
@@ -510,7 +529,7 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
 
   for (let i = 0; i < grassCount; i++) {
     const g = grassCoords[i]!;
-    const gy = getTerrainHeight(g.x, g.z, noise);
+    const gy = getTerrainSurfaceHeight(g.x, g.z, noise);
     dummy.position.set(g.x, gy, g.z);
     dummy.rotation.set(0, rng() * Math.PI * 2, 0);
     dummy.scale.set(0.8 + rng() * 0.6, 0.8 + rng() * 0.8, 1);

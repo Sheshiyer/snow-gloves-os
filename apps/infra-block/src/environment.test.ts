@@ -241,4 +241,29 @@ describe('Grounded Square Landscape Environment', () => {
     geoSpies.forEach((spy) => expect(spy).toHaveBeenCalledTimes(1));
     matSpies.forEach((spy) => expect(spy).toHaveBeenCalledTimes(1));
   });
+  it('grounds every path vertex and tree foot on the actual terrain triangles', () => {
+    const env = createEnvironment('ground-contact');
+    env.updateMatrixWorld(true);
+    const terrain = env.getObjectByName('Terrain') as THREE.Mesh;
+    const ray = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0));
+    const groundHeight = (x: number, z: number) => {
+      ray.ray.origin.set(x, 100, z);
+      const hit = ray.intersectObject(terrain, false)[0];
+      expect(hit).toBeDefined();
+      return hit.point.y;
+    };
+    const path = env.getObjectByName('ContinuousFootpaths') as THREE.Mesh;
+    const positions = path.geometry.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+      expect(positions.getY(i) - groundHeight(positions.getX(i), positions.getZ(i))).toBeCloseTo(0.06, 4);
+    }
+    const trunks = env.getObjectByName('TreeTrunks') as THREE.InstancedMesh;
+    const matrix = new THREE.Matrix4(), position = new THREE.Vector3();
+    for (let i = 0; i < trunks.count; i++) {
+      trunks.getMatrixAt(i, matrix);
+      position.setFromMatrixPosition(matrix);
+      expect(position.y).toBeCloseTo(groundHeight(position.x, position.z), 4);
+    }
+  });
+
 });
