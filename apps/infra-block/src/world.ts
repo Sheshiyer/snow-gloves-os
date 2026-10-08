@@ -3,6 +3,8 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Layer, InfraNode, GameState, WorldEvent, WorldController, CharacterId } from './contracts';
 import { createCharacter, CharacterInstance } from './characters';
+import { RESIDENTS, type ResidentPresence } from './residents';
+import { createResidentCrew } from './resident-characters';
 
 function makePrng(seedStr: string) {
   let h = 1779033703 ^ seedStr.length;
@@ -51,14 +53,21 @@ export function createWorld(
   controls.maxPolarAngle = Math.PI / 2.1;
   controls.target.set(0, 0, 0);
   let focusTarget: THREE.Vector3 | null = null;
+  let focusDistance: number | null = null;
+  let fittedDistance = 90;
+  let fittedMinDistance = 48;
   const onWorldFocus = (event: Event) => {
     const id = (event as CustomEvent<string | null>).detail;
     const building = id ? buildingObjs.find(item => item.id === id) : null;
-    focusTarget = building
+    const resident = RESIDENTS.find(item => item.nodeId === id);
+    const station = resident ? residents.group.getObjectByName(`Station_${resident.slug}`) : null;
+    controls.minDistance = station ? 24 : fittedMinDistance;
+    focusDistance = station ? 36 : fittedDistance;
+    focusTarget = station ? new THREE.Vector3(station.position.x, 1.5, station.position.z) : building
       ? new THREE.Vector3(building.group.position.x * 0.35, 3, building.group.position.z * 0.35)
       : new THREE.Vector3(0, 3, 0);
   };
-  const cancelFocus = () => { focusTarget = null; };
+  const cancelFocus = () => { focusTarget = null; focusDistance = null; };
   container.addEventListener('world-focus', onWorldFocus);
   controls.addEventListener('start', cancelFocus);
 
@@ -91,7 +100,7 @@ export function createWorld(
 
   // Sage Avenues Grid
   const gridGroup = new THREE.Group();
-  const avenueCoords = [-24, -12, 0, 12, 24];
+  const avenueCoords = [-20.8, -10.4, 0, 10.4, 20.8];
   const roadMat = new THREE.MeshStandardMaterial({ color: '#a6b8a8', roughness: 0.95, metalness: 0 });
   const lineMat = new THREE.MeshBasicMaterial({ color: '#fbfcf8' });
 
@@ -412,6 +421,21 @@ export function createWorld(
   const ringWaveGeo = new THREE.RingGeometry(0.2, 0.4, 24);
   ringWaveGeo.rotateX(-Math.PI / 2);
 
+  // Role residents use source-defined homes and relationships, never game collision state.
+  const residents = createResidentCrew(RESIDENTS, initialState.buildings, reducedMotion);
+  scene.add(residents.group);
+  let residentsEnabled = true;
+  const onResidentPresence = (event: Event) => {
+    const presence = (event as CustomEvent<ResidentPresence[]>).detail;
+    if (Array.isArray(presence)) residents.setPresence(presence);
+  };
+  const onResidentVisibility = (event: Event) => {
+    residentsEnabled = (event as CustomEvent<boolean>).detail === true;
+    if (!residentsEnabled) residents.group.visible = false;
+  };
+  container.addEventListener('resident-presence', onResidentPresence);
+  container.addEventListener('resident-visible', onResidentVisibility);
+
   // Route Ribbons
   let routeGroup: THREE.Group | null = null;
   let routeCurve: THREE.CatmullRomCurve3 | null = null;
@@ -437,6 +461,11 @@ export function createWorld(
     pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(pointer, camera);
+    const residentSlug = pickResident();
+    if (residentSlug) {
+      container.dispatchEvent(new CustomEvent('resident-select', { detail: { slug: residentSlug } }));
+      return;
+    }
     const intersects = raycaster.intersectObjects(buildingGroup.children, true);
     if (intersects.length > 0) {
       let cur: THREE.Object3D | null = intersects[0].object;
@@ -449,8 +478,30 @@ export function createWorld(
     }
   };
 
+  function pickResident(): string | null {
+    if (!residents.group.visible || !residentsEnabled) return null;
+    const hit = raycaster.intersectObjects(residents.pickTargets, true)[0];
+    if (!hit) return null;
+    const obstruction = raycaster.intersectObjects(buildingObjs.map(item => item.group), true)[0];
+    if (obstruction && obstruction.distance < hit.distance - 0.05) return null;
+    let target: THREE.Object3D | null = hit.object;
+    while (target && target !== residents.group) {
+      if (typeof target.userData.residentSlug === 'string') return target.userData.residentSlug;
+      target = target.parent;
+    }
+    return null;
+  }
+  const onPointerMove = (event: PointerEvent) => {
+    const rect = renderer.domElement.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+    renderer.domElement.style.cursor = pickResident() ? 'pointer' : 'grab';
+  };
+
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
   renderer.domElement.addEventListener('pointerup', onPointerUp);
+  renderer.domElement.addEventListener('pointermove', onPointerMove);
 
   // Resize handling
   const resizeObserver = new ResizeObserver((entries) => {
@@ -474,7 +525,9 @@ export function createWorld(
         if (fits) break;
         distance *= 1.06;
       }
-      controls.minDistance = Math.max(48, distance * 0.7);
+      fittedDistance = distance;
+      fittedMinDistance = Math.max(48, distance * 0.7);
+      controls.minDistance = focusDistance === 36 ? 24 : fittedMinDistance;
       controls.maxDistance = distance * 1.7;
     }
   });
@@ -483,11 +536,21 @@ export function createWorld(
   // Return Controller
   return {
     update(state: GameState, dt: number) {
+      residents.update(dt, residentsEnabled ? state.mode : 'playing');
+      if (!residentsEnabled) residents.group.visible = false;
       if (focusTarget) {
         const previous = controls.target.clone();
         controls.target.lerp(focusTarget, reducedMotion ? 1 : 1 - Math.exp(-Math.min(dt, 0.1) * 5));
         camera.position.add(controls.target.clone().sub(previous));
-        if (controls.target.distanceToSquared(focusTarget) < 0.002) focusTarget = null;
+        const alpha = reducedMotion ? 1 : 1 - Math.exp(-Math.min(dt, 0.1) * 5);
+        const offset = camera.position.clone().sub(controls.target);
+        const desiredDistance = focusDistance ?? offset.length();
+        const nextDistance = THREE.MathUtils.lerp(offset.length(), desiredDistance, alpha);
+        camera.position.copy(controls.target).addScaledVector(offset.normalize(), nextDistance);
+        if (controls.target.distanceToSquared(focusTarget) < 0.002 && Math.abs(nextDistance - desiredDistance) < 0.02) {
+          focusTarget = null;
+          focusDistance = null;
+        }
       }
       controls.update();
 
@@ -740,6 +803,10 @@ export function createWorld(
     },
 
     dispose() {
+      container.removeEventListener('resident-presence', onResidentPresence);
+      container.removeEventListener('resident-visible', onResidentVisibility);
+      renderer.domElement.removeEventListener('pointermove', onPointerMove);
+      residents.dispose();
       container.removeEventListener('world-focus', onWorldFocus);
       controls.removeEventListener('start', cancelFocus);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
