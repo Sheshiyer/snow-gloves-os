@@ -76,7 +76,12 @@ export function createWorld(
   const hasOverlay = () => ['field-kit-open', 'source-notes-open', 'home-encounter-open'].some(name => document.body.classList.contains(name)) || Boolean(document.querySelector('dialog[open]'));
   const onWorldFocus = (event: Event) => {
     const id = (event as CustomEvent<string | null>).detail;
-    if (worldView === 'archipelago') return;
+    if (worldView === 'archipelago') {
+      // Overlay close/focus events must not restore a local crew camera while
+      // charting. Clearing focus leaves logical pan and chart orbit intact.
+      focusTarget = null; focusDistance = null; focusDirection = null;
+      return;
+    }
     const controlled = residents.controlState();
     followSuspended = Boolean(id && controlled.slug);
     if (!id && controlled.slug) {
@@ -133,7 +138,13 @@ export function createWorld(
     const button = document.createElement('button'); button.type = 'button'; button.dataset.island = slot.id;
     button.textContent = slot.name; button.title = `${slot.name} — visit island`;
     Object.assign(button.style, { position: 'absolute', pointerEvents: 'auto', border: '2px solid #37514b', borderRadius: '12px', color: '#233f38', background: '#f4efd9', boxShadow: '0 3px 0 #39574c55', padding: '5px 10px', font: '700 13px "Barlow Condensed", sans-serif', whiteSpace: 'nowrap', transform: 'translate(-50%, -100%)' });
-    button.addEventListener('click', () => visitIsland(slot.id)); islandLabels.appendChild(button); return button;
+    button.addEventListener('click', () => {
+      if (!residentsEnabled || hasOverlay()) return;
+      // Travel flows through the same root-owned input and accessibility guard
+      // as the atlas and Fleet pane rather than calling the world directly.
+      container.dispatchEvent(new CustomEvent('fleet-visit', { bubbles: true, detail: { id: slot.id } }));
+    });
+    islandLabels.appendChild(button); return button;
   });
   function synchronizeWorld() {
     const selected = FLEET_LAYOUT.find(slot => slot.id === islandId)!;
@@ -446,6 +457,7 @@ export function createWorld(
     controlResident(slug: string | null) {
       if (slug && worldView === 'archipelago') setWorldView('town');
       residents.controlResident(slug);
+      if (worldView === 'archipelago') return;
       const selectedSlug = residents.controlState().slug;
       focusTarget = null;
       focusDirection = null;
@@ -460,12 +472,13 @@ export function createWorld(
     },
     moveResident(x: number, z: number, dt: number) {
       if (worldView === 'archipelago') {
-        if (!hasOverlay() && Number.isFinite(dt)) {
+        const panX = Number.isFinite(x) ? x : 0, panZ = Number.isFinite(z) ? z : 0;
+        if ((panX || panZ) && !hasOverlay() && Number.isFinite(dt)) {
           const step = 180 * Math.max(0, Math.min(dt, 0.1));
-          const length = Math.max(1, Math.hypot(x, z));
-          logicalX += x / length * step; logicalZ += z / length * step; synchronizeWorld();
+          const length = Math.max(1, Math.hypot(panX, panZ));
+          logicalX += panX / length * step; logicalZ += panZ / length * step; synchronizeWorld();
         }
-        return { slug: null, x: logicalX, z: logicalZ, moving: Boolean(x || z) && !hasOverlay(), nearbySlug: null };
+        return { slug: null, x: logicalX, z: logicalZ, moving: Boolean(panX || panZ) && !hasOverlay(), nearbySlug: null };
       }
       if ((x || z) && followSuspended && !hasOverlay()) onWorldFocus(new CustomEvent('world-focus', { detail: null }));
       const forward = camera.getWorldDirection(new THREE.Vector3());
@@ -611,7 +624,7 @@ export function createWorld(
 
       for (const button of labelButtons) {
         const point = archipelago.islandPosition(button.dataset.island!)!.project(camera);
-        const visible = point.z >= -1 && point.z <= 1 && Math.abs(point.x) < 0.94 && Math.abs(point.y) < 0.94 && (worldView === 'archipelago' || button.dataset.island !== islandId);
+        const visible = residentsEnabled && !overlayOpen && point.z >= -1 && point.z <= 1 && Math.abs(point.x) < 0.94 && Math.abs(point.y) < 0.94 && (worldView === 'archipelago' || button.dataset.island !== islandId);
         button.hidden = !visible;
         button.style.left = `${(point.x + 1) * 50}%`; button.style.top = `${(1 - point.y) * 50}%`;
       }
