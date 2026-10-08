@@ -506,6 +506,9 @@ export function mountCockpit(
           const data = await loadSnapshot(requestedTenant, { signal });
           if (signal.aborted || currentGen !== fetchGeneration) return;
           if (data && data.schema === 'snowgloves.cockpit.v1') {
+            if (expectedScopeMode === 'local-private' && data.scope.mode !== 'local-private') {
+              throw new Error('Private instance scope changed unexpectedly');
+            }
             snapshot = data;
             expectedScopeMode = data.scope.mode;
             selectedTenantScope = data.scope.tenant || '';
