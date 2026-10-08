@@ -25,5 +25,6 @@ export interface WorldController {
   route(ids: string[]): void; reset(state: GameState): void; dispose(): void;
   controlResident(slug: string | null): void;
   moveResident(x: number, z: number, dt: number): CrewControlState;
+  setGraphics(profile: 'balanced' | 'eco'): void;
 }
 export interface InputState { x: number; z: number; attack: boolean; }

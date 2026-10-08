@@ -4,13 +4,15 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 177/203
+progress: 199/235
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
 ---
 
 ## Problem
+
+Current grounded-world lane: the flat isolated slab, repeated block facades and rigid doll geometry still feel like Lego. Build a coherent landscape and plausible stylized buildings and people while bounding rendering cost and retaining the playable infrastructure contracts.
 
 Current navigation lane: the wide home wastes most screen space and only the monster sandbox accepts WASD. Make the infrastructure town directly playable through any of its seven residents, a following camera, nearby station interaction and one cohesive toy HUD.
 
@@ -29,6 +31,8 @@ port with service identity. The confirmed installation target for 1 October is
 one Mac mini running a local bootstrap and recovery pilot.
 
 ## Vision
+
+An inhabited woodland village extends into a continuous landscape. Buildings have believable material detail and varied rooflines; crew remain recognizable people, with efficient shared geometry and measured renderer budgets.
 
 The town fills the available screen. The operator walks as an actual crew character, switches roles and encounters their stations from the streets; the compact edge HUD retains the miniature materials and keeps local exploration distinct from observed infrastructure work.
 
@@ -60,6 +64,10 @@ the local pilot useful while showing the live-service requirements still held.
 
 ## Constraints
 
+- This visual lane keeps existing source landmarks, streets, collision and sandbox contracts; no live infrastructure actions are added.
+- Environment decoration uses bounded instancing and procedural materials, with no new rendering dependency or external asset download.
+- Default resolution and shadow budgets stay bounded; lower-cost Eco rendering remains available.
+
 - Use Python standard library for the pilot entry path; require Python 3.10 or later.
 - For the historical pilot implementation, preserve its pinned free Command Code rail; no paid or Sol fallback without the recorded override.
 - Preserve existing enabled-module authority and installed host runtime configuration during sandbox proof.
@@ -68,6 +76,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Replace the isolated toy platform with continuous terrain, natural groves, varied masonry/timber architecture and softer role-specific people. Verify geometry/resource budgets, actual before/after rendering counters, selectable Eco/Balanced graphics, browser navigation and responsive regressions.
 
 Deliver fullscreen exploration with selectable control of all seven agent characters, camera-relative WASD/arrows, collision-safe movement, following camera, contextual station interaction, keyboard and touch controls, and consistent toy UI. Verify actual browser movement, role switching, input suspension, responsive layouts and sandbox/source regressions.
 
@@ -297,7 +307,44 @@ until the actual mini supplies evidence.
 - [x] ISC-202: The original sandbox round and field-kit pause behavior remain unchanged.
 - [x] ISC-203: The integrated navigation lane passes strict production build and meaningful regression tests.
 
+- [x] ISC-204: Antecedent: The original architecture renderer baseline is saved from the actual IAB.
+- [x] ISC-205: The grounded scene contains no raised square platform slab.
+- [x] ISC-206: Continuous terrain fills the visible near surroundings of the streets.
+- [ ] ISC-207: Distant landforms extend the environment beyond the central town.
+- [ ] ISC-208: Natural tree groves replace the identical spherical street canopies.
+- [x] ISC-209: Existing avenue coordinates and road widths remain compatible with resident routes.
+- [x] ISC-210: Environment geometry is deterministic for the same seed.
+- [x] ISC-211: Environment render submissions remain at most forty before shadows.
+- [x] ISC-212: Environment geometry remains within thirty-five thousand drawn triangles.
+- [x] ISC-213: Each building remains within twelve mesh parts.
+- [x] ISC-214: Each procedural facade atlas is at most512pixels per dimension.
+- [x] ISC-215: Building rooflines include at least three distinct plausible silhouettes.
+- [x] ISC-216: Architecture signs preserve their actual source landmark names.
+- [x] ISC-217: Building geometry stays inside its source footprint and height.
+- [x] ISC-218: Facades include masonry, plaster and timber material treatments.
+- [x] ISC-219: Resident heads use softened human oval proportions.
+- [x] ISC-220: Resident limbs retain the existing walking joint pivots.
+- [x] ISC-221: All seven resident identity and picking contracts remain intact.
+- [x] ISC-222: Combined resident actor triangles decrease from the prior implementation.
+- [x] ISC-223: Balanced rendering caps pixel ratio at1.25.
+- [x] ISC-224: Balanced rendering limits its single directional shadow map to1024pixels.
+- [x] ISC-225: Eco rendering disables realtime shadow maps.
+- [x] ISC-226: Eco rendering caps pixel ratio at0.8.
+- [ ] ISC-227: The graphics selector changes quality without resetting crew selection.
+- [x] ISC-228: Actual renderer counters are available as bounded read-only scene diagnostics.
+- [ ] ISC-229: The new scene reduces measured submissions compared with the original architecture baseline.
+- [ ] ISC-230: Anti: The redesign adds no postprocessing passes or new realtime lights.
+- [ ] ISC-231: Anti: Reduced motion and hidden-page handling preserve their existing contracts.
+- [ ] ISC-232: Actual WASD walking and station encounters remain functional in the grounded scene.
+- [ ] ISC-233: Portrait and landscape controls remain usable with the grounded scene.
+- [ ] ISC-234: The original sandbox and Field Kit pause interaction remain functional.
+- [ ] ISC-235: The integrated scene passes strict production compilation and meaningful regression checks.
+
 ## Test Strategy
+
+| 204..208,229..234 | root IAB | current renderer baseline, grounded scenery, navigation, quality and responsive modes | actual screenshot/readback | Codex IAB |
+| 209..222 | source/model | deterministic geometry, road/footprint bounds, identity and triangle budgets | passing geometry assertions | Vitest |
+| 223..230,235 | integration | renderer caps/counters, regression and source boundary | actual counters plus strict build | IAB + Vitest + source |
 
 | 172-178,186-190 | root IAB | fullscreen layout, actual movement and seven role interactions | screenshot/readback | Codex IAB |
 | 179-185 | pure movement | camera basis, normalization, bounded dt, collision and seven homes | passing regression cases | Vitest |
@@ -337,6 +384,11 @@ until the actual mini supplies evidence.
 
 ## Features
 
+| GroundedEnvironment | continuous landscape and instanced groves | ISC-205..212 | fixed streets | yes |
+| PlausibleArchitecture | efficient material facades and roof variation | ISC-213..218 | existing landmarks | yes |
+| SoftResidentGeometry | human proportions and shared low-poly geometry | ISC-219..222 | existing resident rig | yes |
+| GraphicsBudget | explicit quality caps and measured scene counters | ISC-204,223..235 | integrated scene | no |
+
 | CrewNavigationWorld | manual role characters, collision, camera-relative movement and follow | ISC-177..192 | existing residents | yes |
 | FullscreenToyHUD | compact edge HUD, role walking actions, nearby prompt and touch controls | ISC-173..176,188..201 | existing home | yes |
 | ExplorationInputBridge | WASD/arrows/digits/E, overlay/editable/blur input boundaries | ISC-178..179,188..190,193..196,202..203 | navigation world and HUD | no |
@@ -367,6 +419,8 @@ until the actual mini supplies evidence.
 | PhysicalFleetAcceptance | wing jobs, eventing, cloud, recovery and session/resource evidence | ISC-41..51 | CapabilityProof and existing specs 005/007/008 | no |
 
 ## Decisions
+
+- 2026-10-08 refined: Read "work rather than a plane" as world rather than flat platform. FirstPrinciples Deconstruct separates depth, silhouette, material cues and context from GPU cost (submissions, triangles, texture memory and pixel/shadow work). Hard constraints are the source/collision/game contracts; identical blocks and costly mesh-per-window are inherited choices. BeCreative StandardCreativity evaluates woodland village, canal hamlet, desert outpost, courtyard campus and hillside borough; selects woodland village with grounded material architecture and natural peripheral terrain. ISA Append adds32 atomic checks and CheckCompleteness retains the populated E3 sections. ReReadCheck will bind world, lessLego and boundedgraphics to actual source and browser evidence. Three disjoint routed workers own architecture, environment and resident visuals; root owns integration and graphics policy. Historical26 requirements remain separate.
 
 - 2026-10-07 refined: Follow-up explicitly requests fan-out and deep infrastructure integration. Active lane uses classifier E3 and noesis-execute workers in three managed worktrees. Existing historical fleet/pilot criteria remain unchanged. FirstPrinciples separates inventory, instance metadata, observations and commands; SystemsThinking maps tenant-enablements -> connector gate -> routing -> artifact -> evidence feedback; IterativeDepth functional/operator/failure/experiential lenses add scope, stale-state, document and usability probes. ISA completeness is checked against E3;36 new atomic criteria carry this integration lane.
 - 2026-10-07: Existing Hermes raw events are unscoped and import creates an audit directory. Add a pure bounded projection rather than exposing raw Hermes/private files to the browser. All infrastructure mutation capabilities remain false until an actual authorized control-plane contract exists. Missing sessions, recovery runtime and physical acceptance remain unavailable or source-level.
@@ -976,3 +1030,13 @@ Root operated the actual Codex IAB. Separate workers reviewed source and ran mod
 Receipt: /Users/sheshnarayaniyer/.codex/visualizations/2026/10/08/01a1176d-6b04-79c3-9549-9884312e0e4b/walk-town-receipt.json. Final image: walk-town-final.png. Current32navigation criteria are accepted; master177/203 keeps26historical installation/device/cloud criteria open.
 
 ReReadCheck — latest user request: "hwo do we leverage the whole scren and make it wasd navigabble wit heach agent achatacter movmenet and everyhign in the same deisgn style". Whole screen: full available canvas and close following camera verified in IAB. WASD navigation: actual held keyboard movement, arrows and equivalent touch pad verified. Each agent character: all seven exact role selections and coordinate changes saved. Same design style: compact mission, role-colored portraits/ring, paper encounters, field kit and movement controls use the existing toy palette and materials. All four explicit asks are addressed; this completes the current navigation lane only.
+
+
+## Verification — grounded-world source checkpoint
+
+- ISC-204: Actual IAB baseline saved before architecture/terrain integration, with softened resident geometry already present:685total render submissions,55,850drawn triangles,797geometries,34textures, pixelRatio1.100000023841858,2338x933buffer in2126x849viewport. CPU submission sample2.50ms is not GPU time.
+- ISC-205..206: Root integrated createEnvironment in place of the raised slab/grid/oldprops and saved the actual continuous near-ground screenshot. Distant-world visual and responsive acceptance remain pending.
+- ISC-209..218: Environment and architecture source/test checks pass: exact avenue grid and widths, deterministic finite square-flat landscape,8base calls/11,508expanded triangles,3or7mesh architecture,512x512atlases,4roofstyles,actual node sign names, all16source-footprint/height bounds and masonry/plaster/timber materials. Fourarchitecture and sevenenvironment tests pass.
+- ISC-219..222: Actual shared oval-head/tapered-limb geometry preserves seven identities/picking/stations/rig pivots;12renderer tests pass. Combinedactor geometry21,808→7,452triangles;completecrew39,488→25,132. These are source geometry totals.
+- ISC-223..226,228: Graphics policy source bounds Balanced1.25DPR/1024single directionalshadow and Eco0.8DPR/shadowdisabled; two policy cases pass invalid/high/low density checks. No new lights/postprocessing; same existing hemisphere/directional pair. Integrated129frontend checks and strictTypeScript/Vite build pass before final shader-invalidation corrections.
+- 2026-10-08: Independent read-only review found missing transparency/shadow shader invalidation and shadow render-target disposal; root repaired these before final source freeze. Final browser proof and build remain required. Advisorprecommit returnedquota429 and noverdict.

@@ -1087,3 +1087,8 @@ body.home-explore.home-flat-map:not(.field-kit-open):not(.source-notes-open) .sg
  body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-tab-btn{min-height:44px;padding:0 9px;white-space:nowrap;}
  body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header-actions{flex-shrink:0;overflow:visible;padding-bottom:0;max-width:none;gap:4px;}
 }
+
+/* Grounded field controls keep the compact game interface. */
+.sg-graphics-select select {font:inherit;font-size:11px;color:var(--sg-text);background:#f6f2e8;border:1px solid #526157;border-radius:14px;min-height:30px;padding:4px 6px;max-width:135px;}
+body.home-explore .ih-mission-strip, body.home-explore .ih-walk-hud, body.home-explore .ih-belt-wrap {box-shadow:2px 3px 0 #34443866;border-width:1px;}
+@media(max-width:768px),(max-height:500px){.sg-graphics-select select{min-height:44px;}}

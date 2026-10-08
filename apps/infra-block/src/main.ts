@@ -259,6 +259,7 @@ app.innerHTML = `
       <button type="button" class="sg-btn-ghost" id="btn-view">${prefersMap ? '3D CITY' : '2D MAP'}</button>
       <button type="button" class="sg-btn-ghost" id="btn-lang" aria-label="Toggle Language">${lang === 'en' ? '简中' : 'EN'}</button>
       <button type="button" class="sg-btn-ghost" id="btn-audio" aria-label="Toggle Audio">${sound.muted ? escapeHtml(i18n[lang].unmute) : escapeHtml(i18n[lang].mute)}</button>
+      <label class="sg-graphics-select"><select id="sg-graphics-quality" aria-label="Graphics quality"><option value="balanced">Balanced graphics</option><option value="eco">Eco · lower power</option></select></label>
       <button type="button" class="sg-btn-ghost" id="btn-help" aria-label="Open Help">${escapeHtml(i18n[lang].help)}</button>
     </div>
   </header>
@@ -627,6 +628,12 @@ document.getElementById('btn-audio')?.addEventListener('click', () => {
   if (btn) {
     btn.textContent = muted ? escapeHtml(i18n[lang].unmute) : escapeHtml(i18n[lang].mute);
   }
+});
+
+document.getElementById('sg-graphics-quality')?.addEventListener('change', event => {
+  clearInputs();
+  const profile = (event.target as HTMLSelectElement).value === 'eco' ? 'eco' : 'balanced';
+  worldController?.setGraphics(profile);
 });
 
 document.getElementById('btn-help')?.addEventListener('click', () => {

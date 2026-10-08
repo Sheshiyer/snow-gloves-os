@@ -5,6 +5,9 @@ import { Layer, InfraNode, GameState, WorldEvent, WorldController, CharacterId }
 import { createCharacter, CharacterInstance } from './characters';
 import { RESIDENTS, type ResidentPresence } from './residents';
 import { createResidentCrew } from './resident-characters';
+import { createArchitecture } from './architecture';
+import { createEnvironment } from './environment';
+import { renderBudget, type GraphicsProfile } from './render-budget';
 
 function makePrng(seedStr: string) {
   let h = 1779033703 ^ seedStr.length;
@@ -31,17 +34,24 @@ export function createWorld(
 
   // Renderer & Scene setup
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#fdf9f2');
+  scene.background = new THREE.Color('#d8e2df');
+  scene.fog = new THREE.Fog('#d8e2df', 70, 210);
 
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 500);
   camera.position.set(35, 37, 41);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'default' });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.65));
+  let graphicsProfile: GraphicsProfile = 'balanced';
+  let graphicsBudget = renderBudget(graphicsProfile, window.devicePixelRatio);
+  renderer.setPixelRatio(graphicsBudget.pixelRatio);
+  renderer.domElement.dataset.graphicsProfile = graphicsProfile;
+  let lastRenderAt = -Infinity;
+  renderer.info.autoReset = false;
+  let lastMetricsAt = 0;
   container.appendChild(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -93,8 +103,8 @@ export function createWorld(
   const dirLight = new THREE.DirectionalLight('#fffaf0', 2.0);
   dirLight.position.set(32, 50, 24);
   dirLight.castShadow = true;
-  dirLight.shadow.mapSize.width = 2048;
-  dirLight.shadow.mapSize.height = 2048;
+  dirLight.shadow.mapSize.width = graphicsBudget.shadowSize;
+  dirLight.shadow.mapSize.height = graphicsBudget.shadowSize;
   dirLight.shadow.bias = -0.0003;
   dirLight.shadow.camera.near = 10;
   dirLight.shadow.camera.far = 140;
@@ -105,134 +115,8 @@ export function createWorld(
   dirLight.shadow.camera.bottom = -d;
   scene.add(dirLight);
 
-  // Base Platform: beveled cream slab
-  const platGeo = new RoundedBoxGeometry(52.6, 1.6, 52.6, 4, 0.6);
-  const platMat = new THREE.MeshStandardMaterial({ color: '#f3ede1', roughness: 0.95, metalness: 0 });
-  const platform = new THREE.Mesh(platGeo, platMat);
-  platform.position.y = -0.8;
-  platform.receiveShadow = true;
-  scene.add(platform);
-
-  // Sage Avenues Grid
-  const gridGroup = new THREE.Group();
-  const avenueCoords = [-20.8, -10.4, 0, 10.4, 20.8];
-  const roadMat = new THREE.MeshStandardMaterial({ color: '#a6b8a8', roughness: 0.95, metalness: 0 });
-  const lineMat = new THREE.MeshBasicMaterial({ color: '#fbfcf8' });
-
-  avenueCoords.forEach(pos => {
-    const roadX = new THREE.Mesh(new THREE.PlaneGeometry(52.6, 3.3), roadMat);
-    roadX.rotation.x = -Math.PI / 2;
-    roadX.position.set(0, 0.01, pos);
-    roadX.receiveShadow = true;
-    gridGroup.add(roadX);
-
-    const roadZ = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 52.6), roadMat);
-    roadZ.rotation.x = -Math.PI / 2;
-    roadZ.position.set(pos, 0.015, 0);
-    roadZ.receiveShadow = true;
-    gridGroup.add(roadZ);
-
-    for (let k = -24; k <= 24; k += 4) {
-      const dashH = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.18), lineMat);
-      dashH.rotation.x = -Math.PI / 2;
-      dashH.position.set(k, 0.02, pos);
-      gridGroup.add(dashH);
-
-      const dashV = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 1.8), lineMat);
-      dashV.rotation.x = -Math.PI / 2;
-      dashV.position.set(pos, 0.025, k);
-      gridGroup.add(dashV);
-    }
-  });
-  scene.add(gridGroup);
-
-  // Clouds at high outer edge
-  const cloudsGroup = new THREE.Group();
-  const cloudMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9, transparent: true, opacity: 0.65 });
-  for (let i = 0; i < 7; i++) {
-    const ang = (i / 7) * Math.PI * 2 + rand();
-    const rad = 32 + rand() * 5;
-    const cMesh = new THREE.Mesh(new THREE.SphereGeometry(2.4 + rand() * 1.5, 8, 8), cloudMat);
-    cMesh.position.set(Math.cos(ang) * rad, 18 + rand() * 4, Math.sin(ang) * rad);
-    cMesh.scale.set(1.6, 0.6, 1.2);
-    cloudsGroup.add(cMesh);
-  }
-  cloudsGroup.visible = false;
-  scene.add(cloudsGroup);
-
-  // Street Props: Trees, Lamps, Benches, Bollards
-  const propsGroup = new THREE.Group();
-  const treeTrunkGeo = new THREE.CylinderGeometry(0.12, 0.16, 1.1, 6);
-  const treeTrunkMat = new THREE.MeshStandardMaterial({ color: '#7a5c43', roughness: 0.95 });
-  const treeCanopyGeo = new THREE.SphereGeometry(0.85, 12, 10);
-  const treeCanopyMat = new THREE.MeshStandardMaterial({ color: '#789a74', roughness: 0.95 });
-  const lampPoleGeo = new THREE.CylinderGeometry(0.05, 0.07, 1.6, 6);
-  const lampPoleMat = new THREE.MeshStandardMaterial({ color: '#556660', roughness: 0.8 });
-  const lampGlobeGeo = new THREE.SphereGeometry(0.2, 8, 8);
-  const lampGlobeMat = new THREE.MeshStandardMaterial({ color: '#fff9db', roughness: 0.3, emissive: '#fff9db', emissiveIntensity: 0.4 });
-  const benchGeo = new THREE.BoxGeometry(0.8, 0.25, 0.35);
-  const benchMat = new THREE.MeshStandardMaterial({ color: '#b58863', roughness: 0.9 });
-
-  for (const ax of [-18, -6, 6, 18]) {
-    for (const az of [-18, -6, 6, 18]) {
-      const tTrunk = new THREE.Mesh(treeTrunkGeo, treeTrunkMat);
-      const tCanopy = new THREE.Mesh(treeCanopyGeo, treeCanopyMat);
-      tTrunk.position.set(ax + 2.5, 0.55, az + 2.5);
-      tCanopy.position.set(ax + 2.5, 1.6, az + 2.5);
-      tTrunk.castShadow = true;
-      tCanopy.castShadow = true;
-      propsGroup.add(tTrunk, tCanopy);
-
-      const lPole = new THREE.Mesh(lampPoleGeo, lampPoleMat);
-      const lGlobe = new THREE.Mesh(lampGlobeGeo, lampGlobeMat);
-      lPole.position.set(ax - 2.5, 0.8, az + 2.5);
-      lGlobe.position.set(ax - 2.5, 1.65, az + 2.5);
-      lPole.castShadow = true;
-      propsGroup.add(lPole, lGlobe);
-
-      if (rand() > 0.4) {
-        const bench = new THREE.Mesh(benchGeo, benchMat);
-        bench.position.set(ax + 2.4, 0.15, az - 2.4);
-        bench.castShadow = true;
-        propsGroup.add(bench);
-      }
-    }
-  }
-  scene.add(propsGroup);
-
-  // Building Signs Texture Factory
-  function createSignTexture(text: string, short: string): THREE.CanvasTexture {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 160;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 512, 160);
-    ctx.fillStyle = '#243b35';
-    ctx.font = 'bold 56px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText((short || text.slice(0, 5)).toUpperCase(), 256, 68);
-    ctx.font = '600 30px sans-serif';
-    ctx.fillStyle = '#486259';
-    ctx.fillText(text.slice(0, 20), 256, 126);
-    return new THREE.CanvasTexture(canvas);
-  }
-
-  function createAwningTexture(): THREE.CanvasTexture {
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#f6edd9';
-    ctx.fillRect(0, 0, 128, 128);
-    ctx.fillStyle = '#658d7c';
-    for (let i = 0; i < 128; i += 32) ctx.fillRect(i, 0, 16, 128);
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(2, 1);
-    return tex;
-  }
+  // Continuous static terrain; repeated vegetation and road marks are instanced.
+  scene.add(createEnvironment(initialState.seed));
 
   // Buildings Creation
   interface BuildingObj {
@@ -257,97 +141,8 @@ export function createWorld(
     bGroup.position.set(bs.x, 0, bs.z);
     bGroup.userData = { id: bs.id };
 
-    const colorHex = node?.color ? new THREE.Color(node.color).lerp(new THREE.Color('#ffffff'), 0.1) : new THREE.Color('#e0d5c1');
-    const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.95, metalness: 0 });
-    const bGeo = new RoundedBoxGeometry(bs.width, bs.height, bs.depth, 3, 0.25);
-    const bodyMesh = new THREE.Mesh(bGeo, bodyMat);
-    bodyMesh.position.y = bs.height / 2;
-    bodyMesh.castShadow = true;
-    bodyMesh.receiveShadow = true;
+    const { bodyMesh, materials: mats } = createArchitecture(bs, node, bIdx);
     bGroup.add(bodyMesh);
-
-    const winMat = new THREE.MeshStandardMaterial({ color: '#27494f', roughness: 0.4, metalness: 0.1 });
-    const winRows = Math.max(1, bs.floors);
-    const winCols = Math.max(2, Math.floor(bs.width / 1.15));
-    for (let r = 0; r < winRows; r++) {
-      const wy = (r + 0.5) * (bs.height / winRows) - bs.height / 2;
-      for (let c = 0; c < winCols; c++) {
-        const wx = (c - (winCols - 1) / 2) * (bs.width / (winCols + 0.3));
-        const wMeshFront = new THREE.Mesh(new THREE.PlaneGeometry(0.65, 0.72), winMat);
-        wMeshFront.position.set(wx, wy, bs.depth / 2 + 0.02);
-        bodyMesh.add(wMeshFront);
-
-        const wMeshSide = new THREE.Mesh(new THREE.PlaneGeometry(0.65, 0.72), winMat);
-        wMeshSide.rotation.y = Math.PI / 2;
-        wMeshSide.position.set(bs.width / 2 + 0.02, wy, wx * (bs.depth / bs.width));
-        bodyMesh.add(wMeshSide);
-      }
-    }
-
-    // Door & Awning
-    const door = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.2), new THREE.MeshStandardMaterial({ color: '#4a382c', roughness: 0.9 }));
-    door.position.set(0, -bs.height / 2 + 0.6, bs.depth / 2 + 0.02);
-    bodyMesh.add(door);
-
-    const awningMat = new THREE.MeshStandardMaterial({ map: createAwningTexture(), roughness: 0.85 });
-    const awning = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.14, 0.7), awningMat);
-    awning.position.set(0, -bs.height / 2 + 1.35, bs.depth / 2 + 0.35);
-    awning.castShadow = true;
-    bodyMesh.add(awning);
-
-    // Varied deterministic Roofs & Rooftop elements
-    const rStyle = (bIdx + bs.id.charCodeAt(0)) % 4;
-    const slateMat = new THREE.MeshStandardMaterial({ color: ['#3e4f52', '#515e61', '#42454f', '#4e5b53'][rStyle], roughness: 0.85 });
-    if (rStyle === 0) {
-      const gGeo = new THREE.ConeGeometry(Math.max(bs.width, bs.depth) * 0.72, 1.4, 4);
-      gGeo.rotateY(Math.PI / 4);
-      const gRoof = new THREE.Mesh(gGeo, slateMat);
-      gRoof.position.set(0, bs.height / 2 + 0.7, 0);
-      gRoof.castShadow = true;
-      bodyMesh.add(gRoof);
-    } else if (rStyle === 1) {
-      const parGeo = new THREE.BoxGeometry(bs.width + 0.1, 0.28, bs.depth + 0.1);
-      const parapet = new THREE.Mesh(parGeo, slateMat);
-      parapet.position.set(0, bs.height / 2 + 0.14, 0);
-      parapet.castShadow = true;
-      bodyMesh.add(parapet);
-      const solGeo = new THREE.BoxGeometry(bs.width * 0.5, 0.08, bs.depth * 0.45);
-      const sol = new THREE.Mesh(solGeo, new THREE.MeshStandardMaterial({ color: '#1f3448', roughness: 0.3, metalness: 0.5 }));
-      sol.position.set(0, bs.height / 2 + 0.2, 0);
-      sol.rotation.x = 0.2;
-      bodyMesh.add(sol);
-    } else if (rStyle === 2) {
-      [-bs.width * 0.25, bs.width * 0.25].forEach(cx => {
-        const ch = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.8, 0.35), slateMat);
-        ch.position.set(cx, bs.height / 2 + 0.4, -bs.depth * 0.2);
-        ch.castShadow = true;
-        bodyMesh.add(ch);
-      });
-    } else {
-      const topSign = new THREE.Mesh(new THREE.BoxGeometry(bs.width * 0.65, 0.4, 0.1), slateMat);
-      topSign.position.set(0, bs.height / 2 + 0.2, 0);
-      bodyMesh.add(topSign);
-    }
-
-    const ac = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.45, 0.55), new THREE.MeshStandardMaterial({ color: '#cfc6bb', roughness: 0.85 }));
-    ac.position.set(bs.width * 0.22, bs.height / 2 + 0.23, bs.depth * 0.22);
-    ac.castShadow = true;
-    bodyMesh.add(ac);
-
-    // Sign parented correctly to body mesh
-    const signTex = createSignTexture(node?.name || bs.id, node?.short || bs.id);
-    const signMat = new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.85 });
-    const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(3.2, bs.width * 0.88), 0.8), signMat);
-    signMesh.position.set(0, bs.height * 0.2, bs.depth / 2 + 0.06);
-    bodyMesh.add(signMesh);
-
-    const mats: THREE.Material[] = [];
-    bodyMesh.traverse(child => {
-      if (child instanceof THREE.Mesh && child.material) {
-        if (Array.isArray(child.material)) child.material.forEach(m => mats.push(m));
-        else mats.push(child.material);
-      }
-    });
 
     buildingGroup.add(bGroup);
     buildingObjs.push({
@@ -624,9 +419,6 @@ export function createWorld(
       activeChar.group.scale.setScalar(state.mode === 'explore' ? 1.8 : 1.5);
       activeChar.animate(reducedMotion ? 0 : dt, visualPlayer, state.mode === 'playing' && !reducedMotion && moved);
 
-      // Clouds drift
-      if (!reducedMotion) cloudsGroup.rotation.y += dt * 0.02;
-
       // Update Buildings
       const stateBMap = new Map(state.buildings.map(b => [b.id, b]));
       buildingObjs.forEach(b => {
@@ -711,7 +503,47 @@ export function createWorld(
         routeOrb.position.copy(pt);
       }
 
+      const renderStarted = performance.now();
+      if (document.hidden || renderStarted - lastRenderAt < 1000 / graphicsBudget.maxFps - 1) return;
+      lastRenderAt = renderStarted;
+      renderer.info.reset();
       renderer.render(scene, camera);
+      if (renderStarted - lastMetricsAt >= 500) {
+        lastMetricsAt = renderStarted;
+        Object.assign(renderer.domElement.dataset, {
+          renderCalls: String(renderer.info.render.calls),
+          renderTriangles: String(renderer.info.render.triangles),
+          renderGeometries: String(renderer.info.memory.geometries),
+          renderTextures: String(renderer.info.memory.textures),
+          renderPixelRatio: String(renderer.getPixelRatio()),
+          renderCpuMs: (performance.now() - renderStarted).toFixed(2),
+          graphicsProfile,
+          renderFpsCap: String(graphicsBudget.maxFps),
+          renderShadows: String(renderer.shadowMap.enabled),
+          renderShadowSize: String(graphicsBudget.shadowSize)
+        });
+      }
+    },
+
+    setGraphics(profile: GraphicsProfile) {
+      graphicsProfile = profile === 'eco' ? 'eco' : 'balanced';
+      graphicsBudget = renderBudget(graphicsProfile, window.devicePixelRatio);
+      renderer.setPixelRatio(graphicsBudget.pixelRatio);
+      const shadowsChanged = renderer.shadowMap.enabled !== graphicsBudget.shadows;
+      renderer.shadowMap.enabled = graphicsBudget.shadows;
+      renderer.shadowMap.needsUpdate = true;
+      if (shadowsChanged) {
+        const materials = new Set<THREE.Material>();
+        scene.traverse(object => {
+          if (!(object instanceof THREE.Mesh)) return;
+          for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+            if (!materials.has(material)) { materials.add(material); material.needsUpdate = true; }
+          }
+        });
+      }
+      renderer.domElement.dataset.graphicsProfile = graphicsProfile;
+      lastRenderAt = -Infinity;
+      lastMetricsAt = 0;
     },
 
     event(ev: WorldEvent) {
@@ -775,6 +607,7 @@ export function createWorld(
         const match = layer === 'all' || b.nodeLayer === layer;
         const alpha = match ? 1.0 : 0.15;
         b.materials.forEach(m => {
+          if (m.transparent !== (alpha < 1.0)) m.needsUpdate = true;
           m.transparent = alpha < 1.0;
           m.opacity = alpha;
           m.depthWrite = alpha >= 0.99;
@@ -866,6 +699,8 @@ export function createWorld(
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
       resizeObserver.disconnect();
       controls.dispose();
+      dirLight.shadow.map?.dispose();
+      dirLight.shadow.mapPass?.dispose();
 
       if (routeGroup) {
         scene.remove(routeGroup);
@@ -880,14 +715,18 @@ export function createWorld(
       activeChar.dispose();
       debrisGeo.dispose();
       ringWaveGeo.dispose();
+      const disposedGeometries = new Set<THREE.BufferGeometry>();
+      const disposedMaterials = new Set<THREE.Material>();
+      const disposedTextures = new Set<THREE.Texture>();
       scene.traverse(c => {
+        if (c instanceof THREE.InstancedMesh) c.dispose();
         if (c instanceof THREE.Mesh) {
-          c.geometry.dispose();
+          if (!disposedGeometries.has(c.geometry)) { disposedGeometries.add(c.geometry); c.geometry.dispose(); }
           const mats = Array.isArray(c.material) ? c.material : [c.material];
           mats.forEach(m => {
             if (m) {
-              if ('map' in m && m.map) m.map.dispose();
-              m.dispose();
+              if ('map' in m && m.map instanceof THREE.Texture && !disposedTextures.has(m.map)) { disposedTextures.add(m.map); m.map.dispose(); }
+              if (!disposedMaterials.has(m)) { disposedMaterials.add(m); m.dispose(); }
             }
           });
         }
