@@ -95,64 +95,204 @@ const STATION_NAMES: Record<SectionName, string> = {
   Resources: 'Field notes'
 };
 
-function toyIcon(section: string): SVGSVGElement {
+export function toyIcon(section: string): SVGSVGElement {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('viewBox', '0 0 64 64');
+  svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('class', 'oc-toy-icon');
-
-  let paths = '';
+  
+  let content = '';
+  
   switch (section) {
-    case 'Overview':
-      // Town square / house
-      paths = '<path d="M8 30 L32 10 L56 30 L50 30 L50 54 L14 54 L14 30 Z" fill="currentColor" opacity="0.2"/><path d="M8 30 L32 10 L56 30 M14 30 L14 54 L50 54 L50 30 M26 54 L26 38 L38 38 L38 54" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="24" r="4" fill="currentColor"/>';
-      break;
     case 'Agents':
-      // Companion robot
-      paths = '<rect x="16" y="20" width="32" height="28" rx="6" fill="currentColor" opacity="0.2"/><rect x="16" y="20" width="32" height="28" rx="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="26" cy="32" r="3.5" fill="currentColor"/><circle cx="38" cy="32" r="3.5" fill="currentColor"/><path d="M26 40 Q32 45 38 40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M32 10 L32 20 M28 10 L36 10 M10 32 L16 32 M48 32 L54 32" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>';
+      content = `
+        <ellipse cx="32" cy="57" rx="19" ry="4.5" fill="#283d36" opacity="0.22"/>
+        <path d="M32 9 v7" stroke="#283d36" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="32" cy="8" r="3" fill="#c97858" stroke="#283d36" stroke-width="1.3"/>
+        <circle cx="31" cy="7" r="1" fill="#f4edda"/>
+        <rect x="17" y="49" width="10" height="6" rx="3" fill="#87a4ac" stroke="#283d36" stroke-width="1.3"/>
+        <rect x="37" y="49" width="10" height="6" rx="3" fill="#87a4ac" stroke="#283d36" stroke-width="1.3"/>
+        <rect x="14" y="15" width="36" height="24" rx="9" fill="#699a92" stroke="#283d36" stroke-width="1.3"/>
+        <path d="M17 19 q15 -3 30 0" stroke="#f4edda" stroke-width="1.8" stroke-linecap="round" opacity="0.6" fill="none"/>
+        <circle cx="24" cy="26" r="5" fill="#f4edda" stroke="#283d36" stroke-width="1.3"/>
+        <circle cx="40" cy="26" r="5" fill="#f4edda" stroke="#283d36" stroke-width="1.3"/>
+        <circle cx="25" cy="26" r="2.2" fill="#283d36"/>
+        <circle cx="41" cy="26" r="2.2" fill="#283d36"/>
+        <circle cx="26" cy="25" r="0.8" fill="#ffffff"/>
+        <circle cx="42" cy="25" r="0.8" fill="#ffffff"/>
+        <ellipse cx="19" cy="31" rx="2.4" ry="1.4" fill="#d9a8ad"/>
+        <ellipse cx="45" cy="31" rx="2.4" ry="1.4" fill="#d9a8ad"/>
+        <path d="M28 32 q4 3.5 8 0" stroke="#283d36" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        <rect x="19" y="37" width="26" height="14" rx="5" fill="#58857e" stroke="#283d36" stroke-width="1.3"/>
+        <rect x="24" y="40" width="16" height="8" rx="2.5" fill="#d5b466" stroke="#283d36" stroke-width="1.2"/>
+        <circle cx="28" cy="44" r="1.4" fill="#f4edda"/>
+        <circle cx="36" cy="44" r="1.4" fill="#c97858"/>
+        <circle cx="13" cy="42" r="3.5" fill="#d9a8ad" stroke="#283d36" stroke-width="1.3"/>
+        <circle cx="51" cy="42" r="3.5" fill="#d9a8ad" stroke="#283d36" stroke-width="1.3"/>
+      `;
       break;
     case 'Modules':
-      // Parts chest / blocks
-      paths = '<rect x="12" y="16" width="18" height="18" rx="3" fill="currentColor" opacity="0.2"/><rect x="34" y="16" width="18" height="18" rx="3" fill="currentColor" opacity="0.2"/><rect x="23" y="36" width="18" height="18" rx="3" fill="currentColor" opacity="0.3"/><rect x="12" y="16" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="3.5"/><rect x="34" y="16" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="3.5"/><rect x="23" y="36" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="3.5"/>';
+      content = `
+        <ellipse cx="32" cy="57" rx="22" ry="4.5" fill="#283d36" opacity="0.22"/>
+        <path d="M11 41 L27 33 L43 41 L27 49 Z" fill="#d5b466" stroke="#283d36" stroke-width="1.3"/>
+        <path d="M11 41 L27 49 L27 56 L11 48 Z" fill="#c49e4d" stroke="#283d36" stroke-width="1.3"/>
+        <path d="M27 49 L43 41 L43 48 L27 56 Z" fill="#b38b3a" stroke="#283d36" stroke-width="1.3"/>
+        <ellipse cx="21" cy="39" rx="3" ry="1.5" fill="#f4edda" stroke="#283d36" stroke-width="1.1"/>
+        <ellipse cx="33" cy="39" rx="3" ry="1.5" fill="#f4edda" stroke="#283d36" stroke-width="1.1"/>
+        <path d="M31 27 L45 20 L57 26 L43 33 Z" fill="#699a92" stroke="#283d36" stroke-width="1.3"/>
+        <path d="M31 27 L43 33 L43 42 L31 36 Z" fill="#558079" stroke="#283d36" stroke-width="1.3"/>
+        <path d="M43 33 L57 26 L57 35 L43 42 Z" fill="#426761" stroke="#283d36" stroke-width="1.3"/>
+        <ellipse cx="44" cy="26" rx="2.5" ry="1.3" fill="#87a4ac" stroke="#283d36" stroke-width="1"/>
+        <path d="M19 19 L32 12 L45 19 L32 26 Z" fill="#c97858" stroke="#283d36" stroke-width="1.3"/>
+        <path d="M19 19 L32 26 L32 35 L19 28 Z" fill="#b16142" stroke="#283d36" stroke-width="1.3"/>
+        <path d="M32 26 L45 19 L45 28 L32 35 Z" fill="#984b2e" stroke="#283d36" stroke-width="1.3"/>
+        <ellipse cx="32" cy="18.5" rx="3.2" ry="1.7" fill="#f4edda" stroke="#283d36" stroke-width="1.1"/>
+        <path d="M21 20 L31 15" stroke="#f4edda" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+      `;
       break;
     case 'Runtimes':
-      // Platform / stepped layers
-      paths = '<ellipse cx="32" cy="18" rx="22" ry="8" fill="currentColor" opacity="0.2"/><ellipse cx="32" cy="18" rx="22" ry="8" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M10 18 L10 32 C10 36.4 19.8 40 32 40 C44.2 40 54 36.4 54 32 L54 18" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M10 32 L10 46 C10 50.4 19.8 54 32 54 C44.2 54 54 50.4 54 46 L54 32" fill="none" stroke="currentColor" stroke-width="3.5"/>';
+      content = `
+        <ellipse cx="32" cy="56" rx="22" ry="4.5" fill="#283d36" opacity="0.22"/>
+        <rect x="23" y="11" width="18" height="14" rx="2.5" fill="#87a4ac" stroke="#283d36" stroke-width="1.3"/>
+        <rect x="26" y="13" width="12" height="7" rx="1.5" fill="#f4edda" stroke="#283d36" stroke-width="1"/>
+        <path d="M28 16 h8" stroke="#c97858" stroke-width="1.5" stroke-linecap="round"/>
+        <rect x="12" y="21" width="40" height="31" rx="6" fill="#c97858" stroke="#283d36" stroke-width="1.3"/>
+        <path d="M14 24 h36" stroke="#f4edda" stroke-width="1.4" stroke-linecap="round" opacity="0.5" fill="none"/>
+        <rect x="17" y="26" width="30" height="14" rx="3" fill="#283d36" stroke="#283d36" stroke-width="1.2"/>
+        <rect x="19" y="28" width="26" height="10" rx="2" fill="#9bac80"/>
+        <path d="M23 33 h4 M25 31 v4" stroke="#283d36" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="38" cy="32" r="1.8" fill="#c97858" stroke="#283d36" stroke-width="1"/>
+        <circle cx="42" cy="34.5" r="1.8" fill="#d5b466" stroke="#283d36" stroke-width="1"/>
+        <rect x="18" y="44" width="13" height="5" rx="2" fill="#f4edda" stroke="#283d36" stroke-width="1.2"/>
+        <circle cx="37" cy="46.5" r="2.2" fill="#699a92" stroke="#283d36" stroke-width="1.2"/>
+        <circle cx="44" cy="46.5" r="2.2" fill="#699a92" stroke="#283d36" stroke-width="1.2"/>
+      `;
       break;
     case 'Connectors':
-      // Signal plugs
-      paths = '<rect x="18" y="26" width="28" height="24" rx="5" fill="currentColor" opacity="0.2"/><rect x="18" y="26" width="28" height="24" rx="5" fill="none" stroke="currentColor" stroke-width="4"/><path d="M26 12 L26 26 M38 12 L38 26 M32 50 L32 58" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="38" r="3" fill="currentColor"/>';
+      content = `
+        <ellipse cx="32" cy="56" rx="20" ry="4.5" fill="#283d36" opacity="0.22"/>
+        <path d="M10 44 C12 25, 23 23, 27 34" fill="none" stroke="#f4edda" stroke-width="6.5" stroke-linecap="round"/>
+        <path d="M10 44 C12 25, 23 23, 27 34" fill="none" stroke="#283d36" stroke-width="9" stroke-linecap="round" style="stroke-linejoin:round"/>
+        <path d="M10 44 C12 25, 23 23, 27 34" fill="none" stroke="#f4edda" stroke-width="6.5" stroke-linecap="round"/>
+        <path d="M25 31 L37 20" stroke="#283d36" stroke-width="12" stroke-linecap="round"/>
+        <path d="M25 31 L37 20" stroke="#c97858" stroke-width="9.5" stroke-linecap="round"/>
+        <rect x="35" y="13" width="8" height="11" rx="2" transform="rotate(45 39 18.5)" fill="#87a4ac" stroke="#283d36" stroke-width="1.3"/>
+        <line x1="43" y1="14" x2="47" y2="10" stroke="#d5b466" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="47" y1="18" x2="51" y2="14" stroke="#d5b466" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="43" y1="14" x2="47" y2="10" stroke="#283d36" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
+        <circle cx="48" cy="9" r="1" fill="#f4edda"/>
+        <circle cx="52" cy="13" r="1" fill="#f4edda"/>
+        <path d="M51 22 Q56 20 56 15 Q56 10 51 8" fill="none" stroke="#699a92" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M55 26 Q62 23 62 15 Q62 7 55 4" fill="none" stroke="#699a92" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="1 3"/>
+      `;
       break;
     case 'Tenants':
-      // Neighborhoods / clustered houses
-      paths = '<path d="M10 48 L10 30 L22 20 L34 30 L34 48 Z" fill="currentColor" opacity="0.2"/><path d="M30 48 L30 36 L42 26 L54 36 L54 48 Z" fill="currentColor" opacity="0.3"/><path d="M10 48 L10 30 L22 20 L34 30 L34 48 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M30 48 L30 36 L42 26 L54 36 L54 48 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M8 52 L56 52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>';
+      content = `
+        <ellipse cx="32" cy="57" rx="23" ry="4.5" fill="#283d36" opacity="0.22"/>
+        <polygon points="10,29 19,20 28,29" fill="#d9a8ad" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <rect x="12" y="29" width="14" height="19" fill="#87a4ac" stroke="#283d36" stroke-width="1.3"/>
+        <rect x="16" y="37" width="6" height="11" rx="2" fill="#f4edda" stroke="#283d36" stroke-width="1.2"/>
+        <circle cx="20.5" cy="43" r="0.7" fill="#283d36"/>
+        <polygon points="36,29 45,20 54,29" fill="#d5b466" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <rect x="38" y="29" width="14" height="19" fill="#9bac80" stroke="#283d36" stroke-width="1.3"/>
+        <rect x="42" y="37" width="6" height="11" rx="2" fill="#f4edda" stroke="#283d36" stroke-width="1.2"/>
+        <circle cx="46.5" cy="43" r="0.7" fill="#283d36"/>
+        <polygon points="21,21 32,10 43,21" fill="#c97858" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <rect x="23" y="21" width="18" height="32" fill="#f4edda" stroke="#283d36" stroke-width="1.3"/>
+        <rect x="26" y="25" width="5" height="5" rx="1" fill="#699a92" stroke="#283d36" stroke-width="1.2"/>
+        <rect x="33" y="25" width="5" height="5" rx="1" fill="#699a92" stroke="#283d36" stroke-width="1.2"/>
+        <rect x="28" y="39" width="8" height="14" rx="3" fill="#699a92" stroke="#283d36" stroke-width="1.2"/>
+        <circle cx="34" cy="46" r="0.9" fill="#f4edda"/>
+      `;
       break;
     case 'Fleet':
-      // Wing hangar / airship
-      paths = '<ellipse cx="32" cy="28" rx="24" ry="14" fill="currentColor" opacity="0.2"/><ellipse cx="32" cy="28" rx="24" ry="14" fill="none" stroke="currentColor" stroke-width="4"/><path d="M12 28 L52 28 M22 42 L42 42 L38 48 L26 48 Z M48 22 L58 16 L58 40 L48 34" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>';
+      content = `
+        <ellipse cx="32" cy="57" rx="19" ry="4" fill="#283d36" opacity="0.22"/>
+        <path d="M11 27 L6 21 L12 24 L14 18 L15 26 Z" fill="#699a92" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <ellipse cx="33" cy="27" rx="22" ry="14" fill="#d5b466" stroke="#283d36" stroke-width="1.3"/>
+        <path d="M13 24 Q33 16 53 24" fill="none" stroke="#f4edda" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M13 30 Q33 38 53 30" fill="none" stroke="#c97858" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+        <line x1="25" y1="39" x2="23" y2="45" stroke="#283d36" stroke-width="1.4"/>
+        <line x1="39" y1="39" x2="41" y2="45" stroke="#283d36" stroke-width="1.4"/>
+        <path d="M20 45 h24 c0 0 -2 6 -7 6 h-10 c-5 0 -7 -6 -7 -6 Z" fill="#c97858" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <rect x="24" y="46" width="3.5" height="3.5" rx="1" fill="#f4edda" stroke="#283d36" stroke-width="1"/>
+        <rect x="30" y="46" width="3.5" height="3.5" rx="1" fill="#f4edda" stroke="#283d36" stroke-width="1"/>
+        <rect x="36" y="46" width="3.5" height="3.5" rx="1" fill="#f4edda" stroke="#283d36" stroke-width="1"/>
+        <circle cx="48" cy="24" r="2" fill="#87a4ac" stroke="#283d36" stroke-width="1"/>
+        <path d="M48 22 Q52 19 54 22" stroke="#f4edda" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      `;
       break;
     case 'Activity':
-      // Courier trail / envelope
-      paths = '<rect x="10" y="18" width="44" height="30" rx="4" fill="currentColor" opacity="0.2"/><rect x="10" y="18" width="44" height="30" rx="4" fill="none" stroke="currentColor" stroke-width="4"/><path d="M12 20 L32 35 L52 20 M12 46 L26 32 M52 46 L38 32" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>';
+      content = `
+        <ellipse cx="32" cy="56" rx="22" ry="4.5" fill="#283d36" opacity="0.22"/>
+        <rect x="11" y="19" width="42" height="29" rx="4.5" fill="#f4edda" stroke="#283d36" stroke-width="1.3"/>
+        <path d="M11 21 L32 37 L53 21" fill="none" stroke="#87a4ac" stroke-width="1.8" stroke-linejoin="round"/>
+        <polygon points="11,20 32,36 53,20" fill="#e8dfc8" opacity="0.6" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <rect x="38" y="23" width="9" height="11" rx="1.5" fill="#9bac80" stroke="#283d36" stroke-width="1.2"/>
+        <circle cx="42.5" cy="28.5" r="2" fill="#f4edda"/>
+        <circle cx="32" cy="38" r="6.5" fill="#c97858" stroke="#283d36" stroke-width="1.3"/>
+        <circle cx="32" cy="38" r="4.5" fill="#b16142"/>
+        <path d="M30 36 q2 2 4 0 M32 36 v4" stroke="#f4edda" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+        <path d="M14 22 h24" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      `;
       break;
     case 'Workbench':
-      // Blueprint bench
-      paths = '<path d="M12 16 L46 16 C50 16 52 18 52 22 L52 50 L18 50 C14 50 12 48 12 44 Z" fill="currentColor" opacity="0.2"/><path d="M12 16 L46 16 C50 16 52 18 52 22 L52 50 L18 50 C14 50 12 48 12 44 Z" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M20 26 L44 26 M20 34 L38 34 M20 42 L32 42 M12 44 C12 48 16 48 18 50" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>';
+      content = `
+        <ellipse cx="32" cy="56" rx="21" ry="4.5" fill="#283d36" opacity="0.22"/>
+        <path d="M12 16 h30 l11 11 v25 h-41 Z" fill="#87a4ac" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <polygon points="42,16 53,27 42,27" fill="#699a92" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M18 24 h18 M18 30 h24 M18 36 h16 M18 42 h20" stroke="#f4edda" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+        <circle cx="24" cy="42" r="2.5" fill="#f4edda" stroke="#283d36" stroke-width="1"/>
+        <path d="M29 48 L49 20 L55 24 L35 52 Z" fill="#d5b466" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <polygon points="29,48 26,55 35,52" fill="#f4edda" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <polygon points="26,55 28,52 30,54" fill="#283d36"/>
+        <rect x="49" y="18" width="7" height="4" rx="1.5" transform="rotate(35 52.5 20)" fill="#d9a8ad" stroke="#283d36" stroke-width="1"/>
+      `;
       break;
     case 'Evidence':
-      // Stamp book / wax seal stamp
-      paths = '<rect x="24" y="12" width="16" height="20" rx="4" fill="currentColor" opacity="0.2"/><rect x="24" y="12" width="16" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M14 42 C14 36 22 34 32 34 C42 34 50 36 50 42 L52 50 L12 50 Z" fill="currentColor" opacity="0.3"/><path d="M14 42 C14 36 22 34 32 34 C42 34 50 36 50 42 L52 50 L12 50 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><circle cx="32" cy="20" r="3" fill="currentColor"/>';
+      content = `
+        <ellipse cx="32" cy="57" rx="20" ry="4.5" fill="#283d36" opacity="0.22"/>
+        <path d="M32 9 C26 9 27 19 29 25 C30 28 29 32 25 36 L39 36 C35 32 34 28 35 25 C37 19 38 9 32 9 Z" fill="#d5b466" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <ellipse cx="32" cy="10" rx="4.5" ry="3" fill="#f4edda" stroke="#283d36" stroke-width="1.2"/>
+        <rect x="21" y="36" width="22" height="7" rx="2" fill="#87a4ac" stroke="#283d36" stroke-width="1.3"/>
+        <ellipse cx="32" cy="44" rx="14" ry="4" fill="#c97858" stroke="#283d36" stroke-width="1.3"/>
+        <ellipse cx="32" cy="50" rx="17" ry="6" fill="#c97858" stroke="#283d36" stroke-width="1.3"/>
+        <ellipse cx="32" cy="49" rx="12" ry="3.8" fill="#b16142" stroke="#283d36" stroke-width="1.1"/>
+        <circle cx="32" cy="49" r="2.5" fill="#f4edda" opacity="0.8"/>
+        <path d="M31 16 Q33 13 34 16" stroke="#f4edda" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      `;
       break;
     case 'Resources':
-      // Field notes / open book
-      paths = '<path d="M32 20 C24 16 12 16 8 18 L8 48 C14 46 24 46 32 50 C40 46 50 46 56 48 L56 18 C52 16 40 16 32 20 Z" fill="currentColor" opacity="0.2"/><path d="M32 20 C24 16 12 16 8 18 L8 48 C14 46 24 46 32 50 C40 46 50 46 56 48 L56 18 C52 16 40 16 32 20 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M32 20 L32 50 M14 26 L26 24 M14 34 L26 32 M38 24 L50 26 M38 32 L50 34" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>';
+      content = `
+        <ellipse cx="32" cy="57" rx="21" ry="4.5" fill="#283d36" opacity="0.22"/>
+        <path d="M13 18 C13 18 24 16 32 20 C40 16 51 18 51 18 L51 46 C41 42 34 44 32 47 C30 44 23 42 13 46 Z" fill="#f4edda" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M11 20 C11 20 23 18 32 22 C41 18 53 20 53 20 L53 48 C42 44 34 46 32 49 C30 46 22 44 11 48 Z" fill="#699a92" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M14 20 C14 20 24 18 32 22 C40 18 50 20 50 20 L50 46 C41 42 34 44 32 47 C30 44 23 42 14 46 Z" fill="#f4edda" stroke="#283d36" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M32 22 L32 47" stroke="#d5b466" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M32 22 L36 34 L32 32 L28 34 Z" fill="#c97858" stroke="#283d36" stroke-width="1" stroke-linejoin="round"/>
+        <path d="M18 27 h9 M18 32 h9 M18 37 h7" stroke="#87a4ac" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+        <path d="M37 27 h9 M37 32 h9 M37 37 h6" stroke="#87a4ac" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+      `;
       break;
+    case 'Overview':
     default:
-      paths = '<circle cx="32" cy="32" r="20" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="4"/>';
+      content = `
+        <ellipse cx="32" cy="57" rx="22" ry="4.5" fill="#283d36" opacity="0.22"/>
+        <rect x="39" y="12" width="6" height="12" rx="1.5" fill="#87a4ac" stroke="#283d36" stroke-width="1.3"/>
+        <rect x="15" y="28" width="34" height="25" rx="4" fill="#9bac80" stroke="#283d36" stroke-width="1.3"/>
+        <polygon points="10,29 32,13 54,29" fill="#d9a8ad" stroke="#283d36" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M13 28 L32 15 L51 28" stroke="#f4edda" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+        <rect x="19" y="33" width="8" height="8" rx="2" fill="#f4edda" stroke="#283d36" stroke-width="1.2"/>
+        <line x1="23" y1="33" x2="23" y2="41" stroke="#283d36" stroke-width="1"/>
+        <line x1="19" y1="37" x2="27" y2="37" stroke="#283d36" stroke-width="1"/>
+        <rect x="31" y="35" width="12" height="18" rx="3" fill="#c97858" stroke="#283d36" stroke-width="1.3"/>
+        <circle cx="40" cy="44" r="1.2" fill="#d5b466" stroke="#283d36" stroke-width="0.8"/>
+        <circle cx="24" cy="22" r="2.5" fill="#f4edda" stroke="#283d36" stroke-width="1"/>
+      `;
       break;
   }
-
-  svg.innerHTML = paths;
+  
+  svg.innerHTML = content.trim();
   return svg;
 }
 
@@ -1313,8 +1453,8 @@ function renderOverview(): HTMLElement {
   companion.style.border = '1.5px solid var(--oc-border-strong, #c8bea9)';
 
   const robotIcon = toyIcon('Agents');
-  robotIcon.style.width = '32px';
-  robotIcon.style.height = '32px';
+  robotIcon.style.width = '96px';
+  robotIcon.style.height = '96px';
   robotIcon.style.flexShrink = '0';
   robotIcon.style.color = 'var(--oc-color-orange, #d96b27)';
 
@@ -1700,7 +1840,7 @@ function renderOverview(): HTMLElement {
       if (relatedCards.length > 0) {
         const filterModBtn = document.createElement('button');
         filterModBtn.className = 'oc-btn oc-btn-sm';
-        filterModBtn.textContent = `📦 Filter Modules (${relatedCards.length})`;
+        filterModBtn.textContent = `Find parts (${relatedCards.length})`;
         filterModBtn.onclick = () => {
           moduleFilter.agent = slug;
           currentSection = 'Modules';
@@ -2287,7 +2427,7 @@ function renderOverview(): HTMLElement {
 
       const filterModsBtn = document.createElement('button');
       filterModsBtn.className = 'oc-btn oc-btn-sm';
-      filterModsBtn.textContent = `📦 Filter Modules`;
+      filterModsBtn.textContent = `Find parts`;
       filterModsBtn.onclick = () => {
         moduleFilter.tenant = slug;
         currentSection = 'Modules';
@@ -2773,7 +2913,7 @@ function renderActivity(): HTMLElement {
         currentPlanPreview = null;
         render();
       };
-      lbl.append(chk, document.createTextNode(`${toStr(c.name || id)} [${disp}]${isHeldOrRefused ? ' ⚠️' : ''}`));
+      lbl.append(chk, document.createTextNode(`${toStr(c.name || id)} [${disp}]${isHeldOrRefused ? ' (held or refused)' : ''}`));
       modBox.appendChild(lbl);
     });
     modGroup.appendChild(modBox);
