@@ -135,7 +135,7 @@ This repository is the platform. Instance data (brand tenants, the fleet invento
 export SNOWGLOVES_DATA=/path/to/snow-gloves-ops   # tenants/, fleet.yaml, nodes/, _audit/
 ```
 
-Unset, everything resolves to this checkout and its public fixtures (`_demo`, `acme`, `tryambakam-noesis`), which is what CI runs; `make smoke` and `make walk` always use the fixtures. The resolver is [`scripts/lib/paths.py`](./scripts/lib/paths.py); `scripts/onboard.py`, `node_profile.py`, `graph_upgrade.py` and `upgrade.py` also take `--data DIR`. Never commit tenants, `fleet.yaml`, receipts or planning state here.
+Unset, everything resolves to this checkout and its public fixtures (`_demo`, `acme`, `tryambakam-noesis`), which the local validation commands use; `make smoke` and `make walk` always use the fixtures. The resolver is [`scripts/lib/paths.py`](./scripts/lib/paths.py); `scripts/onboard.py`, `node_profile.py`, `graph_upgrade.py` and `upgrade.py` also take `--data DIR`. Never commit tenants, `fleet.yaml`, receipts or planning state here.
 
 **Planned fresh-node CLI onboarding:** [layered setup plan](./docs/MAC-MINI-NODE-ONBOARDING-PLAN.md) and [Claude start prompt](./prompts/mac-mini-node-start.md). This covers an always-on Mac mini workspace, developer tooling, Temperance/OmniRoute, secrets, and selected brand capabilities. It is a planning candidate; the node bootstrap CLI is not implemented yet.
 
@@ -160,7 +160,7 @@ Unset, everything resolves to this checkout and its public fixtures (`_demo`, `a
 | `make sentinel` | Daily drift sweep |
 | `make release-dry V=x.y.z` | Preview a platform version bump |
 | `make release V=x.y.z` | Bump every version file, rebuild catalog, commit, tag (no push) |
-| `make release-push V=x.y.z` | Push HEAD + tag, which triggers the release workflow |
+| `make release-push V=x.y.z` | Push HEAD + tag; signing and publication require explicit manual steps |
 | `make release-check` | Verify all version files agree with `VERSION` |
 | `make upgrade [T=<slug>] [WRITE=1]` | Dry-run (or apply) tenant **platform** migrations |
 | `make kill-hermes` | Free port 4100 |
@@ -226,7 +226,7 @@ More detail: [`docs/architecture-overview.md`](./docs/architecture-overview.md).
 
 ## 🗂 Modules & Catalog
 
-`catalog/cards/<id>.md` holds one card per third-party skill, MCP server, plugin, connector, or playbook. A card is a pointer, never a copy of upstream code. `scripts/build_catalog.py` compiles the cards, the agent manifests, the adapters, and the G-Stack connectors into `catalog/registry.yaml` and `catalog/modules.json` (schema `snowgloves.modules.v1`). CI fails if either is stale.
+`catalog/cards/<id>.md` holds one card per third-party skill, MCP server, plugin, connector, or playbook. A card is a pointer, never a copy of upstream code. `scripts/build_catalog.py` compiles the cards, the agent manifests, the adapters, and the G-Stack connectors into `catalog/registry.yaml` and `catalog/modules.json` (schema `snowgloves.modules.v1`). Run `make catalog-check` locally to reject stale generated output.
 
 | Disposition | Count | Meaning |
 |---|---:|---|
@@ -256,7 +256,7 @@ The agent asks one decision at a time, takes options only from `modules.json`, a
 
 ## 🖥 Dashboard
 
-The native Tauri v2 app in [`apps/onboarding/`](./apps/onboarding) gains a **Modules dashboard** and a guided onboarding flow. Both read the same `catalog/modules.json` plus each tenant's `enabled.yaml`. The same data is published as a static site, built with `make site` (`npm run build:site`) and deployed by GitHub Pages:
+The native Tauri v2 app in [`apps/onboarding/`](./apps/onboarding) gains a **Modules dashboard** and a guided onboarding flow. Both read the same `catalog/modules.json` plus each tenant's `enabled.yaml`. The same data is published as a static site, built with `make site` (`npm run build:site`) previously published by GitHub Pages. Automatic publishing is retired; this URL retains its last published content until a separate local publisher is selected:
 
 **https://sheshiyer.github.io/snow-gloves-os/**
 
@@ -276,12 +276,12 @@ The root `VERSION` file (currently `0.2.1`) is the platform version. The app's `
 ```bash
 make release-dry V=0.2.1    # show every file that would change
 make release V=0.2.1        # bump, rebuild catalog, finalize CHANGELOG, commit, tag v0.2.1
-make release-push V=0.2.1   # push; CI builds the signed app + attaches platform assets
+make release-push V=0.2.1   # push only; no automatic signing or publication
 make upgrade                # dry-run tenant migrations to VERSION
 make upgrade T=acme WRITE=1 # apply, rebuild catalog, re-render acme's adapters
 ```
 
-A release ships the signed Tauri installers (draft until you publish), plus a platform job that attaches the source tarball, `modules.json`, the adapter bundle, and `SHA256SUMS`. **v0.2.0 is a reinstall** for 0.1.x (new bundle id). See [`docs/RELEASING.md`](./docs/RELEASING.md) and [`docs/UPGRADING.md`](./docs/UPGRADING.md).
+The retired hosted release built signed Tauri installers and attached source, catalog, adapter, and checksum assets. Those publication jobs are no longer active. `make app-build` remains the local app build entry point; signing, cross-platform builds, updater `latest.json`, and publication require a separately reviewed local procedure. **v0.2.0 is a reinstall** for 0.1.x (new bundle id). See [`docs/RELEASING.md`](./docs/RELEASING.md) and [`docs/UPGRADING.md`](./docs/UPGRADING.md).
 
 <!-- readme-gen:start:tree -->
 ## 📂 Project Structure
@@ -290,7 +290,7 @@ A release ships the signed Tauri installers (draft until you publish), plus a pl
 📦 snow-gloves-os
 ├── 📄 VERSION                  # platform version (0.2.1)
 ├── 📄 distribution.yaml        # what the platform owns vs what tenants own
-├── 📂 .github/workflows/       # ci.yml (pytest, catalog, walk, smoke) · release.yml · pages.yml
+├── 📂 .local-jobs/             # explicit local checks; schedules disabled
 ├── 📂 .specify/                # Spec-Kit templates + workflows
 ├── 📂 .planning/               # GSD state: local symlink into the private data checkout (gitignored)
 ├── 📂 agents/                  # 7 agents, each with 8+ md files + MANIFEST
@@ -325,7 +325,7 @@ A release ships the signed Tauri installers (draft until you publish), plus a pl
 | Spec coverage | ████████████████████ | 100% |
 | Agents wired | ████████████████████ | 100% |
 | End-to-end smoke | ████████████████████ | 100% |
-| Tests / CI (130 pytest; CI runs pytest, version + catalog, `make walk`, smoke) | ████████████████████ | 100% |
+| Local validation (pytest, version + catalog, `make walk`, smoke; execution is opt-in) | ████████████████████ | 100% |
 | Catalog (132 cards, `--check` in CI) | ████████████████████ | 100% |
 | Runtime adapters (9 shipped; several fields still `verify: true`) | ██████████░░░░░░░░░░ |  50% |
 | Release + upgrade tooling (v0.2.1 stable) | ████████████████░░░░ |  80% |
