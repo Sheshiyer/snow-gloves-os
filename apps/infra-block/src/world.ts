@@ -54,6 +54,8 @@ export function createWorld(
   controls.target.set(0, 0, 0);
   let focusTarget: THREE.Vector3 | null = null;
   let focusDistance: number | null = null;
+  let focusDirection: THREE.Vector3 | null = null;
+  const townDirection = new THREE.Vector3(35, 37, 41).normalize();
   let fittedDistance = 90;
   let fittedMinDistance = 48;
   const onWorldFocus = (event: Event) => {
@@ -63,11 +65,12 @@ export function createWorld(
     const station = resident ? residents.group.getObjectByName(`Station_${resident.slug}`) : null;
     controls.minDistance = station ? 24 : fittedMinDistance;
     focusDistance = station ? 36 : fittedDistance;
+    focusDirection = station ? new THREE.Vector3(14, 34, 16).normalize() : townDirection.clone();
     focusTarget = station ? new THREE.Vector3(station.position.x, 1.5, station.position.z) : building
       ? new THREE.Vector3(building.group.position.x * 0.35, 3, building.group.position.z * 0.35)
       : new THREE.Vector3(0, 3, 0);
   };
-  const cancelFocus = () => { focusTarget = null; focusDistance = null; };
+  const cancelFocus = () => { focusTarget = null; focusDistance = null; focusDirection = null; };
   container.addEventListener('world-focus', onWorldFocus);
   controls.addEventListener('start', cancelFocus);
 
@@ -546,10 +549,13 @@ export function createWorld(
         const offset = camera.position.clone().sub(controls.target);
         const desiredDistance = focusDistance ?? offset.length();
         const nextDistance = THREE.MathUtils.lerp(offset.length(), desiredDistance, alpha);
-        camera.position.copy(controls.target).addScaledVector(offset.normalize(), nextDistance);
-        if (controls.target.distanceToSquared(focusTarget) < 0.002 && Math.abs(nextDistance - desiredDistance) < 0.02) {
+        const direction = offset.normalize();
+        if (focusDirection) direction.lerp(focusDirection, alpha).normalize();
+        camera.position.copy(controls.target).addScaledVector(direction, nextDistance);
+        if (controls.target.distanceToSquared(focusTarget) < 0.002 && Math.abs(nextDistance - desiredDistance) < 0.02 && (!focusDirection || direction.distanceToSquared(focusDirection) < 0.00001)) {
           focusTarget = null;
           focusDistance = null;
+          focusDirection = null;
         }
       }
       controls.update();
