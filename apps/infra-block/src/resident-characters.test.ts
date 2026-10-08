@@ -140,6 +140,46 @@ describe('ResidentCrew', () => {
     expect(roadSamples).toBeGreaterThan(300);
   });
 
+  it('keeps all seven full demo routes outside building footprints and deterministic', () => {
+    const buildings = getBuildings();
+    for (const definition of RESIDENTS) {
+      const crew = createResidentCrew(RESIDENTS, buildings, false);
+      const twin = createResidentCrew(RESIDENTS, buildings, false);
+      allocatedCrews.push(crew, twin);
+      const presence = demoPresence(definition.slug);
+      expect(presence.find(item => item.slug === definition.slug)).toMatchObject({
+        state: 'active', evidence: 'demo', label: 'Demo walking',
+      });
+      crew.setPresence(presence);
+      twin.setPresence(presence);
+      const actor = crew.pickTargets.find(item => item.name === `Actor_${definition.slug}`)!;
+      const twinActor = twin.pickTargets.find(item => item.name === `Actor_${definition.slug}`)!;
+      const home = actor.position.clone();
+      const parked = crew.pickTargets.filter(item => item.name.startsWith('Actor_') && item !== actor)
+        .map(item => ({ item, position: item.position.clone() }));
+      let travelled = 0;
+      let returnedHome = false;
+      let previous = home.clone();
+      for (let frame = 0; frame < 2400; frame++) {
+        crew.update(0.1, 'explore');
+        twin.update(0.1, 'explore');
+        expect(actor.position.equals(twinActor.position)).toBe(true);
+        travelled += actor.position.distanceTo(previous);
+        if (travelled > 30 && actor.position.distanceTo(home) < 0.2) returnedHome = true;
+        previous.copy(actor.position);
+        const collision = buildings.find(building =>
+          Math.abs(actor.position.x - building.x) < building.width / 2 &&
+          Math.abs(actor.position.z - building.z) < building.depth / 2);
+        expect(collision?.id, `${definition.slug} frame ${frame} at ${actor.position.x},${actor.position.z}`).toBeUndefined();
+      }
+      expect(travelled).toBeGreaterThan(300);
+      expect(returnedHome, `${definition.slug} should complete its closed route`).toBe(true);
+      for (const { item, position } of parked) expect(item.position.equals(position)).toBe(true);
+      crew.setPresence([]);
+      expect(actor.position.equals(home)).toBe(true);
+    }
+  });
+
   it('stops active movement and parks to home on authoritative empty presence', () => {
     const buildings = getBuildings();
     const crew = createResidentCrew(RESIDENTS, buildings, false);
