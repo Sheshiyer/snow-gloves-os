@@ -1365,6 +1365,14 @@ details.oc-connection-notes[open] summary::before {
 .oc-station-token:nth-child(6n + 6) { background: #dfc59d !important; }
 .oc-nav-list .oc-nav-btn.oc-active { background: #d99f79 !important; color: var(--oc-ink); box-shadow: 3px 4px 0 var(--oc-ink), inset 0 0 0 2px var(--oc-paper); }
 .oc-nav-btn .oc-toy-icon { width: 32px; height: 32px; }
+.oc-badge { flex-shrink: 0; max-width: 100%; word-break: normal; overflow-wrap: normal; }
+.oc-card-header { flex-wrap: wrap; }
+.oc-card-header > div:first-child { flex: 1 1 210px; min-width: 0; }
+.oc-card-header > .oc-badge { white-space: nowrap; }
+.oc-card-badges { max-width: 100%; min-width: 0; }
+.oc-ticket-stamp { flex-shrink: 0; word-break: normal; }
+/* Hash and source payload badges can wrap without squeezing short stamps. */
+.oc-dialog .oc-badge { flex-shrink: 1; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
 @media (max-width: 480px) {
   .oc-header { padding: 7px 10px; }
   .oc-brand-block { grid-template-columns: 40px minmax(0, 1fr); column-gap: 6px; }
