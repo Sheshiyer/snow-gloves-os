@@ -97,16 +97,24 @@ const GROUND_SEGMENTS = 48; // Grid step is 240 / 48 = 5.0, cleanly aligning ver
  * Calculates terrain height at (x, z) ensuring flat square city center [ -30.0, 30.0 ] at y = 0.
  * Uses Chebyshev distance max(abs(x), abs(z)).
  */
+export function islandCoastRadius(angle: number): number {
+  return 73 + Math.sin(angle * 3 + 0.7) * 5 + Math.cos(angle * 5 - 0.3) * 3;
+}
+
 export function getTerrainHeight(x: number, z: number, noiseFn: (x: number, z: number) => number): number {
   const chebyshev = Math.max(Math.abs(x), Math.abs(z));
   if (chebyshev <= TERRAIN_OUTER_SQUARE) {
     return 0;
   }
-  const ramp = Math.min(1.0, (chebyshev - TERRAIN_OUTER_SQUARE) / 25.0);
-  const n1 = noiseFn(x * 0.03, z * 0.03) * 6.5;
-  const n2 = noiseFn(x * 0.08 + 12.3, z * 0.08 + 45.6) * 2.2;
-  const rawElevation = n1 + n2;
-  return rawElevation * ramp;
+  const radius = Math.hypot(x, z);
+  const coast = islandCoastRadius(Math.atan2(z, x));
+  const ramp = Math.min(1, (chebyshev - TERRAIN_OUTER_SQUARE) / 16);
+  const elevation = (3.2 + noiseFn(x * 0.03, z * 0.03) * 3.5
+    + noiseFn(x * 0.08 + 12.3, z * 0.08 + 45.6)) * ramp;
+  // The road square stays flat. Beyond it, raised headlands meet irregular cliffs
+  // and the outer plane sinks below the sea instead of ending at a square edge.
+  const edge = THREE.MathUtils.smoothstep(radius, coast - 9, coast + 5);
+  return THREE.MathUtils.lerp(elevation, -8, edge);
 }
 
 /** Exact barycentric height of the same indexed PlaneGeometry triangles. */
@@ -278,6 +286,9 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
       } else {
         tempCol.copy(colorSage3).lerp(colorSage1, (nCol - 0.25) * 2);
       }
+      const coastal = THREE.MathUtils.smoothstep(Math.hypot(x, z), islandCoastRadius(Math.atan2(z, x)) - 12, islandCoastRadius(Math.atan2(z, x)) + 1);
+      tempCol.lerp(new THREE.Color('#b8b19a'), coastal * 0.85);
+      if (h < -1.6) tempCol.set('#6c9492');
       colors[i * 3] = tempCol.r;
       colors[i * 3 + 1] = tempCol.g;
       colors[i * 3 + 2] = tempCol.b;
@@ -533,7 +544,7 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
   const numGroves = 9;
   for (let g = 0; g < numGroves; g++) {
     const gAngle = (g / numGroves) * Math.PI * 2 + (rng() - 0.5) * 0.4;
-    const gDist = 50.0 + rng() * 32.0;
+    const gDist = 44.0 + rng() * 12.0;
     groveCenters.push({
       x: Math.cos(gAngle) * gDist,
       z: Math.sin(gAngle) * gDist,
@@ -551,7 +562,7 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
     const tz = grove.z + Math.sin(jAngle) * jDist;
     const chebyshev = Math.max(Math.abs(tx), Math.abs(tz));
 
-    if (chebyshev >= 34.0 && Math.abs(tx) < 110 && Math.abs(tz) < 110) {
+    if (chebyshev >= 34.0 && getTerrainSurfaceHeight(tx, tz, noise) > -0.2) {
       treeCoords.push({
         x: tx,
         z: tz,
@@ -620,10 +631,10 @@ export function createEnvironment(seed: string = 'default-seed'): GroundedEnviro
 
   const grassCoords: Array<{ x: number; z: number }> = [];
   while (grassCoords.length < grassCount) {
-    const gx = (rng() - 0.5) * 220;
-    const gz = (rng() - 0.5) * 220;
+    const gx = (rng() - 0.5) * 140;
+    const gz = (rng() - 0.5) * 140;
     const chebyshev = Math.max(Math.abs(gx), Math.abs(gz));
-    if (chebyshev >= 33.0) {
+    if (chebyshev >= 33.0 && getTerrainSurfaceHeight(gx, gz, noise) > -0.2) {
       grassCoords.push({ x: gx, z: gz });
     }
   }

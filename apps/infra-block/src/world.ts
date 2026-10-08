@@ -9,6 +9,8 @@ import { createResidentCrew } from './resident-characters';
 import { createArchitecture } from './architecture';
 import { createEnvironment } from './environment';
 import { renderBudget, type GraphicsProfile } from './render-budget';
+import { createArchipelago } from './archipelago';
+import { FLEET_LAYOUT, fleetNodes, type FleetProjection } from './fleet-model';
 
 function makePrng(seedStr: string) {
   let h = 1779033703 ^ seedStr.length;
@@ -36,9 +38,9 @@ export function createWorld(
   // Renderer & Scene setup
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#d8e2df');
-  scene.fog = new THREE.Fog('#d8e2df', 70, 210);
+  scene.fog = new THREE.Fog('#d8e2df', 150, 950);
 
-  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 500);
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 4000);
   camera.position.set(35, 37, 41);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'default' });
@@ -74,6 +76,7 @@ export function createWorld(
   const hasOverlay = () => ['field-kit-open', 'source-notes-open', 'home-encounter-open'].some(name => document.body.classList.contains(name)) || Boolean(document.querySelector('dialog[open]'));
   const onWorldFocus = (event: Event) => {
     const id = (event as CustomEvent<string | null>).detail;
+    if (worldView === 'archipelago') return;
     const controlled = residents.controlState();
     followSuspended = Boolean(id && controlled.slug);
     if (!id && controlled.slug) {
@@ -116,8 +119,67 @@ export function createWorld(
   dirLight.shadow.camera.bottom = -d;
   scene.add(dirLight);
 
-  // Continuous static terrain; repeated vegetation and road marks are instanced.
-  scene.add(createEnvironment(initialState.seed));
+  // One detailed town retains its local crew, collision and gameplay coordinates.
+  const townRoot = new THREE.Group(); townRoot.name = 'DetailedTown'; scene.add(townRoot);
+  const environment = createEnvironment(initialState.seed); townRoot.add(environment);
+  const archipelago = createArchipelago(initialState.seed, FLEET_LAYOUT); scene.add(archipelago.group);
+  let islandId: string = FLEET_LAYOUT[0].id;
+  let worldView: 'town' | 'archipelago' = 'town';
+  let logicalX = FLEET_LAYOUT[0].x, logicalZ = FLEET_LAYOUT[0].z;
+  const islandLabels = document.createElement('div'); islandLabels.className = 'sg-world-island-labels';
+  Object.assign(islandLabels.style, { position: 'absolute', inset: '0', pointerEvents: 'none', overflow: 'hidden' });
+  container.appendChild(islandLabels);
+  const labelButtons = FLEET_LAYOUT.map(slot => {
+    const button = document.createElement('button'); button.type = 'button'; button.dataset.island = slot.id;
+    button.textContent = slot.name; button.title = `${slot.name} — visit island`;
+    Object.assign(button.style, { position: 'absolute', pointerEvents: 'auto', border: '2px solid #37514b', borderRadius: '12px', color: '#233f38', background: '#f4efd9', boxShadow: '0 3px 0 #39574c55', padding: '5px 10px', font: '700 13px "Barlow Condensed", sans-serif', whiteSpace: 'nowrap', transform: 'translate(-50%, -100%)' });
+    button.addEventListener('click', () => visitIsland(slot.id)); islandLabels.appendChild(button); return button;
+  });
+  function synchronizeWorld() {
+    const selected = FLEET_LAYOUT.find(slot => slot.id === islandId)!;
+    const dx = selected.x - logicalX, dz = selected.z - logicalZ;
+    townRoot.visible = Math.hypot(dx, dz) < 1600;
+    townRoot.position.set(townRoot.visible ? dx : 0, 0, townRoot.visible ? dz : 0);
+    archipelago.anchor(logicalX, logicalZ, islandId);
+    const stats = archipelago.stats();
+    Object.assign(renderer.domElement.dataset, {
+      fleetIsland: islandId, worldView, worldX: String(logicalX), worldZ: String(logicalZ),
+      sceneryChunks: String(stats.chunks), archipelagoCalls: String(stats.drawCalls),
+      archipelagoTriangles: String(stats.triangles), environmentTriangles: String(environment.userData.environmentalStats.triangles), detailedTowns: '1'
+    });
+  }
+  function selectionEvent() {
+    container.dispatchEvent(new CustomEvent('fleet-selection', { bubbles: true, detail: { id: islandId, view: worldView } }));
+  }
+  function frameChart() {
+    const distance = Math.max(1020, 650 / Math.max(0.35, camera.aspect));
+    controls.target.set(0, 0, 0);
+    camera.position.copy(controls.target).addScaledVector(new THREE.Vector3(0.42, 0.82, 0.4).normalize(), distance);
+    controls.minDistance = distance * 0.6; controls.maxDistance = distance * 2;
+    camera.lookAt(controls.target); controls.update();
+  }
+  function setWorldView(view: 'town' | 'archipelago') {
+    worldView = view === 'archipelago' ? 'archipelago' : 'town';
+    focusTarget = null; focusDistance = null; focusDirection = null; followSuspended = false;
+    if (worldView === 'archipelago') {
+      logicalX = (FLEET_LAYOUT[0].x + FLEET_LAYOUT[1].x) / 2;
+      logicalZ = (FLEET_LAYOUT[0].z + FLEET_LAYOUT[2].z) / 2;
+      scene.fog = new THREE.Fog('#d8e2df', 1400, 3500); frameChart();
+    } else {
+      const selected = FLEET_LAYOUT.find(slot => slot.id === islandId)!;
+      logicalX = selected.x; logicalZ = selected.z;
+      scene.fog = new THREE.Fog('#d8e2df', 150, 950);
+      controls.target.set(0, 3, 0); camera.position.copy(controls.target).addScaledVector(townDirection, fittedDistance);
+      controls.minDistance = fittedMinDistance; controls.maxDistance = fittedDistance * 1.7;
+      camera.lookAt(controls.target); controls.update();
+    }
+    synchronizeWorld(); selectionEvent(); lastRenderAt = -Infinity;
+  }
+  function visitIsland(id: string) {
+    if (!FLEET_LAYOUT.some(slot => slot.id === id)) return;
+    islandId = id; setWorldView('town');
+  }
+  synchronizeWorld();
 
   // Buildings Creation
   interface BuildingObj {
@@ -134,7 +196,7 @@ export function createWorld(
 
   const buildingObjs: BuildingObj[] = [];
   const buildingGroup = new THREE.Group();
-  scene.add(buildingGroup);
+  townRoot.add(buildingGroup);
 
   initialState.buildings.forEach((bs, bIdx) => {
     const node = nodeMap.get(bs.id);
@@ -161,7 +223,7 @@ export function createWorld(
 
   const tenantStation = buildingObjs.find(item => item.id === 'tenant-vault');
   const brandMarkers = createBrandMarkers(tenantStation?.group.position.clone() ?? new THREE.Vector3(), slug => container.dispatchEvent(new CustomEvent('brand-select', {detail:{slug}})));
-  scene.add(brandMarkers.group);
+  townRoot.add(brandMarkers.group);
   const onBrandMarkers = (event: Event) => {
     const {tenants,mode,stale} = (event as CustomEvent<{tenants:BrandTenant[]|null;mode:string;stale:boolean}>).detail;
     brandMarkers.update(tenants,mode,stale);
@@ -169,6 +231,7 @@ export function createWorld(
   };
   container.addEventListener('brand-markers', onBrandMarkers);
   const focusBrands = () => {
+    if (worldView === 'archipelago') setWorldView('town');
     followSuspended = true;
     controls.minDistance = 18;
     focusDistance = 30;
@@ -184,7 +247,7 @@ export function createWorld(
   const selectRing = new THREE.Mesh(ringGeo, ringMat);
   selectRing.position.y = 0.06;
   selectRing.visible = false;
-  scene.add(selectRing);
+  townRoot.add(selectRing);
 
   // Cars
   interface CarObj {
@@ -193,7 +256,7 @@ export function createWorld(
     body: THREE.Mesh;
   }
   const carGroup = new THREE.Group();
-  scene.add(carGroup);
+  townRoot.add(carGroup);
   const carObjs: CarObj[] = [];
   const carColors = ['#e05c5c', '#4682b4', '#55a66a', '#e5983b', '#8e6bb3'];
 
@@ -227,7 +290,7 @@ export function createWorld(
   // Active Character
   let currentCharId: CharacterId = initialState.character;
   let activeChar: CharacterInstance = createCharacter(currentCharId);
-  scene.add(activeChar.group);
+  townRoot.add(activeChar.group);
   let prevPlayerPos = { x: initialState.player.x, z: initialState.player.z };
 
   // Particle Debris & Rings
@@ -252,7 +315,7 @@ export function createWorld(
 
   // Role residents use source-defined homes and relationships, never game collision state.
   const residents = createResidentCrew(RESIDENTS, initialState.buildings, reducedMotion);
-  scene.add(residents.group);
+  townRoot.add(residents.group);
   let residentsEnabled = true;
   const onResidentPresence = (event: Event) => {
     const presence = (event as CustomEvent<ResidentPresence[]>).detail;
@@ -283,7 +346,7 @@ export function createWorld(
   const onPointerUp = (e: MouseEvent) => {
     const dx = e.clientX - pointerDownPos.x;
     const dy = e.clientY - pointerDownPos.y;
-    if (Math.hypot(dx, dy) > 5) return;
+    if (Math.hypot(dx, dy) > 5 || worldView === 'archipelago') return;
 
     const rect = renderer.domElement.getBoundingClientRect();
     pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -327,7 +390,7 @@ export function createWorld(
     if (!rect.width || !rect.height) return;
     pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
-    renderer.domElement.style.cursor = pickResident() ? 'pointer' : 'grab';
+    renderer.domElement.style.cursor = worldView === 'town' && pickResident() ? 'pointer' : 'grab';
   };
 
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
@@ -360,6 +423,7 @@ export function createWorld(
       fittedDistance = distance;
       fittedMinDistance = Math.max(48, distance * 0.7);
       const controlled = residents.controlState();
+      if (worldView === 'archipelago') { frameChart(); return; }
       if (!controlled.slug && !focusTarget) camera.position.copy(controls.target).addScaledVector(townDirection, distance);
       controls.minDistance = controlled.slug ? 18 : focusDistance === 36 ? 24 : fittedMinDistance;
       controls.maxDistance = distance * 1.7;
@@ -369,7 +433,18 @@ export function createWorld(
 
   // Return Controller
   return {
+    setFleet(projection: FleetProjection) {
+      const assigned = fleetNodes(projection.snapshot);
+      for (const button of labelButtons) {
+        const node = assigned.find(node => node.id === button.dataset.island);
+        const slot = FLEET_LAYOUT.find(slot => slot.id === button.dataset.island)!;
+        button.textContent = `${slot.name} · ${node?.assignment ?? 'planned'}`;
+        button.title = `${slot.name} — ${node?.assignment ?? 'planned'} device assignment; visit island`;
+      }
+    },
+    visitIsland, setWorldView,
     controlResident(slug: string | null) {
+      if (slug && worldView === 'archipelago') setWorldView('town');
       residents.controlResident(slug);
       const selectedSlug = residents.controlState().slug;
       focusTarget = null;
@@ -384,11 +459,20 @@ export function createWorld(
       }
     },
     moveResident(x: number, z: number, dt: number) {
+      if (worldView === 'archipelago') {
+        if (!hasOverlay() && Number.isFinite(dt)) {
+          const step = 180 * Math.max(0, Math.min(dt, 0.1));
+          const length = Math.max(1, Math.hypot(x, z));
+          logicalX += x / length * step; logicalZ += z / length * step; synchronizeWorld();
+        }
+        return { slug: null, x: logicalX, z: logicalZ, moving: Boolean(x || z) && !hasOverlay(), nearbySlug: null };
+      }
       if ((x || z) && followSuspended && !hasOverlay()) onWorldFocus(new CustomEvent('world-focus', { detail: null }));
       const forward = camera.getWorldDirection(new THREE.Vector3());
       return residents.moveResident({ x, z: -z }, { x: forward.x, z: forward.z }, dt);
     },
     update(state: GameState, dt: number) {
+      if (state.mode === 'playing' && worldView === 'archipelago') setWorldView('town');
       residents.update(dt, residentsEnabled ? state.mode : 'playing');
       brandMarkers.group.visible = residentsEnabled;
       if (!residentsEnabled) residents.group.visible = false;
@@ -396,7 +480,7 @@ export function createWorld(
       const overlayOpen = hasOverlay();
       if (controlled.slug && overlayWasOpen && !overlayOpen) onWorldFocus(new CustomEvent('world-focus', { detail: null }));
       overlayWasOpen = overlayOpen;
-      const followAllowed = Boolean(controlled.slug && !overlayOpen && !followSuspended);
+      const followAllowed = Boolean(worldView === 'town' && controlled.slug && !overlayOpen && !followSuspended);
       if (followAllowed && focusTarget) focusTarget.set(controlled.x, 1.8, controlled.z);
       if (focusTarget) {
         const previous = controls.target.clone();
@@ -426,11 +510,11 @@ export function createWorld(
 
       // Character Switch
       if (state.character !== currentCharId) {
-        scene.remove(activeChar.group);
+        townRoot.remove(activeChar.group);
         activeChar.dispose();
         currentCharId = state.character;
         activeChar = createCharacter(currentCharId);
-        scene.add(activeChar.group);
+        townRoot.add(activeChar.group);
       }
 
       // Player Animation
@@ -487,7 +571,7 @@ export function createWorld(
         const p = debrisList[i];
         p.life += dt;
         if (p.life >= p.maxLife) {
-          scene.remove(p.mesh);
+          townRoot.remove(p.mesh);
           (p.mesh.material as THREE.Material).dispose();
           debrisList.splice(i, 1);
         } else {
@@ -507,7 +591,7 @@ export function createWorld(
         const r = ringList[i];
         r.life += dt;
         if (r.life >= r.maxLife) {
-          scene.remove(r.mesh);
+          townRoot.remove(r.mesh);
           (r.mesh.material as THREE.Material).dispose();
           ringList.splice(i, 1);
         } else {
@@ -525,6 +609,12 @@ export function createWorld(
         routeOrb.position.copy(pt);
       }
 
+      for (const button of labelButtons) {
+        const point = archipelago.islandPosition(button.dataset.island!)!.project(camera);
+        const visible = point.z >= -1 && point.z <= 1 && Math.abs(point.x) < 0.94 && Math.abs(point.y) < 0.94 && (worldView === 'archipelago' || button.dataset.island !== islandId);
+        button.hidden = !visible;
+        button.style.left = `${(point.x + 1) * 50}%`; button.style.top = `${(1 - point.y) * 50}%`;
+      }
       const renderStarted = performance.now();
       if (document.hidden || renderStarted - lastRenderAt < 1000 / graphicsBudget.maxFps - 1) return;
       lastRenderAt = renderStarted;
@@ -588,7 +678,7 @@ export function createWorld(
           });
           const rm = new THREE.Mesh(ringWaveGeo, rMat);
           rm.position.set(ev.x, 0.08, ev.z);
-          scene.add(rm);
+          townRoot.add(rm);
           ringList.push({ mesh: rm, life: 0, maxLife: 0.85 });
         }
         if (reducedMotion) return;
@@ -601,7 +691,7 @@ export function createWorld(
           });
           const pMesh = new THREE.Mesh(debrisGeo, pMat);
           pMesh.position.set(ev.x + (rand() - 0.5) * 0.8, 0.8 + rand(), ev.z + (rand() - 0.5) * 0.8);
-          scene.add(pMesh);
+          townRoot.add(pMesh);
           debrisList.push({
             mesh: pMesh,
             vx: (rand() - 0.5) * 9,
@@ -643,7 +733,7 @@ export function createWorld(
 
     route(ids: string[]) {
       if (routeGroup) {
-        scene.remove(routeGroup);
+        townRoot.remove(routeGroup);
         routeGroup.traverse(c => {
           if (c instanceof THREE.Mesh) {
             c.geometry.dispose();
@@ -682,7 +772,7 @@ export function createWorld(
 
       routeGroup = new THREE.Group();
       routeGroup.add(tubeMesh, routeOrb);
-      scene.add(routeGroup);
+      townRoot.add(routeGroup);
     },
 
     reset(state: GameState) {
@@ -691,13 +781,13 @@ export function createWorld(
       this.route([]);
 
       debrisList.forEach(p => {
-        scene.remove(p.mesh);
+        townRoot.remove(p.mesh);
         (p.mesh.material as THREE.Material).dispose();
       });
       debrisList.length = 0;
 
       ringList.forEach(r => {
-        scene.remove(r.mesh);
+        townRoot.remove(r.mesh);
         (r.mesh.material as THREE.Material).dispose();
       });
       ringList.length = 0;
@@ -715,6 +805,7 @@ export function createWorld(
     },
 
     dispose() {
+      islandLabels.remove(); scene.remove(archipelago.group); archipelago.dispose();
       container.removeEventListener('brand-markers', onBrandMarkers);
       container.removeEventListener('brand-focus', focusBrands);
       brandMarkers.dispose();
@@ -732,7 +823,7 @@ export function createWorld(
       dirLight.shadow.mapPass?.dispose();
 
       if (routeGroup) {
-        scene.remove(routeGroup);
+        townRoot.remove(routeGroup);
         routeGroup.traverse(c => {
           if (c instanceof THREE.Mesh) {
             c.geometry.dispose();

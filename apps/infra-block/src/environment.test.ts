@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
-import { createEnvironment, getTerrainHeight, createPrng, createPerlinLike2D } from './environment';
+import { createEnvironment, getTerrainHeight, createPrng, createPerlinLike2D, islandCoastRadius } from './environment';
 
 function calculateEnvironmentTriangles(group: THREE.Group): number {
   let tris = 0;
@@ -36,6 +36,18 @@ function calculateEnvironmentDrawCalls(group: THREE.Group): number {
 }
 
 describe('Grounded Square Landscape Environment', () => {
+  it('raises natural headlands and sinks the outer terrain under an irregular coast while retaining the flat town', () => {
+    const noise = createPerlinLike2D(createPrng('island-shore'));
+    const radii = Array.from({length: 24}, (_, index) => islandCoastRadius(index / 24 * Math.PI * 2));
+    expect(Math.max(...radii) - Math.min(...radii)).toBeGreaterThan(10);
+    for (let i = 0; i < 24; i++) {
+      const angle = i / 24 * Math.PI * 2;
+      expect(getTerrainHeight(Math.cos(angle) * 110, Math.sin(angle) * 110, noise)).toBe(-8);
+    }
+    expect(getTerrainHeight(48, 0, noise)).toBeGreaterThan(0.5);
+    expect(getTerrainHeight(0, 0, noise)).toBe(0);
+    expect(getTerrainHeight(30, 30, noise)).toBe(0);
+  });
   it('creates deterministic environment with stable names and structure', () => {
     const env1 = createEnvironment('test-seed-42');
     const env2 = createEnvironment('test-seed-42');

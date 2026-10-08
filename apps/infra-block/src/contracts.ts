@@ -1,3 +1,5 @@
+import type { FleetProjection } from './fleet-model';
+
 export type Layer = 'strategy' | 'knowledge' | 'orchestration' | 'governance' | 'runtime';
 export interface InfraNode {
   id: string; name: string; short: string; layer: Layer; color: string;
@@ -26,5 +28,8 @@ export interface WorldController {
   controlResident(slug: string | null): void;
   moveResident(x: number, z: number, dt: number): CrewControlState;
   setGraphics(profile: 'balanced' | 'eco'): void;
+  setFleet(projection: FleetProjection): void;
+  visitIsland(id: string): void;
+  setWorldView(view: 'town' | 'archipelago'): void;
 }
 export interface InputState { x: number; z: number; attack: boolean; }
