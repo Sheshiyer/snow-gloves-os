@@ -708,3 +708,9 @@ body.source-notes-open .ih-mission-strip{width:auto;left:auto;right:20px;transfo
  .ih-mission-actions>.ih-btn{flex-shrink:0;white-space:nowrap;min-height:44px;}
  body.source-notes-open .ih-mission-strip{right:8px;width:auto;}
 }
+
+/* Notes mode uses an in-flow return control; home overlays intercept nothing. */
+.ih-notes-return{display:none;}
+body.home-explore.source-notes-open:not(.field-kit-open) .ih-notes-return{display:inline-flex;margin:0 0 8px;}
+body.source-notes-open .ih-mission-strip{display:none!important;}
+@media(max-height:480px){.ih-dialogue-layer{top:calc(var(--ih-header-bottom,66px) + var(--ih-mission-height,44px) + 8px);}}

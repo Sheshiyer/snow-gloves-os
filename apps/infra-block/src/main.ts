@@ -996,6 +996,10 @@ operationsHost.addEventListener('cockpit-close', () => {
   if (gameState.mode === 'paused') openDialog(dlgPause);
 });
 document.getElementById('btn-operations')!.onclick = () => openOperations();
+const notesReturn = document.createElement('button');
+notesReturn.type = 'button'; notesReturn.className = 'ih-notes-return ih-btn'; notesReturn.textContent = 'Back to crew';
+notesReturn.onclick = () => document.querySelector<HTMLButtonElement>('#ih-btn-notes-toggle')?.click();
+document.querySelector('.sg-sidebar')?.prepend(notesReturn);
 const homeHost = document.createElement('div');
 document.body.append(homeHost);
 function focusHomeNode(id: string): void {
