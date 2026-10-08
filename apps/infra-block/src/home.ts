@@ -604,8 +604,11 @@ function disposeNavigation(): void {
   function setFleetSelection(id: string): void {
     if (disposed || !FLEET_LAYOUT.some(node => node.id === id)) return;
     const changed = selectedIslandId !== id;
+    const viewChanged = rootEl.dataset.worldView !== worldView;
     selectedIslandId = id;
     rootEl.dataset.fleetIsland = id;
+    rootEl.dataset.worldView = worldView;
+    if (viewChanged) requestAnimationFrame(() => { if (!disposed) window.dispatchEvent(new Event('fleet-layout')); });
     if (changed) {
       clearManualInput();
       stopDemoTour();
@@ -1076,6 +1079,7 @@ function disposeNavigation(): void {
   layoutObserver.observe(host.querySelector('#ih-mission-strip')!);
   window.addEventListener('resize', measureHome);
   measureHome();
+  rootEl.dataset.worldView = worldView;
   document.body.classList.add('home-explore');
   renderBelt();
   updateConnectionUI();

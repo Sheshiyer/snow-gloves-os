@@ -93,7 +93,9 @@ export function mountFleetAtlas(
   root.append(heading, islands, announcement);
   host.appendChild(root);
   const layoutObserver = new ResizeObserver(() => {
-    if (!disposed && !root.hidden) document.documentElement.style.setProperty('--sg-fleet-height', `${Math.ceil(root.getBoundingClientRect().height)}px`);
+    if (disposed || root.hidden) return;
+    document.documentElement.style.setProperty('--sg-fleet-height', `${Math.ceil(root.getBoundingClientRect().height)}px`);
+    window.dispatchEvent(new Event('fleet-layout'));
   });
   layoutObserver.observe(root);
 
