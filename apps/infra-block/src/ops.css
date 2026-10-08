@@ -1381,3 +1381,36 @@ details.oc-connection-notes[open] summary::before {
   .oc-btn-return { font-size: 12px; }
   .oc-town-welcome { padding: 10px !important; }
 }
+
+/* Short landscape puts the notebook beside the town, not across its camera. */
+@media (max-width: 840px) and (orientation: landscape) and (max-height: 500px) {
+  .oc-cockpit {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    left: auto;
+    width: 48vw;
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
+    border: 3px solid var(--oc-ink);
+    border-radius: 18px;
+  }
+  .oc-nav {
+    top: auto;
+    bottom: 8px;
+    left: 8px;
+    right: auto;
+    width: calc(52vw - 24px);
+    max-width: none;
+    max-height: 86px;
+    padding: 4px 6px;
+    border-radius: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .oc-nav-btn { min-width: 55px; min-height: 52px; padding: 4px; }
+  .oc-station-label { font-size: 0.7rem; }
+  .oc-main, .oc-content { min-height: 0; }
+  .oc-content { overflow-y: auto; padding: 10px; }
+  .oc-cockpit .oc-context-tags { max-height: 22dvh; }
+}
