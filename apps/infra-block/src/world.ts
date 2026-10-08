@@ -704,7 +704,8 @@ export function createWorld(
         const point = archipelago.islandPosition(button.dataset.island!)!.project(camera);
         // The four named atlas buttons provide the mobile island controls.
         // Floating labels would obscure the small remaining chart area.
-        const visible = container.clientWidth >= 600 && residentsEnabled && !overlayOpen && point.z >= -1 && point.z <= 1 && Math.abs(point.x) < 0.94 && Math.abs(point.y) < 0.94 && (worldView === 'archipelago' || button.dataset.island !== islandId);
+        const compactChart = container.clientWidth < 600 || (container.clientWidth < 900 && container.clientHeight < 500);
+        const visible = !compactChart && residentsEnabled && !overlayOpen && point.z >= -1 && point.z <= 1 && Math.abs(point.x) < 0.94 && Math.abs(point.y) < 0.94 && (worldView === 'archipelago' || button.dataset.island !== islandId);
         button.hidden = !visible;
         button.style.left = `${(point.x + 1) * 50}%`; button.style.top = `${(1 - point.y) * 50}%`;
       }
