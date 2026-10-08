@@ -10,6 +10,8 @@ export interface SafeActivityRecord {
   artifactId: string | null;
   summary: string;
   sources?: string[];
+  /** Canonical fleet slot only; absent attribution never implies a device. */
+  nodeId?: string | null;
 }
 
 export interface CurrentCatalogCard {
@@ -100,6 +102,17 @@ export interface OpsSnapshotFleetItem {
   evidence: 'source' | 'local' | 'pending';
 }
 
+export interface OpsSnapshotFleetNode {
+  id: string;
+  name: string;
+  wing: 'coding' | 'design' | 'marketing';
+  profileId: string;
+  assignment: 'configured' | 'planned' | 'template';
+  evidence: 'source' | 'local' | 'pending';
+  sources: string[];
+  observedAt: string | null;
+}
+
 export interface OpsSnapshotAcceptanceItem {
   id: string;
   criterion: string;
@@ -154,6 +167,7 @@ export interface OpsSnapshot {
   };
   tenants: OpsSnapshotTenant[];
   fleet: OpsSnapshotFleetItem[];
+  fleetNodes?: OpsSnapshotFleetNode[];
   activity: {
     events: SafeActivityRecord[];
     jobs: SafeActivityRecord[];

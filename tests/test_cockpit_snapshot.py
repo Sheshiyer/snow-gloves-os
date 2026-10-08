@@ -9,6 +9,119 @@ import yaml
 from lib.cockpit_snapshot import build_snapshot, read_document, preview_plan
 
 
+def _private_fleet(tmp_path: Path) -> Path:
+    data = tmp_path / 'private-fleet'
+    data.mkdir()
+    (data / 'tenants' / 't1').mkdir(parents=True)
+    (data / 'tenants' / 't1' / 'MANIFEST.yaml').write_text('name: Private One\n')
+    wings = {}
+    for wing in ('coding', 'design', 'marketing'):
+        host = f'{wing}-private-machine'
+        wings[wing] = {'hostname': host, 'overlay': '10.2.3.4', 'operator_user': 'PRIVATE_OPERATOR'}
+        directory = data / 'nodes' / wing
+        directory.mkdir(parents=True)
+        (directory / 'node.yaml').write_text(yaml.safe_dump({'wing': wing, 'hostname': host, 'primary': 'codex', 'modules': [], 'connectors': [], 'runtimes': ['codex']}))
+    (data / 'fleet.yaml').write_text(yaml.safe_dump({'wings': wings, 'token': 'PRIVATE_TOKEN'}))
+    return data
+
+
+def test_four_fleet_slots_public_templates_ignore_private_inventory(fixture_repo, tmp_path, monkeypatch):
+    data = _private_fleet(tmp_path)
+    monkeypatch.setenv('SNOWGLOVES_DATA', str(data))
+    snap = build_snapshot(fixture_repo, probe=False)
+    nodes = snap['fleetNodes']
+    assert [n['id'] for n in nodes] == ['mac-coding-1', 'mac-coding-2', 'mac-creative', 'mac-marketing']
+    assert [n['wing'] for n in nodes] == ['coding', 'coding', 'design', 'marketing']
+    assert all(n['assignment'] == 'template' and n['evidence'] == 'source' and n['observedAt'] is None for n in nodes)
+    assert all(n['sources'] == ['catalog/fleet-topology.json'] for n in nodes)
+    assert 'private-machine' not in json.dumps(snap)
+
+
+def test_private_fleet_assignments_require_verified_profiles(fixture_repo, tmp_path):
+    data = _private_fleet(tmp_path)
+    snap = build_snapshot(fixture_repo, data_root=data, probe=False)
+    assert [n['assignment'] for n in snap['fleetNodes']] == ['configured', 'planned', 'configured', 'configured']
+    assert all(n['observedAt'] is None for n in snap['fleetNodes'])
+    dumped = json.dumps(snap)
+    assert not any(secret in dumped for secret in ['private-machine', 'PRIVATE_OPERATOR', 'PRIVATE_TOKEN', '10.2.3.4'])
+    assert 'inventory_identity_withheld' in [w['code'] for w in snap['warnings']]
+    assert 'inventory_not_projected' not in [w['code'] for w in snap['warnings']]
+    (data / 'nodes' / 'coding' / 'node.yaml').write_text('wing: coding\nhostname: mismatch\n')
+    assert build_snapshot(fixture_repo, data_root=data, probe=False)['fleetNodes'][0]['assignment'] == 'planned'
+
+
+def test_private_duplicate_inventory_binding_is_held(fixture_repo, tmp_path):
+    data = _private_fleet(tmp_path)
+    inventory = yaml.safe_load((data / 'fleet.yaml').read_text())
+    inventory['wings']['design']['hostname'] = inventory['wings']['coding']['hostname']
+    (data / 'fleet.yaml').write_text(yaml.safe_dump(inventory))
+    profile = data / 'nodes' / 'design' / 'node.yaml'
+    profile.write_text(yaml.safe_dump({'wing': 'design', 'hostname': inventory['wings']['coding']['hostname']}))
+    snap = build_snapshot(fixture_repo, data_root=data, probe=False)
+    assert [n['assignment'] for n in snap['fleetNodes']] == ['planned', 'planned', 'planned', 'configured']
+    assert 'fleet_binding_ambiguous' in [w['code'] for w in snap['warnings']]
+
+
+@pytest.mark.parametrize('mode', ['symlink', 'oversized', 'duplicates', 'unsafe-id'])
+def test_topology_malformed_input_cannot_expand_or_relabel_roster(fixture_repo, tmp_path, mode):
+    data = _private_fleet(tmp_path)
+    topology = fixture_repo / 'catalog' / 'fleet-topology.json'
+    if mode == 'symlink':
+        outside = tmp_path / 'outside.json'
+        outside.write_text('{"nodes": []}')
+        topology.symlink_to(outside)
+    elif mode == 'oversized':
+        topology.write_text(' ' * 8193)
+    else:
+        from lib.cockpit_snapshot import FLEET_TOPOLOGY
+        nodes = [dict(n) for n in FLEET_TOPOLOGY]
+        if mode == 'duplicates':
+            nodes[1] = nodes[0]
+        else:
+            nodes[0]['id'] = '../../private-device'
+        topology.write_text(json.dumps({'schema': 'snowgloves.fleet-topology.v1', 'nodes': nodes}))
+    snap = build_snapshot(fixture_repo, data_root=data, probe=False)
+    assert len(snap['fleetNodes']) == 4
+    assert all(n['assignment'] == 'planned' for n in snap['fleetNodes'])
+    assert 'fleet_topology_held' in [w['code'] for w in snap['warnings']]
+
+
+def test_activity_exact_node_and_unique_host_attribution_preserve_unassigned(fixture_repo, tmp_path):
+    data = _private_fleet(tmp_path)
+    audit = data / '_audit'
+    audit.mkdir()
+    rows = [
+        {'id': 'canonical', 'nodeId': 'mac-coding-1'},
+        {'id': 'alias', 'node_id': 'mac-creative'},
+        {'id': 'node', 'node': 'mac-marketing'},
+        {'id': 'verified-host', 'hostname': 'coding-private-machine'},
+        {'id': 'verified-node-host', 'node': 'design-private-machine'},
+        {'id': 'wing-only', 'wing': 'coding'},
+        {'id': 'unknown', 'nodeId': 'unknown'},
+        {'id': 'unsafe', 'node': '../../private'},
+        {'id': 'conflicting', 'nodeId': 'mac-coding-1', 'node_id': 'mac-coding-2'},
+        {'id': 'unassigned'},
+        {'id': 'foreign', 'nodeId': 'mac-coding-1', 'tenant': 't2'},
+        {'id': 'terminal', 'status': 'cancelled', 'jobId': 'j1', 'agent': None},
+    ]
+    for row in rows:
+        row.setdefault('tenant', 't1')
+        row.setdefault('agent', 'cto')
+        row.setdefault('status', 'running')
+    (audit / 'jobs.jsonl').write_text('\n'.join(json.dumps(r) for r in rows))
+    snap = build_snapshot(fixture_repo, data_root=data, tenant='t1', probe=False)
+    jobs = {r['id']: r for r in snap['activity']['jobs']}
+    assert jobs['canonical']['nodeId'] == 'mac-coding-1'
+    assert jobs['alias']['nodeId'] == 'mac-creative'
+    assert jobs['node']['nodeId'] == 'mac-marketing'
+    assert jobs['verified-host']['nodeId'] == 'mac-coding-1'
+    assert jobs['verified-node-host']['nodeId'] == 'mac-creative'
+    assert all(jobs[r]['nodeId'] is None for r in ['wing-only', 'unknown', 'unsafe', 'conflicting', 'unassigned', 'terminal'])
+    assert jobs['terminal']['agent'] is None
+    assert 'foreign' not in jobs
+    assert 'private-machine' not in json.dumps(snap['activity'])
+
+
 def test_repository_routing_source_shape():
     root = Path(__file__).resolve().parents[1]
     snap = build_snapshot(root, probe=False)

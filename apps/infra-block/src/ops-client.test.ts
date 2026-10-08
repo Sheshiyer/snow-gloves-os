@@ -9,6 +9,7 @@ import {
   validateSnapshot,
 } from './ops-client';
 import type { OpsSnapshot, PlanPreview, PlanRequest } from './ops-contracts';
+import { FLEET_LAYOUT } from './fleet-model';
 
 const VALID_SNAPSHOT_FIXTURE: OpsSnapshot = {
   schema: 'snowgloves.cockpit.v1',
@@ -168,6 +169,55 @@ const VALID_SNAPSHOT_FIXTURE: OpsSnapshot = {
     approve: false,
   },
 };
+
+describe('canonical fleet node validation', () => {
+  function withNodes() {
+    return { ...structuredClone(VALID_SNAPSHOT_FIXTURE), fleetNodes: FLEET_LAYOUT.map(({ id, name, wing, profileId }) => ({
+      id, name, wing, profileId, assignment: 'template', evidence: 'source', sources: ['catalog/fleet-topology.json'], observedAt: null,
+    })) };
+  }
+  it('accepts canonical templates and strips unknown host/control fields', () => {
+    const raw = withNodes();
+    Object.assign(raw.fleetNodes[0], { hostname: 'private-host', ip: '10.0.0.1', execute: true });
+    const parsed = validateSnapshot(raw);
+    expect(parsed.fleetNodes).toHaveLength(4);
+    expect(parsed.fleetNodes![0]).not.toHaveProperty('hostname');
+    expect(parsed.fleetNodes![0]).not.toHaveProperty('execute');
+    expect(parsed.activity.events[0].nodeId).toBeNull();
+  });
+  it.each(['duplicate', 'unknown', 'oversized', 'name', 'wing', 'profile', 'assignment', 'evidence', 'observation', 'source', 'source-count'])('rejects malformed fleet roster: %s', kind => {
+    const raw = withNodes();
+    switch (kind) {
+      case 'duplicate': raw.fleetNodes[1] = raw.fleetNodes[0]; break;
+      case 'unknown': Object.assign(raw.fleetNodes[0], { id: 'other' }); break;
+      case 'oversized': raw.fleetNodes.push(raw.fleetNodes[0]); break;
+      case 'name': Object.assign(raw.fleetNodes[0], { name: 'Some private host' }); break;
+      case 'wing': raw.fleetNodes[0].wing = 'design'; break;
+      case 'profile': Object.assign(raw.fleetNodes[0], { profileId: 'node-other' }); break;
+      case 'assignment': raw.fleetNodes[0].assignment = 'configured'; break;
+      case 'evidence': raw.fleetNodes[0].evidence = 'local'; break;
+      case 'observation': Object.assign(raw.fleetNodes[0], { observedAt: '2026-10-08T12:00:00Z' }); break;
+      case 'source': raw.fleetNodes[0].sources = ['/private/device.yaml']; break;
+      case 'source-count': raw.fleetNodes[0].sources = Array(5).fill('catalog/fleet-topology.json'); break;
+    }
+    expect(() => validateSnapshot(raw)).toThrow(OpsClientError);
+  });
+  it('accepts verified private assignments with null observation and relative refs', () => {
+    const raw = withNodes(); raw.scope.mode = 'local-private';
+    raw.fleetNodes.forEach(node => {
+      node.assignment = node.id === 'mac-coding-2' ? 'planned' : 'configured';
+      node.evidence = node.id === 'mac-coding-2' ? 'pending' : 'local';
+      if (node.assignment === 'configured') node.sources.push('fleet.yaml', `nodes/${node.wing}/node.yaml`);
+    });
+    expect(validateSnapshot(raw).fleetNodes!.filter(n => n.assignment === 'configured')).toHaveLength(3);
+  });
+  it('preserves canonical node activity, rejects host aliases and unknown ids in transport', () => {
+    const raw = withNodes(); raw.activity.events[0].nodeId = 'mac-coding-1';
+    expect(validateSnapshot(raw).activity.events[0].nodeId).toBe('mac-coding-1');
+    raw.activity.events[0].nodeId = 'private-host';
+    expect(() => validateSnapshot(raw)).toThrow(OpsClientError);
+  });
+});
 
 describe('Ops Contracts and Client', () => {
   const originalFetch = globalThis.fetch;

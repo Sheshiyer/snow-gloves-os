@@ -1,0 +1,9 @@
+{
+  "schema": "snowgloves.fleet-topology.v1",
+  "nodes": [
+    {"id": "mac-coding-1", "name": "Mac Coding 01", "wing": "coding", "profileId": "node-coding"},
+    {"id": "mac-coding-2", "name": "Mac Coding 02", "wing": "coding", "profileId": "node-coding"},
+    {"id": "mac-creative", "name": "Mac Creative", "wing": "design", "profileId": "node-design"},
+    {"id": "mac-marketing", "name": "Mac Marketing", "wing": "marketing", "profileId": "node-marketing"}
+  ]
+}

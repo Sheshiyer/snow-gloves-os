@@ -38,6 +38,15 @@ MAX_TENANTS = 128
 SLUG_RE = re.compile(r"^[a-z0-9_][a-z0-9_-]{0,63}$")
 MODULE_ID_RE = re.compile(r"^[a-zA-Z0-9_.-]{1,128}$")
 
+# Founder-defined slots are stable visualization identities. Host bindings stay private.
+FLEET_TOPOLOGY = (
+    {"id": "mac-coding-1", "name": "Mac Coding 01", "wing": "coding", "profileId": "node-coding"},
+    {"id": "mac-coding-2", "name": "Mac Coding 02", "wing": "coding", "profileId": "node-coding"},
+    {"id": "mac-creative", "name": "Mac Creative", "wing": "design", "profileId": "node-design"},
+    {"id": "mac-marketing", "name": "Mac Marketing", "wing": "marketing", "profileId": "node-marketing"},
+)
+FLEET_NODE_IDS = frozenset(node["id"] for node in FLEET_TOPOLOGY)
+
 ALLOWED_DOC_PREFIXES = (
     "README.md",
     'scripts/hermes.py',
@@ -47,6 +56,7 @@ ALLOWED_DOC_PREFIXES = (
     'scripts/sentinel_sweep.py',
     'scripts/lib/adapters.py',
     'catalog/modules.json',
+    'catalog/fleet-topology.json',
     'connectors/g-stack/capabilities.yaml',
     'docs/architecture/knowledge-ingest.md',
     'docs/fleet/README.md',
@@ -407,8 +417,86 @@ def _load_fleet(repo_root: Path, data_root: Optional[Path]) -> Tuple[List[Dict[s
             pass
 
     if _is_safe_path(target_base, fleet_yaml) and fleet_yaml.is_file():
-        warnings.append({"code": "inventory_not_projected", "message": "Fleet inventory exists; only sanitized node profiles are projected"})
+        warnings.append({"code": "inventory_identity_withheld", "message": "Fleet inventory identifiers are withheld; sanitized profiles and slot assignments are projected"})
     return fleet, warnings
+
+
+def _load_fleet_nodes(
+    repo_root: Path, data_root: Optional[Path]
+) -> Tuple[List[Dict[str, Any]], Dict[str, str], List[Dict[str, str]]]:
+    """Project exactly four slots, never a host identifier or claimed live health.
+
+    Current inventory has one host per wing. Coding 02 is deliberately unbound.
+    A binding requires agreement between the inventory and the wing profile, and
+    uniqueness across wings. Direct canonical IDs need no guess about a wing.
+    """
+    warnings: List[Dict[str, str]] = []
+    topology_path = repo_root / "catalog" / "fleet-topology.json"
+    topology = _safe_load_json(topology_path, max_bytes=8192) if _is_safe_path(repo_root, topology_path) else None
+    topology_held = topology_path.exists() and (topology is None or not isinstance(topology, dict)
+            or topology.get("schema") != "snowgloves.fleet-topology.v1"
+            or topology.get("nodes") != list(FLEET_TOPOLOGY))
+    if topology_held:
+        warnings.append({"code": "fleet_topology_held", "message": "Malformed fleet topology held; canonical planned roster retained"})
+
+    nodes = [{**slot, "assignment": "template" if data_root is None else "planned",
+              "evidence": "source" if data_root is None else "pending",
+              "sources": ["catalog/fleet-topology.json"], "observedAt": None}
+             for slot in FLEET_TOPOLOGY]
+    if data_root is None or topology_held:
+        return nodes, {}, warnings
+
+    inventory_path = data_root / "fleet.yaml"
+    inventory = _safe_load_yaml(inventory_path, max_bytes=MAX_CATALOG_BYTES) if _is_safe_path(data_root, inventory_path) else None
+    wings = inventory.get("wings") if isinstance(inventory, dict) else None
+    if not isinstance(wings, dict):
+        return nodes, {}, warnings
+
+    candidates: List[Tuple[str, Dict[str, Any]]] = []
+    for node in nodes:
+        if node["id"] == "mac-coding-2":
+            continue
+        wing = node["wing"]
+        raw = wings.get(wing)
+        profile_path = data_root / "nodes" / wing / "node.yaml"
+        profile = _safe_load_yaml(profile_path, max_bytes=MAX_CATALOG_BYTES) if _is_safe_path(data_root, profile_path) else None
+        host = raw.get("hostname") if isinstance(raw, dict) else None
+        if (not isinstance(host, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", host)
+                or not isinstance(profile, dict) or profile.get("hostname") != host
+                or profile.get("wing") != wing):
+            continue
+        candidates.append((host, node))
+
+    host_map: Dict[str, str] = {}
+    for host, node in candidates:
+        if sum(1 for candidate_host, _ in candidates if candidate_host == host) != 1:
+            warnings.append({"code": "fleet_binding_ambiguous", "message": "Ambiguous inventory binding held"})
+            continue
+        node.update(assignment="configured", evidence="local",
+                    sources=["catalog/fleet-topology.json", "fleet.yaml", f"nodes/{node['wing']}/node.yaml"])
+        host_map[host] = node["id"]
+    return nodes, host_map, warnings
+
+
+def _activity_node_id(record: Dict[str, Any], host_map: Dict[str, str]) -> Optional[str]:
+    """Only explicit canonical identity or unique verified inventory host can bind.
+
+    Reject conflicting aliases; never distribute a wing's work across its Macs.
+    """
+    found: Set[str] = set()
+    for key in ("nodeId", "node_id", "node", "hostname", "host"):
+        value = record.get(key)
+        if not isinstance(value, str):
+            if value is not None:
+                return None
+            continue
+        if value in FLEET_NODE_IDS:
+            found.add(value)
+        elif value in host_map:
+            found.add(host_map[value])
+        elif key in ("nodeId", "node_id", "node"):
+            return None
+    return next(iter(found)) if len(found) == 1 else None
 
 
 def _tail_jsonl(path: Path, max_records: int = MAX_AUDIT_RECORDS) -> Tuple[List[Dict[str, Any]], int]:
@@ -448,7 +536,8 @@ def _load_activity(
     repo_root: Path,
     data_root: Optional[Path],
     tenant: Optional[str],
-    mode: str
+    mode: str,
+    host_map: Optional[Dict[str, str]] = None
 ) -> Tuple[Dict[str, List[Dict[str, Any]]], List[Dict[str, str]]]:
     events: List[Dict[str, Any]] = []
     jobs: List[Dict[str, Any]] = []
@@ -553,6 +642,7 @@ def _load_activity(
                 "jobId": _safe_label(job_id) if isinstance(job_id, str) else None,
                 "artifactId": _safe_label(artifact_id) if isinstance(artifact_id, str) else None,
                 "summary": safe_summary,
+                "nodeId": _activity_node_id(r, host_map or {}),
             }
 
             if kind_type == "events":
@@ -856,7 +946,10 @@ def build_snapshot(
     fleet, fl_warn = _load_fleet(repo_root, data_root)
     all_warnings.extend(fl_warn)
 
-    activity, act_warn = _load_activity(repo_root, data_root, tenant, mode)
+    fleet_nodes, host_map, node_warn = _load_fleet_nodes(repo_root, data_root)
+    all_warnings.extend(node_warn)
+
+    activity, act_warn = _load_activity(repo_root, data_root, tenant, mode, host_map)
     all_warnings.extend(act_warn)
 
     acceptance, acc_warn = _load_acceptance(repo_root)
@@ -879,6 +972,7 @@ def build_snapshot(
         "catalog": catalog,
         "tenants": tenants,
         "fleet": fleet,
+        "fleetNodes": fleet_nodes,
         "activity": activity,
         "acceptance": acceptance,
         "routing": routing,

@@ -1,4 +1,5 @@
 import { parseBrandSummary } from './brand-summary';
+import { FLEET_LAYOUT } from './fleet-model';
 import type {
   CurrentCatalogAdapter,
   CurrentCatalogAgent,
@@ -9,6 +10,7 @@ import type {
   OpsSnapshotAcceptanceItem,
   OpsSnapshotDocumentItem,
   OpsSnapshotFleetItem,
+  OpsSnapshotFleetNode,
   OpsSnapshotRoutingRule,
   OpsSnapshotServiceItem,
   OpsSnapshotTenant,
@@ -183,13 +185,55 @@ function parseActivityRecord(item: unknown, index: number, listName: string): Sa
     jobId: parseNullableString(item.jobId, `${listName}[${index}].jobId`),
     artifactId: parseNullableString(item.artifactId, `${listName}[${index}].artifactId`),
     summary: item.summary,
+    nodeId: parseNullableString(item.nodeId, `${listName}[${index}].nodeId`),
   };
+
+  if (record.nodeId !== null && !FLEET_LAYOUT.some(node => node.id === record.nodeId)) {
+    throw new OpsClientError(`Activity nodeId in ${listName}[${index}] is not a canonical fleet slot`, 'invalid-response');
+  }
 
   if (item.sources !== undefined && item.sources !== null) {
     record.sources = parseStringArray(item.sources, `${listName}[${index}].sources`);
   }
 
   return record;
+}
+
+function parseFleetNodes(value: unknown, mode: OpsSnapshot['scope']['mode']): OpsSnapshotFleetNode[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length !== FLEET_LAYOUT.length) {
+    throw new OpsClientError('Fleet nodes must contain exactly four canonical slots', 'invalid-response');
+  }
+  const seen = new Set<string>();
+  const nodes = value.map((raw, index): OpsSnapshotFleetNode => {
+    if (!isRecord(raw)) throw new OpsClientError(`Fleet node [${index}] must be object`, 'invalid-response');
+    const slot = FLEET_LAYOUT.find(node => node.id === raw.id);
+    if (!slot || seen.has(slot.id) || raw.name !== slot.name || raw.wing !== slot.wing || raw.profileId !== slot.profileId) {
+      throw new OpsClientError(`Fleet node identity invalid at ${index}`, 'invalid-response');
+    }
+    seen.add(slot.id);
+    if (raw.assignment !== 'configured' && raw.assignment !== 'planned' && raw.assignment !== 'template') {
+      throw new OpsClientError(`Fleet node assignment invalid at ${index}`, 'invalid-response');
+    }
+    const expectedEvidence = raw.assignment === 'configured' ? 'local' : raw.assignment === 'template' ? 'source' : 'pending';
+    if (raw.evidence !== expectedEvidence || (mode === 'public-fixtures' && raw.assignment !== 'template') || (mode === 'local-private' && raw.assignment === 'template')) {
+      throw new OpsClientError(`Fleet node evidence or scope invalid at ${index}`, 'invalid-response');
+    }
+    if (!Array.isArray(raw.sources) || raw.sources.length > 4) {
+      throw new OpsClientError(`Fleet node sources invalid at ${index}`, 'invalid-response');
+    }
+    const allowedSources = new Set(['catalog/fleet-topology.json', 'fleet.yaml', `nodes/${slot.wing}/node.yaml`]);
+    const sources = parseStringArray(raw.sources, `fleetNodes[${index}].sources`);
+    if (sources.some(source => !allowedSources.has(source)) || (mode === 'public-fixtures' && sources.some(source => source === 'fleet.yaml'))) {
+      throw new OpsClientError(`Fleet node source is outside the safe document roster at ${index}`, 'invalid-response');
+    }
+    // The inventory proves configuration only, never a device observation time.
+    if (raw.observedAt !== null) {
+      throw new OpsClientError(`Fleet node observedAt requires independent device evidence at ${index}`, 'invalid-response');
+    }
+    return { id: slot.id, name: slot.name, wing: slot.wing, profileId: slot.profileId, assignment: raw.assignment, evidence: expectedEvidence, sources, observedAt: null };
+  });
+  return FLEET_LAYOUT.map(slot => nodes.find(node => node.id === slot.id)!);
 }
 
 function parseCatalogCard(card: unknown, index: number): CurrentCatalogCard {
@@ -554,6 +598,7 @@ export function validateSnapshot(unknownData: unknown): OpsSnapshot {
       evidence: f.evidence,
     };
   });
+  const fleetNodes = parseFleetNodes(unknownData.fleetNodes, unknownData.scope.mode as OpsSnapshot['scope']['mode']);
 
   if (!isRecord(unknownData.activity)) {
     throw new OpsClientError('Activity must be an object', 'invalid-response');
@@ -703,6 +748,7 @@ export function validateSnapshot(unknownData: unknown): OpsSnapshot {
     },
     tenants,
     fleet,
+    ...(fleetNodes ? { fleetNodes } : {}),
     activity,
     acceptance,
     routing: {
