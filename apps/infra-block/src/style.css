@@ -1069,3 +1069,12 @@ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header {posit
  body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header-actions {grid-column:1/-1;overflow-x:auto;flex-wrap:nowrap;max-width:100%;padding-bottom:3px;}
  body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header-actions>button {min-height:44px;flex-shrink:0;}
 }
+
+@media(max-height:500px) and (orientation:landscape){
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header{display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:8px;height:50px;min-height:50px;padding:1px 6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header::-webkit-scrollbar{display:none;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-brand{flex-shrink:0;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-tabs{flex-shrink:0;padding:0;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-tab-btn{min-height:44px;padding:0 9px;white-space:nowrap;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header-actions{flex-shrink:0;overflow:visible;padding-bottom:0;max-width:none;gap:4px;}
+}

@@ -709,3 +709,20 @@ body.home-explore.source-notes-open .ih-notes-return {display:inline-flex;min-he
 .ih-token-btn:focus-visible,.ih-source-chip:focus-visible{outline:3px solid var(--ih-coral);outline-offset:2px;}
 .ih-token-btn{flex-shrink:0;}
 @media(max-width:768px){.ih-token-btn{flex-direction:column;gap:3px;padding:3px 5px;}.ih-belt-wrap{width:max-content;max-width:calc(100vw - 16px);}}
+
+/* Give the crew belt its intrinsic width instead of the centered shrink-to-fit width. */
+@media(min-width:769px){
+ .ih-belt-wrap{width:max-content;max-width:calc(100vw - 350px);}
+}
+/* Short landscape keeps mission actions above the directional pad. */
+@media(max-height:500px) and (orientation:landscape){
+ .ih-mission-strip{top:calc(var(--ih-header-bottom,52px) + 4px);width:max-content;max-width:calc(100vw - 16px);height:54px;padding:3px 5px;gap:0;}
+ .ih-mission-header-bar{height:44px;gap:8px;align-items:center;}
+ .ih-mission-title-group{display:contents;}
+ .ih-mission-headline,.ih-stamp-tag{display:none;}
+ .ih-town-tools{position:relative;}
+ .ih-town-tools>summary{display:flex;align-items:center;justify-content:center;height:44px;min-width:90px;padding:0 8px;border:2px solid var(--ih-border);border-radius:8px;background:var(--ih-cream);box-shadow:var(--ih-shadow-sm);}
+ .ih-town-tools[open] .ih-mission-actions{position:absolute;top:48px;left:0;width:190px;max-height:calc(100dvh - 128px);overflow:auto;background:var(--ih-cream);border:2px solid var(--ih-border);border-radius:10px;padding:8px;box-shadow:var(--ih-shadow-md);z-index:40;}
+ .ih-dialogue-layer{top:calc(var(--ih-header-bottom,52px) + 6px);max-height:calc(100dvh - var(--ih-header-bottom,52px) - 84px);}
+ .ih-ticket-dialogue{max-height:calc(100dvh - var(--ih-header-bottom,52px) - 84px);}
+}
