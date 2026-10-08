@@ -524,6 +524,24 @@ until the actual mini supplies evidence.
 | CapabilityProof | admitted sandbox matrix and real host reads | ISC-37..40 | SourceBinding | yes |
 | PhysicalFleetAcceptance | wing jobs, eventing, cloud, recovery and session/resource evidence | ISC-41..51 | CapabilityProof and existing specs 005/007/008 | no |
 
+## Architecture
+
+<!-- arch-assets:start -->
+
+_Auto-maintained by `ArchitectureAssetsSync.hook.ts` on release events._  
+_Last refreshed: 2026-10-08T15:37:31.160Z_
+
+| Asset | Status | How it's generated |
+|---|---|---|
+| [`docs/architecture/SERVICES.md`](docs/architecture/SERVICES.md) | ✓ current | auto (file scan) |
+| [`docs/architecture/DEPENDENCY-GRAPH.md`](docs/architecture/DEPENDENCY-GRAPH.md) | ✓ current | auto (file scan) |
+| [`docs/architecture/architecture.html`](docs/architecture/architecture.html) | ✗ not yet generated | manual (LLM skill) |
+| [`docs/architecture/notebooklm-prompt.md`](docs/architecture/notebooklm-prompt.md) | ✗ not yet generated | manual (LLM skill) |
+
+**To refresh LLM-generated assets:** invoke `/refresh-architecture` in any Claude Code session.
+
+<!-- arch-assets:end -->
+
 ## Decisions
 
 - 2026-10-08 refined: latest user confirms four islands, two mac-coding, one mac-creative and one mac-marketing. Existing three wing profiles are templates, not a four-device census; private inventory currently configures three wing hosts and the second coding slot is planned. FirstPrinciples separates slot identity, device assignment, node-specific work evidence and scenery. SystemsThinking maps inventory→nodeprojection→island, scopedactivity→selectedtownpresence, camera/travel→logicalorigin→boundedchunks. BeCreative compares nautical archipelago, floating sky isles, cartridge planets, rail ports and fjord settlements; chooses grounded nautical coasts to retain the recent material style. ISA Append adds32 stable atomic checks and CheckCompleteness preserves twelve-section structure. ReReadCheck will bind four slots, machine-specific activity and an expanding world to actual source/browser evidence. Temperance parallel dispatch handles three disjoint routed production lanes; root owns integration/ISA/IAB.
