@@ -9,7 +9,11 @@ import {
 import type { OpsSnapshot } from './ops-contracts';
 import { loadSnapshot, validateSnapshot } from './ops-client';
 
+export interface HomeNavigation { slug: string | null; x: number; z: number; moving: boolean; nearbySlug: string | null; }
+
 export interface MountHomeCallbacks {
+  controlResident(slug: string | null): void;
+  moveInput(x: number, z: number): void;
   focusNode(id: string): void;
   openAgent(id: string): void;
   openDocument(path: string): void;
@@ -20,6 +24,9 @@ export interface MountHomeCallbacks {
 }
 
 export interface HomeHandle {
+  setNavigation(state: HomeNavigation): void;
+  getControlledSlug(): string | null;
+  walkAsResident(slug: string): void;
   setVisible(visible: boolean):
     void;
   setKitOpen(open: boolean): void;
@@ -184,16 +191,17 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
       <header class="ih-mission-strip" id="ih-mission-strip">
         <div class="ih-mission-header-bar">
           <div class="ih-mission-title-group">
-            <div class="ih-stamp-tag">ENCOUNTER MAP</div>
-            <h1 class="ih-mission-headline">A little town. A real crew.</h1>
+            <div class="ih-stamp-tag">SNOW GLOVES · TOY TOWN</div>
+            <h1 class="ih-mission-headline">Meet the crew.</h1>
+            <button type="button" class="ih-btn ih-btn-accent" id="ih-btn-walk-start">Walk as CEO</button>
           </div>
-          <div class="ih-mission-actions">
+          <details class="ih-town-tools"><summary>Town tools</summary><div class="ih-mission-actions">
             <button type="button" class="ih-btn ih-btn-accent" id="ih-btn-meet">Meet crew</button>
             <button type="button" class="ih-btn ih-btn-outline" id="ih-btn-follow">Follow route</button>
             <button type="button" class="ih-btn ih-btn-outline" id="ih-btn-tour">Try crew tour</button>
             <button type="button" class="ih-btn ih-btn-outline" id="ih-btn-blueprint">Open blueprint</button>
             <button type="button" class="ih-btn ih-btn-subtle" id="ih-btn-notes-toggle" aria-expanded="false">Map & source notes</button>
-          </div>
+          </div></details>
         </div>
 
         <div class="ih-demo-banner" id="ih-demo-banner" hidden>
@@ -278,7 +286,8 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
           </div>
 
           <div class="ih-ticket-actions">
-            <button type="button" class="ih-btn ih-btn-accent" id="ih-ticket-btn-meet">Meet at station</button>
+            <button type="button" class="ih-btn ih-btn-accent" id="ih-ticket-btn-walk">Walk as resident</button>
+            <button type="button" class="ih-btn ih-btn-outline" id="ih-ticket-btn-meet">Meet at station</button>
             <button type="button" class="ih-btn ih-btn-outline" id="ih-ticket-btn-agent">Open agent field kit</button>
           </div>
         </section>
@@ -302,6 +311,246 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   const connSourceEl = host.querySelector('#ih-conn-source') as HTMLElement;
   const connStaleEl = host.querySelector('#ih-conn-stale') as HTMLElement;
   const btnNotesToggle = host.querySelector('#ih-btn-notes-toggle') as HTMLButtonElement;
+
+let controlledSlug: string | null = null;
+const activePointers = new Map<number, { x: number; z: number }>();
+
+function isBlocked(): boolean {
+  return !isVisible || isKitOpen || notesOpen || selectedSlug !== null || document.hidden || Boolean(document.querySelector('dialog[open]'));
+}
+
+function clearManualInput(): void {
+  const pointerIds = [...activePointers.keys()];
+  activePointers.clear();
+  touchButtons.forEach(btn => { for (const id of pointerIds) { try { if (btn.hasPointerCapture(id)) btn.releasePointerCapture(id); } catch { /* Capture may already be released. */ } } });
+  callbacks.moveInput(0, 0);
+  touchButtons.forEach(btn => btn.classList.remove('ih-touch-active'));
+}
+
+function walkResident(slug: string): void {
+  const found = RESIDENTS.find(r => r.slug === slug);
+  if (!found) return;
+  const canvas = document.querySelector<HTMLCanvasElement>('#sg-canvas-mount canvas');
+  if (!canvas) {
+    if (hudStatusEl) hudStatusEl.textContent = 'Map view only (Canvas unavailable)';
+    if (hudWalkBtn) hudWalkBtn.setAttribute('disabled', 'true');
+    return;
+  }
+  clearManualInput();
+  stopDemoTour();
+  closeDialogue();
+  callbacks.controlResident(slug);
+  canvas.setAttribute('tabindex', '0');
+  canvas.focus();
+}
+
+const hudWrap = document.createElement('section');
+hudWrap.className = 'ih-walk-hud';
+hudWrap.setAttribute('aria-label', 'Walking Resident HUD');
+hudWrap.innerHTML = `
+  <div class="ih-walk-card">
+    <div class="ih-walk-main">
+      <div class="ih-walk-portrait" data-hud-portrait></div>
+      <div class="ih-walk-info">
+        <div class="ih-walk-row-identity">
+          <span class="ih-walk-name" data-hud-name>Exploring Town</span>
+          <span class="ih-walk-badge" data-hud-moving>Resting</span>
+        </div>
+        <div class="ih-walk-coords" data-hud-coords>Loc: 0.0, 0.0</div>
+        <div class="ih-walk-sub" data-hud-sub>Local exploration mode</div>
+      </div>
+    </div>
+    <div class="ih-walk-actions">
+      <button type="button" class="ih-btn ih-btn-sm ih-hud-nearby-btn" data-hud-nearby disabled>Meet nearby (E)</button>
+      <button type="button" class="ih-btn ih-btn-sm ih-btn-subtle ih-hud-release-btn" data-hud-release>Overview</button>
+    </div>
+    <div class="ih-walk-legend">
+      <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows Walk</span>
+      <span><kbd>E</kbd> Interact</span>
+      <span><kbd>1-7</kbd> Select</span>
+    </div>
+  </div>
+`;
+
+const hudPortraitEl = hudWrap.querySelector('[data-hud-portrait]') as HTMLElement;
+const hudNameEl = hudWrap.querySelector('[data-hud-name]') as HTMLElement;
+const hudMovingEl = hudWrap.querySelector('[data-hud-moving]') as HTMLElement;
+const hudCoordsEl = hudWrap.querySelector('[data-hud-coords]') as HTMLElement;
+const hudSubEl = hudWrap.querySelector('[data-hud-sub]') as HTMLElement;
+const hudNearbyBtn = hudWrap.querySelector('[data-hud-nearby]') as HTMLButtonElement;
+const hudReleaseBtn = hudWrap.querySelector('[data-hud-release]') as HTMLButtonElement;
+const hudStatusEl = hudSubEl;
+const hudWalkBtn = hudWrap.querySelector('.ih-hud-nearby-btn') as HTMLButtonElement;
+
+let currentNearbySlug: string | null = null;
+hudNearbyBtn.addEventListener('click', () => {
+  if (!currentNearbySlug) return;
+  clearManualInput();
+  const nearby = RESIDENTS.find(r => r.slug === currentNearbySlug);
+  if (nearby) openDialogue(nearby.slug);
+});
+
+hudReleaseBtn.addEventListener('click', () => {
+  clearManualInput();
+  callbacks.controlResident(null);
+});
+
+const touchPad = document.createElement('div');
+touchPad.className = 'ih-touch-pad';
+touchPad.setAttribute('aria-label', 'Touch directional pad');
+touchPad.innerHTML = `
+  <button type="button" class="ih-touch-btn ih-touch-n" data-dir="n" aria-label="Move North"></button>
+  <button type="button" class="ih-touch-btn ih-touch-w" data-dir="w" aria-label="Move West"></button>
+  <button type="button" class="ih-touch-btn ih-touch-center" data-dir="stop" aria-label="Halt"></button>
+  <button type="button" class="ih-touch-btn ih-touch-e" data-dir="e" aria-label="Move East"></button>
+  <button type="button" class="ih-touch-btn ih-touch-s" data-dir="s" aria-label="Move South"></button>
+`;
+
+const touchButtons = touchPad.querySelectorAll<HTMLButtonElement>('.ih-touch-btn');
+
+function recalculateTouchInput(): void {
+  if (isBlocked() || !controlledSlug) {
+    clearManualInput();
+    return;
+  }
+  let dx = 0;
+  let dz = 0;
+  for (const dir of activePointers.values()) {
+    dx += dir.x;
+    dz += dir.z;
+  }
+  const len = Math.hypot(dx, dz);
+  if (len > 0.0001) {
+    callbacks.moveInput(dx / len, dz / len);
+  } else {
+    callbacks.moveInput(0, 0);
+  }
+}
+
+touchButtons.forEach(btn => {
+  const dir = btn.dataset.dir;
+  const getDirVec = (): { x: number; z: number } => {
+    if (dir === 'n') return { x: 0, z: -1 };
+    if (dir === 's') return { x: 0, z: 1 };
+    if (dir === 'w') return { x: -1, z: 0 };
+    if (dir === 'e') return { x: 1, z: 0 };
+    return { x: 0, z: 0 };
+  };
+
+  btn.addEventListener('pointerdown', (e: PointerEvent) => {
+    if (isBlocked()) return;
+    if (dir === 'stop') { e.preventDefault(); clearManualInput(); btn.focus(); return; }
+    e.preventDefault();
+    btn.focus();
+    btn.setPointerCapture(e.pointerId);
+    btn.classList.add('ih-touch-active');
+    activePointers.set(e.pointerId, getDirVec());
+    recalculateTouchInput();
+  });
+
+  const endPointer = (e: PointerEvent) => {
+    if (activePointers.has(e.pointerId)) {
+      activePointers.delete(e.pointerId);
+      btn.classList.remove('ih-touch-active');
+      try {
+        if (btn.hasPointerCapture(e.pointerId)) {
+          btn.releasePointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+      recalculateTouchInput();
+    }
+  };
+
+  btn.addEventListener('pointerup', endPointer);
+  btn.addEventListener('pointercancel', endPointer);
+  btn.addEventListener('lostpointercapture', endPointer);
+});
+
+const missionTools = rootEl.querySelector('.ih-mission-actions');
+if (missionTools && !rootEl.querySelector('.ih-town-tools')) {
+  const toolsDetails = document.createElement('details');
+  toolsDetails.className = 'ih-town-tools';
+  toolsDetails.innerHTML = '<summary>Town tools</summary>';
+  const cloneTools = missionTools.cloneNode(true);
+  toolsDetails.appendChild(cloneTools);
+  missionTools.replaceWith(toolsDetails);
+}
+
+const startWalkBtn = rootEl.querySelector('#ih-btn-walk-start') as HTMLButtonElement | null;
+if (startWalkBtn && !document.querySelector('#sg-canvas-mount canvas')) { startWalkBtn.disabled = true; startWalkBtn.title = 'Walking requires the 3D town; encounters remain available in map view.'; }
+
+rootEl.appendChild(touchPad);
+rootEl.appendChild(hudWrap);
+
+function updateNavigation(state: HomeNavigation): void {
+  const identityChanged = controlledSlug !== state.slug;
+  controlledSlug = RESIDENTS.some(r => r.slug === state.slug) ? state.slug : null;
+  currentNearbySlug = state.nearbySlug;
+  hudWrap.dataset.slug = state.slug || '';
+  hudWrap.dataset.x = state.x.toFixed(1);
+  hudWrap.dataset.z = state.z.toFixed(1);
+  hudWrap.dataset.moving = String(state.moving);
+
+  if (state.slug) {
+    hudWrap.classList.add('ih-walk-active');
+    const resident = RESIDENTS.find(r => r.slug === state.slug);
+    if (resident) {
+      if (identityChanged) hudPortraitEl.innerHTML = getFixedPortraitSvg(resident.slug);
+      hudNameEl.textContent = resident.name;
+      hudSubEl.textContent = 'LOCAL EXPLORATION';
+    } else {
+      hudPortraitEl.innerHTML = '';
+      hudNameEl.textContent = state.slug;
+      hudSubEl.textContent = 'Resident active';
+    }
+    hudMovingEl.textContent = state.moving ? 'Walking' : 'Standing';
+    hudMovingEl.className = state.moving ? 'ih-walk-badge ih-moving' : 'ih-walk-badge ih-resting';
+    hudCoordsEl.textContent = `Grid: ${state.x.toFixed(1)}, ${state.z.toFixed(1)}`;
+
+    if (state.nearbySlug && RESIDENTS.some(r => r.slug === state.nearbySlug)) {
+      const nearbyRes = RESIDENTS.find(r => r.slug === state.nearbySlug);
+      hudNearbyBtn.disabled = false;
+      hudNearbyBtn.textContent = nearbyRes ? `Talk to ${nearbyRes.name} (E)` : `Talk (E)`;
+    } else {
+      hudNearbyBtn.disabled = true;
+      hudNearbyBtn.textContent = 'Meet nearby (E)';
+    }
+  } else {
+    hudWrap.classList.remove('ih-walk-active');
+    hudPortraitEl.innerHTML = '';
+    hudNameEl.textContent = 'Town Overview';
+    hudMovingEl.textContent = 'Overview';
+    hudMovingEl.className = 'ih-walk-badge';
+    hudCoordsEl.textContent = `Grid: ${state.x.toFixed(1)}, ${state.z.toFixed(1)}`;
+    hudSubEl.textContent = 'Select resident to explore';
+    hudNearbyBtn.disabled = true;
+    hudNearbyBtn.textContent = 'Meet nearby (E)';
+  }
+}
+
+const observer = new MutationObserver(() => {
+  if (isBlocked()) {
+    clearManualInput();
+  }
+});
+observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+observer.observe(rootEl, { attributes: true, attributeFilter: ['class', 'hidden'] });
+const dialogObserver = new MutationObserver(() => { if (isBlocked()) clearManualInput(); });
+dialogObserver.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['open'] });
+
+window.addEventListener('blur', clearManualInput);
+const navigationVisibility = () => { if (document.hidden) clearManualInput(); };
+document.addEventListener('visibilitychange', navigationVisibility);
+
+function disposeNavigation(): void {
+  observer.disconnect();
+  dialogObserver.disconnect();
+  document.removeEventListener('visibilitychange', navigationVisibility);
+  window.removeEventListener('blur', clearManualInput);
+  clearManualInput();
+  touchPad.remove();
+  hudWrap.remove();
+}
 
   function getActivePresenceList(): ResidentPresence[] {
     if (isDemoTourRunning) {
@@ -373,6 +622,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   }
 
   function openDialogue(slug: ResidentSlug): void {
+    clearManualInput();
     const activeControl = host.contains(document.activeElement) ? (document.activeElement as HTMLElement).id : '';
     selectedSlug = slug;
     const res = RESIDENTS.find((r) => r.slug === slug);
@@ -433,6 +683,11 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
       sourcesList.appendChild(b);
     }
 
+    const walkButton = host.querySelector<HTMLButtonElement>('#ih-ticket-btn-walk')!;
+    walkButton.textContent = `Walk as ${res.slug === 'chief-of-staff' ? 'Routing' : res.name}`;
+    walkButton.disabled = !document.querySelector('#sg-canvas-mount canvas');
+    walkButton.title = walkButton.disabled ? 'Walking requires the 3D town; map view remains available.' : 'Local exploration only';
+    walkButton.onclick = () => walkResident(res.slug);
     btnMeet.onclick = () => {
       closeDialogue();
       callbacks.focusNode(res.nodeId);
@@ -485,6 +740,8 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   }
 
   function startDemoTour(): void {
+    clearManualInput();
+    callbacks.controlResident(null);
     isDemoTourRunning = true;
     tourIndex = 0;
     demoBannerEl.hidden = false;
@@ -696,6 +953,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
     }
   };
 
+  host.querySelector('#ih-btn-walk-start')?.addEventListener('click', () => walkResident('ceo'));
   host.querySelector('#ih-btn-meet')?.addEventListener('click', () => openDialogue(RESIDENTS[0].slug));
   host.querySelector('#ih-btn-follow')?.addEventListener('click', () => callbacks.followTour());
   host.querySelector('#ih-btn-tour')?.addEventListener('click', () => {
@@ -713,6 +971,8 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   });
   btnNotesToggle?.addEventListener('click', () => {
     notesOpen = !notesOpen;
+    clearManualInput();
+    if (notesOpen) closeDialogue();
     btnNotesToggle.setAttribute('aria-expanded', notesOpen ? 'true' : 'false');
     document.body.classList.toggle('source-notes-open', notesOpen);
     callbacks.toggleNotes(notesOpen);
@@ -749,10 +1009,14 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   requestSnapshotPoll();
 
   return {
+    setNavigation(state: HomeNavigation): void { updateNavigation(state); },
+    getControlledSlug(): string | null { return controlledSlug; },
+    walkAsResident(slug: string): void { walkResident(slug); },
     setVisible(visible: boolean): void {
       isVisible = visible;
       host.hidden = !visible || isKitOpen;
       if (!visible) {
+        clearManualInput();
         if (isDemoTourRunning) stopDemoTour();
         if (pendingController) {
           requestGeneration++;
@@ -771,6 +1035,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
       host.hidden = open || !isVisible;
       document.body.classList.toggle('field-kit-open', open);
       if (open) {
+        clearManualInput();
         if (isDemoTourRunning) stopDemoTour();
         if (pendingController) {
           requestGeneration++;
@@ -790,6 +1055,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
     },
 
     dispose(): void {
+      disposeNavigation();
       layoutObserver.disconnect();
       window.removeEventListener('resize', measureHome);
       document.body.classList.remove('home-encounter-open');

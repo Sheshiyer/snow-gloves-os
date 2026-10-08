@@ -1051,3 +1051,21 @@ body.field-kit-open .sg-map-view {
     min-height: 0 !important;
   }
 }
+
+/* Exploration uses the whole viewport; paper HUD sits on top of the toy town. */
+body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-sidebar,
+body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-inspector,
+body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-bottom-navigator,
+body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-hero-watermark {display:none!important;}
+body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-body {position:fixed;inset:0;padding:0;display:block;min-height:0;}
+body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-stage-container {position:absolute;inset:0;top:0;left:0;width:100%;height:100dvh;min-height:0;max-height:none;border:0;border-radius:0;flex:none;}
+body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header {position:relative;z-index:25;margin:8px 12px;width:calc(100% - 24px);height:56px;min-height:56px;background:rgba(244,237,218,.96);border-radius:14px;border:2px solid #283d36;box-shadow:3px 3px 0 #283d36;}
+@media(max-width:840px){
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header {display:grid;grid-template-columns:1fr auto;gap:3px;height:auto;min-height:0;margin:6px 8px;width:calc(100% - 16px);padding:6px 8px;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-brand {min-width:0;width:auto;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-subbrand,
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-slash {display:none;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-logo-title {font-size:14px;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header-actions {grid-column:1/-1;overflow-x:auto;flex-wrap:nowrap;max-width:100%;padding-bottom:3px;}
+ body.home-explore:not(.field-kit-open):not(.source-notes-open) .sg-header-actions>button {min-height:44px;flex-shrink:0;}
+}
