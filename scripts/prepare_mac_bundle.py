@@ -513,7 +513,7 @@ def build_bundle(repo_root: Path, output_dir: Path) -> bool:
         for src_path, rel_posix in allowlisted:
             dest_path = stage_dir.joinpath(*PurePosixPath(rel_posix).parts)
             dest_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_path, dest_path, follow_symlinks=False)
+            shutil.copyfile(src_path, dest_path, follow_symlinks=False)
             f_hash = compute_sha256(dest_path)
             files_manifest[rel_posix] = f_hash
             total_bytes += dest_path.stat().st_size
