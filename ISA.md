@@ -4,13 +4,15 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 241/267
+progress: 241/299
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
 ---
 
 ## Problem
+
+Current fleet archipelago lane: expand the playable town into four Mac mini islands—two coding, one creative and one marketing. Distinguish physical inventory assignments and node-attributed work from planned slots; remove the single continuous ground plane in favor of coastlines, water and bounded streamed world scenery.
 
 Current brand workspace lane: review private imported brand records and planning, project bounded provenance and portfolio summaries into Neighborhoods, and provide an isolated Mac mini CLI/UI startup path. Device installation depends on the selected target; no activation follows from metadata.
 
@@ -33,6 +35,8 @@ port with service identity. The confirmed installation target for 1 October is
 one Mac mini running a local bootstrap and recovery pilot.
 
 ## Vision
+
+A nautical archipelago stretches beyond the horizon. Four distinctive islands represent the founder-defined Mac mini slots; island travel brings the operator into a grounded town whose characters and work signals belong to that machine. Role silhouettes, coastlines and a chart make the fleet explorable in the existing game language.
 
 An inhabited woodland village extends into a continuous landscape. Buildings have believable material detail and varied rooflines; crew remain recognizable people, with efficient shared geometry and measured renderer budgets.
 
@@ -66,6 +70,10 @@ the local pilot useful while showing the live-service requirements still held.
 
 ## Constraints
 
+- Fleet slot topology is exactly Mac Coding 01, Mac Coding 02, Mac Creative and Mac Marketing. Creative maps the existing design wing contract.
+- A planned slot is visibly distinct from a configured inventory assignment. Unattributed or stale activity cannot animate every island.
+- Keep one detailed playable town and one renderer; distant scenery uses bounded deterministic chunks. No new live lights, postprocessing, external asset download or remote execution.
+
 - This visual lane keeps existing source landmarks, streets, collision and sandbox contracts; no live infrastructure actions are added.
 - Environment decoration uses bounded instancing and procedural materials, with no new rendering dependency or external asset download.
 - Default resolution and shadow budgets stay bounded; lower-cost Eco rendering remains available.
@@ -78,6 +86,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Deliver a four-island Mac mini fleet archipelago with safe node projection, source-specific work presence, island selection/travel, coastlines and water, bounded world exploration, preserved crew/game/brand contracts, and actual responsive browser verification.
 
 Deliver tenant-isolated brand import and planning summaries in the existing field kit with an explicit private-data workspace launcher. Verify missing/drifted input, public/private isolation, client validation, owned-process cleanup and actual browser scope switching before acceptance.
 
@@ -378,7 +388,45 @@ until the actual mini supplies evidence.
 - [x] ISC-266: Bundle verification rejects changed or symlinked files.
 - [x] ISC-267: The documented new-Mac startup executes in an isolated extracted workspace.
 
+- [ ] ISC-268: Antecedent: The fleet topology contains exactly four founder-defined islands.
+- [ ] ISC-269: Two coding, one creative and one marketing island retain distinct roles.
+- [ ] ISC-270: Every island has a unique stable device-slot identifier.
+- [ ] ISC-271: Configured island assignments derive from the explicit private fleet inventory.
+- [ ] ISC-272: The second coding slot remains planned when no device is registered.
+- [ ] ISC-273: Public fixtures omit private machine assignments and host identifiers.
+- [ ] ISC-274: Anti: Fleet projection excludes credentials, network addresses and remote command controls.
+- [ ] ISC-275: Activity records bind to recognized exact fleet node identifiers.
+- [ ] ISC-276: Unattributed activity never becomes a selected island work signal.
+- [ ] ISC-277: Tenant-scoped island activity excludes other tenants records.
+- [ ] ISC-278: Node work signals reject stale and future activity timestamps.
+- [ ] ISC-279: Node work signals honor terminal supersession.
+- [ ] ISC-280: Disconnected or revoked projection clears node work signals.
+- [ ] ISC-281: Client validation bounds the optional fleet-node projection.
+- [ ] ISC-282: The selected island has a visible irregular coastline and landform volume.
+- [ ] ISC-283: Water, shoreline and distant islands extend beyond the town view.
+- [ ] ISC-284: Four named fleet islands are available in the archipelago.
+- [ ] ISC-285: Selecting an island updates its matching town identity and role.
+- [ ] ISC-286: Seven resident identities remain navigable on each selected island.
+- [ ] ISC-287: Selected island activity labels distinguish observed work from local exploration.
+- [ ] ISC-288: Archipelago view frames the fleet without cloning four full renderers.
+- [ ] ISC-289: Island travel is a reversible local interface action.
+- [ ] ISC-290: World exploration recycles a bounded set of distant scenery chunks.
+- [ ] ISC-291: The same scenery coordinates produce deterministic landforms.
+- [ ] ISC-292: Archipelago geometry stays within its declared submission and triangle budget.
+- [ ] ISC-293: Balanced and Eco retain the existing resolution and shadow caps.
+- [ ] ISC-294: Actual WASD and station interaction work after island travel.
+- [ ] ISC-295: Portrait and landscape island controls remain reachable without page overflow.
+- [ ] ISC-296: The original sandbox and Field Kit pause behavior remain functional.
+- [ ] ISC-297: Island switching disposes owned resources without retaining previous detailed towns.
+- [ ] ISC-298: Anti: Island visual states do not promote configured metadata to live device acceptance.
+- [ ] ISC-299: Integrated fleet projection and frontend pass focused regressions and strict compilation.
+
 ## Test Strategy
+
+- ISC-268..281,287,298: backend and pure client/state tests for topology, inventory, sanitization, exact node+tenant attribution, freshness, supersession and failure revocation.
+- ISC-282..285,288..289,294..296: root IAB rendered coastline/archipelago, selected island/travel, walking, encounters and sandbox checks.
+- ISC-286,290..293,297: deterministic geometry/state/resource checks and actual canvas counters under both graphics profiles.
+- ISC-299: strict frontend build, meaningful current frontend/backend regressions and independent source/visual review.
 
 - ISC-256..261,263: actual IAB scene/atlas selection, scoped failure and game/crew regression plus projection unit checks.
 - ISC-262: scene source and renderer budgets verify no additional realtime lights/shadows.
@@ -432,6 +480,10 @@ until the actual mini supplies evidence.
 
 ## Features
 
+- FleetNodeProjection: public four-slot topology and private safe assignments/activity; owns backend projection and client validation.
+- FleetArchipelagoWorld: irregular island coastlines, distant towns, bounded chunk scenery, map/travel and single detailed town.
+- FleetChartInterface: consistent game chart, four role identities, selected-island work evidence and preserved crew/brand interactions.
+
 - Brand town atlas: snapshot-derived 3D passport markers and accessible scope navigation; satisfies ISC-256..263; depends on validated brand projection.
 - New Mac bundle: allowlisted portable source/UI package, checksum verification and isolated startup; satisfies ISC-264..267; depends on workspace launcher and production build.
 
@@ -473,6 +525,8 @@ until the actual mini supplies evidence.
 | PhysicalFleetAcceptance | wing jobs, eventing, cloud, recovery and session/resource evidence | ISC-41..51 | CapabilityProof and existing specs 005/007/008 | no |
 
 ## Decisions
+
+- 2026-10-08 refined: latest user confirms four islands, two mac-coding, one mac-creative and one mac-marketing. Existing three wing profiles are templates, not a four-device census; private inventory currently configures three wing hosts and the second coding slot is planned. FirstPrinciples separates slot identity, device assignment, node-specific work evidence and scenery. SystemsThinking maps inventory→nodeprojection→island, scopedactivity→selectedtownpresence, camera/travel→logicalorigin→boundedchunks. BeCreative compares nautical archipelago, floating sky isles, cartridge planets, rail ports and fjord settlements; chooses grounded nautical coasts to retain the recent material style. ISA Append adds32 stable atomic checks and CheckCompleteness preserves twelve-section structure. ReReadCheck will bind four slots, machine-specific activity and an expanding world to actual source/browser evidence. Temperance parallel dispatch handles three disjoint routed production lanes; root owns integration/ISA/IAB.
 
 - 2026-10-08: refined: user asks to map imported brands/planning into the existing3D environment and prepare installation on a newMac. Add scoped physical passport markers and accessible atlas to the tenant-vault station, linked to knowledge/blueprint/setup source contracts, preserving all16landmarks and the existing crew/game. Installation prep includes an allowlisted portable bundle; physical new-device acceptance remains pending.
 
