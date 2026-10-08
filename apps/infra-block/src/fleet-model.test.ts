@@ -51,6 +51,15 @@ describe('four-island fleet model', () => {
     expect(fleetActivity(null, 'mac-coding-1').jobs).toEqual([]);
     delete s.fleetNodes; expect(presence(s).state).toBe('unknown');
   });
+  it('Coding 02 supports attributed work after explicit verified registration', () => {
+    const s = snapshot();
+    const second = s.fleetNodes!.find(n => n.id === 'mac-coding-2')!;
+    second.assignment = 'configured'; second.evidence = 'local';
+    second.sources = ['catalog/fleet-topology.json', 'fleet.yaml', 'nodes/islands/mac-coding-2/node.yaml'];
+    s.activity.jobs = [record({ nodeId: 'mac-coding-2' })];
+    expect(presence(s, 'mac-coding-2').state).toBe('active');
+    expect(presence(s, 'mac-coding-1').state).toBe('unknown');
+  });
   it('later unbound cancellation revokes attributed work without creating presence', () => {
     const s = snapshot(); s.activity.jobs = [record(), record({ id: 'cancel', agent: null, nodeId: null, status: 'cancelled', timestamp: new Date(now - 1000).toISOString() })];
     expect(fleetActivity(s, 'mac-coding-1').jobs).toEqual([]);

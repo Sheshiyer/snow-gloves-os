@@ -211,6 +211,22 @@ describe('canonical fleet node validation', () => {
     });
     expect(validateSnapshot(raw).fleetNodes!.filter(n => n.assignment === 'configured')).toHaveLength(3);
   });
+  it('allows only the matching canonical per-island profile reference in private scope', () => {
+    const raw = withNodes(); raw.scope.mode = 'local-private';
+    raw.fleetNodes.forEach(node => {
+      node.assignment = 'configured'; node.evidence = 'local';
+      node.sources = ['catalog/fleet-topology.json', 'fleet.yaml', `nodes/islands/${node.id}/node.yaml`];
+    });
+    expect(validateSnapshot(raw).fleetNodes![1].assignment).toBe('configured');
+    raw.fleetNodes[1].sources = ['nodes/islands/mac-coding-1/node.yaml'];
+    expect(() => validateSnapshot(raw)).toThrow(OpsClientError);
+    raw.fleetNodes[1].sources = ['nodes/islands/../../private/node.yaml'];
+    expect(() => validateSnapshot(raw)).toThrow(OpsClientError);
+  });
+  it('public templates cannot expose private island profile refs', () => {
+    const raw = withNodes(); raw.fleetNodes[1].sources = ['nodes/islands/mac-coding-2/node.yaml'];
+    expect(() => validateSnapshot(raw)).toThrow(OpsClientError);
+  });
   it('preserves canonical node activity, rejects host aliases and unknown ids in transport', () => {
     const raw = withNodes(); raw.activity.events[0].nodeId = 'mac-coding-1';
     expect(validateSnapshot(raw).activity.events[0].nodeId).toBe('mac-coding-1');

@@ -426,9 +426,9 @@ def _load_fleet_nodes(
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str], List[Dict[str, str]]]:
     """Project exactly four slots, never a host identifier or claimed live health.
 
-    Current inventory has one host per wing. Coding 02 is deliberately unbound.
-    A binding requires agreement between the inventory and the wing profile, and
-    uniqueness across wings. Direct canonical IDs need no guess about a wing.
+    Optional private ``islands`` entries bind a canonical slot to its own profile.
+    Unlisted slots retain the legacy one-host-per-wing mapping, except Coding 02
+    which needs explicit registration. Host identities must be globally unique.
     """
     warnings: List[Dict[str, str]] = []
     topology_path = repo_root / "catalog" / "fleet-topology.json"
@@ -448,32 +448,47 @@ def _load_fleet_nodes(
 
     inventory_path = data_root / "fleet.yaml"
     inventory = _safe_load_yaml(inventory_path, max_bytes=MAX_CATALOG_BYTES) if _is_safe_path(data_root, inventory_path) else None
-    wings = inventory.get("wings") if isinstance(inventory, dict) else None
-    if not isinstance(wings, dict):
+    if not isinstance(inventory, dict):
+        return nodes, {}, warnings
+    wings = inventory.get("wings")
+    wings = wings if isinstance(wings, dict) else {}
+    islands = inventory.get("islands", {})
+    if (not isinstance(islands, dict) or len(islands) > len(FLEET_TOPOLOGY)
+            or any(key not in FLEET_NODE_IDS for key in islands)):
+        warnings.append({"code": "fleet_islands_held", "message": "Malformed island registration map held"})
         return nodes, {}, warnings
 
-    candidates: List[Tuple[str, Dict[str, Any]]] = []
+    registrations: List[Tuple[str, Dict[str, Any], str, bool, Any]] = []
     for node in nodes:
-        if node["id"] == "mac-coding-2":
-            continue
         wing = node["wing"]
-        raw = wings.get(wing)
-        profile_path = data_root / "nodes" / wing / "node.yaml"
-        profile = _safe_load_yaml(profile_path, max_bytes=MAX_CATALOG_BYTES) if _is_safe_path(data_root, profile_path) else None
+        explicit = node["id"] in islands
+        if explicit:
+            raw = islands[node["id"]]
+            source_ref = f"nodes/islands/{node['id']}/node.yaml"
+        else:
+            if node["id"] == "mac-coding-2":
+                continue
+            raw = wings.get(wing)
+            source_ref = f"nodes/{wing}/node.yaml"
         host = raw.get("hostname") if isinstance(raw, dict) else None
-        if (not isinstance(host, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", host)
-                or not isinstance(profile, dict) or profile.get("hostname") != host
-                or profile.get("wing") != wing):
+        if not isinstance(host, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", host):
             continue
-        candidates.append((host, node))
+        registrations.append((host, node, source_ref, explicit, raw))
 
     host_map: Dict[str, str] = {}
-    for host, node in candidates:
-        if sum(1 for candidate_host, _ in candidates if candidate_host == host) != 1:
+    for host, node, source_ref, explicit, raw in registrations:
+        if sum(1 for registered_host, *_ in registrations if registered_host.casefold() == host.casefold()) != 1:
             warnings.append({"code": "fleet_binding_ambiguous", "message": "Ambiguous inventory binding held"})
             continue
+        if explicit and (set(raw) != {"wing", "hostname"} or raw.get("wing") != node["wing"]):
+            warnings.append({"code": "fleet_island_profile_held", "message": "Island registration does not match its canonical role"})
+            continue
+        profile_path = data_root / source_ref
+        profile = _safe_load_yaml(profile_path, max_bytes=MAX_CATALOG_BYTES) if _is_safe_path(data_root, profile_path) else None
+        if not isinstance(profile, dict) or profile.get("hostname") != host or profile.get("wing") != node["wing"]:
+            continue
         node.update(assignment="configured", evidence="local",
-                    sources=["catalog/fleet-topology.json", "fleet.yaml", f"nodes/{node['wing']}/node.yaml"])
+                    sources=["catalog/fleet-topology.json", "fleet.yaml", source_ref])
         host_map[host] = node["id"]
     return nodes, host_map, warnings
 

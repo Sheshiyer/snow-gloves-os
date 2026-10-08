@@ -25,6 +25,99 @@ def _private_fleet(tmp_path: Path) -> Path:
     return data
 
 
+def _register_island(data: Path, node_id='mac-coding-2', wing='coding', hostname='second-private-machine'):
+    inventory_path = data / 'fleet.yaml'
+    inventory = yaml.safe_load(inventory_path.read_text())
+    inventory.setdefault('islands', {})[node_id] = {'wing': wing, 'hostname': hostname}
+    inventory_path.write_text(yaml.safe_dump(inventory))
+    profile = data / 'nodes' / 'islands' / node_id / 'node.yaml'
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    profile.write_text(yaml.safe_dump({'wing': wing, 'hostname': hostname, 'primary': 'codex'}))
+    return profile
+
+
+def test_fourth_island_registration_has_own_verified_profile(fixture_repo, tmp_path):
+    data = _private_fleet(tmp_path)
+    _register_island(data)
+    audit = data / '_audit'
+    audit.mkdir()
+    (audit / 'jobs.jsonl').write_text(json.dumps({'id': 'coding-two-job', 'tenant': 't1', 'hostname': 'second-private-machine', 'agent': 'cto', 'status': 'running'}))
+    snap = build_snapshot(fixture_repo, data_root=data, tenant='t1', probe=False)
+    assert all(n['assignment'] == 'configured' for n in snap['fleetNodes'])
+    assert len(snap['fleet']) == 3  # Per-slot profiles do not duplicate wing contracts.
+    second = snap['fleetNodes'][1]
+    assert second['profileId'] == 'node-coding'
+    assert second['sources'] == ['catalog/fleet-topology.json', 'fleet.yaml', 'nodes/islands/mac-coding-2/node.yaml']
+    assert second['observedAt'] is None
+    assert snap['activity']['jobs'][0]['nodeId'] == 'mac-coding-2'
+    assert 'second-private-machine' not in json.dumps(snap)
+
+
+@pytest.mark.parametrize('failure', ['missing', 'hostname', 'wing', 'symlink', 'entry-wing', 'extra-field'])
+def test_explicit_invalid_island_never_falls_back_to_legacy(fixture_repo, tmp_path, failure):
+    data = _private_fleet(tmp_path)
+    profile = _register_island(data, node_id='mac-coding-1', hostname='explicit-private-machine')
+    if failure == 'missing':
+        profile.unlink()
+    elif failure == 'hostname':
+        profile.write_text('wing: coding\nhostname: disagreement\n')
+    elif failure == 'wing':
+        profile.write_text('wing: marketing\nhostname: explicit-private-machine\n')
+    elif failure == 'symlink':
+        profile.unlink()
+        profile.symlink_to(data / 'nodes' / 'coding' / 'node.yaml')
+    else:
+        inventory_path = data / 'fleet.yaml'
+        inventory = yaml.safe_load(inventory_path.read_text())
+        if failure == 'entry-wing':
+            inventory['islands']['mac-coding-1']['wing'] = 'marketing'
+        else:
+            inventory['islands']['mac-coding-1']['ssh_command'] = 'SECRET_COMMAND'
+        inventory_path.write_text(yaml.safe_dump(inventory))
+    snap = build_snapshot(fixture_repo, data_root=data, probe=False)
+    assert [n['assignment'] for n in snap['fleetNodes']] == ['planned', 'planned', 'configured', 'configured']
+    assert 'SECRET_COMMAND' not in json.dumps(snap)
+
+
+@pytest.mark.parametrize('hostname', ['coding-private-machine', 'CODING-PRIVATE-MACHINE'])
+def test_explicit_island_cannot_clone_legacy_machine(fixture_repo, tmp_path, hostname):
+    data = _private_fleet(tmp_path)
+    _register_island(data, hostname=hostname)
+    snap = build_snapshot(fixture_repo, data_root=data, probe=False)
+    assert [n['assignment'] for n in snap['fleetNodes']] == ['planned', 'planned', 'configured', 'configured']
+    assert 'fleet_binding_ambiguous' in [w['code'] for w in snap['warnings']]
+
+
+@pytest.mark.parametrize('invalid_map', [[], {'../../extra': {'wing': 'coding', 'hostname': 'extra'}},
+    {f'extra-{i}': {'wing': 'coding', 'hostname': f'host-{i}'} for i in range(5)}])
+def test_island_map_is_bounded_and_canonical(fixture_repo, tmp_path, invalid_map):
+    data = _private_fleet(tmp_path)
+    inventory_path = data / 'fleet.yaml'
+    inventory = yaml.safe_load(inventory_path.read_text())
+    inventory['islands'] = invalid_map
+    inventory_path.write_text(yaml.safe_dump(inventory))
+    snap = build_snapshot(fixture_repo, data_root=data, probe=False)
+    assert len(snap['fleetNodes']) == 4
+    assert all(n['assignment'] == 'planned' for n in snap['fleetNodes'])
+    assert 'fleet_islands_held' in [w['code'] for w in snap['warnings']]
+
+
+def test_explicit_islands_work_without_legacy_wings_and_public_stays_template(fixture_repo, tmp_path, monkeypatch):
+    data = _private_fleet(tmp_path)
+    from lib.cockpit_snapshot import FLEET_TOPOLOGY
+    for node in FLEET_TOPOLOGY:
+        _register_island(data, node['id'], node['wing'], f"{node['id']}-private-host")
+    inventory_path = data / 'fleet.yaml'
+    inventory = yaml.safe_load(inventory_path.read_text())
+    del inventory['wings']
+    inventory_path.write_text(yaml.safe_dump(inventory))
+    assert all(n['assignment'] == 'configured' for n in build_snapshot(fixture_repo, data_root=data, probe=False)['fleetNodes'])
+    monkeypatch.setenv('SNOWGLOVES_DATA', str(data))
+    public = build_snapshot(fixture_repo, probe=False)
+    assert all(n['assignment'] == 'template' and n['sources'] == ['catalog/fleet-topology.json'] for n in public['fleetNodes'])
+    assert 'private-host' not in json.dumps(public)
+
+
 def test_four_fleet_slots_public_templates_ignore_private_inventory(fixture_repo, tmp_path, monkeypatch):
     data = _private_fleet(tmp_path)
     monkeypatch.setenv('SNOWGLOVES_DATA', str(data))

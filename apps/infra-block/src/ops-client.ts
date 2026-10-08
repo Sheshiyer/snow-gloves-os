@@ -222,9 +222,10 @@ function parseFleetNodes(value: unknown, mode: OpsSnapshot['scope']['mode']): Op
     if (!Array.isArray(raw.sources) || raw.sources.length > 4) {
       throw new OpsClientError(`Fleet node sources invalid at ${index}`, 'invalid-response');
     }
-    const allowedSources = new Set(['catalog/fleet-topology.json', 'fleet.yaml', `nodes/${slot.wing}/node.yaml`]);
+    const islandProfile = `nodes/islands/${slot.id}/node.yaml`;
+    const allowedSources = new Set(['catalog/fleet-topology.json', 'fleet.yaml', `nodes/${slot.wing}/node.yaml`, islandProfile]);
     const sources = parseStringArray(raw.sources, `fleetNodes[${index}].sources`);
-    if (sources.some(source => !allowedSources.has(source)) || (mode === 'public-fixtures' && sources.some(source => source === 'fleet.yaml'))) {
+    if (sources.some(source => !allowedSources.has(source)) || (mode === 'public-fixtures' && sources.some(source => source === 'fleet.yaml' || source === islandProfile))) {
       throw new OpsClientError(`Fleet node source is outside the safe document roster at ${index}`, 'invalid-response');
     }
     // The inventory proves configuration only, never a device observation time.
