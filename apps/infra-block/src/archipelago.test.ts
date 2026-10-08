@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
-import { chunkKeysAround, createArchipelago, createIslandGeometry, sceneryForChunk, CHUNK_SIZE, SEA_LEVEL } from './archipelago';
+import { chunkKeysAround, createArchipelago, createIslandGeometry, sceneryForChunk, fitCameraDistance, CHUNK_SIZE, SEA_LEVEL } from './archipelago';
 import { createEnvironment } from './environment';
 
 const slots = [
@@ -11,6 +11,43 @@ const slots = [
 ];
 
 describe('Fleet archipelago geometry', () => {
+  it.each([
+    { width: 1309, height: 818, top: 260, bottom: 92 },
+    { width: 390, height: 844, top: 425, bottom: 225 },
+    { width: 844, height: 390, top: 138, bottom: 94 }
+  ])('fits complete four-island coast bounds inside HUD margins at $width x $height', viewport => {
+    const camera = new THREE.PerspectiveCamera(35, viewport.width / viewport.height, 0.1, 50000);
+    camera.setViewOffset(viewport.width, viewport.height, 0, (viewport.bottom - viewport.top) / 2, viewport.width, viewport.height);
+    const bounds = new THREE.Box3(new THREE.Vector3(-265, -8, -235), new THREE.Vector3(265, 22, 235));
+    const direction = new THREE.Vector3(0.42, 0.82, 0.4).normalize();
+    const limits = { top: 1 - 2 * viewport.top / viewport.height, bottom: -1 + 2 * viewport.bottom / viewport.height, horizontal: 0.91 };
+    const distance = fitCameraDistance(camera, bounds, direction, new THREE.Vector3(), 1350, limits);
+    camera.position.copy(direction).multiplyScalar(distance); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+    for (const x of [-265, 265]) for (const y of [-8, 22]) for (const z of [-235, 235]) {
+      const point = new THREE.Vector3(x, y, z).project(camera);
+      expect(Math.abs(point.x)).toBeLessThanOrEqual(limits.horizontal);
+      expect(point.y).toBeLessThanOrEqual(limits.top);
+      expect(point.y).toBeGreaterThanOrEqual(limits.bottom);
+    }
+    expect(distance).toBeLessThan(12000);
+  });
+
+  it('fits the full town coastline and pier independently of the street camera', () => {
+    const camera = new THREE.PerspectiveCamera(35, 1309 / 818, 0.1, 50000);
+    const limits = { top: 0.38, bottom: -0.77, horizontal: 0.91 };
+    const direction = new THREE.Vector3(35, 37, 41).normalize(), target = new THREE.Vector3(0, 3, 0);
+    const coast = new THREE.Box3(new THREE.Vector3(-85, -8, -85), new THREE.Vector3(85, 16, 90));
+    const street = new THREE.Box3(new THREE.Vector3(-26.3, -1.6, -26.3), new THREE.Vector3(26.3, 8, 26.3));
+    const overview = fitCameraDistance(camera, coast, direction, target, 240, limits);
+    const city = fitCameraDistance(camera, street, direction, target, 60, { top: 1.04, bottom: -1.04, horizontal: 1.08 });
+    expect(overview).toBeGreaterThan(city * 2);
+    camera.position.copy(target).addScaledVector(direction, overview); camera.lookAt(target); camera.updateMatrixWorld();
+    for (const x of [-85, 85]) for (const y of [-8, 16]) for (const z of [-85, 90]) {
+      const point = new THREE.Vector3(x, y, z).project(camera);
+      expect(point.y).toBeLessThanOrEqual(limits.top);
+      expect(point.y).toBeGreaterThanOrEqual(limits.bottom);
+    }
+  });
   it('creates irregular coastline with raised land and submerged cliff volume deterministically', () => {
     const a = createIslandGeometry('headland-a', 72), b = createIslandGeometry('headland-a', 72);
     expect(a.getAttribute('position').array).toEqual(b.getAttribute('position').array);

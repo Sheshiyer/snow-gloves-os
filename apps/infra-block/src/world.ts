@@ -9,7 +9,7 @@ import { createResidentCrew } from './resident-characters';
 import { createArchitecture } from './architecture';
 import { createEnvironment } from './environment';
 import { renderBudget, type GraphicsProfile } from './render-budget';
-import { createArchipelago } from './archipelago';
+import { createArchipelago, fitCameraDistance } from './archipelago';
 import { FLEET_LAYOUT, fleetNodes, type FleetProjection } from './fleet-model';
 
 function makePrng(seedStr: string) {
@@ -40,7 +40,7 @@ export function createWorld(
   scene.background = new THREE.Color('#d8e2df');
   scene.fog = new THREE.Fog('#d8e2df', 150, 950);
 
-  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 4000);
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50000);
   camera.position.set(35, 37, 41);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'default' });
@@ -71,6 +71,8 @@ export function createWorld(
   const townDirection = new THREE.Vector3(35, 37, 41).normalize();
   let fittedDistance = 90;
   let fittedMinDistance = 48;
+  let fittedIslandDistance = 350;
+  let islandOverview = true;
   let followSuspended = false;
   let overlayWasOpen = false;
   const hasOverlay = () => ['field-kit-open', 'source-notes-open', 'home-encounter-open'].some(name => document.body.classList.contains(name)) || Boolean(document.querySelector('dialog[open]'));
@@ -83,6 +85,12 @@ export function createWorld(
       return;
     }
     const controlled = residents.controlState();
+    islandOverview = !id && !controlled.slug && residentsEnabled;
+    if (islandOverview) fittedIslandDistance = fitWholeIsland();
+    else camera.clearViewOffset();
+    scene.fog = islandOverview
+      ? new THREE.Fog('#d8e2df', Math.max(150, fittedIslandDistance * 1.2), Math.max(950, fittedIslandDistance * 3))
+      : new THREE.Fog('#d8e2df', 150, 950);
     followSuspended = Boolean(id && controlled.slug);
     if (!id && controlled.slug) {
       controls.minDistance = 18;
@@ -94,8 +102,9 @@ export function createWorld(
     const building = id ? buildingObjs.find(item => item.id === id) : null;
     const resident = RESIDENTS.find(item => item.nodeId === id);
     const station = resident ? residents.group.getObjectByName(`Station_${resident.slug}`) : null;
-    controls.minDistance = station ? 24 : fittedMinDistance;
-    focusDistance = station ? 36 : fittedDistance;
+    controls.minDistance = station ? 24 : islandOverview ? Math.max(fittedMinDistance, fittedIslandDistance * 0.5) : fittedMinDistance;
+    controls.maxDistance = (islandOverview ? fittedIslandDistance : fittedDistance) * 1.7;
+    focusDistance = station ? 36 : islandOverview ? fittedIslandDistance : fittedDistance;
     focusDirection = station ? new THREE.Vector3(14, 34, 16).normalize() : townDirection.clone();
     focusTarget = station ? new THREE.Vector3(station.position.x, 1.5, station.position.z) : building
       ? new THREE.Vector3(building.group.position.x * 0.35, 3, building.group.position.z * 0.35)
@@ -162,11 +171,52 @@ export function createWorld(
   function selectionEvent() {
     container.dispatchEvent(new CustomEvent('fleet-selection', { bubbles: true, detail: { id: islandId, view: worldView } }));
   }
+  function frameInsets() {
+    const rect = container.getBoundingClientRect();
+    const width = Math.max(1, rect.width), height = Math.max(1, rect.height);
+    let top = 16, bottom = 16;
+    for (const selector of ['.sg-header', '#sg-fleet-atlas', '.ih-mission-strip']) {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element || !element.getClientRects().length) continue;
+      top = Math.max(top, element.getBoundingClientRect().bottom - rect.top + 16);
+    }
+    const lowerSelectors = width < 768 ? ['.ih-belt-wrap', '.ih-touch-pad', '.ih-walk-hud'] : ['.ih-belt-wrap'];
+    for (const selector of lowerSelectors) {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element || !element.getClientRects().length) continue;
+      bottom = Math.max(bottom, rect.bottom - element.getBoundingClientRect().top + 16);
+    }
+    top = Math.min(top, height * 0.64);
+    bottom = Math.min(bottom, Math.max(16, height - top - 90));
+    // Moving the optical center leaves the coast in the available screen band.
+    camera.setViewOffset(width, height, 0, (bottom - top) / 2, width, height);
+    return { top: 1 - top / height * 2, bottom: -1 + bottom / height * 2, horizontal: 0.91 };
+  }
+  function fitWholeIsland() {
+    return fitCameraDistance(camera, new THREE.Box3(new THREE.Vector3(-85, -8, -85), new THREE.Vector3(85, 16, 90)), townDirection, new THREE.Vector3(0, 3, 0), 240, frameInsets());
+  }
+  function frameTown(overview: boolean) {
+    islandOverview = overview;
+    if (overview) fittedIslandDistance = fitWholeIsland();
+    else camera.clearViewOffset();
+    const distance = overview ? fittedIslandDistance : fittedDistance;
+    scene.fog = overview
+      ? new THREE.Fog('#d8e2df', Math.max(150, distance * 1.2), Math.max(950, distance * 3))
+      : new THREE.Fog('#d8e2df', 150, 950);
+    controls.target.set(0, 3, 0); camera.position.copy(controls.target).addScaledVector(townDirection, distance);
+    controls.minDistance = overview ? Math.max(fittedMinDistance, distance * 0.5) : fittedMinDistance;
+    controls.maxDistance = distance * 1.7;
+    camera.lookAt(controls.target); controls.update();
+  }
   function frameChart() {
-    const distance = Math.max(1020, 650 / Math.max(0.35, camera.aspect));
-    controls.target.set(0, 0, 0);
-    camera.position.copy(controls.target).addScaledVector(new THREE.Vector3(0.42, 0.82, 0.4).normalize(), distance);
+    const limits = frameInsets();
+    const direction = new THREE.Vector3(0.42, 0.82, 0.4).normalize();
+    const centerZ = (FLEET_LAYOUT[0].z + FLEET_LAYOUT[2].z) / 2;
+    const bounds = new THREE.Box3(new THREE.Vector3(-265, -8, -110 - centerZ - 90), new THREE.Vector3(265, 22, 180 - centerZ + 90));
+    const distance = fitCameraDistance(camera, bounds, direction, new THREE.Vector3(), 1350, limits);
+    controls.target.set(0, 0, 0); camera.position.copy(controls.target).addScaledVector(direction, distance);
     controls.minDistance = distance * 0.6; controls.maxDistance = distance * 2;
+    scene.fog = new THREE.Fog('#d8e2df', Math.max(1400, distance * 1.3), Math.max(3500, distance * 4));
     camera.lookAt(controls.target); controls.update();
   }
   function setWorldView(view: 'town' | 'archipelago') {
@@ -180,9 +230,7 @@ export function createWorld(
       const selected = FLEET_LAYOUT.find(slot => slot.id === islandId)!;
       logicalX = selected.x; logicalZ = selected.z;
       scene.fog = new THREE.Fog('#d8e2df', 150, 950);
-      controls.target.set(0, 3, 0); camera.position.copy(controls.target).addScaledVector(townDirection, fittedDistance);
-      controls.minDistance = fittedMinDistance; controls.maxDistance = fittedDistance * 1.7;
-      camera.lookAt(controls.target); controls.update();
+      frameTown(residentsEnabled && !residents.controlState().slug);
     }
     synchronizeWorld(); selectionEvent(); lastRenderAt = -Infinity;
   }
@@ -334,7 +382,10 @@ export function createWorld(
   };
   const onResidentVisibility = (event: Event) => {
     residentsEnabled = (event as CustomEvent<boolean>).detail === true;
-    if (!residentsEnabled) residents.group.visible = false;
+    if (!residentsEnabled) {
+      residents.group.visible = false;
+      if (worldView === 'town') frameTown(false);
+    }
   };
   container.addEventListener('resident-presence', onResidentPresence);
   container.addEventListener('resident-visible', onResidentVisibility);
@@ -416,7 +467,7 @@ export function createWorld(
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
-      const fitCamera = camera.clone();
+      const fitCamera = camera.clone(); fitCamera.clearViewOffset();
       const fitTarget = new THREE.Vector3(0, 3, 0);
       let distance = 60;
       for (let i = 0; i < 24; i++) {
@@ -435,9 +486,16 @@ export function createWorld(
       fittedMinDistance = Math.max(48, distance * 0.7);
       const controlled = residents.controlState();
       if (worldView === 'archipelago') { frameChart(); return; }
-      if (!controlled.slug && !focusTarget) camera.position.copy(controls.target).addScaledVector(townDirection, distance);
-      controls.minDistance = controlled.slug ? 18 : focusDistance === 36 ? 24 : fittedMinDistance;
-      controls.maxDistance = distance * 1.7;
+      if (islandOverview && !controlled.slug) {
+        fittedIslandDistance = fitWholeIsland();
+        if (focusTarget) focusDistance = fittedIslandDistance;
+        else frameTown(true);
+      } else {
+        camera.clearViewOffset();
+        if (!controlled.slug && !focusTarget) camera.position.copy(controls.target).addScaledVector(townDirection, distance);
+        controls.minDistance = controlled.slug ? 18 : focusDistance === 36 ? 24 : fittedMinDistance;
+        controls.maxDistance = distance * 1.7;
+      }
     }
   });
   resizeObserver.observe(container);

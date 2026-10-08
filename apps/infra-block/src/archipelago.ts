@@ -9,6 +9,27 @@ export const SEA_LEVEL = -1.6;
 export const CHUNK_SIZE = 520;
 export const MAX_SCENERY_CHUNKS = 9;
 
+/** Fit actual three-dimensional coast bounds into the visible HUD-free rectangle. */
+export function fitCameraDistance(
+  camera: THREE.PerspectiveCamera, bounds: THREE.Box3, direction: THREE.Vector3,
+  target: THREE.Vector3, minDistance: number, limits: { top: number; bottom: number; horizontal: number }
+): number {
+  const probe = camera.clone(), normalized = direction.clone().normalize();
+  let distance = minDistance;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    probe.position.copy(target).addScaledVector(normalized, distance);
+    probe.lookAt(target); probe.updateMatrixWorld(true);
+    let fits = true;
+    for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+      const projected = new THREE.Vector3(x, y, z).project(probe);
+      if (Math.abs(projected.x) > limits.horizontal || projected.y > limits.top || projected.y < limits.bottom || projected.z > 1) fits = false;
+    }
+    if (fits) return distance;
+    distance *= 1.04;
+  }
+  return distance;
+}
+
 export function sceneryForChunk(seed: string, cx: number, cz: number, slots: readonly IslandSlot[]): ScenerySpec[] {
   const rng = createPrng(`${seed}:sea:${cx}:${cz}`);
   const result: ScenerySpec[] = [];
@@ -197,7 +218,7 @@ export function createArchipelago(seed: string, slots: readonly IslandSlot[]): A
   const group = new THREE.Group(); group.name = 'FleetArchipelago';
   const landMaterial = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
   const settlementMaterial = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-  const waterGeometry = new THREE.PlaneGeometry(3400, 3400);
+  const waterGeometry = new THREE.PlaneGeometry(32000, 32000);
   waterGeometry.rotateX(-Math.PI / 2);
   const waterMaterial = new THREE.MeshBasicMaterial({ color: '#87b0ac' });
   const water = new THREE.Mesh(waterGeometry, waterMaterial); water.position.y = SEA_LEVEL;
