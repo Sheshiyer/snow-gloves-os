@@ -1,6 +1,6 @@
-# Infrastructure cockpit
+# Infrastructure Field Kit
 
-The Infra Block city opens an operations workspace over the Snow Gloves platform.
+The Infra Block city opens a Toy Town Field Kit over the Snow Gloves platform.
 The workspace uses a loopback projection API rather than reading host files from
 the browser or connecting directly to the unscoped Hermes event endpoint.
 
@@ -18,7 +18,7 @@ In a second terminal:
 npm --prefix apps/infra-block run dev
 ```
 
-Open `http://127.0.0.1:18760/` and select **Operations**. The API listens on
+Open `http://127.0.0.1:18760/` and select **FIELD KIT**. The API listens on
 `127.0.0.1:18761`; Vite proxies `/api/infra` through the frontend's own origin.
 The production build can be used with `npm --prefix apps/infra-block run preview`
 while the same local API is running.
@@ -40,11 +40,40 @@ python3 scripts/infra_cockpit.py --data-root /path/to/snow-gloves-ops
 python3 scripts/infra_cockpit.py --data-root /path/to/snow-gloves-ops --tenant <slug>
 ```
 
-The eleven sections cover Overview, Agents, Modules, Runtimes, Connectors,
-Tenants, Fleet, Activity, Workbench, Evidence and Resources. A landmark opens its
-matching section. Global search finds modules, agents, adapters, connectors,
-tenants, profiles, activity and indexed source documents. Runtime `verify` flags
-mean fields still need confirmation; they do not prove an installation.
+## Stations and materials
+
+The horizontal toolbelt opens eleven stations. The kit uses a compact, nonmodal
+right drawer on desktop and a bottom sheet capped at 60dvh on narrow screens.
+The real miniature city remains visible and accepts pointer interaction. Station
+selection focuses a corresponding source-backed city landmark; **Pack away**
+closes the kit. The source and activity record viewers remain native modal dialogs.
+
+| Visible station | Section / source | Local toy illustration and treatment |
+| --- | --- | --- |
+| Town square | Overview | Pink-roof house, teal robot companion, destination tokens and endpoint lantern tickets |
+| Crew | Agents | Rounded plastic robot badges for actual agent roles, hooks and routed skills |
+| Parts chest | Modules | Multicolored studded wooden blocks and collectible catalog cards |
+| Platforms | Runtimes | Console cartridges for actual adapter formats, paths and verification gaps |
+| Signal plugs | Connectors | Cream cables and coral plugs around capability gates |
+| Neighborhoods | Tenants | Pastel houses and scoped neighborhood passports |
+| Wing hangar | Fleet | Gold airship pieces for source or local wing profiles |
+| Courier trail | Activity | Folded envelopes with wax seals and filtered record tickets |
+| Blueprint bench | Workbench | Blue paper, pencil and a proposal form with actual gate decisions |
+| Stamp book | Evidence | Wood-handled stamps and ledger tickets retaining open/accepted status |
+| Field notes | Resources | Mint book covers and indexed source document records |
+
+The illustrations are fixed local SVG artwork. Their material colors are
+decorative; actual disposition, risk, reachability and acceptance values remain
+explicit text. The town-square station counts come from the current snapshot.
+Global search finds modules, agents, adapters, connectors, tenants, profiles,
+activity and indexed source documents. Runtime `verify` flags mean fields still
+need confirmation; they do not prove an installation.
+
+**Connection notes** folds scope, connection source, update age and refresh into
+an optional disclosure. The kit refreshes every fifteen seconds while open and
+visible, and supports manual refresh. Technical addresses and observation times
+are available in endpoint ticket disclosures rather than occupying the main
+station heading. Activity and evidence use tickets rather than tables.
 
 Inventory, source definitions, endpoint observations, ledger acceptance and
 physical execution are distinct evidence. A reachable health endpoint is labeled
@@ -77,11 +106,14 @@ checks, body limits and generic error responses protect the loopback boundary.
 
 When the API is unavailable, the UI can display the bundled public-source
 snapshot with an explicit disconnected/stale label. Private snapshots are not
-stored as a browser fallback. The city and original game remain usable.
+stored as a browser fallback. A failed selected-scope refresh clears projected
+metadata, source and activity dialogs, pending proposals and related draft state;
+late responses cannot restore the cleared projection. The city and original game remain usable.
 
 ## Verification
 
 Backend reader and HTTP tests cover scope, path isolation, gate previews and
 read-only behavior. Client tests cover schemas, scope binding and transport
-failures. Production compilation and IAB desktop/mobile flows verify the combined
-application. The acceptance criteria and actual results live in `ISA.md`.
+failures. Production compilation and IAB desktop/mobile flows are the combined
+application checks; a source or build check alone does not establish visual or
+physical-device acceptance. The acceptance criteria and actual results live in `ISA.md`.

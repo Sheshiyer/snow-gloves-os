@@ -51,8 +51,8 @@ The application runs on port 18760 by default.
 ## Gameplay Notes
 
 - The gameplay simulation runs in the browser only.
-- Infrastructure descriptions are projected from public repository sources; service status is not polled.
-- No infrastructure mutation or live telemetry is performed.
+- City inspectors describe public repository sources. The Field Kit uses a separate scoped API and bounded endpoint observations; building descriptions are not live device telemetry.
+- No infrastructure mutation is performed. Field Kit reachability means an endpoint observation only, not a running job or enrolled device.
 - Procedural geometry placeholders are used; no GLB assets are supplied.
 - Physical and cloud acceptance are tracked separately in ISA.md. Coding doctor/job evidence is accepted; Marketing and Design remain open.
 
@@ -100,4 +100,47 @@ The city contains 16 public infrastructure entities and 31 verified repository s
 
 The prescribed GPT-5.4 audit was unavailable for this ChatGPT account and the advisor timed out. Neither supplies an audit pass. Controller tests and actual browser receipts support the delivered frontend.
 
-Models are procedural toys. `asset-slots.json` records future GLB model slots; original animated GLBs were not supplied. No external model generation, analytics, live telemetry or infrastructure mutation is performed.
+Models are procedural toys. `asset-slots.json` records future GLB model slots; original animated GLBs were not supplied. No external model generation, analytics or infrastructure mutation is performed. Endpoint observations in the Field Kit remain distinct from live execution and physical-device proof.
+
+
+## Toy Town Field Kit
+
+Select **FIELD KIT**, or **Open workspace** in a building inspector, to open the
+source-backed operational station for that part of the town. A horizontal belt
+holds Town square, Crew, Parts chest, Platforms, Signal plugs, Neighborhoods,
+Wing hangar, Courier trail, Blueprint bench, Stamp book and Field notes. These
+retain the Overview, Agents, Modules, Runtimes, Connectors, Tenants, Fleet,
+Activity, Workbench, Evidence and Resources contracts.
+
+The nonmodal desktop drawer leaves the miniature town visible and interactive.
+On narrow screens it becomes a bottom sheet capped at 60dvh, with the belt above
+it. Local colored SVG toys distinguish the stations: house and robot, studded
+blocks, cartridges, plugs, pastel houses, airship, sealed envelope, blueprint,
+wood stamp and mint book. Their colors describe materials; they do not replace
+actual risk or disposition labels. Courier records and evidence criteria use
+stamped tickets with their real source values.
+
+Search is available above the drawer content. **Connection notes** discloses the
+scope, connection source, freshness and manual refresh. The scoped snapshot
+refreshes every fifteen seconds while the kit is open and visible. **Pack away**
+returns to the city; Escape closes the kit when a source or activity modal is not
+open. Opening the kit during gameplay preserves the paused timer.
+
+The document viewer displays indexed source text safely, its content digest and
+any truncation notice. The Blueprint bench generates a real backend routing and
+module-gate proposal and downloads local JSON. It provides no execute, enable or
+approve action. Failed scope loads clear old projections, dialogs and pending
+proposals; disconnected public fixtures remain explicitly stale.
+
+Run the loopback API from the repository root in another terminal:
+
+```sh
+python3 scripts/infra_cockpit.py
+```
+
+The frontend proxies `/api/infra` to `127.0.0.1:18761`. Explicit private instance
+selection, exact API routes, evidence boundaries and station materials are
+specified in [Infrastructure Field Kit](../../docs/infra-cockpit.md).
+Current visual acceptance results belong in `ISA.md`; the earlier city delivery
+receipts above do not by themselves verify this revised layout on physical
+phones.
