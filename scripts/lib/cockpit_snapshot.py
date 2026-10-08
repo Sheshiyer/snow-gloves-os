@@ -24,6 +24,7 @@ import urllib.error
 import yaml
 from lib import paths
 from lib.redact import redact_text
+from lib.cockpit_brand_summary import brand_summary
 
 MAX_FILE_BYTES = 4 * 1024 * 1024       # 4 MB max YAML/JSON
 MAX_CATALOG_BYTES = 1 * 1024 * 1024    # 1 MB max catalog
@@ -296,6 +297,7 @@ def _load_tenants(repo_root: Path, data_root: Optional[Path], filter_tenant: Opt
                             enabled_modules.append(m)
 
         source_count = 0
+        sdata = None
         sources_path = entry / "sources.yaml"
         if sources_path.exists() and _is_safe_path(target_base, sources_path):
             sdata = _safe_load_yaml(sources_path)
@@ -322,6 +324,11 @@ def _load_tenants(repo_root: Path, data_root: Optional[Path], filter_tenant: Opt
             "availability": "local" if is_local else "fixture",
             "warnings": t_warnings,
         })
+        if is_local:
+            try:
+                tenants[-1].update(brand_summary(data_root, entry, sdata if sources_path.exists() and _is_safe_path(target_base, sources_path) else None))
+            except (ValueError, OSError):
+                tenants[-1]["warnings"].append("brand summary unavailable")
         count += 1
 
     if total_malformed_approvals > 0:
@@ -610,7 +617,9 @@ def _load_acceptance(repo_root: Path) -> Tuple[List[Dict[str, Any]], List[Dict[s
                 "source": "ISA.md",
             })
 
-    return acceptance[:256], warnings
+    if len(acceptance) > 1024:
+        warnings.append({"code": "acceptance_truncated", "message": "Acceptance ledger exceeds 1024 criteria."})
+    return acceptance[:1024], warnings
 
 
 def _load_routing(repo_root: Path) -> Tuple[Dict[str, Any], List[Dict[str, str]]]:

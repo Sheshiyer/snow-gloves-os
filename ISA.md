@@ -4,13 +4,15 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 209/235
+progress: 220/267
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
 ---
 
 ## Problem
+
+Current brand workspace lane: review private imported brand records and planning, project bounded provenance and portfolio summaries into Neighborhoods, and provide an isolated Mac mini CLI/UI startup path. Device installation depends on the selected target; no activation follows from metadata.
 
 Current grounded-world lane: the flat isolated slab, repeated block facades and rigid doll geometry still feel like Lego. Build a coherent landscape and plausible stylized buildings and people while bounding rendering cost and retaining the playable infrastructure contracts.
 
@@ -76,6 +78,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Deliver tenant-isolated brand import and planning summaries in the existing field kit with an explicit private-data workspace launcher. Verify missing/drifted input, public/private isolation, client validation, owned-process cleanup and actual browser scope switching before acceptance.
 
 Replace the isolated toy platform with continuous terrain, natural groves, varied masonry/timber architecture and softer role-specific people. Verify geometry/resource budgets, actual before/after rendering counters, selectable Eco/Balanced graphics, browser navigation and responsive regressions.
 
@@ -340,9 +344,51 @@ until the actual mini supplies evidence.
 - [x] ISC-234: The original sandbox and Field Kit pause interaction remain functional.
 - [x] ISC-235: The integrated scene passes strict production compilation and meaningful regression checks.
 
+- [x] ISC-236: Private tenant snapshots expose bounded knowledge summaries.
+- [x] ISC-237: Knowledge summaries distinguish source plans from completed ingestion.
+- [x] ISC-238: Missing tenant-local planned files are counted.
+- [x] ISC-239: Changed research bytes are reported as provenance drift.
+- [x] ISC-240: Research verification rejects symlink escapes.
+- [x] ISC-241: Knowledge projection omits original absolute paths and context prose.
+- [x] ISC-242: Portfolio projection preserves the selected tenant parent relationship.
+- [x] ISC-243: Project records remain beneath their named tenant.
+- [x] ISC-244: Proposed cross-brand flows retain planning-only status.
+- [x] ISC-245: Scoped planning projection excludes other tenant records.
+- [x] ISC-246: Public mode ignores ambient private data for brand summaries.
+- [ ] ISC-247: Client validation rejects malformed optional brand summaries.
+- [ ] ISC-248: Neighborhood passports display the current import and planning evidence.
+- [ ] ISC-249: The CLI workspace check is read-only.
+- [ ] ISC-250: The workspace launcher refuses occupied ports.
+- [ ] ISC-251: Workspace shutdown reaps only its owned children.
+- [ ] ISC-252: The indexed Mac mini guide provides reproducible isolated setup commands.
+- [ ] ISC-253: Integrated brand workspace passes focused backend regressions.
+- [ ] ISC-254: Integrated brand workspace passes strict frontend compilation.
+- [ ] ISC-255: Actual browser scope switching preserves brand isolation.
+
+- [ ] ISC-256: Brand markers in the 3D tenant station derive from the current snapshot.
+- [ ] ISC-257: Selecting a 3D brand marker opens its exact tenant passport.
+- [ ] ISC-258: An accessible brand atlas selects the same tenant as the scene.
+- [ ] ISC-259: Scoped failure clears private brand markers from the scene.
+- [ ] ISC-260: The brand atlas distinguishes public fixtures from private metadata.
+- [ ] ISC-261: Knowledge and blueprint destinations retain the selected brand scope.
+- [ ] ISC-262: Brand markers add no realtime lights or shadows.
+- [ ] ISC-263: The original crew walking and sandbox remain usable after brand integration.
+- [ ] ISC-264: The installation bundle excludes private instance data and host configuration.
+- [ ] ISC-265: The extracted installation bundle passes its checksum verifier.
+- [ ] ISC-266: Bundle verification rejects changed or symlinked files.
+- [ ] ISC-267: The documented new-Mac startup executes in an isolated extracted workspace.
 
 ## Test Strategy
 
+- ISC-256..261,263: actual IAB scene/atlas selection, scoped failure and game/crew regression plus projection unit checks.
+- ISC-262: scene source and renderer budgets verify no additional realtime lights/shadows.
+- ISC-264..267: temporary bundle exclusion/digest/escape tests and actual extracted CLI/API/UI lifecycle.
+
+- ISC-236..247: backend/client fixtures probe missing, drift, paths, schema, tenant/public isolation.
+- ISC-248,255: actual in-app browser Neighborhood passports and selected-scope transitions.
+- ISC-249..251: CLI check read-only, port rejection and owned-child cleanup tests.
+- ISC-252: indexed setup guide read-back and actual CLI help/check.
+- ISC-253..254: focused pytest and strict frontend build.
 
 | 204..208,229..234 | root IAB | current renderer baseline, grounded scenery, navigation, quality and responsive modes | actual screenshot/readback | Codex IAB |
 | 209..222 | source/model | deterministic geometry, road/footprint bounds, identity and triangle budgets | passing geometry assertions | Vitest |
@@ -386,6 +432,11 @@ until the actual mini supplies evidence.
 
 ## Features
 
+- Brand town atlas: snapshot-derived 3D passport markers and accessible scope navigation; satisfies ISC-256..263; depends on validated brand projection.
+- New Mac bundle: allowlisted portable source/UI package, checksum verification and isolated startup; satisfies ISC-264..267; depends on workspace launcher and production build.
+
+- Brand workspace: bounded knowledge and portfolio projection plus Neighborhood passports; satisfies ISC-236..248, ISC-253..255; depends on existing cockpit; independent of scene rendering.
+- Mac mini workspace entry: isolated check/run launcher and indexed setup guide; satisfies ISC-249..252; depends on cockpit and production frontend.
 
 | GroundedEnvironment | continuous landscape and instanced groves | ISC-205..212 | fixed streets | yes |
 | PlausibleArchitecture | efficient material facades and roof variation | ISC-213..218 | existing landmarks | yes |
@@ -423,8 +474,12 @@ until the actual mini supplies evidence.
 
 ## Decisions
 
+- 2026-10-08: refined: user asks to map imported brands/planning into the existing3D environment and prepare installation on a newMac. Add scoped physical passport markers and accessible atlas to the tenant-vault station, linked to knowledge/blueprint/setup source contracts, preserving all16landmarks and the existing crew/game. Installation prep includes an allowlisted portable bundle; physical new-device acceptance remains pending.
+
 - 2026-10-08: Current review recorded in private docs/OPS-UI-INTEGRATION-REVIEW-2026-10-08.md; public docs/OPS-WORKSPACE.md documents existing runnable API/UI and isolated dependency setup. Two Build launches exit125 host_pressure_elevated. Current-source133frontend and45cockpit backend tests pass; implementation criteria remain open.
 
+- 2026-10-08: refined: latest user request advances brand/private planning projection and Mac mini CLI/UI entry. Existing scene changes and historical physical/cloud criteria remain preserved. Ingestion point is the snapshot tenant loader: extend its safe allowlist instead of exposing private files through the public document endpoint. Founder-confirmed portfolio proposal is newer than the three-branch readiness packet.
+- 2026-10-08: Build dispatch held with host_pressure_elevated and zero implementation; preserve the host gate and current model routing. Native work remains read-only review and ledger preparation.
 
 - 2026-10-08 refined: Read "work rather than a plane" as world rather than flat platform. FirstPrinciples Deconstruct separates depth, silhouette, material cues and context from GPU cost (submissions, triangles, texture memory and pixel/shadow work). Hard constraints are the source/collision/game contracts; identical blocks and costly mesh-per-window are inherited choices. BeCreative StandardCreativity evaluates woodland village, canal hamlet, desert outpost, courtyard campus and hillside borough; selects woodland village with grounded material architecture and natural peripheral terrain. ISA Append adds32 atomic checks and CheckCompleteness retains the populated E3 sections. ReReadCheck will bind world, lessLego and boundedgraphics to actual source and browser evidence. Three disjoint routed workers own architecture, environment and resident visuals; root owns integration and graphics policy. Historical26 requirements remain separate.
 
@@ -1079,3 +1134,5 @@ ReReadCheck — latest request: "can we make a work rather than a plane and incr
 ReReadCheck complete: world context, lessLego silhouettes/materials, plausible stylized people, efficient graphics and prior interaction contracts are implemented and verified at their stated source/browser boundaries. No shared-service restart, provider configuration, push, deployment or physical readiness follows.
 
 Final ledger/public-source check: six focused backend acceptance regressions pass in3.44s against the current working ledger. Final static build after fixture regeneration passes; bundled fixture equals its public source copy, with235current-lane records/209accepted, exactly three public tenants, emptyactivity, unknown unprobed services and execute/enable/approvefalse. Concurrent ISC-236..255 and docs/OPS-WORKSPACE.md remain outside the owned commit.
+
+- ISC-236..246: Bounded private-only brand projection passes four focused fixtures covering stale absolute-path rebinding, missing files, actual research SHA drift, symlink rejection, secret omission, own-tenant projects and public ambient-data isolation. Forty-seven focused backend regressions passed before two added isolation fixtures; acceptance ledger cap expanded to 1024 with explicit truncation warning. Routed generation reviewed and repaired locally; no ingestion completion or physical installation inferred.
