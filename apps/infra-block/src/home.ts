@@ -158,6 +158,8 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   let isKitOpen = false;
   let selectedSlug: ResidentSlug | null = null;
   let pollTimer: number | null = null;
+  let freshnessTimer: number | null = null;
+  let presenceSignature = '';
   let tourTimer: number | null = null;
   let tourIndex = 0;
   let tourActiveSlug: ResidentSlug = RESIDENTS[0].slug;
@@ -224,6 +226,8 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
               <span class="ih-conn-k">Staleness</span>
               <span class="ih-conn-v" id="ih-conn-stale">fresh</span>
             </div>
+            <div class="ih-conn-row"><span class="ih-conn-k">Snapshot generated</span><span class="ih-conn-v" id="ih-conn-generated"></span></div>
+            <div class="ih-conn-row"><span class="ih-conn-k">Snapshot age</span><span class="ih-conn-v" id="ih-conn-age"></span></div>
             <div class="ih-conn-row ih-conn-row-actions">
               <button type="button" class="ih-btn ih-btn-subtle ih-btn-sm" id="ih-btn-conn-refresh">Refresh source</button>
             </div>
@@ -352,6 +356,10 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
 
   function updateConnectionUI(): void {
     connLabelEl.textContent = projection.label;
+    const generated = projection.snapshot?.generatedAt;
+    const generatedMs = generated ? Date.parse(generated) : NaN;
+    host.querySelector('#ih-conn-generated')!.textContent = generated || 'Unavailable';
+    host.querySelector('#ih-conn-age')!.textContent = Number.isFinite(generatedMs) ? `${Math.max(0,Math.floor((Date.now()-generatedMs)/1000))}s since source snapshot` : 'Unavailable';
     connScopeEl.textContent = projection.scopeMode || 'none';
     connTenantEl.textContent = projection.tenant || 'none';
     connSourceEl.textContent = projection.source;
@@ -449,6 +457,9 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
 
   function broadcastPresence(): void {
     const pres = getActivePresenceList();
+    const nextSignature = JSON.stringify(pres);
+    if (nextSignature === presenceSignature) return;
+    presenceSignature = nextSignature;
     callbacks.onPresence(pres);
     renderBelt();
     if (selectedSlug) {
@@ -717,6 +728,9 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   renderBelt();
   updateConnectionUI();
   setupPolling();
+  freshnessTimer = window.setInterval(() => {
+    if (isVisible && !isKitOpen && !document.hidden) { updateConnectionUI(); if (!isDemoTourRunning) broadcastPresence(); }
+  }, 1000);
   requestSnapshotPoll();
 
   return {
@@ -762,6 +776,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
 
     dispose(): void {
       if (pollTimer) clearInterval(pollTimer);
+      if (freshnessTimer !== null) clearInterval(freshnessTimer);
       if (tourTimer) clearTimeout(tourTimer);
       if (pendingController) pendingController.abort();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
