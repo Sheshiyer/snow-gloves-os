@@ -114,7 +114,9 @@ Activity, Workbench, Evidence and Resources contracts.
 
 The nonmodal desktop drawer leaves the miniature town visible and interactive.
 On narrow screens it becomes a bottom sheet capped at 60dvh, with the belt above
-it. Local colored SVG toys distinguish the stations: house and robot, studded
+it. Short landscape screens instead use a right-hand drawer beside the town;
+the belt has its own reserved space beneath the city. Local colored SVG toys
+distinguish the stations: house and robot, studded
 blocks, cartridges, plugs, pastel houses, airship, sealed envelope, blueprint,
 wood stamp and mint book. Their colors describe materials; they do not replace
 actual risk or disposition labels. Courier records and evidence criteria use

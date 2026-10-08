@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 102/139
+progress: 113/139
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
@@ -202,22 +202,22 @@ until the actual mini supplies evidence.
 - [x] ISC-121: Tenant selection retains the actual scoped metadata contract.
 - [x] ISC-122: Technical connection metadata is available in an optional foldout.
 - [x] ISC-123: The document viewer preserves escaped source text and full content hashes.
-- [ ] ISC-124: The field kit allows pointer interaction with the visible town.
-- [ ] ISC-125: Station navigation selects the corresponding infrastructure landmark.
+- [x] ISC-124: The field kit allows pointer interaction with the visible town.
+- [x] ISC-125: Station navigation selects the corresponding infrastructure landmark.
 - [x] ISC-126: The desktop field kit leaves at least forty-five percent of the viewport available to the town.
-- [ ] ISC-127: The narrow mobile field kit leaves the town visible above its sheet.
+- [x] ISC-127: The narrow mobile field kit leaves the town visible above its sheet.
 - [x] ISC-128: The narrow mobile layout produces no horizontal page overflow.
-- [ ] ISC-129: Closing the field kit restores keyboard focus to its initiating control.
-- [ ] ISC-130: Reduced-motion mode suppresses nonessential new movement.
+- [x] ISC-129: Closing the field kit restores keyboard focus to its initiating control.
+- [x] ISC-130: Reduced-motion mode suppresses nonessential new movement.
 - [x] ISC-131: The collectible catalog filters the complete source module inventory.
 - [x] ISC-132: The blueprint desk generates a real backend plan proposal.
 - [x] ISC-133: The blueprint desk exports the generated proposal as local JSON.
-- [ ] ISC-134: Failed private-scope requests clear the projected private metadata.
-- [ ] ISC-135: Disconnected public fallback remains visibly stale.
-- [ ] ISC-136: Opening the field kit preserves the paused game timer.
-- [ ] ISC-137: The revised frontend passes strict compilation and existing regression tests.
-- [ ] ISC-138: Anti: The miniature interface introduces no infrastructure execution controls.
-- [ ] ISC-139: Anti: The miniature interface invents no live activity or acceptance records.
+- [x] ISC-134: Failed private-scope requests clear the projected private metadata.
+- [x] ISC-135: Disconnected public fallback remains visibly stale.
+- [x] ISC-136: Opening the field kit preserves the paused game timer.
+- [x] ISC-137: The revised frontend passes strict compilation and existing regression tests.
+- [x] ISC-138: Anti: The miniature interface introduces no infrastructure execution controls.
+- [x] ISC-139: Anti: The miniature interface invents no live activity or acceptance records.
 
 ## Test Strategy
 
@@ -310,6 +310,11 @@ until the actual mini supplies evidence.
 - 2026-10-08: Pre-commit Advisor invocation returned quota 429 for antigravity/claude-sonnet-4-6; no Advisor pass is claimed. Independent source review identified and repaired stale scoped dialog DOM and late-response revival; the visual redesign keeps privacy revocation at the shared projection boundary. Root browser verification remains required before any visual criterion closes.
 
 ## Changelog
+
+- 2026-10-08 | conjectured: source-backed operations could stay inside the miniature game with a visible city and physical station objects.
+  refuted by: root screenshots exposed an oversized lid, letter-by-letter guide and badge captions, mobile belt/city overlap; independent review found stale scoped dialog DOM, polling focus loss, internal landmark mismatch, short-landscape canvas collapse and disconnected initiating-control focus.
+  learned: structural nonmodal drawer plus toy illustrations and station-specific paper/plastic materials works across all eleven panes. Central station transitions, retained scope intent, shared projection revocation, stable control IDs and responsive canvas/belt bounds preserve actual source contracts and the original game. Root IAB verifies actual rendered behavior;53frontend and44focused backend tests pass with strict production build. The backend parity test now compares complete current ISA records rather than a frozen107-item count.
+  criterion now: current visual lane ISC-108..139 is32/32 accepted; master113/139 retains26 historical installation/cloud/physical criteria open. No deployment or device acceptance is inferred. Advisor quota rejection and unsupported GPT5.4 Cato produce no audit verdict; independent source reviews and direct browser verification are the recorded evidence.
 
 - 2026-10-06 | conjectured: accepted fixture probes could observe the bundled managed source service unchanged.
   refuted by: actual runs held on model-list framing and the default470-entry/130-table schema; launcher inspection also reproduced the Python-I-B argv mismatch before service execution.
@@ -821,3 +826,18 @@ Actual replay:1,238,450 bytes, EBML VP9 WebM independently read by ffprobe. Brow
 ## Verification — miniature field kit checkpoint, 8 October 2026
 
 Root IAB traversed all eleven stations and saved desktop images and rendered source text. The nonmodal drawer is 420px inside a 1164px viewport; actual WebGL canvas width is 703.98px (60.48%). The toolbelt reaches all eleven tabs. All eleven stations fit the 390x844 device override (355x767 CSS pixels under current browser zoom), with no horizontal page overflow. Optional Connection notes reveals real private/API/scope/age metadata. HeyZack passport has the actual 57 enabled modules; held catalog filter returns 14 of135, then source search two matching held records. README reader displays literal HTML with zero rendered images and full SHA256 c7ee17373f1cb78ca5bbc12a0734324ed04a40c4724c246894e46316beb6d061 equal to source. Blueprint returns backend schema snowgloves.cockpit.plan.v1, github-mcp allowed, agent-skills held/refused and executable false; actual downloaded plan-preview-heyzack.json hash ac0e5e862cc840c8e7baa484a15e64f6100c37f8eace73b67b1c16677d7a8342. Existing53frontend tests and strict build pass. Remaining world/keyboard/mobile-city framing/reduced motion/private-failure/public-offline/paused-game verification remains open; source audit identified internal focus transitions, polling focus, private instance fallback and pause Escape for repair before acceptance.
+
+## Verification — miniature field kit complete, 8 October 2026
+
+- ISC-108..120: Root IAB captured every final station; all11 tabs remain reachable in a horizontal belt, each renders its fixed colored toy glyph and matching crew/parts/cartridge/plug/passport/hangar/courier/blueprint/stamp/field-note material. The actual city remains visible in every capture; all panes contain zero tables. Current source inventory is135modules,7agents,9adapters,8connector families,3wing profiles and211indexed public documents. Empty private activity remains explicitly absent.
+- ISC-121..123: HeyZack actual passport has57enabled modules; optional Connection notes reveals scope/mode/source/age. Public README renders literal HTML with zero images and full source-equal SHA256 c7ee17373f1cb78ca5bbc12a0734324ed04a40c4724c246894e46316beb6d061.
+- ISC-124..126: Actual pointer drag rotates the Three.js town while the kit stays open; before/after screenshots retained. Final11station transitions select their actual corresponding source nodes; internal Find parts and global Agent-Reach search select module-catalog. CEO Open workspace keeps agent-ceo. Desktop actual canvas703.98/1164px=60.48%, drawer420px; one renderer throughout.
+- ISC-127..128: Portrait390x844 device override (CSS355x767 under current zoom): canvas88.84..208.08, belt213.17..298.92, sheet306.92..767.27. Short landscape667x375 (CSS606x341): positive city153.25px high, belt below it, right291.05px drawer. All11mobile tabs visited; no horizontal overflow, city/belt/drawer occupy separate bounds. Browser emulation is not physical-device proof.
+- ISC-129..130: Pack away and Escape return global entry focus; CEO inspector Open workspace returns focus to stable btn-inspector-workspace after inspector rerender. Keyboard ArrowRight selects Crew. Unnamed Jump to City control retains oc-action-1svdyda-0 across actual15s poll generation change. Emulated reduced-motion yields negligible0.00001s CSS animation/transition; world source freezes nonessential clouds/route motion and focuses immediately. Media override reset.
+- ISC-131..133: Actual held filter14/135 and source search2matches; global Agent-Reach result1/135 retains refused status. Real backend proposal allows enabled github-mcp, refuses held agent-skills, executable false, and actual local JSON export is parsed and hash-verified. Proposal download is not execution.
+- ISC-134..135: With HeyZack scope and source dialog open, real network loss closes and empties dialog (0characters) and removes projected scope. Private tenant→Instance request while unavailable retains private intent and offers no public fixture. Fresh API-blocked client loads3publicfixture tenants with explicit DISCONNECTED/STALE and unknown endpoint observations. Network block/offline overrides removed; actual private API reconnects.
+- ISC-136..139: Opening kit during actual45s game pauses at44.7s; remains44.7 through elapsed wall time, all11station visits and automatic polling. Pack away restores Simulation Paused; Escape resumes; pause/home returns to source map. Final53Vitest regression tests and strict TypeScript/Vite build pass;44focused backend tests pass. Source audit and UI preserve read-only proposals, absent activity and source/local/endpoint/physical distinctions; no infrastructure execution actions introduced.
+
+Current receipts/screenshots: /Users/sheshnarayaniyer/.codex/visualizations/2026/10/08/01a1176d-6b04-79c3-9549-9884312e0e4b/field-kit-receipt.json and final-stations-proof.json. Root executed IAB; workers independently reviewed source and performed corrections. Public fixture regenerated only from public defaults without probes. Owned loopback Vite/API stay available; shared host services unchanged. Routed Advisor still returns quota429; requested GPT5.4 Cato is unsupported for this ChatGPT account, with no reviewer verdict claimed.
+
+ReReadCheck — latest user request: "this still looks like saas dashboard and how do we not have htis and sty in the mini game aesthrtics throught out". The fullscreen enterprise shell, vertical operations menu, KPI grid and table records were replaced with a nonmodal toy field kit, colored station belt, companion guide and physical record materials across all11panes, while actual city interaction and source contracts remain present. This completes the visual correction lane; it does not accept the26historical installation/device/cloud requirements.

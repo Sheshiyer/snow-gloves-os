@@ -44,6 +44,8 @@ python3 scripts/infra_cockpit.py --data-root /path/to/snow-gloves-ops --tenant <
 
 The horizontal toolbelt opens eleven stations. The kit uses a compact, nonmodal
 right drawer on desktop and a bottom sheet capped at 60dvh on narrow screens.
+Short landscape screens place the drawer in the right 48% and keep the town
+and toolbelt on the left, with separate space for each.
 The real miniature city remains visible and accepts pointer interaction. Station
 selection focuses a corresponding source-backed city landmark; **Pack away**
 closes the kit. The source and activity record viewers remain native modal dialogs.

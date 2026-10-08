@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.cockpit.v1",
-  "generatedAt": "2026-10-07T19:43:20.011262+00:00",
+  "generatedAt": "2026-10-08T09:15:39.646203+00:00",
   "scope": {
     "mode": "public-fixtures",
     "tenant": null,
@@ -4505,6 +4505,198 @@
       "criterion": "Manual refresh updates the snapshot without duplicate renderers.",
       "status": "accepted",
       "source": "ISA.md"
+    },
+    {
+      "id": "ISC-108",
+      "criterion": "Antecedent: The real miniature town remains visible while the field kit is open.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-109",
+      "criterion": "The town-square view presents source-backed destination stations.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-110",
+      "criterion": "The agent view presents the actual roles as toy crew badges.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-111",
+      "criterion": "The module view presents actual catalog records as collectible parts.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-112",
+      "criterion": "The runtime view presents actual adapters as platform cartridges.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-113",
+      "criterion": "The connector view presents actual capabilities as signal-plug records.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-114",
+      "criterion": "The tenant view presents scoped metadata as neighborhood passports.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-115",
+      "criterion": "The fleet view presents actual profiles as wing-hangar pieces.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-116",
+      "criterion": "The activity view presents scoped records as courier tickets.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-117",
+      "criterion": "The proposal workbench uses a blueprint-desk visual treatment.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-118",
+      "criterion": "The evidence view presents ledger criteria as stamped records.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-119",
+      "criterion": "The resource view presents indexed documents as field-note records.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-120",
+      "criterion": "All eleven operational stations are reachable through a horizontal toolbelt.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-121",
+      "criterion": "Tenant selection retains the actual scoped metadata contract.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-122",
+      "criterion": "Technical connection metadata is available in an optional foldout.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-123",
+      "criterion": "The document viewer preserves escaped source text and full content hashes.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-124",
+      "criterion": "The field kit allows pointer interaction with the visible town.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-125",
+      "criterion": "Station navigation selects the corresponding infrastructure landmark.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-126",
+      "criterion": "The desktop field kit leaves at least forty-five percent of the viewport available to the town.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-127",
+      "criterion": "The narrow mobile field kit leaves the town visible above its sheet.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-128",
+      "criterion": "The narrow mobile layout produces no horizontal page overflow.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-129",
+      "criterion": "Closing the field kit restores keyboard focus to its initiating control.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-130",
+      "criterion": "Reduced-motion mode suppresses nonessential new movement.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-131",
+      "criterion": "The collectible catalog filters the complete source module inventory.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-132",
+      "criterion": "The blueprint desk generates a real backend plan proposal.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-133",
+      "criterion": "The blueprint desk exports the generated proposal as local JSON.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-134",
+      "criterion": "Failed private-scope requests clear the projected private metadata.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-135",
+      "criterion": "Disconnected public fallback remains visibly stale.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-136",
+      "criterion": "Opening the field kit preserves the paused game timer.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-137",
+      "criterion": "The revised frontend passes strict compilation and existing regression tests.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-138",
+      "criterion": "Anti: The miniature interface introduces no infrastructure execution controls.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-139",
+      "criterion": "Anti: The miniature interface invents no live activity or acceptance records.",
+      "status": "accepted",
+      "source": "ISA.md"
     }
   ],
   "routing": {
@@ -6021,7 +6213,7 @@
       "path": "docs/infra-cockpit.md",
       "title": "infra-cockpit",
       "kind": "md",
-      "bytes": 3924
+      "bytes": 6324
     },
     {
       "path": "docs/onboarding.md",
