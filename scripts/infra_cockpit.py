@@ -518,6 +518,7 @@ def main() -> None:
     parser.add_argument("--data-root", type=Path, default=None)
     parser.add_argument("--tenant", type=str, default=None)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    parser.add_argument("--ui-port", type=int, default=18760)
     parser.add_argument("--no-probe", action="store_true", default=False)
     parser.add_argument("--snapshot", action="store_true", default=False)
     args = parser.parse_args()
@@ -537,6 +538,7 @@ def main() -> None:
         data_root=args.data_root,
         tenant=args.tenant,
         port=args.port,
+        allowed_origins=(f"http://127.0.0.1:{args.ui_port}", f"http://localhost:{args.ui_port}"),
         probe=not args.no_probe,
     )
     try:

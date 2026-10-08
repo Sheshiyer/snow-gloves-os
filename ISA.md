@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 220/267
+progress: 225/267
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
@@ -357,11 +357,11 @@ until the actual mini supplies evidence.
 - [x] ISC-246: Public mode ignores ambient private data for brand summaries.
 - [ ] ISC-247: Client validation rejects malformed optional brand summaries.
 - [ ] ISC-248: Neighborhood passports display the current import and planning evidence.
-- [ ] ISC-249: The CLI workspace check is read-only.
-- [ ] ISC-250: The workspace launcher refuses occupied ports.
-- [ ] ISC-251: Workspace shutdown reaps only its owned children.
-- [ ] ISC-252: The indexed Mac mini guide provides reproducible isolated setup commands.
-- [ ] ISC-253: Integrated brand workspace passes focused backend regressions.
+- [x] ISC-249: The CLI workspace check is read-only.
+- [x] ISC-250: The workspace launcher refuses occupied ports.
+- [x] ISC-251: Workspace shutdown reaps only its owned children.
+- [x] ISC-252: The indexed Mac mini guide provides reproducible isolated setup commands.
+- [x] ISC-253: Integrated brand workspace passes focused backend regressions.
 - [ ] ISC-254: Integrated brand workspace passes strict frontend compilation.
 - [ ] ISC-255: Actual browser scope switching preserves brand isolation.
 
@@ -1136,3 +1136,5 @@ ReReadCheck complete: world context, lessLego silhouettes/materials, plausible s
 Final ledger/public-source check: six focused backend acceptance regressions pass in3.44s against the current working ledger. Final static build after fixture regeneration passes; bundled fixture equals its public source copy, with235current-lane records/209accepted, exactly three public tenants, emptyactivity, unknown unprobed services and execute/enable/approvefalse. Concurrent ISC-236..255 and docs/OPS-WORKSPACE.md remain outside the owned commit.
 
 - ISC-236..246: Bounded private-only brand projection passes four focused fixtures covering stale absolute-path rebinding, missing files, actual research SHA drift, symlink rejection, secret omission, own-tenant projects and public ambient-data isolation. Forty-seven focused backend regressions passed before two added isolation fixtures; acceptance ledger cap expanded to 1024 with explicit truncation warning. Routed generation reviewed and repaired locally; no ingestion completion or physical installation inferred.
+
+- ISC-249..253: Read-only launcher check on the actual private checkout reports ready with free alternate ports; three process fixtures prove occupied-port refusal, Node 24 acceptance and owned child reaping including second-spawn failure. API/UI commands use explicit loopback roots and paired ports. Public setup guide is indexed. Integrated focused backend suite: 52 passed in 10.85s. Device acceptance remains unverified.

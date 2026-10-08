@@ -16,14 +16,12 @@ frontend lockfile:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-ci.txt
+.venv/bin/python -m pip install PyYAML==6.0.3
 npm --prefix apps/infra-block ci
 npm --prefix apps/infra-block run build
 ```
 
-Python must support the platform's Python 3.10+ source. Node must satisfy the
-locked frontend packages' engine requirements; check installation warnings before
-continuing. These commands install workspace dependencies, not global agent CLIs.
+Use Python 3.10+ and Node 20.19+, 22.12+, or a newer supported major such as Node 24. These commands install workspace dependencies, not global agent CLIs.
 
 Set the private instance location in the terminal used for existing onboarding
 and fleet commands:
@@ -120,3 +118,23 @@ Verify the UI and CLI on the identified Mac mini before recording installed
 device acceptance. Physical recovery, durable same-job handoff, authenticated
 company gateway streaming and measured fleet capacity each retain their own
 criteria in `ISA.md`.
+
+## One-command owned workspace
+
+The launcher checks dependencies, private-data isolation and both ports without writing instance records. It refuses occupied ports and starts only its own loopback API and UI children. Ctrl-C or termination reaps those children.
+
+```sh
+.venv/bin/python scripts/ops_workspace.py check --data-root "$SNOWGLOVES_DATA"
+.venv/bin/python scripts/ops_workspace.py run --data-root "$SNOWGLOVES_DATA"
+```
+
+An isolated second workspace can use `--ui-port 18770 --api-port 18771`. Add `--tenant heyzack` to fix the initial API scope. In the town, open Brand atlas or select a gold brand marker around the Tenant Vault. Both open the selected brand passport. Knowledge Archive and Blueprints retain that selection. Imported file counts represent source plans; projects, desks and flows remain planning proposals.
+
+## Prepare a new-Mac transfer
+
+```sh
+python3 scripts/prepare_mac_bundle.py --output /absolute/new-output-directory
+python3 scripts/prepare_mac_bundle.py --verify /absolute/new-output-directory
+```
+
+Transfer that platform bundle and the authorized private checkout separately. On the new Mac, follow `README-INSTALL.md`, verify the manifest before installing dependencies, and run the workspace check with the new private-data path. The bundle includes the built UI and excludes private tenants, host configuration and installed dependencies. Physical installation, reboot recovery and agent runtime acceptance remain pending device evidence.

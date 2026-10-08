@@ -63,6 +63,7 @@ ALLOWED_DOC_PREFIXES = (
     "docs/adapters.md",
     "docs/onboarding.md",
     "docs/infra-cockpit.md",
+    "docs/OPS-WORKSPACE.md",
     "docs/SESSION-WORLD-DESIGN.md",
     "docs/FLEET-CONTROL-PLANE-PLAN.md",
     "docs/fleet/09-RUNTIME-SUPERVISOR.md",
