@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.cockpit.v1",
-  "generatedAt": "2026-10-08T12:36:11.899217+00:00",
+  "generatedAt": "2026-10-08T13:25:09.613094+00:00",
   "scope": {
     "mode": "public-fixtures",
     "tenant": null,
@@ -5081,6 +5081,198 @@
       "criterion": "The integrated navigation lane passes strict production build and meaningful regression tests.",
       "status": "accepted",
       "source": "ISA.md"
+    },
+    {
+      "id": "ISC-204",
+      "criterion": "Antecedent: The original architecture renderer baseline is saved from the actual IAB.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-205",
+      "criterion": "The grounded scene contains no raised square platform slab.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-206",
+      "criterion": "Continuous terrain fills the visible near surroundings of the streets.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-207",
+      "criterion": "Distant landforms extend the environment beyond the central town.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-208",
+      "criterion": "Natural tree groves replace the identical spherical street canopies.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-209",
+      "criterion": "Existing avenue coordinates and road widths remain compatible with resident routes.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-210",
+      "criterion": "Environment geometry is deterministic for the same seed.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-211",
+      "criterion": "Environment render submissions remain at most forty before shadows.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-212",
+      "criterion": "Environment geometry remains within thirty-five thousand drawn triangles.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-213",
+      "criterion": "Each building remains within twelve mesh parts.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-214",
+      "criterion": "Each procedural facade atlas is at most512pixels per dimension.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-215",
+      "criterion": "Building rooflines include at least three distinct plausible silhouettes.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-216",
+      "criterion": "Architecture signs preserve their actual source landmark names.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-217",
+      "criterion": "Building geometry stays inside its source footprint and height.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-218",
+      "criterion": "Facades include masonry, plaster and timber material treatments.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-219",
+      "criterion": "Resident heads use softened human oval proportions.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-220",
+      "criterion": "Resident limbs retain the existing walking joint pivots.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-221",
+      "criterion": "All seven resident identity and picking contracts remain intact.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-222",
+      "criterion": "Combined resident actor triangles decrease from the prior implementation.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-223",
+      "criterion": "Balanced rendering caps pixel ratio at1.25.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-224",
+      "criterion": "Balanced rendering limits its single directional shadow map to1024pixels.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-225",
+      "criterion": "Eco rendering disables realtime shadow maps.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-226",
+      "criterion": "Eco rendering caps pixel ratio at0.8.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-227",
+      "criterion": "The graphics selector changes quality without resetting crew selection.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-228",
+      "criterion": "Actual renderer counters are available as bounded read-only scene diagnostics.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-229",
+      "criterion": "The new scene reduces measured submissions compared with the original architecture baseline.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-230",
+      "criterion": "Anti: The redesign adds no postprocessing passes or new realtime lights.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-231",
+      "criterion": "Anti: Reduced motion and hidden-page handling preserve their existing contracts.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-232",
+      "criterion": "Actual WASD walking and station encounters remain functional in the grounded scene.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-233",
+      "criterion": "Portrait and landscape controls remain usable with the grounded scene.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-234",
+      "criterion": "The original sandbox and Field Kit pause interaction remain functional.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-235",
+      "criterion": "The integrated scene passes strict production compilation and meaningful regression checks.",
+      "status": "accepted",
+      "source": "ISA.md"
     }
   ],
   "routing": {
@@ -6597,7 +6789,7 @@
       "path": "docs/infra-cockpit.md",
       "title": "infra-cockpit",
       "kind": "md",
-      "bytes": 8327
+      "bytes": 8983
     },
     {
       "path": "docs/onboarding.md",

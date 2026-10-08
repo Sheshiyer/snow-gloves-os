@@ -151,3 +151,12 @@ read-only behavior. Client tests cover schemas, scope binding and transport
 failures. Production compilation and IAB desktop/mobile flows are the combined
 application checks; a source or build check alone does not establish visual or
 physical-device acceptance. The acceptance criteria and actual results live in `ISA.md`.
+
+The grounded landscape keeps the same source landmarks, street coordinates and
+playable town bounds. Rolling terrain, groves, material facades and varied roofs
+provide depth without adding postprocessing or new lights. Distant paths are
+scenery. The graphics selector preserves local crew control: Balanced caps 1.25 DPR,
+1024-pixel shadows and 60 fps; Eco caps 0.8 DPR and 30 fps and disables realtime shadows.
+These policies bound work and do not certify hardware frame rate or battery life.
+The read-only canvas diagnostics count all rendering submissions including shadow
+passes; CPU submission samples are separate from GPU performance measurements.

@@ -193,7 +193,7 @@ Choose **Walk as** from an encounter to control that resident, or **Overview** t
 return to the town view. **E** opens a nearby personal station's encounter. Touch
 direction controls provide the same movement on narrow screens.
 
-The close camera follows the resident. Buildings and the platform boundary block
+The close camera follows the resident. Buildings and the town boundary block
 movement, diagonals preserve speed, and resizing keeps the selected perspective.
 Field Kit, encounters, source notes, editable controls and modal dialogs suspend
 movement. Blur and hidden-page transitions clear held input. Reduced motion keeps
@@ -202,3 +202,28 @@ essential direct movement while suppressing decorative gait and smooth following
 **Local exploration** moves a visual character only. It does not run the agent or
 alter its observed work state, tenant activity, approvals or source configuration.
 Leaving manual control returns that resident to the evidence-driven projection.
+
+## Grounded world and graphics
+
+The town sits in continuous rolling terrain with seeded groves and country paths.
+Its sixteen source landmarks use varied gable, hip, mono-pitch and parapet roofs,
+with procedural brick, plaster, timber and metal facade details. Residents retain
+their role props and walking rigs, with shared softer human geometry. The distant
+landscape provides visual context; the playable streets retain their existing
+collision and navigation bounds.
+
+The header's **Graphics quality** selector switches rendering without resetting
+the selected crew member or their position. **Balanced** caps pixel ratio at 1.25,
+uses a 1024-pixel directional shadow map and caps rendering at 60 fps. **Eco** caps
+pixel ratio at 0.8, disables realtime shadows and caps rendering at 30 fps. These are
+upper limits, not measured frame-rate guarantees. Hidden pages skip rendering;
+reduced motion still permits direct walking while suppressing decorative motion.
+
+Terrain and vegetation remain static, with instanced trees and road markings.
+Each facade atlas is 512×512 pixels and each building uses 3 or 7 mesh parts. No external
+rendering assets, new realtime lights or postprocessing passes are added. Actual
+scene counters are exposed read-only on the canvas dataset every 500 ms: render
+calls, drawn triangles, geometry/texture counts, pixel ratio and active graphics
+policy. `renderCpuMs` measures CPU submission time, not GPU time or battery use.
+Root IAB screenshots, renderer samples and accepted criteria are recorded in
+`ISA.md`; responsive screenshots are browser emulation, not physical phone proof.

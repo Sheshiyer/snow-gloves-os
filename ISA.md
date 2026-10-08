@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 199/235
+progress: 209/235
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
@@ -310,8 +310,8 @@ until the actual mini supplies evidence.
 - [x] ISC-204: Antecedent: The original architecture renderer baseline is saved from the actual IAB.
 - [x] ISC-205: The grounded scene contains no raised square platform slab.
 - [x] ISC-206: Continuous terrain fills the visible near surroundings of the streets.
-- [ ] ISC-207: Distant landforms extend the environment beyond the central town.
-- [ ] ISC-208: Natural tree groves replace the identical spherical street canopies.
+- [x] ISC-207: Distant landforms extend the environment beyond the central town.
+- [x] ISC-208: Natural tree groves replace the identical spherical street canopies.
 - [x] ISC-209: Existing avenue coordinates and road widths remain compatible with resident routes.
 - [x] ISC-210: Environment geometry is deterministic for the same seed.
 - [x] ISC-211: Environment render submissions remain at most forty before shadows.
@@ -330,17 +330,19 @@ until the actual mini supplies evidence.
 - [x] ISC-224: Balanced rendering limits its single directional shadow map to1024pixels.
 - [x] ISC-225: Eco rendering disables realtime shadow maps.
 - [x] ISC-226: Eco rendering caps pixel ratio at0.8.
-- [ ] ISC-227: The graphics selector changes quality without resetting crew selection.
+- [x] ISC-227: The graphics selector changes quality without resetting crew selection.
 - [x] ISC-228: Actual renderer counters are available as bounded read-only scene diagnostics.
-- [ ] ISC-229: The new scene reduces measured submissions compared with the original architecture baseline.
-- [ ] ISC-230: Anti: The redesign adds no postprocessing passes or new realtime lights.
-- [ ] ISC-231: Anti: Reduced motion and hidden-page handling preserve their existing contracts.
-- [ ] ISC-232: Actual WASD walking and station encounters remain functional in the grounded scene.
-- [ ] ISC-233: Portrait and landscape controls remain usable with the grounded scene.
-- [ ] ISC-234: The original sandbox and Field Kit pause interaction remain functional.
-- [ ] ISC-235: The integrated scene passes strict production compilation and meaningful regression checks.
+- [x] ISC-229: The new scene reduces measured submissions compared with the original architecture baseline.
+- [x] ISC-230: Anti: The redesign adds no postprocessing passes or new realtime lights.
+- [x] ISC-231: Anti: Reduced motion and hidden-page handling preserve their existing contracts.
+- [x] ISC-232: Actual WASD walking and station encounters remain functional in the grounded scene.
+- [x] ISC-233: Portrait and landscape controls remain usable with the grounded scene.
+- [x] ISC-234: The original sandbox and Field Kit pause interaction remain functional.
+- [x] ISC-235: The integrated scene passes strict production compilation and meaningful regression checks.
+
 
 ## Test Strategy
+
 
 | 204..208,229..234 | root IAB | current renderer baseline, grounded scenery, navigation, quality and responsive modes | actual screenshot/readback | Codex IAB |
 | 209..222 | source/model | deterministic geometry, road/footprint bounds, identity and triangle budgets | passing geometry assertions | Vitest |
@@ -384,6 +386,7 @@ until the actual mini supplies evidence.
 
 ## Features
 
+
 | GroundedEnvironment | continuous landscape and instanced groves | ISC-205..212 | fixed streets | yes |
 | PlausibleArchitecture | efficient material facades and roof variation | ISC-213..218 | existing landmarks | yes |
 | SoftResidentGeometry | human proportions and shared low-poly geometry | ISC-219..222 | existing resident rig | yes |
@@ -419,6 +422,9 @@ until the actual mini supplies evidence.
 | PhysicalFleetAcceptance | wing jobs, eventing, cloud, recovery and session/resource evidence | ISC-41..51 | CapabilityProof and existing specs 005/007/008 | no |
 
 ## Decisions
+
+- 2026-10-08: Current review recorded in private docs/OPS-UI-INTEGRATION-REVIEW-2026-10-08.md; public docs/OPS-WORKSPACE.md documents existing runnable API/UI and isolated dependency setup. Two Build launches exit125 host_pressure_elevated. Current-source133frontend and45cockpit backend tests pass; implementation criteria remain open.
+
 
 - 2026-10-08 refined: Read "work rather than a plane" as world rather than flat platform. FirstPrinciples Deconstruct separates depth, silhouette, material cues and context from GPU cost (submissions, triangles, texture memory and pixel/shadow work). Hard constraints are the source/collision/game contracts; identical blocks and costly mesh-per-window are inherited choices. BeCreative StandardCreativity evaluates woodland village, canal hamlet, desert outpost, courtyard campus and hillside borough; selects woodland village with grounded material architecture and natural peripheral terrain. ISA Append adds32 atomic checks and CheckCompleteness retains the populated E3 sections. ReReadCheck will bind world, lessLego and boundedgraphics to actual source and browser evidence. Three disjoint routed workers own architecture, environment and resident visuals; root owns integration and graphics policy. Historical26 requirements remain separate.
 
@@ -462,6 +468,11 @@ until the actual mini supplies evidence.
 - 2026-10-08: Fullscreen navigation source and browser checks pass. The independently reviewed input rail suspends movement continuously when editing, inspecting or hidden; the selected identity remains separate from observed presence. Advisor attempts returned cached quota429 for antigravity/claude-sonnet-4-6, with no verdict. Heavy source generation resolved through antigravity/gemini-3.7-flash-low. Four invoked thinking capabilities are FirstPrinciples, SystemsThinking, ISA and ReReadCheck; independent source review and root IAB provide distinct evidence.
 
 ## Changelog
+
+- 2026-10-08 | conjectured: plausible rooflines, painted facade detail and continuous terrain can improve spatial realism while reducing per-window geometry and repeated prop objects.
+  refuted by: root visual review found peripheral paths dipping below the coarse landscape; vertex-only grounding passed but independent triangle-interior ray samples still found up to0.15units of submergence. Read-only review also found missing avenue shadow receivers and shader invalidation/disposal issues during quality changes.
+  learned: split full ribbon faces along exact terrain triangles before reprojection; test face interiors as well as vertices. Restore existing shadow receivers, invalidate affected materials when transparency/shadows change, and dispose owned shadow targets. Shared human geometry and procedural512pixel facade atlases retain role identity with fewer resources. Explicit graphics policies bound rendering, while actual submission/resource counters establish the local comparison.
+  criterion now: current grounded-world criteria204..235 are accepted32/32 after the final connection-label repair, browser recheck and compilation. The26historical requirements remain separate. Landscape beyond the existing town movement bounds is cosmetic; CPU submission samples are not GPU, FPS or battery acceptance.
 
 - 2026-10-08 | conjectured: fitting the entire town platform would provide an immersive home once resident characters existed.
   refuted by: the user's wide screenshot and root IAB show a small central town with excessive unused viewport; main keyboard movement was sandbox-only. The initial short-landscape navigation HUD also overlapped the touch pad and crew belt.
@@ -1040,3 +1051,31 @@ ReReadCheck — latest user request: "hwo do we leverage the whole scren and mak
 - ISC-219..222: Actual shared oval-head/tapered-limb geometry preserves seven identities/picking/stations/rig pivots;12renderer tests pass. Combinedactor geometry21,808→7,452triangles;completecrew39,488→25,132. These are source geometry totals.
 - ISC-223..226,228: Graphics policy source bounds Balanced1.25DPR/1024single directionalshadow and Eco0.8DPR/shadowdisabled; two policy cases pass invalid/high/low density checks. No new lights/postprocessing; same existing hemisphere/directional pair. Integrated129frontend checks and strictTypeScript/Vite build pass before final shader-invalidation corrections.
 - 2026-10-08: Independent read-only review found missing transparency/shadow shader invalidation and shadow render-target disposal; root repaired these before final source freeze. Final browser proof and build remain required. Advisorprecommit returnedquota429 and noverdict.
+
+
+## Verification — grounded-world browser checkpoint, 8 October 2026
+
+- ISC-207..208: Root IAB overview shows rolling landforms and75seeded irregular tree groves extending around the source town. Raised slab and uniform spherical street trees are gone. Four roof silhouettes and facade materials are visible; the full-screen camera, original streets and sixteen landmark identities remain intact.
+- ISC-209..218: Exact terrain-face clipping in e4cf9c2 replaces vertex-only path contact. Independent downward-ray tests across three seeds check each triangle centroid and edge midpoint against the actual indexed ground; independent QA adds quarter-weight samples and finds zero submergence with0.05999927..0.06000051clearance. Environment remains8base draw calls/13,798triangles and both avenues receive shadows. Eleven environment plus four architecture tests pass.
+- ISC-227..229: Native graphics selection preserves Sentinel identity and position across Eco/Balanced in grounded-quality-preserved.json; final CEO sample retains(-11.7,-10.6) across both profiles. At2126x849CSS viewport, actual final Balanced uses444total render submissions/50,648drawn triangles/231geometries/24textures,1.1ratio and2338x933buffer. Eco uses139submissions/23,712triangles and1701x679buffer,0.8ratio, shadowsfalse/30fpscap; Balanced restores shadowstrue/60fpscap. Original architecture baseline with already-softened crew used685calls/55,850triangles/797geometries/34textures. These are comparable local crew-view samples, including shadow passes, not an exact GPU or battery benchmark. Balanced's1.25cap is above the actual1.1browser ratio; it does not reduce this particular browser's pixel buffer.
+- ISC-230..231: Source contains only the existing hemisphere and directional light, with no postprocessing passes. Actual reduced-motion emulation retains directD500ms walking from(-11.7,-10.6) to(-9.4,-12.6), with0smission transitions. Media override is cleared and actual reducedMotion=false restored. Source hidden-page render skip and existing visibility/input clearing remain inspected and policy-tested; actual OS hide was not induced.
+- ISC-232: Actual native digits1..7 and heldD move all seven matching resident roles; grounded-crew-moves.json records every before/after position. E at the CEO station opens its matching encounter, actual role, station and IDENTITY/SOUL references. Final repeat after terrain/shadow repairs confirms the same CEO encounter. Manual movement remains local exploration with No active evidence throughout.
+- ISC-233: Actual390x844portrait emulation (CSS355x767) and667x375landscape (CSS606x341) show no page overflow and separate touch pad/HUD/belt. Portrait's header actions deliberately scroll horizontally; actual Eco selection works. Native heldEast800ms moves Sentinel(9.1,-0.7) to(11.4,-3.9); Halt releases movement. Landscape header50pxhigh, mission65.99..119.99, pad/HUD end256.92, belt begins263.95. These are IAB emulation checks, not physical-phone proof.
+- ISC-234: Original45second sandbox starts, opening Field Kit freezes44.3seconds across later reads and station navigation. Pack away restores Simulation Paused; Return to Source Map restores Sentinel. grounded-sandbox-proof.json and paused screenshot record actual behavior.
+- ISC-235 checkpoint:133frontend regressions across10files and strictTypeScript/Vite build pass after terrain clipping and shader/disposal repairs; final connection-label guard remains pending. A slow source request took18.09seconds and exceeded the existing8second frontend deadline, causing honest unavailable/stale labels; source API later returnsHTTP200 and projection recovers Connected. Final console inspection caught one connection-label null lookup on recovery, assigned for a narrow repair. No clean-console acceptance is inferred until rechecked.
+
+Independent QATester read-only review passes source/visual evidence after exact path repair and restored road shadow receivers; root alone operated the IAB. Its configured QA context file was unavailable, so installed browser-automation-core and actual root artifacts supplied the bounded review. Final Advisor invocation again returned cachedquota429 for antigravity/claude-sonnet-4-6 and supplies no verdict. Host configuration and shared services are untouched; no push or deployment follows.
+
+ReReadCheck — latest request: "can we make a work rather than a plane and increase the design to be less lego and more realistic but not drain graphics". As announced at entry, "work" is interpreted as world. Continuous landforms and groves replace the isolated platform; masonry/plaster/timber facades and varied roofs replace repeated blocks; softened people preserve all seven identities; static instancing, shared geometry, bounded atlases, shadow/DPR/frame caps and an Eco profile bound graphics work. Actual source budgets and browser counters support the efficiency comparison. Outer terrain is scenery; existing town navigation remains playable.
+
+
+## Verification — grounded-world complete, 8 October 2026
+
+- ISC-235: Final133frontend tests across10files pass in13.26s after home disposal repair1da7514; strictTypeScript/Vite production compilation passes,30modules,795.54KBJavaScript/gzip203.08KB and62.53KBCSS/gzip12.29KB. Existing500KBbundle advisory remains; no measured low-end hardware claim is made.
+- Final lifecycle repair: actual earlier13:08:15UTC null connection-label error came from abort rejection after home.dispose cleared DOM without invalidating its request generation.1da7514 invalidates first, caches mounted fields and guards disposed projection/poll/UI updates. Independent review confirms private-scope validation and fallback authority remain intact. Root reloads while Connecting, repeats reload and Sandbox/Explore transitions, observes Connected and nativeD300ms movement(-11.7,-10.6) to(-10.3,-11.8). Captured log retains the one earlier error and no newer error after the fix; retained history is not reported as a fresh error or suppressed.
+- Final rootIAB Overview image is grounded-world-final.png with Connected source projection, Balanced graphics and normal viewport/media settings. Current source activity remains absent. Captured API responses returnHTTP200 during recovery; earlier deadline/reload canceled requests are recorded. No all-network-clean claim follows from recovery.
+- Current32grounded-world checks are accepted;26historical installation/device/cloud requirements remain open. Concurrent brand-workspace planning edits are preserved as unrelated work and are excluded from this lane's commit. ISA remains phaseexecute for other requirements. Public fixture is rebuilt from the current lane's public source records only, without probes or ambient private data; pending unrelated criteria are retained in the working ledger. Source and screenshot hashes accompany the exact commit in grounded-world-receipt.json.
+
+ReReadCheck complete: world context, lessLego silhouettes/materials, plausible stylized people, efficient graphics and prior interaction contracts are implemented and verified at their stated source/browser boundaries. No shared-service restart, provider configuration, push, deployment or physical readiness follows.
+
+Final ledger/public-source check: six focused backend acceptance regressions pass in3.44s against the current working ledger. Final static build after fixture regeneration passes; bundled fixture equals its public source copy, with235current-lane records/209accepted, exactly three public tenants, emptyactivity, unknown unprobed services and execute/enable/approvefalse. Concurrent ISC-236..255 and docs/OPS-WORKSPACE.md remain outside the owned commit.
