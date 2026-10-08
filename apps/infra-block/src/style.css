@@ -978,7 +978,7 @@ body.field-kit-open .sg-map-view {
   visibility: visible !important;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
   body.field-kit-open {
     height: 100dvh !important;
     overflow: hidden !important;
@@ -1038,5 +1038,16 @@ body.field-kit-open .sg-map-view {
   .sg-nav-item {
     transition: none !important;
     transform: none !important;
+  }
+}
+
+/* Short landscape keeps the town beside the notebook instead of under it. */
+@media (max-width: 840px) and (orientation: landscape) and (max-height: 500px) {
+  body.field-kit-open .sg-header { width: calc(52vw - 16px); }
+  body.field-kit-open .sg-body { width: 52vw; }
+  body.field-kit-open .sg-stage-container {
+    width: calc(52vw - 24px) !important;
+    height: max(64px, calc(100dvh - 184px)) !important;
+    min-height: 0 !important;
   }
 }

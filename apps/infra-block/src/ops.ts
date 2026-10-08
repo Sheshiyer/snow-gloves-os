@@ -854,14 +854,14 @@ export function mountCockpit(
     onSelectNode(buildingId);
   }
 
-  function visitStation(section: SectionName): void {
+  function visitStation(section: SectionName, nodeId?: string): void {
     currentSection = section;
-    focusStation(section);
+    focusStation(section, nodeId);
   }
 
-  function focusStation(section: SectionName) {
+  function focusStation(section: SectionName, nodeId?: string) {
     const landmarks: Record<SectionName, string> = {Overview:'hermes-bus', Agents:'agent-chief-of-staff', Modules:'module-catalog', Runtimes:'runtime-adapters', Connectors:'connector-gate', Tenants:'tenant-vault', Fleet:'fleet-wings', Activity:'hermes-bus', Workbench:'agent-cto', Evidence:'agent-sentinel', Resources:'knowledge-archive'};
-    host.dispatchEvent(new CustomEvent('cockpit-station', {detail:{nodeId:landmarks[section]}}));
+    host.dispatchEvent(new CustomEvent('cockpit-station', {detail:{nodeId:nodeId || landmarks[section]}}));
   }
 
   function render() {
@@ -3396,10 +3396,10 @@ function renderEvidence(): HTMLElement {
 
       if (nodeId && BUILDING_ROUTING[nodeId]) {
         const route = BUILDING_ROUTING[nodeId];
-        visitStation(route.section);
+        visitStation(route.section, nodeId);
         selectedNodeContext = route.slugMatch || null;
       } else if (nodeId && nodeId.startsWith('agent-')) {
-        visitStation('Agents');
+        visitStation('Agents', nodeId);
         selectedNodeContext = nodeId.replace(/^agent-/, '');
       } else {
         visitStation('Overview');
