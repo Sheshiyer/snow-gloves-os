@@ -81,6 +81,80 @@ const SECTIONS = [
   'Resources',
 ] as const;
 type SectionName = (typeof SECTIONS)[number];
+const STATION_NAMES: Record<SectionName, string> = {
+  Overview: 'Town square',
+  Agents: 'Crew',
+  Modules: 'Parts chest',
+  Runtimes: 'Platforms',
+  Connectors: 'Signal plugs',
+  Tenants: 'Neighborhoods',
+  Fleet: 'Wing hangar',
+  Activity: 'Courier trail',
+  Workbench: 'Blueprint bench',
+  Evidence: 'Stamp book',
+  Resources: 'Field notes'
+};
+
+function toyIcon(section: string): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('viewBox', '0 0 64 64');
+  svg.setAttribute('class', 'oc-toy-icon');
+
+  let paths = '';
+  switch (section) {
+    case 'Overview':
+      // Town square / house
+      paths = '<path d="M8 30 L32 10 L56 30 L50 30 L50 54 L14 54 L14 30 Z" fill="currentColor" opacity="0.2"/><path d="M8 30 L32 10 L56 30 M14 30 L14 54 L50 54 L50 30 M26 54 L26 38 L38 38 L38 54" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="24" r="4" fill="currentColor"/>';
+      break;
+    case 'Agents':
+      // Companion robot
+      paths = '<rect x="16" y="20" width="32" height="28" rx="6" fill="currentColor" opacity="0.2"/><rect x="16" y="20" width="32" height="28" rx="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="26" cy="32" r="3.5" fill="currentColor"/><circle cx="38" cy="32" r="3.5" fill="currentColor"/><path d="M26 40 Q32 45 38 40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M32 10 L32 20 M28 10 L36 10 M10 32 L16 32 M48 32 L54 32" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>';
+      break;
+    case 'Modules':
+      // Parts chest / blocks
+      paths = '<rect x="12" y="16" width="18" height="18" rx="3" fill="currentColor" opacity="0.2"/><rect x="34" y="16" width="18" height="18" rx="3" fill="currentColor" opacity="0.2"/><rect x="23" y="36" width="18" height="18" rx="3" fill="currentColor" opacity="0.3"/><rect x="12" y="16" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="3.5"/><rect x="34" y="16" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="3.5"/><rect x="23" y="36" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="3.5"/>';
+      break;
+    case 'Runtimes':
+      // Platform / stepped layers
+      paths = '<ellipse cx="32" cy="18" rx="22" ry="8" fill="currentColor" opacity="0.2"/><ellipse cx="32" cy="18" rx="22" ry="8" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M10 18 L10 32 C10 36.4 19.8 40 32 40 C44.2 40 54 36.4 54 32 L54 18" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M10 32 L10 46 C10 50.4 19.8 54 32 54 C44.2 54 54 50.4 54 46 L54 32" fill="none" stroke="currentColor" stroke-width="3.5"/>';
+      break;
+    case 'Connectors':
+      // Signal plugs
+      paths = '<rect x="18" y="26" width="28" height="24" rx="5" fill="currentColor" opacity="0.2"/><rect x="18" y="26" width="28" height="24" rx="5" fill="none" stroke="currentColor" stroke-width="4"/><path d="M26 12 L26 26 M38 12 L38 26 M32 50 L32 58" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="38" r="3" fill="currentColor"/>';
+      break;
+    case 'Tenants':
+      // Neighborhoods / clustered houses
+      paths = '<path d="M10 48 L10 30 L22 20 L34 30 L34 48 Z" fill="currentColor" opacity="0.2"/><path d="M30 48 L30 36 L42 26 L54 36 L54 48 Z" fill="currentColor" opacity="0.3"/><path d="M10 48 L10 30 L22 20 L34 30 L34 48 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M30 48 L30 36 L42 26 L54 36 L54 48 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M8 52 L56 52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>';
+      break;
+    case 'Fleet':
+      // Wing hangar / airship
+      paths = '<ellipse cx="32" cy="28" rx="24" ry="14" fill="currentColor" opacity="0.2"/><ellipse cx="32" cy="28" rx="24" ry="14" fill="none" stroke="currentColor" stroke-width="4"/><path d="M12 28 L52 28 M22 42 L42 42 L38 48 L26 48 Z M48 22 L58 16 L58 40 L48 34" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>';
+      break;
+    case 'Activity':
+      // Courier trail / envelope
+      paths = '<rect x="10" y="18" width="44" height="30" rx="4" fill="currentColor" opacity="0.2"/><rect x="10" y="18" width="44" height="30" rx="4" fill="none" stroke="currentColor" stroke-width="4"/><path d="M12 20 L32 35 L52 20 M12 46 L26 32 M52 46 L38 32" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>';
+      break;
+    case 'Workbench':
+      // Blueprint bench
+      paths = '<path d="M12 16 L46 16 C50 16 52 18 52 22 L52 50 L18 50 C14 50 12 48 12 44 Z" fill="currentColor" opacity="0.2"/><path d="M12 16 L46 16 C50 16 52 18 52 22 L52 50 L18 50 C14 50 12 48 12 44 Z" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M20 26 L44 26 M20 34 L38 34 M20 42 L32 42 M12 44 C12 48 16 48 18 50" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>';
+      break;
+    case 'Evidence':
+      // Stamp book / wax seal stamp
+      paths = '<rect x="24" y="12" width="16" height="20" rx="4" fill="currentColor" opacity="0.2"/><rect x="24" y="12" width="16" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M14 42 C14 36 22 34 32 34 C42 34 50 36 50 42 L52 50 L12 50 Z" fill="currentColor" opacity="0.3"/><path d="M14 42 C14 36 22 34 32 34 C42 34 50 36 50 42 L52 50 L12 50 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><circle cx="32" cy="20" r="3" fill="currentColor"/>';
+      break;
+    case 'Resources':
+      // Field notes / open book
+      paths = '<path d="M32 20 C24 16 12 16 8 18 L8 48 C14 46 24 46 32 50 C40 46 50 46 56 48 L56 18 C52 16 40 16 32 20 Z" fill="currentColor" opacity="0.2"/><path d="M32 20 C24 16 12 16 8 18 L8 48 C14 46 24 46 32 50 C40 46 50 46 56 48 L56 18 C52 16 40 16 32 20 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M32 20 L32 50 M14 26 L26 24 M14 34 L26 32 M38 24 L50 26 M38 32 L50 34" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>';
+      break;
+    default:
+      paths = '<circle cx="32" cy="32" r="20" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="4"/>';
+      break;
+  }
+
+  svg.innerHTML = paths;
+  return svg;
+}
 
 interface ActivityRowItem {
   id: string;
@@ -158,15 +232,15 @@ export function mountCockpit(
   let selectedActivityItem: ActivityRowItem | null = null;
 
   let globalSearchQuery = '';
+  let connectionNotesOpen = false;
   let searchDebounceTimer: number | null = null;
 
   host.innerHTML = '';
-  const rootEl = document.createElement('dialog');
+  const rootEl = document.createElement('div');
   rootEl.className = 'oc-cockpit-overlay';
   rootEl.setAttribute('hidden', '');
-  rootEl.setAttribute('role', 'dialog');
-  rootEl.setAttribute('aria-modal', 'true');
-  rootEl.setAttribute('aria-label', 'Snow Gloves Operations Cockpit');
+  rootEl.setAttribute('role', 'region');
+  rootEl.setAttribute('aria-label', 'Toy Town Field Kit');
   host.appendChild(rootEl);
 
   const docDialog = document.createElement('dialog');
@@ -180,7 +254,6 @@ export function mountCockpit(
   activityDialog.setAttribute('id', 'oc-activity-dialog');
   activityDialog.setAttribute('aria-label', 'Hermes Activity Record Details');
   host.appendChild(activityDialog);
-  rootEl.addEventListener('cancel', e => { e.preventDefault(); closeOverlay(); });
   let documentTriggerId = '';
   docDialog.addEventListener('close', () => {
     docGeneration++; docAbortController?.abort(); docLoading = false;
@@ -197,7 +270,6 @@ export function mountCockpit(
       return;
     }
     isOpen = false;
-    rootEl.close();
     rootEl.setAttribute('hidden', '');
     isFetching = false;
     isPlanning = false;
@@ -534,7 +606,7 @@ export function mountCockpit(
     if (item.source && snapshot?.documents?.some((d) => d.path === item.source)) {
       const srcBtn = document.createElement('button');
       srcBtn.className = 'oc-btn oc-btn-accent oc-btn-sm';
-      srcBtn.textContent = `📖 View Source Document (${item.source})`;
+      srcBtn.textContent = `View Source Document (${item.source})`;
       srcBtn.onclick = () => {
         activityDialog.close();
         openDocViewer(item.source!);
@@ -614,6 +686,11 @@ export function mountCockpit(
     onSelectNode(buildingId);
   }
 
+  function focusStation(section: SectionName) {
+    const landmarks: Record<SectionName, string> = {Overview:'hermes-bus', Agents:'agent-chief-of-staff', Modules:'module-catalog', Runtimes:'runtime-adapters', Connectors:'connector-gate', Tenants:'tenant-vault', Fleet:'fleet-wings', Activity:'hermes-bus', Workbench:'agent-cto', Evidence:'agent-sentinel', Resources:'knowledge-archive'};
+    host.dispatchEvent(new CustomEvent('cockpit-station', {detail:{nodeId:landmarks[section]}}));
+  }
+
   function render() {
     if (!isOpen) return;
 
@@ -641,25 +718,29 @@ export function mountCockpit(
     brandBlock.className = 'oc-brand-block';
     const title = document.createElement('h1');
     title.className = 'oc-brand-title';
-    title.textContent = 'SNOW GLOVES';
+    title.textContent = 'FIELD KIT';
     const sub = document.createElement('span');
     sub.className = 'oc-brand-subtitle';
-    sub.textContent = 'OPERATIONS COCKPIT';
-    brandBlock.append(title, sub);
+    sub.textContent = STATION_NAMES[currentSection];
+    const headerMark = document.createElement('span'); headerMark.className = 'oc-object-mark'; headerMark.append(toyIcon(currentSection));
+    brandBlock.append(headerMark, title, sub);
 
     const headerActions = document.createElement('div');
     headerActions.className = 'oc-header-actions';
     const returnBtn = document.createElement('button');
     returnBtn.id = 'oc-btn-return';
     returnBtn.className = 'oc-btn-return';
-    returnBtn.innerHTML = '<span>⟵</span> Return to City';
+    returnBtn.textContent = 'Pack away';
     returnBtn.onclick = () => closeOverlay();
     headerActions.appendChild(returnBtn);
     header.append(brandBlock, headerActions);
 
     // Contextbar
-    const contextBar = document.createElement('div');
-    contextBar.className = 'oc-contextbar';
+    const contextBar = document.createElement('details');
+    contextBar.className = 'oc-contextbar oc-connection-notes';
+    contextBar.open = connectionNotesOpen;
+    contextBar.ontoggle = () => { connectionNotesOpen = contextBar.open; };
+    const connectionSummary = document.createElement('summary'); connectionSummary.textContent = 'Connection notes'; contextBar.append(connectionSummary);
 
     const tags = document.createElement('div');
     tags.className = 'oc-context-tags';
@@ -723,12 +804,12 @@ export function mountCockpit(
     if (snapshot?.generatedAt) {
       const genBadge = document.createElement('span');
       genBadge.className = 'oc-badge';
-      genBadge.textContent = `GEN: ${snapshot.generatedAt}`;
+      genBadge.textContent = `Updated: ${snapshot.generatedAt}`;
       tags.appendChild(genBadge);
       const ageBadge = document.createElement('span');
       ageBadge.className = 'oc-badge';
       const age = Math.max(0, Math.floor((Date.now() - Date.parse(snapshot.generatedAt)) / 1000));
-      ageBadge.textContent = `AGE: ${age < 60 ? `${age}s` : age < 3600 ? `${Math.floor(age / 60)}m` : `${Math.floor(age / 3600)}h`}`;
+      ageBadge.textContent = `Age: ${age < 60 ? `${age}s` : age < 3600 ? `${Math.floor(age / 60)}m` : `${Math.floor(age / 3600)}h`}`;
       tags.appendChild(ageBadge);
     }
 
@@ -737,12 +818,12 @@ export function mountCockpit(
     searchBox.className = 'oc-search-box';
     const searchIcon = document.createElement('span');
     searchIcon.className = 'oc-search-icon';
-    searchIcon.textContent = '🔍';
+    searchIcon.append(toyIcon('Resources'));
     const searchInput = document.createElement('input');
     searchInput.id = 'oc-global-search-input';
     searchInput.className = 'oc-search-input';
     searchInput.type = 'text';
-    searchInput.placeholder = 'Search cross-operations (cards, agents, fleet, activity, docs)...';
+    searchInput.placeholder = 'Find a crew member, part, or field note…';
     searchInput.value = globalSearchQuery;
     searchInput.oninput = (e) => {
       const val = (e.target as HTMLInputElement).value;
@@ -754,6 +835,7 @@ export function mountCockpit(
     };
     searchInput.onkeydown = (e) => {
       if (e.key === 'Escape') {
+        e.stopPropagation();
         globalSearchQuery = '';
         render();
       }
@@ -782,7 +864,7 @@ export function mountCockpit(
     refreshBtn.disabled = isFetching;
     refreshBtn.onclick = () => fetchOperationsData(false);
 
-    contextBar.append(tags, searchBox, refreshBtn);
+    contextBar.append(tags, refreshBtn);
 
     // Main Layout
     const main = document.createElement('div');
@@ -791,7 +873,7 @@ export function mountCockpit(
     // Navigation with Tablist and keyboard roving
     const nav = document.createElement('nav');
     nav.className = 'oc-nav';
-    nav.setAttribute('aria-label', 'Operations Workspace Navigation');
+    nav.setAttribute('aria-label', 'Toy town stations');
     const navList = document.createElement('ul');
     navList.className = 'oc-nav-list';
     navList.setAttribute('role', 'tablist');
@@ -808,7 +890,10 @@ export function mountCockpit(
       btn.setAttribute('tabindex', currentSection === sec ? '0' : '-1');
 
       const nameSpan = document.createElement('span');
-      nameSpan.textContent = sec;
+      nameSpan.className = 'oc-station-label';
+      nameSpan.textContent = STATION_NAMES[sec];
+      btn.setAttribute('aria-label', `${sec} · ${STATION_NAMES[sec]}`);
+      btn.append(toyIcon(sec));
       btn.appendChild(nameSpan);
 
       const count = getSectionCount(sec);
@@ -821,6 +906,7 @@ export function mountCockpit(
 
       btn.onclick = () => {
         currentSection = sec;
+        focusStation(sec);
         selectedNodeContext = null;
         render();
       };
@@ -843,6 +929,7 @@ export function mountCockpit(
         if (targetIdx !== idx) {
           const nextSec = SECTIONS[targetIdx];
           currentSection = nextSec;
+          focusStation(nextSec);
           selectedNodeContext = null;
           render();
           const nextBtn = document.getElementById(`oc-nav-tab-${nextSec.toLowerCase()}`);
@@ -938,8 +1025,11 @@ export function mountCockpit(
       }
     }
 
-    main.append(nav, content);
-    rootEl.append(header, contextBar, main);
+    main.append(content);
+    const drawer = document.createElement('section'); drawer.className = 'oc-cockpit'; drawer.dataset.station = currentSection.toLowerCase(); drawer.setAttribute('aria-label', `${STATION_NAMES[currentSection]} field drawer`);
+    drawer.append(header, searchBox, contextBar, main);
+    content.querySelectorAll<HTMLElement>('.oc-card').forEach(card => { const mark = document.createElement('span'); mark.className = 'oc-object-mark'; mark.append(toyIcon(currentSection)); card.prepend(mark); });
+    rootEl.append(drawer, nav);
 
     content.scrollTop = prevScrollTop;
 
@@ -1171,90 +1261,286 @@ export function mountCockpit(
   }
 
   // Overview Section
-  function renderOverview(): HTMLElement {
-    const frag = document.createElement('div');
-    frag.style.display = 'flex';
-    frag.style.flexDirection = 'column';
-    frag.style.gap = '1.5rem';
+function renderOverview(): HTMLElement {
+  const frag = document.createElement('div');
+  frag.style.display = 'flex';
+  frag.style.flexDirection = 'column';
+  frag.style.gap = '1.5rem';
 
-    const secHeader = document.createElement('div');
-    secHeader.className = 'oc-section-header';
-    secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Operations Overview</h2>
-      <div class="oc-section-desc">Source inventory, scoped metadata, and current loopback endpoint observations</div>
-    </div>`;
-    frag.appendChild(secHeader);
+  // Companion Greeting Hero Banner
+  const welcomeBanner = document.createElement('section');
+  welcomeBanner.className = 'oc-town-welcome';
+  welcomeBanner.style.display = 'flex';
+  welcomeBanner.style.alignItems = 'center';
+  welcomeBanner.style.justifyContent = 'space-between';
+  welcomeBanner.style.padding = '1.25rem 1.5rem';
+  welcomeBanner.style.borderRadius = '16px';
+  welcomeBanner.style.background = 'var(--oc-bg-surface, #fbf7ee)';
+  welcomeBanner.style.border = '2px solid var(--oc-border-subtle, #e6ded0)';
+  welcomeBanner.style.gap = '1.25rem';
+  welcomeBanner.style.boxShadow = '0 3px 0 var(--oc-shadow-tactile, #ded5c2)';
 
-    if (snapshot?.warnings && snapshot.warnings.length > 0) {
-      snapshot.warnings.forEach((w) => {
-        const alert = document.createElement('div');
-        alert.className = 'oc-alert oc-alert-warning';
-        alert.innerHTML = safeHtml`<strong>[${toStr(w.code)}]</strong> ${toStr(w.message)}`;
-        frag.appendChild(alert);
-      });
-    }
+  const welcomeText = document.createElement('div');
+  welcomeText.innerHTML = safeHtml`
+    <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.08em; color: var(--oc-text-muted, #7c7263); margin-bottom: 0.25rem;">Hello, explorer</div>
+    <h2 style="margin: 0; font-family: var(--oc-font-title, inherit); font-size: 1.5rem; color: var(--oc-text-main, #24201b);">Your infrastructure, in miniature</h2>
+    <div style="font-size: 0.88rem; color: var(--oc-text-muted, #7c7263); margin-top: 0.25rem;">Every little station opens a real piece of your infrastructure. Pick a token and follow its source notes.</div>
+  `;
 
-    const statStrip = document.createElement('div');
-    statStrip.className = 'oc-stat-strip';
-    const stats = [
-      { label: 'Module Cards', val: snapshot?.catalog?.cards?.length || 0 },
-      { label: 'Agent Definitions', val: snapshot?.catalog?.agents?.length || 0 },
-      { label: 'Runtime Adapters', val: snapshot?.catalog?.adapters?.length || 0 },
-      { label: 'Fleet Wings', val: snapshot?.fleet?.length || 0 },
-      { label: 'Tenants Scoped', val: snapshot?.tenants?.length || 0 },
-      { label: 'Acceptance Items', val: snapshot?.acceptance?.length || 0 },
-    ];
-    stats.forEach((s) => {
-      const c = document.createElement('div');
-      c.className = 'oc-stat-card';
-      c.innerHTML = safeHtml`<span class="oc-stat-label">${s.label}</span><span class="oc-stat-value">${s.val}</span>`;
-      statStrip.appendChild(c);
+  const companion = document.createElement('div');
+  companion.className = 'oc-companion';
+  companion.style.display = 'flex';
+  companion.style.alignItems = 'center';
+  companion.style.gap = '0.75rem';
+  companion.style.padding = '0.5rem 0.85rem';
+  companion.style.borderRadius = '12px';
+  companion.style.background = 'var(--oc-bg-well, #f0e9dc)';
+  companion.style.border = '1.5px solid var(--oc-border-strong, #c8bea9)';
+
+  const robotIcon = toyIcon('Agents');
+  robotIcon.style.width = '32px';
+  robotIcon.style.height = '32px';
+  robotIcon.style.flexShrink = '0';
+  robotIcon.style.color = 'var(--oc-color-orange, #d96b27)';
+
+  const companionLabel = document.createElement('div');
+  companionLabel.innerHTML = safeHtml`
+    <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700; color: var(--oc-text-muted, #7c7263);">Your guide</div>
+    <div style="font-size: 0.85rem; font-weight: 700; color: var(--oc-text-main, #24201b);">Hermes Mini</div>
+  `;
+  companion.appendChild(robotIcon);
+  companion.appendChild(companionLabel);
+
+  welcomeBanner.appendChild(welcomeText);
+  welcomeBanner.appendChild(companion);
+  frag.appendChild(welcomeBanner);
+
+  // Warnings Fold
+  if (snapshot?.warnings && snapshot.warnings.length > 0) {
+    const warnDetails = document.createElement('details');
+    warnDetails.className = 'oc-fold-warnings';
+    warnDetails.style.padding = '0.75rem 1rem';
+    warnDetails.style.borderRadius = '12px';
+    warnDetails.style.background = 'var(--oc-bg-warning-soft, #fff5eb)';
+    warnDetails.style.border = '1.5px solid var(--oc-border-warning, #f0b884)';
+
+    const warnSumm = document.createElement('summary');
+    warnSumm.style.fontWeight = '700';
+    warnSumm.style.cursor = 'pointer';
+    warnSumm.style.fontSize = '0.85rem';
+    warnSumm.style.color = 'var(--oc-color-warning-dark, #a3480a)';
+    warnSumm.textContent = `Field notes to check (${snapshot.warnings.length} Active)`;
+    warnDetails.appendChild(warnSumm);
+
+    const warnList = document.createElement('div');
+    warnList.style.marginTop = '0.5rem';
+    warnList.style.display = 'flex';
+    warnList.style.flexDirection = 'column';
+    warnList.style.gap = '0.35rem';
+    snapshot.warnings.forEach((w) => {
+      const wItem = document.createElement('div');
+      wItem.className = 'oc-alert oc-alert-warning';
+      wItem.style.margin = '0';
+      wItem.style.fontSize = '0.8rem';
+      wItem.innerHTML = safeHtml`<strong>[${toStr(w.code)}]</strong> ${toStr(w.message)}`;
+      warnList.appendChild(wItem);
     });
-    frag.appendChild(statStrip);
-
-    // Endpoint Observations Table (strictly labelled Endpoint-only)
-    const serviceSection = document.createElement('div');
-    serviceSection.innerHTML = safeHtml`<h3 style="font-family: var(--oc-font-title); font-size: 1.3rem; margin-bottom: 0.5rem; text-transform: uppercase;">Endpoint Observations · Endpoint Evidence Only</h3>`;
-    const tableCont = document.createElement('div');
-    tableCont.className = 'oc-table-container';
-    const table = document.createElement('table');
-    table.className = 'oc-table';
-    table.innerHTML = safeHtml`<thead>
-      <tr>
-        <th>Service ID</th>
-        <th>Label</th>
-        <th>URL</th>
-        <th>State</th>
-        <th>Scope</th>
-        <th>Latency</th>
-        <th>Checked At</th>
-      </tr>
-    </thead>`;
-    const tbody = document.createElement('tbody');
-    const services = snapshot?.services || [];
-    if (services.length === 0) {
-      tbody.innerHTML = safeHtml`<tr><td colspan="7" style="text-align:center; color: var(--oc-text-muted);">No service endpoint telemetry available</td></tr>`;
-    } else {
-      services.forEach((srv) => {
-        const tr = document.createElement('tr');
-        const stateClass = isStale ? 'oc-badge-stale' : `oc-badge-status-${srv.state}`;
-        tr.innerHTML = safeHtml`<td><strong>${toStr(srv.id)}</strong></td>
-          <td>${toStr(srv.label)}</td>
-          <td><code style="font-size:0.75rem;">${toStr(srv.url)}</code></td>
-          <td><span class="oc-badge ${stateClass}">${isStale ? 'LAST KNOWN: ' : ''}${toStr(srv.state).toUpperCase()}</span></td>
-          <td><span class="oc-badge">${toStr(srv.scope, 'endpoint-only')}</span></td>
-          <td>${srv.latencyMs !== null ? srv.latencyMs + 'ms' : 'n/a'}</td>
-          <td>${toStr(srv.checkedAt || 'n/a')}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-    table.appendChild(tbody);
-    tableCont.appendChild(table);
-    serviceSection.appendChild(tableCont);
-    frag.appendChild(serviceSection);
-
-    return frag;
+    warnDetails.appendChild(warnList);
+    frag.appendChild(warnDetails);
   }
+
+  // Station Tokens Grid
+  const stationSection = document.createElement('div');
+  const stationTitle = document.createElement('div');
+  stationTitle.style.fontSize = '0.8rem';
+  stationTitle.style.fontWeight = '700';
+  stationTitle.style.textTransform = 'uppercase';
+  stationTitle.style.letterSpacing = '0.06em';
+  stationTitle.style.color = 'var(--oc-text-muted, #7c7263)';
+  stationTitle.style.marginBottom = '0.75rem';
+  stationTitle.textContent = 'Choose a station';
+  stationSection.appendChild(stationTitle);
+
+  const stationGrid = document.createElement('div');
+  stationGrid.className = 'oc-station-grid';
+  stationGrid.style.display = 'grid';
+  stationGrid.style.gap = '0.85rem';
+
+  const stationKeys: SectionName[] = [
+    'Overview',
+    'Agents',
+    'Modules',
+    'Runtimes',
+    'Connectors',
+    'Tenants',
+    'Fleet',
+    'Activity',
+    'Workbench',
+    'Evidence',
+    'Resources'
+  ];
+
+  stationKeys.forEach((sec) => {
+    const count = getSectionCount(sec);
+    const isCurrent = currentSection === sec;
+    const btn = document.createElement('button');
+    btn.className = `oc-station-token ${isCurrent ? 'oc-station-token-active' : ''}`;
+    btn.setAttribute('type', 'button');
+    btn.setAttribute('aria-label', `${STATION_NAMES[sec]} Station`);
+    btn.style.display = 'flex';
+    btn.style.flexDirection = 'column';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
+    btn.style.padding = '0.85rem 0.5rem';
+    btn.style.gap = '0.4rem';
+    btn.style.borderRadius = '14px';
+    btn.style.background = isCurrent ? 'var(--oc-bg-active, #fdf1e4)' : 'var(--oc-bg-card, #ffffff)';
+    btn.style.border = isCurrent ? '2px solid var(--oc-color-orange, #d96b27)' : '1.5px solid var(--oc-border-subtle, #e6ded0)';
+    btn.style.boxShadow = isCurrent ? '0 3px 0 var(--oc-color-orange-dark, #b55318)' : '0 3px 0 var(--oc-shadow-tactile, #ded5c2)';
+    btn.style.cursor = 'pointer';
+    btn.style.textAlign = 'center';
+    btn.onclick = () => { currentSection = sec; selectedNodeContext = null; focusStation(sec); render(); };
+
+    const iconWrapper = document.createElement('div');
+    iconWrapper.className = 'oc-object-mark';
+    iconWrapper.style.width = '30px';
+    iconWrapper.style.height = '30px';
+    iconWrapper.style.color = isCurrent ? 'var(--oc-color-orange, #d96b27)' : 'var(--oc-color-forest, #2d5a3f)';
+    const sIcon = toyIcon(sec);
+    sIcon.style.width = '100%';
+    sIcon.style.height = '100%';
+    iconWrapper.appendChild(sIcon);
+    btn.appendChild(iconWrapper);
+
+    const label = document.createElement('span');
+    label.className = 'oc-station-label';
+    label.style.fontSize = '0.8rem';
+    label.style.fontWeight = '700';
+    label.style.color = 'var(--oc-text-main, #24201b)';
+    label.textContent = STATION_NAMES[sec];
+    btn.appendChild(label);
+
+    if (count !== null) {
+      const badge = document.createElement('span');
+      badge.style.fontSize = '0.7rem';
+      badge.style.fontWeight = '700';
+      badge.style.padding = '0.1rem 0.45rem';
+      badge.style.borderRadius = '999px';
+      badge.style.background = 'var(--oc-bg-pill, #eee7da)';
+      badge.style.color = 'var(--oc-text-muted, #7c7263)';
+      badge.textContent = String(count);
+      btn.appendChild(badge);
+    }
+
+    stationGrid.appendChild(btn);
+  });
+  stationSection.appendChild(stationGrid);
+  frag.appendChild(stationSection);
+
+  // Endpoint Lantern Tickets (Truthful endpoint-only telemetry)
+  const lanternSection = document.createElement('section');
+  lanternSection.innerHTML = safeHtml`
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0.75rem;">
+      <h3 style="font-family: var(--oc-font-title, inherit); font-size: 1.1rem; margin: 0; color: var(--oc-text-main, #24201b);">
+        Endpoint Lanterns
+      </h3>
+      <span style="font-size: 0.75rem; color: var(--oc-text-muted, #7c7263); text-transform: uppercase; letter-spacing: 0.05em;">
+        Endpoint observations only
+      </span>
+    </div>
+  `;
+
+  const lanternList = document.createElement('div');
+  lanternList.className = 'oc-lantern-list';
+  lanternList.style.display = 'grid';
+  lanternList.style.gap = '0.85rem';
+
+  const services = snapshot?.services || [];
+  if (services.length === 0) {
+    const emptyBox = document.createElement('div');
+    emptyBox.style.gridColumn = '1 / -1';
+    emptyBox.style.padding = '1.5rem';
+    emptyBox.style.textAlign = 'center';
+    emptyBox.style.background = 'var(--oc-bg-card, #ffffff)';
+    emptyBox.style.borderRadius = '12px';
+    emptyBox.style.border = '1px dashed var(--oc-border-subtle, #e6ded0)';
+    emptyBox.style.color = 'var(--oc-text-muted, #7c7263)';
+    emptyBox.textContent = 'No endpoint observations are available in this snapshot.';
+    lanternList.appendChild(emptyBox);
+  } else {
+    services.forEach((srv) => {
+      const ticket = document.createElement('article');
+      ticket.className = 'oc-lantern-ticket';
+      ticket.style.display = 'flex';
+      ticket.style.flexDirection = 'column';
+      ticket.style.padding = '0.85rem 1rem';
+      ticket.style.borderRadius = '12px';
+      ticket.style.background = 'var(--oc-bg-card, #ffffff)';
+      ticket.style.border = '1.5px solid var(--oc-border-subtle, #e6ded0)';
+      ticket.style.boxShadow = '0 2px 0 var(--oc-shadow-tactile, #ded5c2)';
+      ticket.style.gap = '0.5rem';
+
+      const stateClass = isStale ? 'oc-badge-stale' : `oc-badge-status-${srv.state}`;
+      const headRow = document.createElement('div');
+      headRow.style.display = 'flex';
+      headRow.style.alignItems = 'center';
+      headRow.style.justifyContent = 'space-between';
+      headRow.style.gap = '0.5rem';
+      headRow.innerHTML = safeHtml`
+        <div style="font-weight: 700; font-size: 0.9rem; color: var(--oc-text-main, #24201b); display: flex; align-items: center; gap: 0.35rem;">
+          <span class="oc-lantern-dot" style="display:inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${srv.state === 'reachable' ? 'var(--oc-color-forest, #2d5a3f)' : 'var(--oc-color-orange, #d96b27)'};"></span>
+          ${toStr(srv.label || srv.id)}
+        </div>
+        <span class="oc-badge ${stateClass}" style="font-size: 0.7rem;">${isStale ? 'LAST KNOWN: ' : ''}${toStr(srv.state).toUpperCase()}</span>
+      `;
+      ticket.appendChild(headRow);
+
+      const metaRow = document.createElement('div');
+      metaRow.style.display = 'flex';
+      metaRow.style.alignItems = 'center';
+      metaRow.style.gap = '0.5rem';
+      metaRow.style.fontSize = '0.75rem';
+      metaRow.style.color = 'var(--oc-text-muted, #7c7263)';
+      metaRow.innerHTML = safeHtml`
+        <span>ID: <code>${toStr(srv.id)}</code></span>
+        <span>•</span>
+        <span>Scope: <em>${toStr(srv.scope, 'endpoint-only')}</em></span>
+      `;
+      ticket.appendChild(metaRow);
+
+      // Folded Connection Details
+      const details = document.createElement('details');
+      details.style.marginTop = '0.25rem';
+      details.style.fontSize = '0.75rem';
+      details.style.color = 'var(--oc-text-muted, #7c7263)';
+
+      const summary = document.createElement('summary');
+      summary.style.cursor = 'pointer';
+      summary.style.fontWeight = '600';
+      summary.textContent = 'Connection notes';
+      details.appendChild(summary);
+
+      const detailsBody = document.createElement('div');
+      detailsBody.style.paddingTop = '0.4rem';
+      detailsBody.style.display = 'flex';
+      detailsBody.style.flexDirection = 'column';
+      detailsBody.style.gap = '0.25rem';
+      detailsBody.innerHTML = safeHtml`
+        <div>URL: <code style="word-break: break-all;">${toStr(srv.url)}</code></div>
+        <div>Latency: <strong>${srv.latencyMs !== null ? srv.latencyMs + 'ms' : 'n/a'}</strong></div>
+        <div>Checked: <strong>${toStr(srv.checkedAt || 'n/a')}</strong></div>
+      `;
+      details.appendChild(detailsBody);
+      ticket.appendChild(details);
+
+      lanternList.appendChild(ticket);
+    });
+  }
+  lanternSection.appendChild(lanternList);
+  frag.appendChild(lanternSection);
+
+  return frag;
+}
 
   // Agents Section
   function renderAgents(): HTMLElement {
@@ -1266,7 +1552,7 @@ export function mountCockpit(
     const secHeader = document.createElement('div');
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Agent Roles & Routing Core</h2>
+      <h2 class="oc-section-title">Meet the crew</h2>
       <div class="oc-section-desc">Defined roles, verified skill routes, identity manifests, and direct module linkages</div>
     </div>`;
 
@@ -1391,7 +1677,7 @@ export function mountCockpit(
         const docBtn = document.createElement('button');
         docBtn.id = `oc-doc-${identityPath}`;
         docBtn.className = 'oc-btn oc-btn-sm';
-        docBtn.textContent = '📄 IDENTITY.md';
+        docBtn.textContent = 'IDENTITY.md';
         docBtn.onclick = () => openDocViewer(identityPath);
         footer.appendChild(docBtn);
       }
@@ -1410,7 +1696,7 @@ export function mountCockpit(
 
       const jumpBtn = document.createElement('button');
       jumpBtn.className = 'oc-btn oc-btn-sm';
-      jumpBtn.textContent = '📍 Jump to City';
+      jumpBtn.textContent = 'Jump to City';
       jumpBtn.onclick = () => jumpToBuilding(`agent-${slug}`);
       footer.appendChild(jumpBtn);
 
@@ -1432,7 +1718,7 @@ export function mountCockpit(
     const secHeader = document.createElement('div');
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Module Catalog</h2>
+      <h2 class="oc-section-title">Parts chest</h2>
       <div class="oc-section-desc">Catalog cards with disposition, governance risk, runtime compatibility, and verified tenant enablement</div>
     </div>`;
     frag.appendChild(secHeader);
@@ -1713,7 +1999,7 @@ export function mountCockpit(
       if (rawSrc && snapshot?.documents?.some((d) => d.path === rawSrc)) {
         const docBtn = document.createElement('button');
         docBtn.className = 'oc-btn oc-btn-sm oc-btn-primary';
-        docBtn.textContent = '📖 View Registered Doc';
+        docBtn.textContent = 'View Registered Doc';
         docBtn.onclick = () => openDocViewer(rawSrc);
         footer.appendChild(docBtn);
       } else {
@@ -1731,7 +2017,7 @@ export function mountCockpit(
 
       const jumpBtn = document.createElement('button');
       jumpBtn.className = 'oc-btn oc-btn-sm';
-      jumpBtn.textContent = '📍 Jump to Catalog';
+      jumpBtn.textContent = 'Jump to Catalog';
       jumpBtn.onclick = () => jumpToBuilding('module-catalog');
       footer.appendChild(jumpBtn);
 
@@ -1753,7 +2039,7 @@ export function mountCockpit(
     const secHeader = document.createElement('div');
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Runtime Adapters</h2>
+      <h2 class="oc-section-title">Platforms</h2>
       <div class="oc-section-desc">Format matrix (object), MCP skill paths, plan modes, and read-only install instructions</div>
     </div>`;
     frag.appendChild(secHeader);
@@ -1821,7 +2107,7 @@ export function mountCockpit(
       footer.className = 'oc-card-footer';
       const jumpBtn = document.createElement('button');
       jumpBtn.className = 'oc-btn oc-btn-sm';
-      jumpBtn.textContent = '📍 Jump to Runtimes';
+      jumpBtn.textContent = 'Jump to Runtimes';
       jumpBtn.onclick = () => jumpToBuilding('runtime-adapters');
       footer.appendChild(jumpBtn);
 
@@ -1843,7 +2129,7 @@ export function mountCockpit(
     const secHeader = document.createElement('div');
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Connector Gateways</h2>
+      <h2 class="oc-section-title">Signal plugs</h2>
       <div class="oc-section-desc">Structured authentication models, connector capabilities, and tenant gating states</div>
     </div>`;
     frag.appendChild(secHeader);
@@ -1903,7 +2189,7 @@ export function mountCockpit(
       footer.className = 'oc-card-footer';
       const jumpBtn = document.createElement('button');
       jumpBtn.className = 'oc-btn oc-btn-sm';
-      jumpBtn.textContent = '📍 Jump to Connector Gate';
+      jumpBtn.textContent = 'Jump to Connector Gate';
       jumpBtn.onclick = () => jumpToBuilding('connector-gate');
       footer.appendChild(jumpBtn);
 
@@ -1925,7 +2211,7 @@ export function mountCockpit(
     const secHeader = document.createElement('div');
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Tenant Vault Scope</h2>
+      <h2 class="oc-section-title">Neighborhoods</h2>
       <div class="oc-section-desc">Tenant enablements, assigned agents, approval records, and source metadata</div>
     </div>`;
     frag.appendChild(secHeader);
@@ -1996,7 +2282,7 @@ export function mountCockpit(
 
       const jumpBtn = document.createElement('button');
       jumpBtn.className = 'oc-btn oc-btn-sm';
-      jumpBtn.textContent = '📍 Jump to Tenant Vault';
+      jumpBtn.textContent = 'Jump to Tenant Vault';
       jumpBtn.onclick = () => jumpToBuilding('tenant-vault');
       footer.appendChild(jumpBtn);
 
@@ -2018,7 +2304,7 @@ export function mountCockpit(
     const secHeader = document.createElement('div');
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Fleet Wings & Profiles</h2>
+      <h2 class="oc-section-title">Wing hangar</h2>
       <div class="oc-section-desc">Wing profile definitions, contract prerequisites, and public recovery documents</div>
     </div>`;
     frag.appendChild(secHeader);
@@ -2057,14 +2343,14 @@ export function mountCockpit(
       if (recDocPath && snapshot?.documents?.some((d) => d.path === recDocPath)) {
         const recBtn = document.createElement('button');
         recBtn.className = 'oc-btn oc-btn-sm oc-btn-primary';
-        recBtn.textContent = '📖 Recovery Doc';
+        recBtn.textContent = 'Recovery Doc';
         recBtn.onclick = () => openDocViewer(recDocPath);
         footer.appendChild(recBtn);
       }
 
       const jumpBtn = document.createElement('button');
       jumpBtn.className = 'oc-btn oc-btn-sm';
-      jumpBtn.textContent = '📍 Jump to Wings';
+      jumpBtn.textContent = 'Jump to Wings';
       jumpBtn.onclick = () => jumpToBuilding('fleet-wings');
       footer.appendChild(jumpBtn);
 
@@ -2107,178 +2393,226 @@ export function mountCockpit(
   }
 
   // Activity Section
-  function renderActivity(): HTMLElement {
-    const frag = document.createElement('div');
-    frag.style.display = 'flex';
-    frag.style.flexDirection = 'column';
-    frag.style.gap = '1rem';
+function renderActivity(): HTMLElement {
+  const frag = document.createElement('div');
+  frag.style.display = 'flex';
+  frag.style.flexDirection = 'column';
+  frag.style.gap = '1.25rem';
 
-    const secHeader = document.createElement('div');
-    secHeader.className = 'oc-section-header';
-    secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Hermes Activity Bus</h2>
-      <div class="oc-section-desc">Filtered projection log of events, jobs, artifacts, and approvals</div>
-    </div>`;
-    frag.appendChild(secHeader);
+  const secHeader = document.createElement('div');
+  secHeader.className = 'oc-section-header';
+  secHeader.innerHTML = safeHtml`<div>
+    <h2 class="oc-section-title">Courier trail</h2>
+    <div class="oc-section-desc">Scoped projection trail of courier events, jobs, artifacts, and approvals</div>
+  </div>`;
+  frag.appendChild(secHeader);
 
-    const filterBar = document.createElement('div');
-    filterBar.className = 'oc-filter-bar';
+  const filterBar = document.createElement('div');
+  filterBar.className = 'oc-filter-bar';
 
-    // Tabs
-    (['events', 'jobs', 'artifacts', 'approvals'] as const).forEach((t) => {
-      const btn = document.createElement('button');
-      btn.id = `oc-activity-tab-${t}`;
-      btn.className = `oc-btn oc-btn-sm ${activityFilter.tab === t ? 'oc-btn-primary' : ''}`;
-      btn.textContent = t.toUpperCase();
-      btn.onclick = () => {
-        activityFilter.tab = t;
-        render();
-      };
-      filterBar.appendChild(btn);
-    });
-
-    // Activity Search Filter
-    const searchInp = document.createElement('input');
-    searchInp.id = 'oc-activity-search-input';
-    searchInp.className = 'oc-input-text';
-    searchInp.placeholder = 'Filter activity text...';
-    searchInp.value = activityFilter.search;
-    searchInp.oninput = (e) => {
-      activityFilter.search = (e.target as HTMLInputElement).value;
+  // Tab selection
+  (['events', 'jobs', 'artifacts', 'approvals'] as const).forEach((t) => {
+    const btn = document.createElement('button');
+    btn.id = `oc-activity-tab-${t}`;
+    btn.className = `oc-btn oc-btn-sm ${activityFilter.tab === t ? 'oc-btn-primary' : ''}`;
+    btn.textContent = t.toUpperCase();
+    btn.onclick = () => {
+      activityFilter.tab = t;
       render();
     };
-    filterBar.appendChild(searchInp);
+    filterBar.appendChild(btn);
+  });
 
-    // Tenant Filter
-    const tenantSel = document.createElement('select');
-    tenantSel.id = 'oc-activity-tenant-select';
-    tenantSel.className = 'oc-filter-select';
-    tenantSel.innerHTML = safeHtml`<option value="all">All Tenants</option>`;
-    (snapshot?.tenants || []).forEach((t) => {
-      const opt = document.createElement('option');
-      opt.value = toStr(t.slug);
-      opt.textContent = `Tenant: ${toStr(t.slug)}`;
-      tenantSel.appendChild(opt);
-    });
-    tenantSel.value = activityFilter.tenant;
-    tenantSel.onchange = (e) => {
-      activityFilter.tenant = (e.target as HTMLSelectElement).value;
-      render();
-    };
-    filterBar.appendChild(tenantSel);
+  // Activity search filter
+  const searchInp = document.createElement('input');
+  searchInp.id = 'oc-activity-search-input';
+  searchInp.className = 'oc-input-text';
+  searchInp.placeholder = 'Filter activity text...';
+  searchInp.value = activityFilter.search;
+  searchInp.oninput = (e) => {
+    activityFilter.search = (e.target as HTMLInputElement).value;
+    render();
+  };
+  filterBar.appendChild(searchInp);
 
-    // Agent Filter
-    const agentSel = document.createElement('select');
-    agentSel.id = 'oc-activity-agent-select';
-    agentSel.className = 'oc-filter-select';
-    agentSel.innerHTML = safeHtml`<option value="all">All Agents</option>`;
-    (snapshot?.catalog?.agents || []).forEach((a) => {
-      const opt = document.createElement('option');
-      opt.value = toStr(a.slug);
-      opt.textContent = `Agent: ${toStr(a.slug)}`;
-      agentSel.appendChild(opt);
-    });
-    agentSel.value = activityFilter.agent;
-    agentSel.onchange = (e) => {
-      activityFilter.agent = (e.target as HTMLSelectElement).value;
-      render();
-    };
-    filterBar.appendChild(agentSel);
+  // Tenant select
+  const tenantSel = document.createElement('select');
+  tenantSel.id = 'oc-activity-tenant-select';
+  tenantSel.className = 'oc-filter-select';
+  tenantSel.innerHTML = safeHtml`<option value="all">All Tenants</option>`;
+  (snapshot?.tenants || []).forEach((t) => {
+    const opt = document.createElement('option');
+    opt.value = toStr(t.slug);
+    opt.textContent = `Tenant: ${toStr(t.slug)}`;
+    tenantSel.appendChild(opt);
+  });
+  tenantSel.value = activityFilter.tenant;
+  tenantSel.onchange = (e) => {
+    activityFilter.tenant = (e.target as HTMLSelectElement).value;
+    render();
+  };
+  filterBar.appendChild(tenantSel);
 
-    const statusSel = document.createElement('select');
-    statusSel.id = 'oc-activity-status-select';
-    statusSel.className = 'oc-filter-select';
-    statusSel.setAttribute('aria-label', 'Activity status');
-    const allStatus = document.createElement('option');
-    allStatus.value = 'all';
-    allStatus.textContent = 'All Statuses';
-    statusSel.appendChild(allStatus);
-    const statuses = new Set((snapshot?.activity?.[activityFilter.tab] || []).map(item => item.status));
-    for (const status of [...statuses].sort()) {
-      const opt = document.createElement('option');
-      opt.value = status;
-      opt.textContent = status;
-      statusSel.appendChild(opt);
-    }
-    statusSel.value = statuses.has(activityFilter.status) ? activityFilter.status : 'all';
-    statusSel.onchange = () => { activityFilter.status = statusSel.value; render(); };
-    filterBar.appendChild(statusSel);
+  // Agent select
+  const agentSel = document.createElement('select');
+  agentSel.id = 'oc-activity-agent-select';
+  agentSel.className = 'oc-filter-select';
+  agentSel.innerHTML = safeHtml`<option value="all">All Agents</option>`;
+  (snapshot?.catalog?.agents || []).forEach((a) => {
+    const opt = document.createElement('option');
+    opt.value = toStr(a.slug);
+    opt.textContent = `Agent: ${toStr(a.slug)}`;
+    agentSel.appendChild(opt);
+  });
+  agentSel.value = activityFilter.agent;
+  agentSel.onchange = (e) => {
+    activityFilter.agent = (e.target as HTMLSelectElement).value;
+    render();
+  };
+  filterBar.appendChild(agentSel);
 
-    frag.appendChild(filterBar);
-
-    const rawActivityData = snapshot?.activity ? snapshot.activity[activityFilter.tab] || [] : [];
-    const normalizedList: ActivityRowItem[] = toArr<Record<string, unknown>>(rawActivityData).map((item) => ({
-      id: toStr(item.id),
-      timestamp: toStr(item.timestamp || item.created || item.time),
-      tenant: toStr(item.tenant),
-      agent: toStr(item.agent),
-      summary: toStr(item.summary || item.title || item.name || item.action),
-      status: toStr(item.status || 'unknown'),
-      jobId: toStr(item.jobId),
-      artifactId: toStr(item.artifactId),
-      source: toStr(toArr<string>(item.sources)[0]),
-      payload: item,
-    }));
-
-    const filteredData = normalizedList.filter((act) => {
-      const q = activityFilter.search.toLowerCase().trim();
-      if (q) {
-        const matchId = act.id.toLowerCase().includes(q);
-        const matchSum = (act.summary || '').toLowerCase().includes(q);
-        if (!matchId && !matchSum) return false;
-      }
-      if (activityFilter.tenant !== 'all' && act.tenant !== activityFilter.tenant) return false;
-      if (activityFilter.agent !== 'all' && act.agent !== activityFilter.agent) return false;
-      if (statuses.has(activityFilter.status) && act.status !== activityFilter.status) return false;
-      return true;
-    });
-
-    const tableCont = document.createElement('div');
-    tableCont.className = 'oc-table-container';
-    const table = document.createElement('table');
-    table.className = 'oc-table';
-    table.innerHTML = safeHtml`<thead>
-      <tr>
-        <th>ID</th>
-        <th>Timestamp</th>
-        <th>Tenant</th>
-        <th>Agent</th>
-        <th>Summary</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
-    </thead>`;
-    const tbody = document.createElement('tbody');
-
-    if (filteredData.length === 0) {
-      tbody.innerHTML = safeHtml`<tr><td colspan="7" style="text-align:center; color:var(--oc-text-muted);">${rawActivityData.length ? 'No activity records match the selected filters.' : `No scoped ${activityFilter.tab} records are available in this snapshot. This view shows projected records, not a live execution feed.`}</td></tr>`;
-    } else {
-      filteredData.forEach((act) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = safeHtml`<td><code>${act.id}</code></td>
-          <td>${act.timestamp || '—'}</td>
-          <td>${act.tenant || '—'}</td>
-          <td>${act.agent || '—'}</td>
-          <td>${act.summary || '—'}</td>
-          <td><span class="oc-badge">${act.status || 'n/a'}</span></td>
-          <td></td>`;
-
-        const actionTd = tr.querySelector('td:last-child')!;
-        const viewBtn = document.createElement('button');
-        viewBtn.className = 'oc-btn oc-btn-sm';
-        viewBtn.textContent = '🔍 Details';
-        viewBtn.onclick = () => openActivityDialog(act);
-        actionTd.appendChild(viewBtn);
-
-        tbody.appendChild(tr);
-      });
-    }
-    table.appendChild(tbody);
-    tableCont.appendChild(table);
-    frag.appendChild(tableCont);
-
-    return frag;
+  // Status select
+  const statusSel = document.createElement('select');
+  statusSel.id = 'oc-activity-status-select';
+  statusSel.className = 'oc-filter-select';
+  statusSel.setAttribute('aria-label', 'Activity status');
+  const allStatus = document.createElement('option');
+  allStatus.value = 'all';
+  allStatus.textContent = 'All Statuses';
+  statusSel.appendChild(allStatus);
+  const statuses = new Set((snapshot?.activity?.[activityFilter.tab] || []).map(item => item.status));
+  for (const status of [...statuses].sort()) {
+    const opt = document.createElement('option');
+    opt.value = status;
+    opt.textContent = status;
+    statusSel.appendChild(opt);
   }
+  statusSel.value = statuses.has(activityFilter.status) ? activityFilter.status : 'all';
+  statusSel.onchange = () => { activityFilter.status = statusSel.value; render(); };
+  filterBar.appendChild(statusSel);
+
+  frag.appendChild(filterBar);
+
+  const rawActivityData = snapshot?.activity ? snapshot.activity[activityFilter.tab] || [] : [];
+  const normalizedList: ActivityRowItem[] = toArr<Record<string, unknown>>(rawActivityData).map((item) => ({
+    id: toStr(item.id),
+    timestamp: toStr(item.timestamp || item.created || item.time),
+    tenant: toStr(item.tenant),
+    agent: toStr(item.agent),
+    summary: toStr(item.summary || item.title || item.name || item.action),
+    status: toStr(item.status || 'unknown'),
+    jobId: toStr(item.jobId),
+    artifactId: toStr(item.artifactId),
+    source: toStr(toArr<string>(item.sources)[0]),
+    payload: item,
+  }));
+
+  const filteredData = normalizedList.filter((act) => {
+    const q = activityFilter.search.toLowerCase().trim();
+    if (q) {
+      const matchId = act.id.toLowerCase().includes(q);
+      const matchSum = (act.summary || '').toLowerCase().includes(q);
+      if (!matchId && !matchSum) return false;
+    }
+    if (activityFilter.tenant !== 'all' && act.tenant !== activityFilter.tenant) return false;
+    if (activityFilter.agent !== 'all' && act.agent !== activityFilter.agent) return false;
+    if (statuses.has(activityFilter.status) && act.status !== activityFilter.status) return false;
+    return true;
+  });
+
+  const ticketList = document.createElement('div');
+  ticketList.className = 'oc-ticket-list';
+  ticketList.style.display = 'flex';
+  ticketList.style.flexDirection = 'column';
+  ticketList.style.gap = '0.75rem';
+
+  if (filteredData.length === 0) {
+    const emptyCard = document.createElement('div');
+    emptyCard.style.padding = '1.75rem';
+    emptyCard.style.textAlign = 'center';
+    emptyCard.style.borderRadius = '12px';
+    emptyCard.style.border = '1px dashed var(--oc-border-subtle, #e6ded0)';
+    emptyCard.style.color = 'var(--oc-text-muted, #7c7263)';
+    emptyCard.style.background = 'var(--oc-bg-surface, #fbf7ee)';
+    emptyCard.textContent = rawActivityData.length
+      ? 'No activity records match the selected filters.'
+      : `No scoped ${activityFilter.tab} records are available in this snapshot. This view shows projected records, not a live execution feed.`;
+    ticketList.appendChild(emptyCard);
+  } else {
+    filteredData.forEach((act) => {
+      const ticket = document.createElement('article');
+      ticket.className = 'oc-record-ticket';
+      ticket.style.display = 'flex';
+      ticket.style.flexDirection = 'column';
+      ticket.style.padding = '0.9rem 1.15rem';
+      ticket.style.borderRadius = '14px';
+      ticket.style.background = 'var(--oc-bg-card, #ffffff)';
+      ticket.style.border = '1.5px solid var(--oc-border-subtle, #e6ded0)';
+      ticket.style.boxShadow = '0 3px 0 var(--oc-shadow-tactile, #ded5c2)';
+      ticket.style.gap = '0.5rem';
+
+      const head = document.createElement('div');
+      head.className = 'oc-ticket-head';
+      head.style.display = 'flex';
+      head.style.alignItems = 'center';
+      head.style.justifyContent = 'space-between';
+      head.style.gap = '0.75rem';
+
+      const titleBox = document.createElement('div');
+      titleBox.style.display = 'flex';
+      titleBox.style.alignItems = 'center';
+      titleBox.style.gap = '0.5rem';
+      titleBox.innerHTML = safeHtml`
+        <span class="oc-object-mark" style="display:inline-flex; width:20px; height:20px; color:var(--oc-color-orange, #d96b27);"></span>
+        <code style="font-weight:700;">${act.id}</code>
+        <span style="font-weight:600; color:var(--oc-text-main, #24201b); font-size: 0.9rem;">${act.summary || '—'}</span>
+      `;
+      const iconSlot = titleBox.querySelector('.oc-object-mark')!;
+      iconSlot.appendChild(toyIcon('Activity'));
+      head.appendChild(titleBox);
+
+      const stamp = document.createElement('span');
+      stamp.className = 'oc-ticket-stamp oc-badge';
+      stamp.style.textTransform = 'uppercase';
+      stamp.style.fontSize = '0.75rem';
+      stamp.textContent = act.status || 'n/a';
+      head.appendChild(stamp);
+      ticket.appendChild(head);
+
+      const meta = document.createElement('div');
+      meta.className = 'oc-ticket-meta';
+      meta.style.display = 'flex';
+      meta.style.alignItems = 'center';
+      meta.style.justifyContent = 'space-between';
+      meta.style.flexWrap = 'wrap';
+      meta.style.gap = '0.5rem';
+      meta.style.fontSize = '0.78rem';
+      meta.style.color = 'var(--oc-text-muted, #7c7263)';
+
+      const tags = document.createElement('div');
+      tags.style.display = 'flex';
+      tags.style.gap = '0.75rem';
+      tags.innerHTML = safeHtml`
+        <span>Time: <strong>${act.timestamp || '—'}</strong></span>
+        <span>Tenant: <strong>${act.tenant || '—'}</strong></span>
+        <span>Agent: <strong>${act.agent || '—'}</strong></span>
+      `;
+      meta.appendChild(tags);
+
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'oc-btn oc-btn-sm';
+      viewBtn.textContent = 'View Envelope';
+      viewBtn.onclick = () => openActivityDialog(act);
+      meta.appendChild(viewBtn);
+
+      ticket.appendChild(meta);
+      ticketList.appendChild(ticket);
+    });
+  }
+
+  frag.appendChild(ticketList);
+  return frag;
+}
 
   // Workbench Section
   function renderWorkbenchSection(): HTMLElement {
@@ -2290,7 +2624,7 @@ export function mountCockpit(
     const secHeader = document.createElement('div');
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Operations Workbench</h2>
+      <h2 class="oc-section-title">Blueprint bench</h2>
       <div class="oc-section-desc">Read-only planning simulation with tenant context, route projection, step verification, and authorization guarantees</div>
     </div>`;
     frag.appendChild(secHeader);
@@ -2298,36 +2632,19 @@ export function mountCockpit(
     // Display Server Authorized Capabilities Status Card (No mutations allowed)
     const capCard = document.createElement('div');
     capCard.className = 'oc-card';
-    capCard.innerHTML = safeHtml`<div class="oc-card-header">
-      <div>
-        <h3 class="oc-card-title">Server Authorized Capabilities Ledger</h3>
-        <div class="oc-card-subtitle">Strict read-only operational boundary enforcement</div>
-      </div>
-      <span class="oc-badge oc-badge-scope-public">STRICT READ-ONLY</span>
-    </div>
-    <div class="oc-card-body">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.5rem;">
-        <div class="oc-badge">EXECUTING: FALSE</div>
-        <div class="oc-badge">ENABLING: FALSE</div>
-        <div class="oc-badge">APPROVING: FALSE</div>
-        <div class="oc-badge">PLAN PREVIEW: READ-ONLY ONLY</div>
-      </div>
-      <div style="margin-top:6px;font-size:0.78rem;color:var(--oc-text-muted);">
-        Mutation, execution, and direct policy approvals are completely disallowed through the Operations Cockpit interface.
-      </div>
-    </div>`;
+    capCard.innerHTML = safeHtml`<h3 class="oc-card-title">Sketch a mission</h3><p class="oc-card-body">Choose a neighborhood and collect the parts. The bench returns a paper proposal with real route and enablement decisions; execution, enabling and approval remain separate.</p>`;
     frag.appendChild(capCard);
 
     const isDisconnected = isStale || lastLoadedSource === 'fixture';
     if (isDisconnected) {
       const warn = document.createElement('div');
       warn.className = 'oc-alert oc-alert-warning';
-      warn.innerHTML = safeHtml`<strong>⚠️ Plan simulation offline:</strong> Fallback fixture active or disconnected. Plan preview requires active connected API verification.`;
+      warn.innerHTML = safeHtml`<strong>Plan simulation offline:</strong> Fallback fixture active or disconnected. Plan preview requires active connected API verification.`;
       frag.appendChild(warn);
     }
 
     const form = document.createElement('div');
-    form.className = 'oc-card';
+    form.className = 'oc-card oc-blueprint-board';
     form.style.display = 'flex';
     form.style.flexDirection = 'column';
     form.style.gap = '1rem';
@@ -2583,95 +2900,180 @@ export function mountCockpit(
   }
 
   // Evidence Section
-  function renderEvidence(): HTMLElement {
-    const frag = document.createElement('div');
-    frag.style.display = 'flex';
-    frag.style.flexDirection = 'column';
-    frag.style.gap = '1rem';
+function renderEvidence(): HTMLElement {
+  const frag = document.createElement('div');
+  frag.style.display = 'flex';
+  frag.style.flexDirection = 'column';
+  frag.style.gap = '1.25rem';
 
-    const secHeader = document.createElement('div');
-    secHeader.className = 'oc-section-header';
-    secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Acceptance Evidence Matrix</h2>
-      <div class="oc-section-desc">ISA.md criteria compliance ledger and formal acceptance status verification</div>
-    </div>`;
-    frag.appendChild(secHeader);
+  const secHeader = document.createElement('div');
+  secHeader.className = 'oc-section-header';
+  secHeader.innerHTML = safeHtml`<div>
+    <h2 class="oc-section-title">Stamp book</h2>
+    <div class="oc-section-desc">Formal specification acceptance ledger stamped against ISA.md criteria</div>
+  </div>`;
+  frag.appendChild(secHeader);
 
-    const filterBar = document.createElement('div');
-    filterBar.className = 'oc-filter-bar';
-    const sel = document.createElement('select');
-    sel.id = 'oc-evidence-status-select';
-    sel.className = 'oc-filter-select';
-    sel.innerHTML = safeHtml`<option value="all">All Criteria</option>
-      <option value="open">Open</option>
-      <option value="accepted">Accepted</option>`;
-    sel.value = evidenceFilter.status;
-    sel.onchange = (e) => {
-      evidenceFilter.status = (e.target as HTMLSelectElement).value as 'all' | 'open' | 'accepted';
-      render();
-    };
-    filterBar.appendChild(sel);
-    frag.appendChild(filterBar);
+  const filterBar = document.createElement('div');
+  filterBar.className = 'oc-filter-bar';
+  const sel = document.createElement('select');
+  sel.id = 'oc-evidence-status-select';
+  sel.className = 'oc-filter-select';
+  sel.innerHTML = safeHtml`<option value="all">All Criteria</option>
+    <option value="open">Open</option>
+    <option value="accepted">Accepted</option>`;
+  sel.value = evidenceFilter.status;
+  sel.onchange = (e) => {
+    evidenceFilter.status = (e.target as HTMLSelectElement).value as 'all' | 'open' | 'accepted';
+    render();
+  };
+  filterBar.appendChild(sel);
+  frag.appendChild(filterBar);
 
-    const rawList = snapshot?.acceptance || [];
-    const totalCount = rawList.length;
-    const acceptedCount = rawList.filter((i) => i.status === 'accepted').length;
-    const openCount = totalCount - acceptedCount;
+  const rawList = snapshot?.acceptance || [];
+  const totalCount = rawList.length;
+  const acceptedCount = rawList.filter((i) => i.status === 'accepted').length;
+  const openCount = totalCount - acceptedCount;
 
-    const statSummary = document.createElement('div');
-    statSummary.style.fontSize = '0.85rem';
-    statSummary.style.color = 'var(--oc-text-muted)';
-    statSummary.textContent = `Total: ${totalCount} | Accepted: ${acceptedCount} | Open: ${openCount}`;
-    frag.appendChild(statSummary);
+  const statSummary = document.createElement('div');
+  statSummary.style.fontSize = '0.85rem';
+  statSummary.style.color = 'var(--oc-text-muted, #7c7263)';
+  statSummary.style.display = 'flex';
+  statSummary.style.alignItems = 'center';
+  statSummary.style.gap = '1rem';
+  statSummary.innerHTML = safeHtml`
+    <span>Stamped Total: <strong>${totalCount}</strong></span>
+    <span>•</span>
+    <span>Accepted: <strong>${acceptedCount}</strong></span>
+    <span>•</span>
+    <span>Open Verification: <strong>${openCount}</strong></span>
+  `;
+  frag.appendChild(statSummary);
 
-    const list = rawList.filter((item) => {
-      if (evidenceFilter.status !== 'all' && item.status !== evidenceFilter.status) return false;
-      return true;
-    });
+  // Honest Evidence Notice
+  const stampNotice = document.createElement('div');
+  stampNotice.style.padding = '0.65rem 0.9rem';
+  stampNotice.style.borderRadius = '10px';
+  stampNotice.style.background = 'var(--oc-bg-surface, #fbf7ee)';
+  stampNotice.style.border = '1px dashed var(--oc-border-subtle, #e6ded0)';
+  stampNotice.style.fontSize = '0.75rem';
+  stampNotice.style.color = 'var(--oc-text-muted, #7c7263)';
+  stampNotice.textContent = 'Notice: Acceptance stamps reflect declared ISA.md ledger status. An open or unverified stamp indicates pending formal verification, not runtime operational failure.';
+  frag.appendChild(stampNotice);
 
-    const tableCont = document.createElement('div');
-    tableCont.className = 'oc-table-container';
-    const table = document.createElement('table');
-    table.className = 'oc-table';
-    table.innerHTML = safeHtml`<thead>
-      <tr>
-        <th>ID</th>
-        <th>Criterion</th>
-        <th>Status</th>
-        <th>Source Specification</th>
-      </tr>
-    </thead>`;
-    const tbody = document.createElement('tbody');
+  const list = rawList.filter((item) => {
+    if (evidenceFilter.status !== 'all' && item.status !== evidenceFilter.status) return false;
+    return true;
+  });
+
+  const stampGrid = document.createElement('div');
+  stampGrid.className = 'oc-ticket-list';
+  stampGrid.style.display = 'flex';
+  stampGrid.style.flexDirection = 'column';
+  stampGrid.style.gap = '0.75rem';
+
+  if (list.length === 0) {
+    const emptyBox = document.createElement('div');
+    emptyBox.style.padding = '1.75rem';
+    emptyBox.style.textAlign = 'center';
+    emptyBox.style.borderRadius = '12px';
+    emptyBox.style.border = '1px dashed var(--oc-border-subtle, #e6ded0)';
+    emptyBox.style.color = 'var(--oc-text-muted, #7c7263)';
+    emptyBox.textContent = 'No acceptance criteria match the active stamp filter.';
+    stampGrid.appendChild(emptyBox);
+  } else {
     list.forEach((ev) => {
-      const tr = document.createElement('tr');
       const isAcc = ev.status === 'accepted';
       const srcDoc = toStr(ev.source, 'ISA.md');
-      tr.innerHTML = safeHtml`<td><strong>${toStr(ev.id)}</strong></td>
-        <td>${toStr(ev.criterion)}</td>
-        <td><span class="oc-badge ${isAcc ? 'oc-badge-status-reachable' : 'oc-badge-status-warning'}">${toStr(ev.status).toUpperCase()}</span></td>
-        <td></td>`;
 
-      const srcTd = tr.querySelector('td:last-child')!;
+      const ticket = document.createElement('article');
+      ticket.className = 'oc-record-ticket';
+      ticket.style.display = 'flex';
+      ticket.style.flexDirection = 'column';
+      ticket.style.padding = '0.9rem 1.15rem';
+      ticket.style.borderRadius = '14px';
+      ticket.style.background = 'var(--oc-bg-card, #ffffff)';
+      ticket.style.border = isAcc ? '1.5px solid var(--oc-border-subtle, #e6ded0)' : '1.5px dashed var(--oc-border-warning, #f0b884)';
+      ticket.style.boxShadow = '0 3px 0 var(--oc-shadow-tactile, #ded5c2)';
+      ticket.style.gap = '0.5rem';
+
+      const head = document.createElement('div');
+      head.className = 'oc-ticket-head';
+      head.style.display = 'flex';
+      head.style.alignItems = 'flex-start';
+      head.style.justifyContent = 'space-between';
+      head.style.gap = '0.75rem';
+
+      const leftBox = document.createElement('div');
+      leftBox.style.display = 'flex';
+      leftBox.style.alignItems = 'flex-start';
+      leftBox.style.gap = '0.6rem';
+
+      const iconWrap = document.createElement('div');
+      iconWrap.className = 'oc-object-mark';
+      iconWrap.style.width = '22px';
+      iconWrap.style.height = '22px';
+      iconWrap.style.flexShrink = '0';
+      iconWrap.style.marginTop = '2px';
+      iconWrap.style.color = isAcc ? 'var(--oc-color-forest, #2d5a3f)' : 'var(--oc-color-orange, #d96b27)';
+      iconWrap.appendChild(toyIcon('Evidence'));
+      leftBox.appendChild(iconWrap);
+
+      const critInfo = document.createElement('div');
+      critInfo.innerHTML = safeHtml`
+        <div style="font-size: 0.8rem; font-weight: 700; color: var(--oc-text-muted, #7c7263); margin-bottom: 0.15rem;">
+          Criterion <code>${toStr(ev.id)}</code>
+        </div>
+        <div style="font-size: 0.9rem; font-weight: 600; color: var(--oc-text-main, #24201b); line-height: 1.35;">
+          ${toStr(ev.criterion)}
+        </div>
+      `;
+      leftBox.appendChild(critInfo);
+      head.appendChild(leftBox);
+
+      const stampBadge = document.createElement('span');
+      stampBadge.className = `oc-ticket-stamp oc-badge ${isAcc ? 'oc-badge-status-reachable' : 'oc-badge-status-warning'}`;
+      stampBadge.style.fontSize = '0.75rem';
+      stampBadge.style.fontWeight = '700';
+      stampBadge.style.flexShrink = '0';
+      stampBadge.textContent = toStr(ev.status).toUpperCase();
+      head.appendChild(stampBadge);
+      ticket.appendChild(head);
+
+      const footer = document.createElement('div');
+      footer.className = 'oc-ticket-meta';
+      footer.style.display = 'flex';
+      footer.style.alignItems = 'center';
+      footer.style.justifyContent = 'space-between';
+      footer.style.paddingTop = '0.35rem';
+      footer.style.borderTop = '1px solid var(--oc-border-subtle, #f0e9dc)';
+      footer.style.fontSize = '0.78rem';
+      footer.style.color = 'var(--oc-text-muted, #7c7263)';
+
+      const docLabel = document.createElement('span');
+      docLabel.textContent = 'Specification Ledger:';
+      footer.appendChild(docLabel);
+
       if (snapshot?.documents?.some((d) => d.path === srcDoc)) {
         const docBtn = document.createElement('button');
         docBtn.className = 'oc-btn oc-btn-sm';
-        docBtn.textContent = `📖 ${srcDoc}`;
+        docBtn.textContent = `${srcDoc}`;
         docBtn.onclick = () => openDocViewer(srcDoc);
-        srcTd.appendChild(docBtn);
+        footer.appendChild(docBtn);
       } else {
         const codeEl = document.createElement('code');
         codeEl.textContent = srcDoc;
-        srcTd.appendChild(codeEl);
+        footer.appendChild(codeEl);
       }
 
-      tbody.appendChild(tr);
+      ticket.appendChild(footer);
+      stampGrid.appendChild(ticket);
     });
-    table.appendChild(tbody);
-    tableCont.appendChild(table);
-    frag.appendChild(tableCont);
-
-    return frag;
   }
+
+  frag.appendChild(stampGrid);
+  return frag;
+}
 
   // Resources Section
   function renderResources(): HTMLElement {
@@ -2683,7 +3085,7 @@ export function mountCockpit(
     const secHeader = document.createElement('div');
     secHeader.className = 'oc-section-header';
     secHeader.innerHTML = safeHtml`<div>
-      <h2 class="oc-section-title">Operations Knowledge Archive</h2>
+      <h2 class="oc-section-title">Field notes</h2>
       <div class="oc-section-desc">Authorized registered documents catalog, source architecture references, and contract specifications</div>
     </div>`;
     frag.appendChild(secHeader);
@@ -2781,13 +3183,13 @@ export function mountCockpit(
       const viewBtn = document.createElement('button');
       viewBtn.id = `oc-doc-${docPath}`;
       viewBtn.className = 'oc-btn oc-btn-sm oc-btn-primary';
-      viewBtn.textContent = '📖 Inspect Document';
+      viewBtn.textContent = 'Inspect Document';
       viewBtn.onclick = () => openDocViewer(docPath);
       footer.appendChild(viewBtn);
 
       const jumpBtn = document.createElement('button');
       jumpBtn.className = 'oc-btn oc-btn-sm';
-      jumpBtn.textContent = '📍 Jump to Archive';
+      jumpBtn.textContent = 'Jump to Archive';
       jumpBtn.onclick = () => jumpToBuilding('knowledge-archive');
       footer.appendChild(jumpBtn);
 
@@ -2801,7 +3203,7 @@ export function mountCockpit(
 
   // Global Keydown Listener for accessibility
   const handleGlobalKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && isOpen && !docDialog.open) {
+    if (e.key === 'Escape' && isOpen && !docDialog.open && !activityDialog.open && rootEl.contains(e.target as Node)) {
       e.preventDefault();
       closeOverlay();
     }
@@ -2813,7 +3215,7 @@ export function mountCockpit(
       lastFocusedElement = (document.activeElement as HTMLElement) || null;
       isOpen = true;
       rootEl.removeAttribute('hidden');
-      if (!rootEl.open) rootEl.showModal();
+      host.dispatchEvent(new CustomEvent('cockpit-open'));
 
       if (nodeId && BUILDING_ROUTING[nodeId]) {
         const route = BUILDING_ROUTING[nodeId];
@@ -2843,7 +3245,7 @@ export function mountCockpit(
       lastFocusedElement = (document.activeElement as HTMLElement) || null;
       isOpen = true;
       rootEl.removeAttribute('hidden');
-      if (!rootEl.open) rootEl.showModal();
+      host.dispatchEvent(new CustomEvent('cockpit-open'));
       startPolling();
 
       const expectedFetchGeneration = fetchGeneration + (snapshot ? 0 : 1);
