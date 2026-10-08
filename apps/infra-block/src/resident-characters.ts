@@ -1,12 +1,16 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import type { BuildingState, GameState } from './contracts';
+import type { BuildingState, GameState, CrewControlState } from './contracts';
+import { navigateCrew, safeCrewHome, type CrewPoint } from './crew-navigation';
 import type { ResidentDefinition, ResidentPresence, ResidentSlug } from './residents';
 
 export interface ResidentCrew {
   readonly group: THREE.Group;
   readonly pickTargets: THREE.Object3D[];
   setPresence(presence: readonly ResidentPresence[]): void;
+  controlResident(slug: string | null): void;
+  moveResident(input: CrewPoint, forward: CrewPoint, dt: number): CrewControlState;
+  controlState(): CrewControlState;
   update(dt: number, mode: GameState['mode']): void;
   dispose(): void;
 }
@@ -572,7 +576,57 @@ if (roleSlug === 'ceo') {
 
   const scratchTarget = new THREE.Vector3();
 
+  let controlledSlug: ResidentSlug | null = null;
+  let manuallyMoving = false;
+  const markerMaterial = trackMat(new THREE.MeshBasicMaterial({ color: '#ebbd49', depthWrite: false }));
+  const marker = new THREE.Mesh(trackGeo(new THREE.TorusGeometry(1.2, 0.09, 8, 36)), markerMaterial);
+  marker.rotation.x = -Math.PI / 2;
+  marker.visible = false;
+  rootGroup.add(marker);
+  const controlState = (): CrewControlState => {
+    const selected = residents.find(item => item.slug === controlledSlug);
+    if (!selected) return { slug: null, x: 0, z: 0, moving: false, nearbySlug: null };
+    const position = selected.actorGroup.position;
+    const nearest = residents.map(item => ({ slug: item.slug, distance: position.distanceTo(item.stationPos) }))
+      .filter(item => item.distance <= 5).sort((a, b) => a.distance - b.distance)[0];
+    return { slug: selected.slug, x: position.x, z: position.z, moving: manuallyMoving, nearbySlug: nearest?.slug ?? null };
+  };
   return {
+    controlState,
+    controlResident(slug) {
+      const previous = residents.find(item => item.slug === controlledSlug);
+      if (previous) {
+        previous.actorGroup.position.copy(previous.homePos);
+        previous.currentLeg = 0;
+        previous.legProgress = 0;
+        previous.leftArm.rotation.x = previous.rightArm.rotation.x = previous.leftLeg.rotation.x = previous.rightLeg.rotation.x = 0;
+      }
+      const selected = residents.find(item => item.slug === slug);
+      controlledSlug = selected?.slug ?? null;
+      manuallyMoving = false;
+      marker.visible = Boolean(selected);
+      if (selected) {
+        const home = safeCrewHome(selected.homePos, buildings);
+        selected.actorGroup.position.set(home.x, 0, home.z);
+        marker.position.set(home.x, 0.08, home.z);
+        markerMaterial.color.set(selected.definition.color);
+      }
+    },
+    moveResident(input, forward, dt) {
+      const selected = residents.find(item => item.slug === controlledSlug);
+      if (!selected) return controlState();
+      const previous = selected.actorGroup.position.clone();
+      const next = navigateCrew(previous, input, forward, dt, buildings);
+      selected.actorGroup.position.set(next.x, 0, next.z);
+      manuallyMoving = previous.distanceToSquared(selected.actorGroup.position) > 0.000001;
+      if (manuallyMoving) selected.actorGroup.rotation.y = Math.atan2(next.x - previous.x, next.z - previous.z);
+      if (!reducedMotion && manuallyMoving) selected.walkCycle += Math.max(0, Math.min(dt, 0.1)) * 10;
+      const swing = !reducedMotion && manuallyMoving ? Math.sin(selected.walkCycle) * 0.28 : 0;
+      selected.leftLeg.rotation.x = selected.rightArm.rotation.x = swing;
+      selected.rightLeg.rotation.x = selected.leftArm.rotation.x = -swing;
+      marker.position.set(next.x, 0.08, next.z);
+      return controlState();
+    },
     group: rootGroup,
     pickTargets,
 
@@ -601,11 +655,11 @@ if (roleSlug === 'ceo') {
           if (prevPresence.state !== p.state) {
             res.currentLeg = 0;
             res.legProgress = 0;
-            res.actorGroup.position.copy(res.homePos);
+            if (res.slug !== controlledSlug) res.actorGroup.position.copy(res.homePos);
           }
           if (p.state === 'held') {
             res.gateMesh.visible = true;
-            res.actorGroup.position.copy(res.homePos);
+            if (res.slug !== controlledSlug) res.actorGroup.position.copy(res.homePos);
             res.leftArm.rotation.x = 0;
             res.rightArm.rotation.x = 0;
             res.leftLeg.rotation.x = 0;
@@ -613,7 +667,7 @@ if (roleSlug === 'ceo') {
           } else {
             res.gateMesh.visible = false;
             if (p.state !== 'active') {
-              res.actorGroup.position.copy(res.homePos);
+              if (res.slug !== controlledSlug) res.actorGroup.position.copy(res.homePos);
               res.leftArm.rotation.x = 0;
               res.rightArm.rotation.x = 0;
               res.leftLeg.rotation.x = 0;
@@ -631,7 +685,7 @@ if (roleSlug === 'ceo') {
       const safeDt = Number.isFinite(dt) ? Math.max(0, Math.min(dt, MAX_DT)) : 0;
 
       for (const res of residents) {
-        if (reducedMotion || res.presence.state !== 'active' || res.waypoints.length < 2) {
+        if (res.slug === controlledSlug || reducedMotion || res.presence.state !== 'active' || res.waypoints.length < 2) {
           continue;
         }
 

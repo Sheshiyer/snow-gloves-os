@@ -46,7 +46,7 @@ describe('ResidentCrew', () => {
     allocatedCrews.push(crew);
 
     expect(crew.pickTargets).toHaveLength(14);
-    expect(crew.group.children).toHaveLength(7);
+    expect(crew.group.children.filter(child => child.userData.residentSlug)).toHaveLength(7);
 
     for (const def of RESIDENTS) {
       const root = crew.group.children.find((c) => c.userData.residentSlug === def.slug);
@@ -178,6 +178,36 @@ describe('ResidentCrew', () => {
       crew.setPresence([]);
       expect(actor.position.equals(home)).toBe(true);
     }
+  });
+
+  it('manually explores all seven residents without changing presence and releases to home', () => {
+    const crew = createResidentCrew(RESIDENTS, getBuildings(), true);
+    allocatedCrews.push(crew);
+    const presence = demoPresence('ceo');
+    const evidence = JSON.stringify(presence);
+    crew.setPresence(presence);
+    for (const definition of RESIDENTS) {
+      crew.controlResident(definition.slug);
+      const initial = crew.controlState();
+      expect(initial.slug).toBe(definition.slug);
+      expect(initial.nearbySlug).toBe(definition.slug);
+      let state = initial;
+      for (let i = 0; i < 10; i++) state = crew.moveResident({ x: 1, z: 0 }, { x: 0, z: -1 }, 0.1);
+      expect(state.x).not.toBe(initial.x);
+      const stopped = crew.moveResident({ x: 0, z: 0 }, { x: 0, z: -1 }, 0.1);
+      expect(stopped).toMatchObject({ slug: definition.slug, x: state.x, z: state.z, moving: false });
+      crew.setPresence(presence);
+      crew.update(0.1, 'explore');
+      expect(crew.controlState().x).toBe(state.x);
+      const actor = crew.pickTargets.find(item => item.name === `Actor_${definition.slug}`)!;
+      const manuallyParked = actor.position.clone();
+      crew.controlResident(null);
+      expect(crew.controlState().slug).toBeNull();
+      expect(actor.position.equals(manuallyParked)).toBe(false);
+    }
+    expect(JSON.stringify(presence)).toBe(evidence);
+    crew.controlResident('unknown-agent');
+    expect(crew.controlState().slug).toBeNull();
   });
 
   it('stops active movement and parks to home on authoritative empty presence', () => {

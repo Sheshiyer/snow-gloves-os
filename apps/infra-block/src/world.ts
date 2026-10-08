@@ -45,7 +45,7 @@ export function createWorld(
   container.appendChild(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
+  controls.enableDamping = !reducedMotion;
   controls.dampingFactor = 0.08;
   controls.minDistance = 48;
   controls.maxDistance = 100;
@@ -58,8 +58,20 @@ export function createWorld(
   const townDirection = new THREE.Vector3(35, 37, 41).normalize();
   let fittedDistance = 90;
   let fittedMinDistance = 48;
+  let followSuspended = false;
+  let overlayWasOpen = false;
+  const hasOverlay = () => ['field-kit-open', 'source-notes-open', 'home-encounter-open'].some(name => document.body.classList.contains(name)) || Boolean(document.querySelector('dialog[open]'));
   const onWorldFocus = (event: Event) => {
     const id = (event as CustomEvent<string | null>).detail;
+    const controlled = residents.controlState();
+    followSuspended = Boolean(id && controlled.slug);
+    if (!id && controlled.slug) {
+      controls.minDistance = 18;
+      focusDistance = 29;
+      focusDirection = new THREE.Vector3(14, 34, 16).normalize();
+      focusTarget = new THREE.Vector3(controlled.x, 1.8, controlled.z);
+      return;
+    }
     const building = id ? buildingObjs.find(item => item.id === id) : null;
     const resident = RESIDENTS.find(item => item.nodeId === id);
     const station = resident ? residents.group.getObjectByName(`Station_${resident.slug}`) : null;
@@ -514,23 +526,26 @@ export function createWorld(
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
-      const direction = camera.position.clone().sub(controls.target).normalize();
-      let distance = 72;
+      const fitCamera = camera.clone();
+      const fitTarget = new THREE.Vector3(0, 3, 0);
+      let distance = 60;
       for (let i = 0; i < 24; i++) {
-        camera.position.copy(controls.target).addScaledVector(direction, distance);
-        camera.lookAt(controls.target);
-        camera.updateMatrixWorld();
+        fitCamera.position.copy(fitTarget).addScaledVector(townDirection, distance);
+        fitCamera.lookAt(fitTarget);
+        fitCamera.updateMatrixWorld();
         let fits = true;
         for (const x of [-26.3, 26.3]) for (const z of [-26.3, 26.3]) for (const y of [-1.6, 8]) {
-          const point = new THREE.Vector3(x, y, z).project(camera);
-          if (Math.abs(point.x) > 0.91 || Math.abs(point.y) > 0.88) fits = false;
+          const point = new THREE.Vector3(x, y, z).project(fitCamera);
+          if (Math.abs(point.x) > 1.08 || Math.abs(point.y) > 1.04) fits = false;
         }
         if (fits) break;
         distance *= 1.06;
       }
       fittedDistance = distance;
       fittedMinDistance = Math.max(48, distance * 0.7);
-      controls.minDistance = focusDistance === 36 ? 24 : fittedMinDistance;
+      const controlled = residents.controlState();
+      if (!controlled.slug && !focusTarget) camera.position.copy(controls.target).addScaledVector(townDirection, distance);
+      controls.minDistance = controlled.slug ? 18 : focusDistance === 36 ? 24 : fittedMinDistance;
       controls.maxDistance = distance * 1.7;
     }
   });
@@ -538,9 +553,34 @@ export function createWorld(
 
   // Return Controller
   return {
+    controlResident(slug: string | null) {
+      residents.controlResident(slug);
+      const selectedSlug = residents.controlState().slug;
+      focusTarget = null;
+      focusDirection = null;
+      focusDistance = null;
+      controls.minDistance = selectedSlug ? 18 : fittedMinDistance;
+      onWorldFocus(new CustomEvent('world-focus', { detail: selectedSlug ? RESIDENTS.find(item => item.slug === selectedSlug)?.nodeId ?? null : null }));
+      if (selectedSlug) {
+        followSuspended = false;
+        controls.minDistance = 18;
+        focusDistance = 29;
+      }
+    },
+    moveResident(x: number, z: number, dt: number) {
+      if ((x || z) && followSuspended && !hasOverlay()) onWorldFocus(new CustomEvent('world-focus', { detail: null }));
+      const forward = camera.getWorldDirection(new THREE.Vector3());
+      return residents.moveResident({ x, z: -z }, { x: forward.x, z: forward.z }, dt);
+    },
     update(state: GameState, dt: number) {
       residents.update(dt, residentsEnabled ? state.mode : 'playing');
       if (!residentsEnabled) residents.group.visible = false;
+      const controlled = residents.controlState();
+      const overlayOpen = hasOverlay();
+      if (controlled.slug && overlayWasOpen && !overlayOpen) onWorldFocus(new CustomEvent('world-focus', { detail: null }));
+      overlayWasOpen = overlayOpen;
+      const followAllowed = Boolean(controlled.slug && !overlayOpen && !followSuspended);
+      if (followAllowed && focusTarget) focusTarget.set(controlled.x, 1.8, controlled.z);
       if (focusTarget) {
         const previous = controls.target.clone();
         controls.target.lerp(focusTarget, reducedMotion ? 1 : 1 - Math.exp(-Math.min(dt, 0.1) * 5));
@@ -557,6 +597,13 @@ export function createWorld(
           focusDistance = null;
           focusDirection = null;
         }
+      }
+      if (followAllowed && state.mode === 'explore') {
+        const alpha = reducedMotion ? 1 : 1 - Math.exp(-Math.min(dt, 0.1) * 7);
+        const target = new THREE.Vector3(controlled.x, 1.8, controlled.z);
+        const previous = controls.target.clone();
+        controls.target.lerp(target, alpha);
+        camera.position.add(controls.target.clone().sub(previous));
       }
       controls.update();
 
