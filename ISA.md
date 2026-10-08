@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 255/299
+progress: 257/299
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
@@ -410,9 +410,9 @@ until the actual mini supplies evidence.
 - [ ] ISC-287: Selected island activity labels distinguish observed work from local exploration.
 - [ ] ISC-288: Archipelago view frames the fleet without cloning four full renderers.
 - [ ] ISC-289: Island travel is a reversible local interface action.
-- [ ] ISC-290: World exploration recycles a bounded set of distant scenery chunks.
+- [x] ISC-290: World exploration recycles a bounded set of distant scenery chunks.
 - [x] ISC-291: The same scenery coordinates produce deterministic landforms.
-- [ ] ISC-292: Archipelago geometry stays within its declared submission and triangle budget.
+- [x] ISC-292: Archipelago geometry stays within its declared submission and triangle budget.
 - [ ] ISC-293: Balanced and Eco retain the existing resolution and shadow caps.
 - [ ] ISC-294: Actual WASD and station interaction work after island travel.
 - [ ] ISC-295: Portrait and landscape island controls remain reachable without page overflow.
@@ -1217,3 +1217,7 @@ Final ledger/public-source check: six focused backend acceptance regressions pas
 ## Verification — fleet archipelago source checkpoint, 8 October 2026
 
 Canonical four-slot topology, private inventory agreement, public template isolation, safe exact-node projection and planned-slot gates are integrated. Root composition tests plus frontend regressions:181 passed; focused cockpit backend:57 passed. Explicit private island enrollment seam received worker40backend/82focusedfrontend/strictTS checks and independent QA14backend/45frontend checks. Strict root production build passed before that additive seam and final travel fixes; final integrated compile remains required. World geometry tests prove deterministic nine-chunk caching, grounding and single town:18extra submissions,22,838combined triangles maximum. Root IAB actual four-slot projection and first chart were captured; cameraHUDocclusion was found and repair is underway. Browser acceptance remains open. Configured metadata is not physical-device proof.
+
+## Verification — fleet browser interim checkpoint
+
+Actual Codex IAB chart WASD worked with no controlled resident: worldZ35→-396.874 over2.4seconds; cached scenery remained9chunks. Field Kit froze chartcoordinates underheldW; packingaway preservedpan. Creativeisland travel updated slot,rolecaption andTown canvasaria; allworkremainedUnknown. ActualBalancedchart401calls,53,866submittedtriangles and242geometries; staticarchipelago15calls/7,856triangles plus13,798environmenttriangles. Chart HUD occlusion and sidekitfourcolumnwrapping were found; responsivecamera repair underway and sidekitcontainergrid now corrected. These are intermediate observations, not final browser acceptance.

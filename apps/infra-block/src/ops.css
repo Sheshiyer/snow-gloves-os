@@ -524,7 +524,7 @@ details.oc-connection-notes[open] summary::before {
 .oc-island-chart {padding:16px;border:1px solid #7e9b91;border-radius:16px;background:repeating-linear-gradient(0deg,#e8f0e9,#e8f0e9 35px,#dbe8df 36px);box-shadow:2px 3px 0 #49665933;}
 .oc-island-chart-title {font:700 22px "Barlow Condensed",sans-serif;color:#304e45;margin:0 0 6px;}
 .oc-island-chart-note {font-size:12px;color:#50685e;line-height:1.5;margin:0 0 14px;max-width:800px;}
-.oc-island-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+.oc-island-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:14px;}
 .oc-island-slot {position:relative;padding:17px 12px 12px;border:1px solid #7c9687;border-radius:40% 32% 16px 16px;background:#f8f2de;box-shadow:0 5px 0 #91aba280;min-width:0;}
 .oc-island-slot[data-wing="coding"] {border-top:5px solid #739aa6;}
 .oc-island-slot[data-wing="design"] {border-top:5px solid #bd8c88;}

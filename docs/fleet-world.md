@@ -28,4 +28,6 @@ islands:
 
 Its private `nodes/islands/mac-coding-2/node.yaml` must contain the same `wing` and `hostname`. Explicit slot entries take priority over the legacy wing assignment; missing or mismatched profiles remain Planned. Every configured slot must have a unique hostname. This example defines a source contract; it performs no enrollment or device action.
 
+An invalid entire `islands` map—unknown slot keys, a non-map value or more than four entries—holds assignments as Planned with a `fleet_islands_held` warning. An invalid entry holds only that explicitly named slot.
+
 One detailed town and one renderer are retained. The other fleet islands use distant silhouettes. Deterministic scenery chunks recycle as the chart moves; unnamed islets are scenery, not additional machines. Eco and Balanced retain the existing resolution, frame-rate and shadow limits. The geometry budget is 35,000 triangles for the environment and archipelago together, with at most 40 additional archipelago submissions.
