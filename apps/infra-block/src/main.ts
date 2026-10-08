@@ -157,7 +157,22 @@ let worldController: WorldController | null = null;
 let cockpit: ReturnType<typeof mountCockpit> | null = null;
 function openOperations(nodeId?: string): void {
   if (gameState.mode === 'playing') { pause(gameState); clearInputs(); }
+  setFieldKitOpen(true);
   cockpit?.open(nodeId);
+}
+let fieldKitReturnFocus: HTMLElement | null = null;
+function setFieldKitOpen(open: boolean): void {
+  if (open && !document.body.classList.contains('field-kit-open')) {
+    fieldKitReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+  document.body.classList.toggle('field-kit-open', open);
+  document.querySelectorAll<HTMLElement>('.sg-sidebar, .sg-inspector').forEach(el => { el.inert = open; });
+  document.getElementById('btn-operations')?.setAttribute('aria-expanded', String(open));
+  if (!open) {
+    canvasMount.dispatchEvent(new CustomEvent('world-focus', { detail: null }));
+    if (fieldKitReturnFocus?.isConnected && !fieldKitReturnFocus.closest('[inert]')) fieldKitReturnFocus.focus();
+    fieldKitReturnFocus = null;
+  }
 }
 let lastFrameTime = performance.now();
 let resultShownForRound = false;
@@ -211,7 +226,7 @@ app.innerHTML = `
       <button type="button" class="sg-tab-btn ${activeTab === 'sandbox' ? 'active' : ''}" id="tab-sandbox">${escapeHtml(i18n[lang].sandbox)}</button>
     </nav>
     <div class="sg-header-actions">
-      <button type="button" class="sg-btn-ghost" id="btn-operations">OPERATIONS</button>
+      <button type="button" class="sg-btn-ghost" id="btn-operations" aria-label="Open field kit" aria-expanded="false">FIELD KIT</button>
       <button type="button" class="sg-btn-ghost" id="btn-view">${prefersMap ? '3D CITY' : '2D MAP'}</button>
       <button type="button" class="sg-btn-ghost" id="btn-lang" aria-label="Toggle Language">${lang === 'en' ? '简中' : 'EN'}</button>
       <button type="button" class="sg-btn-ghost" id="btn-audio" aria-label="Toggle Audio">${sound.muted ? escapeHtml(i18n[lang].unmute) : escapeHtml(i18n[lang].mute)}</button>
@@ -752,7 +767,8 @@ document.getElementById('btn-res-share')?.addEventListener('click', () => {
 });
 
 window.addEventListener('keydown', (e: KeyboardEvent) => {
-  if (document.querySelector('.oc-cockpit-overlay:not([hidden])')) return;
+  if ((e.target as HTMLElement)?.closest('.oc-cockpit, .oc-nav, dialog')) return;
+  if (document.body.classList.contains('field-kit-open') && e.code === 'Escape') return;
   const tag = (e.target as HTMLElement)?.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
@@ -950,9 +966,23 @@ cockpit = mountCockpit(operationsHost, id => {
   activeLayer = 'all'; activeSearch = '';
   worldController?.filter('all');
   selectedNodeId = id; worldController?.select(id);
+  canvasMount.dispatchEvent(new CustomEvent('world-focus', { detail: id }));
   renderInspector(); renderNavigator();
 });
-operationsHost.addEventListener('cockpit-close', () => { if (gameState.mode === 'paused') openDialog(dlgPause); });
+operationsHost.addEventListener('cockpit-open', () => setFieldKitOpen(true));
+operationsHost.addEventListener('cockpit-station', event => {
+  const id = (event as CustomEvent<{ nodeId?: string }>).detail?.nodeId;
+  if (!id || !nodes.some(node => node.id === id)) return;
+  selectedNodeId = id;
+  worldController?.filter('all');
+  worldController?.select(id);
+  canvasMount.dispatchEvent(new CustomEvent('world-focus', { detail: id }));
+  renderInspector(); renderNavigator();
+});
+operationsHost.addEventListener('cockpit-close', () => {
+  setFieldKitOpen(false);
+  if (gameState.mode === 'paused') openDialog(dlgPause);
+});
 document.getElementById('btn-operations')!.onclick = () => openOperations();
 renderInspector();
 renderNavigator();

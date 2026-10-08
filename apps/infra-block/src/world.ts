@@ -50,6 +50,17 @@ export function createWorld(
   controls.enablePan = false;
   controls.maxPolarAngle = Math.PI / 2.1;
   controls.target.set(0, 0, 0);
+  let focusTarget: THREE.Vector3 | null = null;
+  const onWorldFocus = (event: Event) => {
+    const id = (event as CustomEvent<string | null>).detail;
+    const building = id ? buildingObjs.find(item => item.id === id) : null;
+    focusTarget = building
+      ? new THREE.Vector3(building.group.position.x * 0.35, 3, building.group.position.z * 0.35)
+      : new THREE.Vector3(0, 3, 0);
+  };
+  const cancelFocus = () => { focusTarget = null; };
+  container.addEventListener('world-focus', onWorldFocus);
+  controls.addEventListener('start', cancelFocus);
 
   // Lights
   const hemiLight = new THREE.HemisphereLight('#ffffff', '#dfd2c0', 1.8);
@@ -472,6 +483,12 @@ export function createWorld(
   // Return Controller
   return {
     update(state: GameState, dt: number) {
+      if (focusTarget) {
+        const previous = controls.target.clone();
+        controls.target.lerp(focusTarget, reducedMotion ? 1 : 1 - Math.exp(-Math.min(dt, 0.1) * 5));
+        camera.position.add(controls.target.clone().sub(previous));
+        if (controls.target.distanceToSquared(focusTarget) < 0.002) focusTarget = null;
+      }
       controls.update();
 
       // Character Switch
@@ -723,6 +740,8 @@ export function createWorld(
     },
 
     dispose() {
+      container.removeEventListener('world-focus', onWorldFocus);
+      controls.removeEventListener('start', cancelFocus);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
       resizeObserver.disconnect();
