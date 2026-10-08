@@ -334,6 +334,7 @@ export function mountCockpit(
   let planGeneration = 0;
   let planAbortController: AbortController | null = null;
   let lastFocusedElement: HTMLElement | null = null;
+  let lastFocusedId = '';
 
   const moduleFilter = {
     search: '',
@@ -434,10 +435,12 @@ export function mountCockpit(
       planAbortController = null;
     }
     host.dispatchEvent(new CustomEvent('cockpit-close'));
-    if (lastFocusedElement) {
-      lastFocusedElement.focus();
-      lastFocusedElement = null;
-    }
+    const returnFocus = lastFocusedElement?.isConnected && lastFocusedElement.tagName !== 'BODY'
+      ? lastFocusedElement : document.getElementById(lastFocusedId);
+    if (returnFocus && !returnFocus.closest('[inert]')) returnFocus.focus();
+    else document.getElementById('btn-operations')?.focus();
+    lastFocusedElement = null;
+    lastFocusedId = '';
   }
 
   // Revocation clears both state and rendered source bodies before any late request can settle.
@@ -3390,6 +3393,7 @@ function renderEvidence(): HTMLElement {
   return {
     open(nodeId?: string) {
       lastFocusedElement = (document.activeElement as HTMLElement) || null;
+      lastFocusedId = lastFocusedElement?.id || '';
       isOpen = true;
       rootEl.removeAttribute('hidden');
       host.dispatchEvent(new CustomEvent('cockpit-open'));
@@ -3420,6 +3424,7 @@ function renderEvidence(): HTMLElement {
 
     async openDocument(path: string) {
       lastFocusedElement = (document.activeElement as HTMLElement) || null;
+      lastFocusedId = lastFocusedElement?.id || '';
       isOpen = true;
       rootEl.removeAttribute('hidden');
       host.dispatchEvent(new CustomEvent('cockpit-open'));

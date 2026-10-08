@@ -157,21 +157,25 @@ let worldController: WorldController | null = null;
 let cockpit: ReturnType<typeof mountCockpit> | null = null;
 function openOperations(nodeId?: string): void {
   if (gameState.mode === 'playing') { pause(gameState); clearInputs(); }
-  setFieldKitOpen(true);
   cockpit?.open(nodeId);
 }
 let fieldKitReturnFocus: HTMLElement | null = null;
+let fieldKitReturnFocusId = '';
 function setFieldKitOpen(open: boolean): void {
   if (open && !document.body.classList.contains('field-kit-open')) {
     fieldKitReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    fieldKitReturnFocusId = fieldKitReturnFocus?.id || '';
   }
   document.body.classList.toggle('field-kit-open', open);
   document.querySelectorAll<HTMLElement>('.sg-sidebar, .sg-inspector').forEach(el => { el.inert = open; });
   document.getElementById('btn-operations')?.setAttribute('aria-expanded', String(open));
   if (!open) {
     canvasMount.dispatchEvent(new CustomEvent('world-focus', { detail: null }));
-    if (fieldKitReturnFocus?.isConnected && !fieldKitReturnFocus.closest('[inert]')) fieldKitReturnFocus.focus();
+    const returnFocus = fieldKitReturnFocus?.isConnected ? fieldKitReturnFocus : document.getElementById(fieldKitReturnFocusId);
+    if (returnFocus && !returnFocus.closest('[inert]')) returnFocus.focus();
+    else document.getElementById('btn-operations')?.focus();
     fieldKitReturnFocus = null;
+    fieldKitReturnFocusId = '';
   }
 }
 let lastFrameTime = performance.now();
@@ -469,7 +473,7 @@ function renderInspector(): void {
     </div>
     <p class="sg-insp-summary">${escapeHtml(node.summary)}</p>
     <p class="sg-insp-detail">${escapeHtml(node.detail)}</p>
-    <button type="button" class="sg-btn sg-btn-primary" id="btn-node-workspace">Open workspace</button>
+    <button type="button" class="sg-btn sg-btn-primary" id="btn-inspector-workspace">Open workspace</button>
     <div class="sg-insp-section">
       <div class="sg-insp-sec-title">${escapeHtml(i18n[lang].evidenceNote)}</div>
       <p class="sg-insp-detail">${escapeHtml(node.evidenceNote || node.detail)}</p>
@@ -477,7 +481,7 @@ function renderInspector(): void {
     <div class="sg-insp-section">
       <div class="sg-insp-sec-title">${escapeHtml(i18n[lang].sources)}</div>
       <ul class="sg-insp-paths">
-        ${node.sources.map(s => `<li><button type="button" class="sg-btn-link" data-source-document="${escapeHtml(s)}"><code>${escapeHtml(s)}</code></button></li>`).join('')}
+        ${node.sources.map((s, index) => `<li><button type="button" class="sg-btn-link" id="btn-inspector-source-${escapeHtml(node.id)}-${index}" data-source-document="${escapeHtml(s)}"><code>${escapeHtml(s)}</code></button></li>`).join('')}
       </ul>
     </div>
     <div class="sg-insp-section">
@@ -503,7 +507,7 @@ function renderInspector(): void {
       }
     });
   });
-  inspectorContent.querySelector<HTMLButtonElement>('#btn-node-workspace')!.onclick = () => openOperations(node.id);
+  inspectorContent.querySelector<HTMLButtonElement>('#btn-inspector-workspace')!.onclick = () => openOperations(node.id);
   inspectorContent.querySelectorAll<HTMLButtonElement>('[data-source-document]').forEach(b => b.onclick = () => {
     if (gameState.mode === 'playing') { pause(gameState); clearInputs(); }
     cockpit?.openDocument(b.dataset.sourceDocument!);
