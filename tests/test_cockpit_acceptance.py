@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -56,7 +57,12 @@ def test_repository_inventory_and_native_routing_parity():
     assert len(snap["routing"]["skills"]) == sum(map(len, registry.values())) == 4
     assert {t["slug"] for t in snap["tenants"]} == {"_demo", "acme", "tryambakam-noesis"}
     assert {n["wing"] for n in snap["fleet"]} == {"coding", "design", "marketing"}
-    assert len(snap["acceptance"]) == 107
+    ledger = re.findall(r"^- \[([ x])\] (ISC-\d+): (.+)$", (ROOT / "ISA.md").read_text(), re.MULTILINE)
+    assert ledger
+    assert snap["acceptance"] == [
+        {"id": identifier, "criterion": criterion, "status": "accepted" if checked == "x" else "open", "source": "ISA.md"}
+        for checked, identifier, criterion in ledger
+    ]
     assert all(s["state"] == "unknown" and s["checkedAt"] is None for s in snap["services"])
 
 
