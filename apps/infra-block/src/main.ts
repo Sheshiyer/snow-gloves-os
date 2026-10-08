@@ -8,6 +8,7 @@ import type { GameState, CharacterId, WorldController, Layer, WorldEvent } from 
 import { Audio as SoundEngine } from './audio';
 import { exportScorecard, challengeUrl, ReplayRecorder } from './export';
 import { mountCockpit } from './ops';
+import { mountHome } from './home';
 
 function escapeHtml(str: unknown): string {
   return String(str ?? '')
@@ -155,6 +156,7 @@ const replay = new ReplayRecorder();
 let gameState: GameState = createGame(currentSeed, selectedCharacter);
 let worldController: WorldController | null = null;
 let cockpit: ReturnType<typeof mountCockpit> | null = null;
+let home: ReturnType<typeof mountHome> | null = null;
 function openOperations(nodeId?: string): void {
   if (gameState.mode === 'playing') { pause(gameState); clearInputs(); }
   cockpit?.open(nodeId);
@@ -167,6 +169,7 @@ function setFieldKitOpen(open: boolean): void {
     fieldKitReturnFocusId = fieldKitReturnFocus?.id || '';
   }
   document.body.classList.toggle('field-kit-open', open);
+  home?.setKitOpen(open);
   document.querySelectorAll<HTMLElement>('.sg-sidebar, .sg-inspector').forEach(el => { el.inert = open; });
   document.getElementById('btn-operations')?.setAttribute('aria-expanded', String(open));
   if (!open) {
@@ -405,6 +408,7 @@ try {
     renderInspector();
     renderNavigator();
     worldController?.select(id);
+    if (id.startsWith('agent-')) home?.selectResident(id.slice(6));
   });
 } catch (e) {
   if (!prefersMap) console.warn('WebGL init failed; using fallback view', e);
@@ -621,6 +625,9 @@ const hud = document.getElementById('sg-hud') as HTMLElement;
 function switchTab(mode: 'explore' | 'sandbox'): void {
   clearInputs();
   activeTab = mode;
+  document.body.classList.toggle('home-explore', mode === 'explore');
+  home?.setVisible(mode === 'explore');
+  canvasMount.dispatchEvent(new CustomEvent('resident-visible', { detail: mode === 'explore' }));
   if (mode === 'explore') {
     tabExplore.classList.add('active');
     tabSandbox.classList.remove('active');
@@ -675,6 +682,7 @@ function triggerWalkthrough(dir: number): void {
   const target = matches[walkthroughIndex];
   selectedNodeId = target.id;
   worldController?.select(target.id);
+  canvasMount.dispatchEvent(new CustomEvent('world-focus', { detail: target.id }));
   worldController?.route(matches.map(m => m.id));
   renderInspector();
   renderNavigator();
@@ -771,7 +779,7 @@ document.getElementById('btn-res-share')?.addEventListener('click', () => {
 });
 
 window.addEventListener('keydown', (e: KeyboardEvent) => {
-  if ((e.target as HTMLElement)?.closest('.oc-cockpit, .oc-nav, .oc-dialog')) return;
+  if ((e.target as HTMLElement)?.closest('.oc-cockpit, .oc-nav, .oc-dialog, .ih-home-root')) return;
   if (document.body.classList.contains('field-kit-open') && e.code === 'Escape') return;
   const tag = (e.target as HTMLElement)?.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
@@ -988,6 +996,31 @@ operationsHost.addEventListener('cockpit-close', () => {
   if (gameState.mode === 'paused') openDialog(dlgPause);
 });
 document.getElementById('btn-operations')!.onclick = () => openOperations();
+const homeHost = document.createElement('div');
+document.body.append(homeHost);
+function focusHomeNode(id: string): void {
+  if (!nodes.some(node => node.id === id)) return;
+  activeLayer = 'all'; activeSearch = '';
+  document.querySelector<HTMLInputElement>('#sg-search-input')!.value = '';
+  document.querySelectorAll<HTMLButtonElement>('[data-layer]').forEach(button => button.classList.toggle('active', button.dataset.layer === 'all'));
+  selectedNodeId = id;
+  worldController?.filter('all'); worldController?.select(id);
+  canvasMount.dispatchEvent(new CustomEvent('world-focus', { detail: id }));
+  renderInspector(); renderNavigator();
+}
+home = mountHome(homeHost, {
+  focusNode: focusHomeNode,
+  openAgent: id => openOperations(id),
+  openDocument: path => { setFieldKitOpen(true); void cockpit?.openDocument(path); },
+  toggleNotes: open => document.body.classList.toggle('source-notes-open', open),
+  onPresence: presence => canvasMount.dispatchEvent(new CustomEvent('resident-presence', { detail: presence })),
+  followTour: () => { triggerWalkthrough(1); },
+  openBlueprint: () => { openOperations(); document.querySelector<HTMLButtonElement>('#oc-nav-tab-workbench')?.click(); },
+});
+canvasMount.addEventListener('resident-select', event => home?.selectResident((event as CustomEvent<{slug:string}>).detail.slug));
+document.body.classList.toggle('home-explore', activeTab === 'explore');
+home.setVisible(activeTab === 'explore');
+canvasMount.dispatchEvent(new CustomEvent('resident-visible', { detail: activeTab === 'explore' }));
 renderInspector();
 renderNavigator();
 worldController?.select(selectedNodeId);
@@ -1000,7 +1033,7 @@ if (challengeTarget) {
 dlgPause.addEventListener('cancel', e => e.preventDefault());
 dlgResult.addEventListener('cancel', e => e.preventDefault());
 dlgHelp.addEventListener('close', () => { if (gameState.mode === 'paused' && !dlgPause.open) openDialog(dlgPause); });
-window.addEventListener('beforeunload', () => { clearInputs(); replay.dispose(); worldController?.dispose(); });
+window.addEventListener('beforeunload', () => { clearInputs(); replay.dispose(); home?.dispose(); worldController?.dispose(); });
 requestAnimationFrame(mainLoop);
 if (prefersMap) {
   document.getElementById('btn-start-round')!.setAttribute('disabled', '');
