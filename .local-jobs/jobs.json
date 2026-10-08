@@ -33,6 +33,40 @@
       "enabled": false,
       "daily": false,
       "on_change": false
+    },
+    {
+      "id": "version",
+      "argv": [
+        "python3",
+        "scripts/release.py",
+        "--check"
+      ],
+      "timeout_seconds": 1800,
+      "enabled": false,
+      "daily": false,
+      "on_change": false
+    },
+    {
+      "id": "walk",
+      "argv": [
+        "make",
+        "walk"
+      ],
+      "timeout_seconds": 1800,
+      "enabled": false,
+      "daily": false,
+      "on_change": false
+    },
+    {
+      "id": "smoke",
+      "argv": [
+        "make",
+        "smoke"
+      ],
+      "timeout_seconds": 1800,
+      "enabled": false,
+      "daily": false,
+      "on_change": false
     }
   ]
 }
