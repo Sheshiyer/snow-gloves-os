@@ -87,7 +87,7 @@ export function createWorld(
     const controlled = residents.controlState();
     islandOverview = !id && !controlled.slug && residentsEnabled;
     if (islandOverview) fittedIslandDistance = fitWholeIsland();
-    else camera.clearViewOffset();
+    else { camera.near = 0.1; camera.clearViewOffset(); }
     scene.fog = islandOverview
       ? new THREE.Fog('#d8e2df', Math.max(150, fittedIslandDistance * 1.2), Math.max(950, fittedIslandDistance * 3))
       : new THREE.Fog('#d8e2df', 150, 950);
@@ -193,12 +193,13 @@ export function createWorld(
     return { top: 1 - top / height * 2, bottom: -1 + bottom / height * 2, horizontal: 0.91 };
   }
   function fitWholeIsland() {
+    camera.near = 1;
     return fitCameraDistance(camera, new THREE.Box3(new THREE.Vector3(-85, -8, -85), new THREE.Vector3(85, 16, 90)), townDirection, new THREE.Vector3(0, 3, 0), 240, frameInsets());
   }
   function frameTown(overview: boolean) {
     islandOverview = overview;
     if (overview) fittedIslandDistance = fitWholeIsland();
-    else camera.clearViewOffset();
+    else { camera.near = 0.1; camera.clearViewOffset(); }
     const distance = overview ? fittedIslandDistance : fittedDistance;
     scene.fog = overview
       ? new THREE.Fog('#d8e2df', Math.max(150, distance * 1.2), Math.max(950, distance * 3))
@@ -209,11 +210,14 @@ export function createWorld(
     camera.lookAt(controls.target); controls.update();
   }
   function frameChart() {
+    camera.near = 10;
     const limits = frameInsets();
-    const direction = new THREE.Vector3(0.42, 0.82, 0.4).normalize();
+    // A north-oriented nautical chart uses the screen width instead of placing
+    // the four islands in a tall diagonal diamond.
+    const direction = new THREE.Vector3(0.05, 1, 0.25).normalize();
     const centerZ = (FLEET_LAYOUT[0].z + FLEET_LAYOUT[2].z) / 2;
     const bounds = new THREE.Box3(new THREE.Vector3(-265, -8, -110 - centerZ - 90), new THREE.Vector3(265, 22, 180 - centerZ + 90));
-    const distance = fitCameraDistance(camera, bounds, direction, new THREE.Vector3(), 1350, limits);
+    const distance = fitCameraDistance(camera, bounds, direction, new THREE.Vector3(), 800, limits);
     controls.target.set(0, 0, 0); camera.position.copy(controls.target).addScaledVector(direction, distance);
     controls.minDistance = distance * 0.6; controls.maxDistance = distance * 2;
     scene.fog = new THREE.Fog('#d8e2df', Math.max(1400, distance * 1.3), Math.max(3500, distance * 4));
@@ -232,7 +236,12 @@ export function createWorld(
       scene.fog = new THREE.Fog('#d8e2df', 150, 950);
       frameTown(residentsEnabled && !residents.controlState().slug);
     }
-    synchronizeWorld(); selectionEvent(); lastRenderAt = -Infinity;
+    synchronizeWorld(); selectionEvent();
+    // Selection listeners apply the portrait chart's HUD visibility classes.
+    // Read their settled layout before the first chart frame as well as on
+    // later fleet-layout notifications.
+    if (worldView === 'archipelago') frameChart();
+    lastRenderAt = -Infinity;
   }
   function visitIsland(id: string) {
     if (!FLEET_LAYOUT.some(slot => slot.id === id)) return;
@@ -491,7 +500,7 @@ export function createWorld(
         if (focusTarget) focusDistance = fittedIslandDistance;
         else frameTown(true);
       } else {
-        camera.clearViewOffset();
+        camera.near = 0.1; camera.clearViewOffset();
         if (!controlled.slug && !focusTarget) camera.position.copy(controls.target).addScaledVector(townDirection, distance);
         controls.minDistance = controlled.slug ? 18 : focusDistance === 36 ? 24 : fittedMinDistance;
         controls.maxDistance = distance * 1.7;
@@ -499,6 +508,17 @@ export function createWorld(
     }
   });
   resizeObserver.observe(container);
+  const onFleetLayout = () => {
+    // Atlas height changes can settle after the canvas resize. Refitting here
+    // respects those measured margins without interrupting walking or focus.
+    if (worldView === 'archipelago') frameChart();
+    else if (islandOverview && !residents.controlState().slug) {
+      if (focusTarget) {
+        fittedIslandDistance = fitWholeIsland(); focusDistance = fittedIslandDistance;
+      } else frameTown(true);
+    }
+  };
+  window.addEventListener('fleet-layout', onFleetLayout);
 
   // Return Controller
   return {
@@ -682,7 +702,9 @@ export function createWorld(
 
       for (const button of labelButtons) {
         const point = archipelago.islandPosition(button.dataset.island!)!.project(camera);
-        const visible = residentsEnabled && !overlayOpen && point.z >= -1 && point.z <= 1 && Math.abs(point.x) < 0.94 && Math.abs(point.y) < 0.94 && (worldView === 'archipelago' || button.dataset.island !== islandId);
+        // The four named atlas buttons provide the mobile island controls.
+        // Floating labels would obscure the small remaining chart area.
+        const visible = container.clientWidth >= 600 && residentsEnabled && !overlayOpen && point.z >= -1 && point.z <= 1 && Math.abs(point.x) < 0.94 && Math.abs(point.y) < 0.94 && (worldView === 'archipelago' || button.dataset.island !== islandId);
         button.hidden = !visible;
         button.style.left = `${(point.x + 1) * 50}%`; button.style.top = `${(1 - point.y) * 50}%`;
       }
@@ -707,7 +729,8 @@ export function createWorld(
           graphicsProfile,
           renderFpsCap: String(graphicsBudget.maxFps),
           renderShadows: String(renderer.shadowMap.enabled),
-          renderShadowSize: String(graphicsBudget.shadowSize)
+          renderShadowSize: String(graphicsBudget.shadowSize),
+          cameraNear: String(camera.near)
         });
       }
     },
@@ -889,6 +912,7 @@ export function createWorld(
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
       resizeObserver.disconnect();
+      window.removeEventListener('fleet-layout', onFleetLayout);
       controls.dispose();
       dirLight.shadow.map?.dispose();
       dirLight.shadow.mapPass?.dispose();
