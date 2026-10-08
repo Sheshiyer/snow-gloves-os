@@ -3,14 +3,16 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: verify
-progress: 81/107
+phase: plan
+progress: 81/139
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-07
+updated: 2026-10-08
 ---
 
 ## Problem
+
+Current visual correction: the operations cockpit uses a full-screen enterprise shell and loses the miniature game experience. Rebuild its navigation, record presentation and world integration so every infrastructure flow stays within the toy town.
 
 Current frontend integration lane: the toy city lacks connected catalog, tenant, fleet, activity and workflow data. Add a bounded loopback projection and a complete operations workspace using actual platform contracts.
 
@@ -23,6 +25,8 @@ port with service identity. The confirmed installation target for 1 October is
 one Mac mini running a local bootstrap and recovery pilot.
 
 ## Vision
+
+The operator stays at the miniature town while opening a physical field kit. Infrastructure roles become crew badges, modules collectible parts, adapters cartridges, connectors signal plugs, tenants neighborhood passports, proposals blueprints and evidence stamps; each still traces the actual source contract.
 
 The operator moves from a landmark to its real source inventory, scope, routing and evidence, then prepares a gate-checked proposal without confusing a preview with execution. Connection loss stays visible and preserves access to public source information.
 
@@ -56,6 +60,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Deliver a world-visible field kit with a horizontal station toolbelt and miniature material treatment across all eleven operations panes. Preserve tenant scope, source reading, proposal gates, failure handling and the original game; verify desktop, mobile, keyboard and reduced-motion behavior in the in-app browser.
 
 Deliver an integrated local infrastructure cockpit over the existing city: versioned scoped snapshots, complete catalog/agent/adapter/connector views, tenant and fleet metadata, bounded activity/evidence, document inspection, pure routing/gate previews and local proposal exports. Verify backend isolation, frontend interactions and the existing game regression.
 
@@ -180,7 +186,42 @@ until the actual mini supplies evidence.
 - [x] ISC-106: Recovery panels distinguish available source contracts from deployment.
 - [x] ISC-107: Manual refresh updates the snapshot without duplicate renderers.
 
+- [ ] ISC-108: Antecedent: The real miniature town remains visible while the field kit is open.
+- [ ] ISC-109: The town-square view presents source-backed destination stations.
+- [ ] ISC-110: The agent view presents the actual roles as toy crew badges.
+- [ ] ISC-111: The module view presents actual catalog records as collectible parts.
+- [ ] ISC-112: The runtime view presents actual adapters as platform cartridges.
+- [ ] ISC-113: The connector view presents actual capabilities as signal-plug records.
+- [ ] ISC-114: The tenant view presents scoped metadata as neighborhood passports.
+- [ ] ISC-115: The fleet view presents actual profiles as wing-hangar pieces.
+- [ ] ISC-116: The activity view presents scoped records as courier tickets.
+- [ ] ISC-117: The proposal workbench uses a blueprint-desk visual treatment.
+- [ ] ISC-118: The evidence view presents ledger criteria as stamped records.
+- [ ] ISC-119: The resource view presents indexed documents as field-note records.
+- [ ] ISC-120: All eleven operational stations are reachable through a horizontal toolbelt.
+- [ ] ISC-121: Tenant selection retains the actual scoped metadata contract.
+- [ ] ISC-122: Technical connection metadata is available in an optional foldout.
+- [ ] ISC-123: The document viewer preserves escaped source text and full content hashes.
+- [ ] ISC-124: The field kit allows pointer interaction with the visible town.
+- [ ] ISC-125: Station navigation selects the corresponding infrastructure landmark.
+- [ ] ISC-126: The desktop field kit leaves at least forty-five percent of the viewport available to the town.
+- [ ] ISC-127: The narrow mobile field kit leaves the town visible above its sheet.
+- [ ] ISC-128: The narrow mobile layout produces no horizontal page overflow.
+- [ ] ISC-129: Closing the field kit restores keyboard focus to its initiating control.
+- [ ] ISC-130: Reduced-motion mode suppresses nonessential new movement.
+- [ ] ISC-131: The collectible catalog filters the complete source module inventory.
+- [ ] ISC-132: The blueprint desk generates a real backend plan proposal.
+- [ ] ISC-133: The blueprint desk exports the generated proposal as local JSON.
+- [ ] ISC-134: Failed private-scope requests clear the projected private metadata.
+- [ ] ISC-135: Disconnected public fallback remains visibly stale.
+- [ ] ISC-136: Opening the field kit preserves the paused game timer.
+- [ ] ISC-137: The revised frontend passes strict compilation and existing regression tests.
+- [ ] ISC-138: Anti: The miniature interface introduces no infrastructure execution controls.
+- [ ] ISC-139: Anti: The miniature interface invents no live activity or acceptance records.
+
 ## Test Strategy
+
+| 108-139 | miniature-world correction | screenshots of all eleven stations; canvas/drawer bounds; actual scope/filter/document/plan/offline/game flows; build and regression | source-connected toy experience with visible city throughout | IAB + Vitest + strict build |
 
 | 72-85 | backend contracts and boundaries | focused reader/HTTP tests and root probes | actual source parity; no writes or cross-scope leakage | pytest + loopback requests |
 | 86-107 | integrated operations | client tests, production build and IAB desktop/mobile/offline flows | useful scoped UI, true failure states, preserved game | vitest + IAB |
@@ -210,6 +251,10 @@ until the actual mini supplies evidence.
 | 51 | claims | receipt evidence-level audit | no readiness promotion | receipt audit |
 
 ## Features
+
+| ToyFieldKit | Nonmodal world-visible station and record interface | ISC-108..125,131..135,138..139 | Existing cockpit client | yes |
+| MiniatureMaterials | Physical toolbelt, tokens, tickets, blueprint and book styling | ISC-109..123,126..128,130 | ToyFieldKit DOM contract | yes |
+| WorldContinuity | Scene layout, station selection and game-state preservation | ISC-108,124..130,136..137 | Existing city controller | yes |
 
 | CockpitProjection | Catalog/instance/probe/document/preview API | ISC-72..85 | public contracts | yes |
 | CockpitClient | Versioned DTO validation, bounded transport, scope guards | ISC-73..85,102 | CockpitProjection contract | yes |
@@ -259,6 +304,8 @@ until the actual mini supplies evidence.
 - 2026-10-07 refined: Local company recovery implementation authorized: latest verified durable-confirmed checkpoint, 15-minute active checkpoint cadence, 24-hour reviewed expiry eligibility, explicit one-time zero-provider bootstrap, company vault plus distinct runtime secret. Exact 17 newer proof volumes may be removed after ownership and all-container mount checks; preserve original volumes, migration exports and accepted image. Publication, provisioning and deployment remain separate gates.
 
 - 2026-10-07 19:42 UTC: Cockpit integration lane accepted after three routed managed-worktree implementations, controller test reruns, root IAB flows and independent source/receipt review. Owned loopback API explicitly selects private ops metadata; public fixture stays public. General fleet inventory, session execution, recovery control, connector activation, provider credentials, company deployment and physical acceptance keep their separate contracts. Historical 26 open criteria remain unchanged.
+
+- 2026-10-08 refined: User rejects the accepted cockpit screenshot as a SaaS dashboard and requires the mini-game aesthetic throughout. Root cause enters at the fullscreen showModal shell, vertical navigation, KPI grids and default tables. Display-down correction replaces structure and materials while preserving source/client contracts. Six analytical capabilities invoked: FirstPrinciples (shell necessity), SystemsThinking (landmark/section/evidence loop), BeCreative (five directions: toy field kit, resident dialog, tactical hologram, train delivery, papercraft expedition; selected field kit plus paper artifacts), IterativeDepth (experiential, keyboard, failure, temporal lenses), ISA (32 atomic criteria and twelve-section audit), ReReadCheck (final user-intent gate). Current visual lane E4; historical effort and acceptance remain preserved. Three disjoint source owners implement interface, CSS and world continuity; no host/provider/deployment change.
 
 ## Changelog
 
