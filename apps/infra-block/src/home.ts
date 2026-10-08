@@ -332,8 +332,9 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
           <span class="ih-token-state-tag ih-token-state-${state}"></span>
         </div>
       `;
-      (btn.querySelector('.ih-token-name') as HTMLElement).textContent = res.name;
-      (btn.querySelector('.ih-token-role') as HTMLElement).textContent = res.role;
+      const shortRole: Record<ResidentSlug, string> = {ceo:'CEO', cto:'CTO', 'chief-of-staff':'Routing', librarian:'Knowledge', interpreter:'Interpretation', dispatcher:'Dispatch', sentinel:'Audit'};
+      (btn.querySelector('.ih-token-name') as HTMLElement).textContent = shortRole[res.slug];
+      (btn.querySelector('.ih-token-role') as HTMLElement).textContent = res.station;
       (btn.querySelector('.ih-token-state-tag') as HTMLElement).textContent = pres ? pres.label : 'Unknown';
 
       btn.addEventListener('click', () => {
@@ -423,6 +424,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
     }
 
     btnMeet.onclick = () => {
+      closeDialogue();
       callbacks.focusNode(res.nodeId);
     };
     btnAgent.onclick = () => {
