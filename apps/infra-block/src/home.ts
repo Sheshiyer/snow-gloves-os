@@ -57,7 +57,7 @@ function getFixedPortraitSvg(slug: ResidentSlug): string {
         <circle cx="22" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <circle cx="42" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <path d="M28 32 Q32 35 36 32" stroke="#283d36" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#d5b466" stroke="#283d36" stroke-width="2"/>
+        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#c97858" stroke="#283d36" stroke-width="2"/>
         <circle cx="44" cy="46" r="8" fill="#ffffff" stroke="#283d36" stroke-width="1.8"/>
         <polygon points="44,40 46,45 44,44 42,45" fill="#c97858"/>
         <polygon points="44,52 46,47 44,48 42,47" fill="#699a92"/>
@@ -74,7 +74,7 @@ function getFixedPortraitSvg(slug: ResidentSlug): string {
         <circle cx="22" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <circle cx="42" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <path d="M29 32 L35 32" stroke="#283d36" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#4d7c9e" stroke="#283d36" stroke-width="2"/>
+        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#87a4ac" stroke="#283d36" stroke-width="2"/>
         <rect x="36" y="42" width="16" height="14" rx="2" fill="#28536b" stroke="#ffffff" stroke-width="1.2"/>
         <line x1="39" y1="46" x2="49" y2="46" stroke="#ffffff" stroke-width="1" stroke-dasharray="1 1"/>
         <line x1="39" y1="50" x2="47" y2="50" stroke="#ffffff" stroke-width="1" stroke-dasharray="1 1"/>
@@ -90,7 +90,7 @@ function getFixedPortraitSvg(slug: ResidentSlug): string {
         <circle cx="22" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <circle cx="42" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <path d="M28 32 Q32 34 36 32" stroke="#283d36" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#9bac80" stroke="#283d36" stroke-width="2"/>
+        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#d5b466" stroke="#283d36" stroke-width="2"/>
         <rect x="38" y="41" width="14" height="15" rx="2" fill="#fdfaf3" stroke="#283d36" stroke-width="1.5"/>
         <circle cx="42" cy="46" r="1.5" fill="#c97858"/>
         <line x1="45" y1="46" x2="49" y2="46" stroke="#283d36" stroke-width="1"/>
@@ -108,7 +108,7 @@ function getFixedPortraitSvg(slug: ResidentSlug): string {
         <circle cx="22" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <circle cx="42" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <path d="M29 32 Q32 34 35 32" stroke="#283d36" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#699a92" stroke="#283d36" stroke-width="2"/>
+        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#9bac80" stroke="#283d36" stroke-width="2"/>
         <path d="M38 43 L49 41 L49 54 L38 56 Z" fill="#f7f3e8" stroke="#283d36" stroke-width="1.5"/>
         <path d="M43 42 L43 55" stroke="#283d36" stroke-width="1"/>
       </svg>`;
@@ -123,7 +123,7 @@ function getFixedPortraitSvg(slug: ResidentSlug): string {
         <circle cx="22" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <circle cx="42" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <path d="M29 32 L35 32" stroke="#283d36" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#d98b7d" stroke="#283d36" stroke-width="2"/>
+        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#c89292" stroke="#283d36" stroke-width="2"/>
         <circle cx="44" cy="47" r="6" fill="#ffffff" stroke="#283d36" stroke-width="1.6"/>
         <line x1="48" y1="51" x2="54" y2="57" stroke="#283d36" stroke-width="2.2" stroke-linecap="round"/>
       </svg>`;
@@ -138,7 +138,7 @@ function getFixedPortraitSvg(slug: ResidentSlug): string {
         <circle cx="22" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <circle cx="42" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <path d="M28 32 Q32 35 36 32" stroke="#283d36" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#c97858" stroke="#283d36" stroke-width="2"/>
+        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#699a92" stroke="#283d36" stroke-width="2"/>
         <rect x="36" y="44" width="15" height="12" rx="2" fill="#fdfaf3" stroke="#283d36" stroke-width="1.5"/>
         <polygon points="36,44 43.5,49 51,44" fill="none" stroke="#283d36" stroke-width="1.2"/>
       </svg>`;
@@ -153,7 +153,7 @@ function getFixedPortraitSvg(slug: ResidentSlug): string {
         <circle cx="22" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <circle cx="42" cy="30" r="2" fill="#f4a896" opacity="0.8"/>
         <path d="M28 33 L36 33" stroke="#283d36" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#283d36" stroke="#16231f" stroke-width="2"/>
+        <path d="M14 40 C14 36, 22 36, 32 36 C42 36, 50 36, 50 40 L52 60 L12 60 Z" fill="#d8cfb8" stroke="#16231f" stroke-width="2"/>
         <path d="M40 42 Q46 40 52 42 Q52 48 46 54 Q40 48 40 42 Z" fill="#d5b466" stroke="#ffffff" stroke-width="1.2"/>
         <line x1="46" y1="44" x2="46" y2="51" stroke="#283d36" stroke-width="1"/>
       </svg>`;
