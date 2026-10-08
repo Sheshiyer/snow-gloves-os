@@ -256,7 +256,7 @@ The agent asks one decision at a time, takes options only from `modules.json`, a
 
 ## 🖥 Dashboard
 
-The native Tauri v2 app in [`apps/onboarding/`](./apps/onboarding) gains a **Modules dashboard** and a guided onboarding flow. Both read the same `catalog/modules.json` plus each tenant's `enabled.yaml`. The same data is published as a static site, built with `make site` (`npm run build:site`) and deployed by GitHub Pages:
+The native Tauri v2 app in [`apps/onboarding/`](./apps/onboarding) gains a **Modules dashboard** and a guided onboarding flow. Both read the same `catalog/modules.json` plus each tenant's `enabled.yaml`. The same data is published as a static site, built with `make site` (`npm run build:site`) previously published by GitHub Pages. Automatic publishing is retired; this URL retains its last published content until a separate local publisher is selected:
 
 **https://sheshiyer.github.io/snow-gloves-os/**
 
@@ -276,12 +276,12 @@ The root `VERSION` file (currently `0.2.1`) is the platform version. The app's `
 ```bash
 make release-dry V=0.2.1    # show every file that would change
 make release V=0.2.1        # bump, rebuild catalog, finalize CHANGELOG, commit, tag v0.2.1
-make release-push V=0.2.1   # push; CI builds the signed app + attaches platform assets
+make release-push V=0.2.1   # push only; no automatic signing or publication
 make upgrade                # dry-run tenant migrations to VERSION
 make upgrade T=acme WRITE=1 # apply, rebuild catalog, re-render acme's adapters
 ```
 
-A release ships the signed Tauri installers (draft until you publish), plus a platform job that attaches the source tarball, `modules.json`, the adapter bundle, and `SHA256SUMS`. **v0.2.0 is a reinstall** for 0.1.x (new bundle id). See [`docs/RELEASING.md`](./docs/RELEASING.md) and [`docs/UPGRADING.md`](./docs/UPGRADING.md).
+The retired hosted release built signed Tauri installers and attached source, catalog, adapter, and checksum assets. Those publication jobs are no longer active. `make app-build` remains the local app build entry point; signing, cross-platform builds, updater `latest.json`, and publication require a separately reviewed local procedure. **v0.2.0 is a reinstall** for 0.1.x (new bundle id). See [`docs/RELEASING.md`](./docs/RELEASING.md) and [`docs/UPGRADING.md`](./docs/UPGRADING.md).
 
 <!-- readme-gen:start:tree -->
 ## 📂 Project Structure
@@ -290,7 +290,7 @@ A release ships the signed Tauri installers (draft until you publish), plus a pl
 📦 snow-gloves-os
 ├── 📄 VERSION                  # platform version (0.2.1)
 ├── 📄 distribution.yaml        # what the platform owns vs what tenants own
-├── 📂 .github/workflows/       # ci.yml (pytest, catalog, walk, smoke) · release.yml · pages.yml
+├── 📂 .local-jobs/             # explicit local checks; schedules disabled
 ├── 📂 .specify/                # Spec-Kit templates + workflows
 ├── 📂 .planning/               # GSD state: local symlink into the private data checkout (gitignored)
 ├── 📂 agents/                  # 7 agents, each with 8+ md files + MANIFEST

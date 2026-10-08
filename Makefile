@@ -186,8 +186,9 @@ release-push:
 release-tag:
 	@test -n "$(V)" || (echo "usage: make release-tag V=0.1.0"; exit 1)
 	@git tag -a v$(V) -m "release: v$(V)" && git push origin v$(V)
-	@echo "→ pushed tag v$(V); watch https://github.com/Sheshiyer/snow-gloves-os/actions"
+	@echo "→ pushed tag v$(V); GitHub Actions is retired; no installers or updater manifest are published by this tag push"
 
 release-dispatch:
 	@test -n "$(V)" || (echo "usage: make release-dispatch V=0.1.0"; exit 1)
-	@gh workflow run release.yml -f tag=v$(V)
+	@echo 'GitHub Actions release dispatch is retired. Build locally with make app-build; review signing, platform assets, and updater metadata before separate publication.' >&2
+	@exit 2
