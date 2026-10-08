@@ -298,6 +298,34 @@ export function mountCockpit(
     }
   }
 
+  // Revocation clears both state and rendered source bodies before any late request can settle.
+  function clearScopedProjection(): void {
+    snapshot = null;
+    docGeneration++;
+    planGeneration++;
+    docAbortController?.abort();
+    planAbortController?.abort();
+    docAbortController = null;
+    planAbortController = null;
+    currentDocModal = null;
+    selectedActivityItem = null;
+    currentPlanPreview = null;
+    docErrorMsg = null;
+    planErrorMsg = null;
+    docLoading = false;
+    isPlanning = false;
+    documentTriggerId = '';
+    workbenchForm.tenant = '';
+    workbenchForm.title = defaultProposalTitle;
+    workbenchForm.modules.clear();
+    workbenchForm.runtime = '';
+    workbenchForm.wing = '';
+    if (docDialog.open) docDialog.close();
+    if (activityDialog.open) activityDialog.close();
+    docDialog.replaceChildren();
+    activityDialog.replaceChildren();
+  }
+
   async function fetchOperationsData(forceFixtureFallback = false) {
     const currentGen = ++fetchGeneration;
     if (fetchAbortController) {
@@ -330,9 +358,7 @@ export function mountCockpit(
         } catch (err: unknown) {
           if (signal.aborted || currentGen !== fetchGeneration) return;
           if (requiresScopedResponse) {
-            snapshot = null;
-            currentPlanPreview = null;
-            currentDocModal = null;
+            clearScopedProjection();
             isStale = false;
             genericFetchError = `Failed to load the selected scope${requestedTenant ? ` for tenant "${requestedTenant}"` : ''}. Access was refused or the endpoint is unreachable.`;
             return;
@@ -387,9 +413,7 @@ export function mountCockpit(
     } catch (e: unknown) {
       if (signal.aborted || currentGen !== fetchGeneration) return;
       if (requiresScopedResponse) {
-        snapshot = null;
-        currentPlanPreview = null;
-        currentDocModal = null;
+        clearScopedProjection();
       } else if (snapshot) {
         isStale = true;
       }
@@ -775,16 +799,7 @@ export function mountCockpit(
     scopeSel.value = selectedTenantScope;
     scopeSel.onchange = (e) => {
       selectedTenantScope = (e.target as HTMLSelectElement).value;
-      snapshot = null;
-      currentDocModal = null;
-      selectedActivityItem = null;
-      currentPlanPreview = null;
-      workbenchForm.tenant = '';
-      docGeneration++; planGeneration++;
-      docAbortController?.abort(); planAbortController?.abort();
-      docLoading = false; isPlanning = false;
-      if (docDialog.open) docDialog.close();
-      if (activityDialog.open) activityDialog.close();
+      clearScopedProjection();
       fetchOperationsData(false);
     };
     tags.appendChild(scopeSel);
@@ -3203,7 +3218,7 @@ function renderEvidence(): HTMLElement {
 
   // Global Keydown Listener for accessibility
   const handleGlobalKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && isOpen && !docDialog.open && !activityDialog.open && rootEl.contains(e.target as Node)) {
+    if (e.key === 'Escape' && isOpen && !document.querySelector('dialog[open]')) {
       e.preventDefault();
       closeOverlay();
     }
