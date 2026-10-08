@@ -729,7 +729,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   updateConnectionUI();
   setupPolling();
   freshnessTimer = window.setInterval(() => {
-    if (isVisible && !isKitOpen && !document.hidden) { updateConnectionUI(); if (!isDemoTourRunning) broadcastPresence(); }
+    if (isVisible && !document.hidden) { updateConnectionUI(); if (!isDemoTourRunning) broadcastPresence(); }
   }, 1000);
   requestSnapshotPoll();
 
