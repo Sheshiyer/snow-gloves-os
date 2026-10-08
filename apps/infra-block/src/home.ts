@@ -161,6 +161,7 @@ function getFixedPortraitSvg(slug: ResidentSlug): string {
 }
 
 export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): HomeHandle {
+  let disposed = false;
   let isVisible = true;
   let isKitOpen = false;
   let selectedSlug: ResidentSlug | null = null;
@@ -310,6 +311,8 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   const connTenantEl = host.querySelector('#ih-conn-tenant') as HTMLElement;
   const connSourceEl = host.querySelector('#ih-conn-source') as HTMLElement;
   const connStaleEl = host.querySelector('#ih-conn-stale') as HTMLElement;
+  const connGeneratedEl = host.querySelector('#ih-conn-generated') as HTMLElement;
+  const connAgeEl = host.querySelector('#ih-conn-age') as HTMLElement;
   const btnNotesToggle = host.querySelector('#ih-btn-notes-toggle') as HTMLButtonElement;
 
 let controlledSlug: string | null = null;
@@ -605,11 +608,12 @@ function disposeNavigation(): void {
   }
 
   function updateConnectionUI(): void {
+    if (disposed) return;
     connLabelEl.textContent = projection.label;
     const generated = projection.snapshot?.generatedAt;
     const generatedMs = generated ? Date.parse(generated) : NaN;
-    host.querySelector('#ih-conn-generated')!.textContent = generated || 'Unavailable';
-    host.querySelector('#ih-conn-age')!.textContent = Number.isFinite(generatedMs) ? `${Math.max(0,Math.floor((Date.now()-generatedMs)/1000))}s since source snapshot` : 'Unavailable';
+    connGeneratedEl.textContent = generated || 'Unavailable';
+    connAgeEl.textContent = Number.isFinite(generatedMs) ? `${Math.max(0,Math.floor((Date.now()-generatedMs)/1000))}s since source snapshot` : 'Unavailable';
     connScopeEl.textContent = projection.scopeMode || 'none';
     connTenantEl.textContent = projection.tenant || 'none';
     connSourceEl.textContent = projection.source;
@@ -727,6 +731,7 @@ function disposeNavigation(): void {
   }
 
   function applyProjection(next: Partial<ProjectionState>): void {
+    if (disposed) return;
     if (next.scopeMode) {
       expectedScopeMode = next.scopeMode;
     }
@@ -800,7 +805,7 @@ function disposeNavigation(): void {
   }
 
   async function requestSnapshotPoll(): Promise<void> {
-    if (!isVisible || isKitOpen || document.hidden) return;
+    if (disposed || !isVisible || isKitOpen || document.hidden) return;
     if (pendingController) return;
 
     const gen = ++requestGeneration;
@@ -1055,6 +1060,11 @@ function disposeNavigation(): void {
     },
 
     dispose(): void {
+      if (disposed) return;
+      disposed = true;
+      isVisible = false;
+      // Invalidate asynchronous completions before aborting and clearing this mount.
+      requestGeneration++;
       disposeNavigation();
       layoutObserver.disconnect();
       window.removeEventListener('resize', measureHome);
@@ -1063,6 +1073,7 @@ function disposeNavigation(): void {
       if (freshnessTimer !== null) clearInterval(freshnessTimer);
       if (tourTimer) clearTimeout(tourTimer);
       if (pendingController) pendingController.abort();
+      pendingController = null;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('cockpit-snapshot', handleSnapshotEvent as EventListener);
       window.removeEventListener('keydown', handleKeyDown);
