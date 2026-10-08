@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.cockpit.v1",
-  "generatedAt": "2026-10-08T13:25:09.613094+00:00",
+  "generatedAt": "2026-10-08T14:12:19.313434+00:00",
   "scope": {
     "mode": "public-fixtures",
     "tenant": null,
@@ -5273,6 +5273,198 @@
       "criterion": "The integrated scene passes strict production compilation and meaningful regression checks.",
       "status": "accepted",
       "source": "ISA.md"
+    },
+    {
+      "id": "ISC-236",
+      "criterion": "Private tenant snapshots expose bounded knowledge summaries.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-237",
+      "criterion": "Knowledge summaries distinguish source plans from completed ingestion.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-238",
+      "criterion": "Missing tenant-local planned files are counted.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-239",
+      "criterion": "Changed research bytes are reported as provenance drift.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-240",
+      "criterion": "Research verification rejects symlink escapes.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-241",
+      "criterion": "Knowledge projection omits original absolute paths and context prose.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-242",
+      "criterion": "Portfolio projection preserves the selected tenant parent relationship.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-243",
+      "criterion": "Project records remain beneath their named tenant.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-244",
+      "criterion": "Proposed cross-brand flows retain planning-only status.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-245",
+      "criterion": "Scoped planning projection excludes other tenant records.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-246",
+      "criterion": "Public mode ignores ambient private data for brand summaries.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-247",
+      "criterion": "Client validation rejects malformed optional brand summaries.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-248",
+      "criterion": "Neighborhood passports display the current import and planning evidence.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-249",
+      "criterion": "The CLI workspace check is read-only.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-250",
+      "criterion": "The workspace launcher refuses occupied ports.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-251",
+      "criterion": "Workspace shutdown reaps only its owned children.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-252",
+      "criterion": "The indexed Mac mini guide provides reproducible isolated setup commands.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-253",
+      "criterion": "Integrated brand workspace passes focused backend regressions.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-254",
+      "criterion": "Integrated brand workspace passes strict frontend compilation.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-255",
+      "criterion": "Actual browser scope switching preserves brand isolation.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-256",
+      "criterion": "Brand markers in the 3D tenant station derive from the current snapshot.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-257",
+      "criterion": "Selecting a 3D brand marker opens its exact tenant passport.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-258",
+      "criterion": "An accessible brand atlas selects the same tenant as the scene.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-259",
+      "criterion": "Scoped failure clears private brand markers from the scene.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-260",
+      "criterion": "The brand atlas distinguishes public fixtures from private metadata.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-261",
+      "criterion": "Knowledge and blueprint destinations retain the selected brand scope.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-262",
+      "criterion": "Brand markers add no realtime lights or shadows.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-263",
+      "criterion": "The original crew walking and sandbox remain usable after brand integration.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-264",
+      "criterion": "The installation bundle excludes private instance data and host configuration.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-265",
+      "criterion": "The extracted installation bundle passes its checksum verifier.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-266",
+      "criterion": "Bundle verification rejects changed or symlinked files.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-267",
+      "criterion": "The documented new-Mac startup executes in an isolated extracted workspace.",
+      "status": "accepted",
+      "source": "ISA.md"
     }
   ],
   "routing": {
@@ -6730,6 +6922,12 @@
       "title": "FLEET-CONTROL-PLANE-PLAN",
       "kind": "md",
       "bytes": 8589
+    },
+    {
+      "path": "docs/OPS-WORKSPACE.md",
+      "title": "OPS-WORKSPACE",
+      "kind": "md",
+      "bytes": 5991
     },
     {
       "path": "docs/SESSION-WORLD-DESIGN.md",

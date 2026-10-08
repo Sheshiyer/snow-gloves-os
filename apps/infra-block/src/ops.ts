@@ -1,3 +1,4 @@
+import { renderBrandPassport } from './brand-summary';
 import './ops.css';
 import { loadSnapshot, loadDocument, previewPlan, validateSnapshot } from './ops-client';
 import type { OpsSnapshot, OpsDocument, PlanRequest, PlanPreview } from './ops-contracts';
@@ -46,6 +47,7 @@ function sanitizeUrl(raw: unknown): string | null {
 export interface CockpitController {
   open(nodeId?: string): void;
   openDocument(path: string): void;
+  openTenant(slug: string): void;
 }
 
 const BUILDING_ROUTING: Record<string, { section: SectionName; slugMatch?: string }> = {
@@ -1898,6 +1900,7 @@ function renderOverview(): HTMLElement {
       jumpBtn.onclick = () => jumpToBuilding(`agent-${slug}`);
       footer.appendChild(jumpBtn);
 
+
       card.append(header, body, footer);
       grid.appendChild(card);
     });
@@ -2455,6 +2458,7 @@ function renderOverview(): HTMLElement {
       availP.style.margin = '4px 0 0 0';
       availP.innerHTML = safeHtml`<strong>Dataset:</strong> ${toStr(t.availability, 'unavailable')} · <strong>Registered Sources:</strong> ${t.sourceCount}`;
       body.appendChild(availP);
+      body.appendChild(renderBrandPassport(t));
       const provenanceP = document.createElement('p');
       provenanceP.textContent = `Source References: ${t.sources.join(', ') || 'None available'}`;
       body.appendChild(provenanceP);
@@ -2483,6 +2487,10 @@ function renderOverview(): HTMLElement {
       jumpBtn.textContent = 'Jump to Tenant Vault';
       jumpBtn.onclick = () => jumpToBuilding('tenant-vault');
       footer.appendChild(jumpBtn);
+      for (const [label, section, node] of [['Knowledge Archive', 'Resources', 'knowledge-archive'], ['Brand blueprints', 'Workbench', 'chief-of-staff']] as const) {
+        const button = document.createElement('button'); button.className = 'oc-btn oc-btn-sm'; button.textContent = label;
+        button.onclick = () => { visitStation(section, node); render(); }; footer.appendChild(button);
+      }
 
       card.append(header, body, footer);
       grid.appendChild(card);
@@ -2507,6 +2515,8 @@ function renderOverview(): HTMLElement {
     </div>`;
     frag.appendChild(secHeader);
 
+    const setup = document.createElement('button'); setup.className = 'oc-btn'; setup.textContent = 'New Mac setup guide';
+    setup.onclick = () => { void openDocViewer('docs/OPS-WORKSPACE.md'); }; frag.appendChild(setup);
     const fleet = snapshot?.fleet || [];
     const grid = document.createElement('div');
     grid.className = 'oc-grid';
@@ -2861,6 +2871,7 @@ function renderActivity(): HTMLElement {
       opt.textContent = `${toStr(t.name || t.slug)} (${toStr(t.slug)})`;
       tenantSel.appendChild(opt);
     });
+    if (!workbenchForm.tenant && selectedTenantScope && snapshot?.tenants.some(t => t.slug === selectedTenantScope)) workbenchForm.tenant = selectedTenantScope;
     tenantSel.value = workbenchForm.tenant;
     tenantSel.onchange = (e) => {
       workbenchForm.tenant = (e.target as HTMLSelectElement).value;
@@ -3409,6 +3420,12 @@ function renderEvidence(): HTMLElement {
   window.addEventListener('keydown', handleGlobalKeydown);
 
   return {
+    openTenant(slug: string) {
+      if (!/^[a-z0-9_]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 64) return;
+      selectedTenantScope = slug;
+      clearScopedProjection();
+      this.open('tenant-vault');
+    },
     open(nodeId?: string) {
       lastFocusedElement = (document.activeElement as HTMLElement) || null;
       lastFocusedId = lastFocusedElement?.id || '';

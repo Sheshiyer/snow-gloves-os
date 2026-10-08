@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 225/267
+progress: 241/267
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-08
@@ -355,28 +355,28 @@ until the actual mini supplies evidence.
 - [x] ISC-244: Proposed cross-brand flows retain planning-only status.
 - [x] ISC-245: Scoped planning projection excludes other tenant records.
 - [x] ISC-246: Public mode ignores ambient private data for brand summaries.
-- [ ] ISC-247: Client validation rejects malformed optional brand summaries.
-- [ ] ISC-248: Neighborhood passports display the current import and planning evidence.
+- [x] ISC-247: Client validation rejects malformed optional brand summaries.
+- [x] ISC-248: Neighborhood passports display the current import and planning evidence.
 - [x] ISC-249: The CLI workspace check is read-only.
 - [x] ISC-250: The workspace launcher refuses occupied ports.
 - [x] ISC-251: Workspace shutdown reaps only its owned children.
 - [x] ISC-252: The indexed Mac mini guide provides reproducible isolated setup commands.
 - [x] ISC-253: Integrated brand workspace passes focused backend regressions.
-- [ ] ISC-254: Integrated brand workspace passes strict frontend compilation.
-- [ ] ISC-255: Actual browser scope switching preserves brand isolation.
+- [x] ISC-254: Integrated brand workspace passes strict frontend compilation.
+- [x] ISC-255: Actual browser scope switching preserves brand isolation.
 
-- [ ] ISC-256: Brand markers in the 3D tenant station derive from the current snapshot.
-- [ ] ISC-257: Selecting a 3D brand marker opens its exact tenant passport.
-- [ ] ISC-258: An accessible brand atlas selects the same tenant as the scene.
-- [ ] ISC-259: Scoped failure clears private brand markers from the scene.
-- [ ] ISC-260: The brand atlas distinguishes public fixtures from private metadata.
-- [ ] ISC-261: Knowledge and blueprint destinations retain the selected brand scope.
-- [ ] ISC-262: Brand markers add no realtime lights or shadows.
-- [ ] ISC-263: The original crew walking and sandbox remain usable after brand integration.
-- [ ] ISC-264: The installation bundle excludes private instance data and host configuration.
-- [ ] ISC-265: The extracted installation bundle passes its checksum verifier.
-- [ ] ISC-266: Bundle verification rejects changed or symlinked files.
-- [ ] ISC-267: The documented new-Mac startup executes in an isolated extracted workspace.
+- [x] ISC-256: Brand markers in the 3D tenant station derive from the current snapshot.
+- [x] ISC-257: Selecting a 3D brand marker opens its exact tenant passport.
+- [x] ISC-258: An accessible brand atlas selects the same tenant as the scene.
+- [x] ISC-259: Scoped failure clears private brand markers from the scene.
+- [x] ISC-260: The brand atlas distinguishes public fixtures from private metadata.
+- [x] ISC-261: Knowledge and blueprint destinations retain the selected brand scope.
+- [x] ISC-262: Brand markers add no realtime lights or shadows.
+- [x] ISC-263: The original crew walking and sandbox remain usable after brand integration.
+- [x] ISC-264: The installation bundle excludes private instance data and host configuration.
+- [x] ISC-265: The extracted installation bundle passes its checksum verifier.
+- [x] ISC-266: Bundle verification rejects changed or symlinked files.
+- [x] ISC-267: The documented new-Mac startup executes in an isolated extracted workspace.
 
 ## Test Strategy
 
@@ -1138,3 +1138,6 @@ Final ledger/public-source check: six focused backend acceptance regressions pas
 - ISC-236..246: Bounded private-only brand projection passes four focused fixtures covering stale absolute-path rebinding, missing files, actual research SHA drift, symlink rejection, secret omission, own-tenant projects and public ambient-data isolation. Forty-seven focused backend regressions passed before two added isolation fixtures; acceptance ledger cap expanded to 1024 with explicit truncation warning. Routed generation reviewed and repaired locally; no ingestion completion or physical installation inferred.
 
 - ISC-249..253: Read-only launcher check on the actual private checkout reports ready with free alternate ports; three process fixtures prove occupied-port refusal, Node 24 acceptance and owned child reaping including second-spawn failure. API/UI commands use explicit loopback roots and paired ports. Public setup guide is indexed. Integrated focused backend suite: 52 passed in 10.85s. Device acceptance remains unverified.
+
+- ISC-247..248,254..263: Strict TypeScript build and 138 frontend checks pass. Root IAB verifies eleven private atlas entries/markers, direct AXIO marker selection and Metagration product-wing parent, Axtech-only shop/channel projects, CEE-only iVerif, HeyZack provenance, retained Knowledge/Blueprint scope and preselected proposal tenant. Actual API loss clears marker count to zero and removes passports without public downgrade. Public API shows only three blue fixture entries. CEO moves from(-11.7,-10.6) to(-9.4,-13.0); sandbox starts and remains33.2s while brand passport is open. Station sample:416 Balanced draws,24textures; no marker lights/shadows. Screenshot saved in current local visualization artifacts.
+- ISC-264..267: Explicit allowlist bundle contains378hashed platformfiles,3,750,851bytes and zero private-instance paths. Nine bundle fixtures verify hashing, changed files, symlink files/directories, unsafe outputs, untracked files and installed-dependency exclusions. Candidate verifies before installation; npm ci and isolated Python venv with PyYAML6.0.3 succeed. Actual extracted API+UI starts on18770/18771; IAB reads CEE iVerif passport and indexed Mac guide. Physical new-Mac acceptance remains unverified. Final archive will be regenerated from accepted source and rechecked before delivery.

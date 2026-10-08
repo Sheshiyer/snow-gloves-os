@@ -1,3 +1,4 @@
+import { createBrandMarkers, type BrandTenant } from './brand-atlas';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -158,6 +159,24 @@ export function createWorld(
     });
   });
 
+  const tenantStation = buildingObjs.find(item => item.id === 'tenant-vault');
+  const brandMarkers = createBrandMarkers(tenantStation?.group.position.clone() ?? new THREE.Vector3(), slug => container.dispatchEvent(new CustomEvent('brand-select', {detail:{slug}})));
+  scene.add(brandMarkers.group);
+  const onBrandMarkers = (event: Event) => {
+    const {tenants,mode,stale} = (event as CustomEvent<{tenants:BrandTenant[]|null;mode:string;stale:boolean}>).detail;
+    brandMarkers.update(tenants,mode,stale);
+    renderer.domElement.dataset.brandCount = String(brandMarkers.group.children.length);
+  };
+  container.addEventListener('brand-markers', onBrandMarkers);
+  const focusBrands = () => {
+    followSuspended = true;
+    controls.minDistance = 18;
+    focusDistance = 30;
+    focusDirection = new THREE.Vector3(14, 34, 16).normalize();
+    focusTarget = brandMarkers.group.position.clone().add(new THREE.Vector3(0, 1.8, 0));
+  };
+  container.addEventListener('brand-focus', focusBrands);
+
   // Selection Ring
   const ringGeo = new THREE.RingGeometry(2.6, 3.2, 32);
   ringGeo.rotateX(-Math.PI / 2);
@@ -271,6 +290,8 @@ export function createWorld(
     pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(pointer, camera);
+    const brandObstruction = raycaster.intersectObjects(buildingGroup.children, true)[0];
+    if (brandMarkers.pick(raycaster, brandObstruction?.distance ?? Infinity)) return;
     const residentSlug = pickResident();
     if (residentSlug) {
       container.dispatchEvent(new CustomEvent('resident-select', { detail: { slug: residentSlug } }));
@@ -369,6 +390,7 @@ export function createWorld(
     },
     update(state: GameState, dt: number) {
       residents.update(dt, residentsEnabled ? state.mode : 'playing');
+      brandMarkers.group.visible = residentsEnabled;
       if (!residentsEnabled) residents.group.visible = false;
       const controlled = residents.controlState();
       const overlayOpen = hasOverlay();
@@ -510,6 +532,10 @@ export function createWorld(
       renderer.render(scene, camera);
       if (renderStarted - lastMetricsAt >= 500) {
         lastMetricsAt = renderStarted;
+        renderer.domElement.dataset.brandMarkers = JSON.stringify(brandMarkers.group.children.map(mesh => {
+          const point = mesh.getWorldPosition(new THREE.Vector3()).project(camera);
+          return {slug:mesh.userData.slug,x:(point.x+1)/2,y:(1-point.y)/2,visible:point.z>=-1&&point.z<=1&&Math.abs(point.x)<=1&&Math.abs(point.y)<=1};
+        }));
         Object.assign(renderer.domElement.dataset, {
           renderCalls: String(renderer.info.render.calls),
           renderTriangles: String(renderer.info.render.triangles),
@@ -689,6 +715,9 @@ export function createWorld(
     },
 
     dispose() {
+      container.removeEventListener('brand-markers', onBrandMarkers);
+      container.removeEventListener('brand-focus', focusBrands);
+      brandMarkers.dispose();
       container.removeEventListener('resident-presence', onResidentPresence);
       container.removeEventListener('resident-visible', onResidentVisibility);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);

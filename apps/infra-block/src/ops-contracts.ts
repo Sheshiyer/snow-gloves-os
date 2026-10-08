@@ -1,3 +1,4 @@
+import type { BrandKnowledge, BrandPlanning } from './brand-summary';
 export interface SafeActivityRecord {
   id: string;
   timestamp: string | null;
@@ -71,6 +72,8 @@ export interface CurrentCatalogConnector {
 }
 
 export interface OpsSnapshotTenant {
+  knowledge?: BrandKnowledge;
+  planning?: BrandPlanning;
   slug: string;
   name: string;
   primaryRuntime: string | null;

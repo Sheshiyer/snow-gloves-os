@@ -1,3 +1,5 @@
+import { mountBrandAtlas } from './brand-atlas';
+import type { OpsSnapshot } from './ops-contracts';
 import './style.css';
 import '@fontsource/barlow-condensed/700.css';
 import '@fontsource/dm-sans/400.css';
@@ -256,6 +258,7 @@ app.innerHTML = `
     </nav>
     <div class="sg-header-actions">
       <button type="button" class="sg-btn-ghost" id="btn-operations" aria-label="Open field kit" aria-expanded="false">FIELD KIT</button>
+      <div id="sg-brand-atlas"></div>
       <button type="button" class="sg-btn-ghost" id="btn-view">${prefersMap ? '3D CITY' : '2D MAP'}</button>
       <button type="button" class="sg-btn-ghost" id="btn-lang" aria-label="Toggle Language">${lang === 'en' ? '简中' : 'EN'}</button>
       <button type="button" class="sg-btn-ghost" id="btn-audio" aria-label="Toggle Audio">${sound.muted ? escapeHtml(i18n[lang].unmute) : escapeHtml(i18n[lang].mute)}</button>
@@ -1093,6 +1096,15 @@ home = mountHome(homeHost, {
     home?.setNavigation(crewNavigation);
   },
   moveInput: (x, z) => { keyState.touchX = x; keyState.touchZ = z; },
+});
+const selectBrand = (slug: string) => { if (gameState.mode === 'playing') { pause(gameState); clearInputs(); } setFieldKitOpen(true); cockpit?.openTenant(slug); };
+const brandAtlas = mountBrandAtlas(document.getElementById('sg-brand-atlas')!, selectBrand, () => canvasMount.dispatchEvent(new CustomEvent('brand-focus')));
+canvasMount.addEventListener('brand-select', event => selectBrand((event as CustomEvent<{slug:string}>).detail.slug));
+document.addEventListener('brand-projection', event => {
+  const {snapshot,mode,stale} = (event as CustomEvent<{snapshot:OpsSnapshot|null;mode:string;stale:boolean}>).detail;
+  const tenants = snapshot?.tenants ?? null;
+  brandAtlas.update(tenants,mode,stale);
+  canvasMount.dispatchEvent(new CustomEvent('brand-markers', {detail:{tenants,mode,stale}}));
 });
 canvasMount.addEventListener('resident-select', event => home?.selectResident((event as CustomEvent<{slug:string}>).detail.slug));
 document.body.classList.toggle('home-explore', activeTab === 'explore');

@@ -1092,3 +1092,10 @@ body.home-explore.home-flat-map:not(.field-kit-open):not(.source-notes-open) .sg
 .sg-graphics-select select {font:inherit;font-size:11px;color:var(--sg-text);background:#f6f2e8;border:1px solid #526157;border-radius:14px;min-height:30px;padding:4px 6px;max-width:135px;}
 body.home-explore .ih-mission-strip, body.home-explore .ih-walk-hud, body.home-explore .ih-belt-wrap {box-shadow:2px 3px 0 #34443866;border-width:1px;}
 @media(max-width:768px),(max-height:500px){.sg-graphics-select select{min-height:44px;}}
+
+.sg-brand-atlas {position:relative;font-size:12px;color:var(--sg-ink,#263c35)}
+.sg-brand-atlas>summary {cursor:pointer;padding:10px;border-radius:8px;background:#f6ecd2;white-space:nowrap}
+.sg-brand-atlas[open]>div {position:fixed;top:70px;right:16px;width:min(250px,calc(100vw - 32px));max-height:55vh;overflow:auto;background:#fff6e6;border:1px solid #c8b894;padding:12px;z-index:120;border-radius:10px;box-shadow:0 8px 22px #22332222}
+.sg-brand-atlas>div>div {display:flex;justify-content:space-between;gap:8px;align-items:center}
+.sg-brand-atlas button {min-height:44px;background:#f3e4c5;border:0;border-radius:6px;cursor:pointer;margin:3px 0;color:#263c35}
+.sg-brand-atlas span {font-size:10px}

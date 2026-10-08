@@ -742,6 +742,7 @@ function disposeNavigation(): void {
     }
     updateConnectionUI();
     broadcastPresence();
+    host.dispatchEvent(new CustomEvent('brand-projection', {bubbles:true, detail:{snapshot:projection.snapshot, mode:projection.scopeMode, stale:projection.stale}}));
   }
 
   function startDemoTour(): void {

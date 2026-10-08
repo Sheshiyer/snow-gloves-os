@@ -1,3 +1,4 @@
+import { parseBrandSummary } from './brand-summary';
 import type {
   CurrentCatalogAdapter,
   CurrentCatalogAgent,
@@ -506,8 +507,12 @@ export function validateSnapshot(unknownData: unknown): OpsSnapshot {
       throw new OpsClientError(`Tenant availability invalid at ${idx}`, 'invalid-response');
     }
     const warnings = parseStringArray(t.warnings, `tenants[${idx}].warnings`);
+    let brandSummary;
+    try { brandSummary = parseBrandSummary({knowledge:t.knowledge, planning:t.planning}); }
+    catch { throw new OpsClientError(`Invalid tenant brand summary at ${idx}`, 'invalid-response'); }
 
     return {
+      ...brandSummary,
       slug: t.slug,
       name: t.name,
       primaryRuntime,
