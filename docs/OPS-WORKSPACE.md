@@ -21,7 +21,7 @@ npm --prefix apps/infra-block ci
 npm --prefix apps/infra-block run build
 ```
 
-Use Python 3.10+ and Node 20.19+, 22.12+, or a newer supported major such as Node 24. These commands install workspace dependencies, not global agent CLIs.
+Use Python 3.11+ and Node 20.19+, 22.12+, or a newer supported major such as Node 24. These commands install workspace dependencies, not global agent CLIs.
 
 Set the private instance location in the terminal used for existing onboarding
 and fleet commands:
@@ -100,6 +100,8 @@ For an already enabled tenant, review the wing-scoped adapter output:
 This command renders a dry-run; review its destination and admitted module
 intersection before choosing `--write`. A node allowlist does not enable tenant
 modules. Do not enable every branch just to populate the UI.
+
+The adapter/onboarding commands require Python 3.11+ for the standard-library TOML parser.
 
 The optional Textual onboarding UI uses `requirements-tui.txt` inside the same
 virtual environment and `scripts/tui_onboard.py`. It handles onboarding; the

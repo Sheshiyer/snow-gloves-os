@@ -1,6 +1,6 @@
 # 03 — Machine profiles (wings)
 
-Three Mac minis, three wings. Each wing is one file, `nodes/<wing>/node.yaml` (schema `snowgloves.node.v1`, documented in `nodes/SCHEMA.md`). The file says which runtimes that machine runs, which catalog ids it is allowed to serve, and how its MCP servers launch. Shared names (hostnames, overlay, ports, operator users) come from `fleet.yaml`.
+Four Mac minis, three wings: Mac Coding 01 and 02 share `coding`; Mac Creative uses `design`; Mac Marketing uses `marketing`. Each wing is one file, `nodes/<wing>/node.yaml` (schema `snowgloves.node.v1`, documented in `nodes/SCHEMA.md`). The file says which runtimes that machine runs, which catalog ids it is allowed to serve, and how its MCP servers launch. Shared names (hostnames, overlay, ports, operator users) come from `fleet.yaml`.
 
 The wing axis sits **beside** the tenant axis, not above it:
 
@@ -40,7 +40,7 @@ The card bodies carry provenance, not install commands, so the exact runtime com
 
 ### MCP launch precedence and secrets
 
-For an MCP id the launch spec is chosen as `node.mcps[id]` > the card's `mcp:` block (`catalog/cards/<id>.md`) > a `FILL:` placeholder. The three MCP cards and the node files currently agree, so the node block is a redundancy you can edit per machine (a Docker image, a pinned version) without touching the catalog.
+For an MCP id the launch spec is chosen as `node.mcps[id]` > the card's `mcp:` block (`catalog/cards/<id>.md`) > a `FILL:` placeholder. The MCP card launch specs and the node files should be reconciled during onboarding, so the node block is a redundancy you can edit per machine (a Docker image, a pinned version) without touching the catalog.
 
 `env` values are variable names only (`"${FIGMA_API_KEY}"`); validation rejects anything else. Secrets live in the operator user's environment or Keychain on that Mac. The rendered `.mcp.json` / `config.toml` / `opencode.json` is safe to copy.
 

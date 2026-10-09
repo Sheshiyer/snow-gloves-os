@@ -4,13 +4,15 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 273/299
+progress: 302/331
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-08
+updated: 2026-10-09
 ---
 
 ## Problem
+
+Current local onboarding lane: produce a detailed 100-point fleet checklist, identify and explicitly enroll this localhost as Mac Coding 01, use HeyZack for a bounded configuration/workspace test, and prepare repeatable transition material for Coding 02, Creative and Marketing. Historical bootstrap implementation and real runtime/connector/recovery acceptance retain their own open gates.
 
 Current fleet archipelago lane: expand the playable town into four Mac mini islands—two coding, one creative and one marketing. Distinguish physical inventory assignments and node-attributed work from planned slots; remove the single continuous ground plane in favor of coastlines, water and bounded streamed world scenery.
 
@@ -35,6 +37,8 @@ port with service identity. The confirmed installation target for 1 October is
 one Mac mini running a local bootstrap and recovery pilot.
 
 ## Vision
+
+One reviewed device becomes a clear reference package: the operator can inspect what is present, understand source versus installed capability, reproduce a verified local test and carry the same evidence gates to each later Mac.
 
 A nautical archipelago stretches beyond the horizon. Four distinctive islands represent the founder-defined Mac mini slots; island travel brings the operator into a grounded town whose characters and work signals belong to that machine. Role silhouettes, coastlines and a chart make the fleet explorable in the existing game language.
 
@@ -86,6 +90,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Deliver exactly 100 evidence-linked completed/needed onboarding checks, current Coding 01 hardware and canonical enrollment proof, an isolated repeatable HeyZack adapter artifact, actual scoped town readback and a freshly verified transfer bundle/runbook.
 
 Deliver a four-island Mac mini fleet archipelago with safe node projection, source-specific work presence, island selection/travel, coastlines and water, bounded world exploration, preserved crew/game/brand contracts, and actual responsive browser verification.
 
@@ -421,7 +427,45 @@ until the actual mini supplies evidence.
 - [x] ISC-298: Anti: Island visual states do not promote configured metadata to live device acceptance.
 - [x] ISC-299: Integrated fleet projection and frontend pass focused regressions and strict compilation.
 
+
+### Local fleet onboarding, 9 October 2026
+
+- [x] ISC-300: Public onboarding template contains exactly 100 uniquely numbered checks.
+- [x] ISC-301: Private completed-needed checklist contains exactly the same 100 stable item IDs.
+- [x] ISC-302: Checklist distinguishes source completion from current local and pending device evidence.
+- [x] ISC-303: Capability inventory reconciles all 135 current catalog dispositions.
+- [x] ISC-304: Transition map enumerates the nine source runtime adapters.
+- [x] ISC-305: Transition map identifies seven complete agent definition packages.
+- [x] ISC-306: Transition map records eight connector contracts and eighteen capabilities.
+- [x] ISC-307: HeyZack coding admission resolves exactly five effective module IDs.
+- [x] ISC-308: Three admitted coding pointer references resolve on the inspected host.
+- [x] ISC-309: Host plugin inventory remains separate from portable fleet defaults.
+- [x] ISC-310: Current local hardware is identified as a Mac mini without serial or UUID disclosure.
+- [x] ISC-311: Current local receipt records chip, architecture, memory and macOS.
+- [x] ISC-312: Mac Coding 01 private island registration matches its unique current local hostname.
+- [x] ISC-313: Pre-enrollment inventory bytes are retained with a SHA-256-bound private backup.
+- [x] ISC-314: Configured Coding 01 projection retains null device-health observation.
+- [x] ISC-315: Current workspace preflight passes using an explicit isolated private data root.
+- [x] ISC-316: Anti: the adapter canary writes no native host runtime configuration.
+- [x] ISC-317: Coding adapter dry-run leaves the proposed output directory absent.
+- [x] ISC-318: Actual adapter canary outputs remain beneath its owned review root.
+- [x] ISC-319: Two actual coding adapter renders produce identical file hashes.
+- [x] ISC-320: Generated manifest records five modules and zero selected tenant agents.
+- [x] ISC-321: Local canary artifact passes independent SHA-256 readback.
+- [x] ISC-322: Private completion record binds the exact canonical Coding 01 node ID.
+- [x] ISC-323: HeyZack canary completion is absent from a second tenant snapshot.
+- [x] ISC-324: Actual in-app browser displays the local canary completion.
+- [x] ISC-325: Actual in-app browser envelope displays nodeId mac-coding-1.
+- [x] ISC-326: Copied bundle onboarding prompt executes without source-checkout dependencies.
+- [x] ISC-327: Bundle installation guide requires Python 3.11 for onboarding TOML support.
+- [ ] ISC-328: Owned workspace shutdown reaps its loopback child listeners.
+- [ ] ISC-329: Fresh transfer archive passes outer and per-file checksum verification.
+- [ ] ISC-330: Independently extracted bundle starts the scoped local workspace.
+- [x] ISC-331: Anti: held model canary and incomplete runtime/recovery steps remain visibly unaccepted.
+
 ## Test Strategy
+
+Local onboarding: count IDs in template/private JSON/Markdown; reconcile source inventory; compare hardware and private DNS-safe registration; hash before/after and generated outputs; run copied bundle prompt and focused regressions; inspect tenant isolation and actual browser envelope; test owned child cleanup and independently extracted workspace. Historical installer and live/provider criteria remain unchanged.
 
 - ISC-268..281,287,298: backend and pure client/state tests for topology, inventory, sanitization, exact node+tenant attribution, freshness, supersession and failure revocation.
 - ISC-282..285,288..289,294..296: root IAB rendered coastline/archipelago, selected island/travel, walking, encounters and sandbox checks.
@@ -479,6 +523,10 @@ until the actual mini supplies evidence.
 | 51 | claims | receipt evidence-level audit | no readiness promotion | receipt audit |
 
 ## Features
+
+- Local onboarding checklist and capability map: ISC300..309, parallel read-only source/host audits.
+- Identified private enrollment and repeatable configuration canary: ISC310..325, root owns device/private record writes.
+- Verified transfer and honest runtime boundaries: ISC326..331, packaging worker plus root extracted lifecycle.
 
 - FleetNodeProjection: public four-slot topology and private safe assignments/activity; owns backend projection and client validation.
 - FleetArchipelagoWorld: irregular island coastlines, distant towns, bounded chunk scenery, map/travel and single detailed town.
@@ -543,6 +591,8 @@ _Last refreshed: 2026-10-08T15:37:31.160Z_
 <!-- arch-assets:end -->
 
 ## Decisions
+
+- 2026-10-09: refined: user identifies current localhost as Mac Coding 01 and selects HeyZack. Enroll the DNS-safe LocalHostName in the private four-slot seam; preserve legacy three-wing policies and native runtime configuration. The first test is actual local adapter generation, attributed to the CTO role with agentExecuted false. Model canary was refused before launch by host-pressure admission, exit125; no inferred model/provider acceptance.
 
 - 2026-10-08 refined: latest user confirms four islands, two mac-coding, one mac-creative and one mac-marketing. Existing three wing profiles are templates, not a four-device census; private inventory currently configures three wing hosts and the second coding slot is planned. FirstPrinciples separates slot identity, device assignment, node-specific work evidence and scenery. SystemsThinking maps inventory→nodeprojection→island, scopedactivity→selectedtownpresence, camera/travel→logicalorigin→boundedchunks. BeCreative compares nautical archipelago, floating sky isles, cartridge planets, rail ports and fjord settlements; chooses grounded nautical coasts to retain the recent material style. ISA Append adds32 stable atomic checks and CheckCompleteness preserves twelve-section structure. ReReadCheck will bind four slots, machine-specific activity and an expanding world to actual source/browser evidence. Temperance parallel dispatch handles three disjoint routed production lanes; root owns integration/ISA/IAB.
 
@@ -1254,3 +1304,10 @@ Root browser receipt: /Users/sheshnarayaniyer/.codex/visualizations/2026/10/08/0
 ReReadCheck — latest request verbatim: "we ll have 4 island 2 mac-coding, 1 mac-creative and 1 mac-marketing". The canonical topology, actual chart, travel controls and Field Kit expose exactly those four islands. Each town remains playable through all seven agent identities. Earlier full-screen, game aesthetics, grounded world and efficient graphics requirements are preserved. No physical installation or device readiness is inferred from source metadata. Current32fleet criteria are accepted; master remains273/299 with26historical requirements open.
 
 Final public-source check: regenerated with SNOWGLOVES_DATA unset and --snapshot --no-probe. Four Template fleet slots, three public tenants, empty events/jobs/artifacts/approvals,299criteria/273accepted and readOnlytrue verified; built dist fixture equals public source byte-for-byte. Six post-ledger acceptance regressions pass; final production build passes.
+
+## Verification — local onboarding checkpoint, 9 October 2026
+
+- ISC-300..309: Independent source/count audit — exactly100unique checklist IDs;135cards/9adapters/7agents/8connectors18capabilities; coding effective5 and pointers3; host plugins explicitly separate.
+- ISC-310..325: Current localhost + actual subprocess/IAB — Macmini M4/24GB/arm64/macOS27.2; privateunique LocalHostName/profileagreement with priorbytesbackup; explicitpreflight ready; isolatedrender twiceidentical; independently read artifactSHA and privatecompletionexactnode; Axtech excludesHeyZackjob; actualIAB Courier trail completion/envelope nodeIdmac-coding-1. Operatorproduced/agentExecutedfalse retained.
+- ISC-326..327: Copied bundle CLI regression — onboarding prompt runs withoutsourcecheckout or writes; generatedREADME requiresPython3.11; focusedsource69passed and bundle10passed.
+- ISC-331: Actual routed attempt — noesis-verify exit125 host_pressure_elevated before inference; model/provider/connector/recovery acceptance explicitly held in checklist.

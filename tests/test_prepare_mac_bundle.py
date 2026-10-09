@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -31,6 +32,9 @@ class TestPrepareMacBundle(unittest.TestCase):
         self._write_file("adapters/adapter.yml", "type: adapter")
         self._write_file("connectors/db.json", '{"type": "db"}')
         self._write_file("skills/search.md", "# Skill Search")
+        self._write_file("prompts/onboard-interview.md", "# Interview for {{runtime_name}}")
+        self._write_file("prompts/private.json", '{"private": true}')
+        self._write_file("prompts/nested/private.md", "Not a root prompt template")
         self._write_file("workflows/deploy.yaml", "steps: []")
         self._write_file("docs/guide.md", "# Guide")
 
@@ -86,14 +90,59 @@ class TestPrepareMacBundle(unittest.TestCase):
         self.assertTrue((out_dir / "MANIFEST.json").exists())
         self.assertTrue((out_dir / "VERIFY.py").exists())
         self.assertTrue((out_dir / "README-INSTALL.md").exists())
+        install_readme = (out_dir / "README-INSTALL.md").read_text(encoding="utf-8")
+        self.assertIn("Python 3.11+", install_readme)
+        self.assertNotIn("Python 3.10+", install_readme)
+        self.assertIn("onboarding interview prompts", install_readme)
+        self.assertIn("does not install or start Hermes", install_readme)
         self.assertTrue((out_dir / "apps/infra-block/dist/index.js").exists())
         self.assertTrue((out_dir / "scripts/ops_workspace.py").exists())
+        self.assertTrue((out_dir / "prompts/onboard-interview.md").exists())
+        self.assertFalse((out_dir / "prompts/private.json").exists())
+        self.assertFalse((out_dir / "prompts/nested").exists())
 
         # Verify MANIFEST includes VERIFY.py and README-INSTALL.md and schema is correct
         manifest_data = json.loads((out_dir / "MANIFEST.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest_data.get("schema"), "snowgloves.mac-bundle.v1")
         self.assertIn("VERIFY.py", manifest_data["files"])
         self.assertIn("README-INSTALL.md", manifest_data["files"])
+
+    def test_onboarding_prompt_runs_from_extracted_bundle(self) -> None:
+        source_root = Path(__file__).resolve().parents[1]
+        # Exercise the production CLI from the copied tree, so no source-checkout
+        # imports or prompt templates can hide an omitted runtime dependency.
+        for relative in (
+            "scripts/onboard.py",
+            "scripts/lib/__init__.py",
+            "scripts/lib/adapters.py",
+            "scripts/lib/nodes.py",
+            "scripts/lib/paths.py",
+            "adapters/codex/adapter.yaml",
+            "prompts/onboard-interview.md",
+        ):
+            target = self.repo_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_root / relative, target)
+        out_dir = Path(self.test_dir) / "bundle_prompt"
+        build_bundle(self.repo_dir, out_dir)
+        env = {k: v for k, v in os.environ.items() if k not in {
+            "PYTHONPATH", "SNOWGLOVES_DATA", "SNOWGLOVES_ROOT", "SNOWGLOVES_NODE",
+        }}
+        before = set(out_dir.rglob("*"))
+        result = subprocess.run(
+            [sys.executable, "-B", str(out_dir / "scripts/onboard.py"), "--prompt", "codex"],
+            cwd=out_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("OpenAI Codex CLI", result.stdout)
+        self.assertIn("request_user_input", result.stdout)
+        self.assertNotIn("{{runtime_name}}", result.stdout)
+        self.assertEqual(set(out_dir.rglob("*")), before)
+        self.assertTrue(verify_existing_bundle(out_dir))
 
     def test_tampered_file_fails_verification(self) -> None:
         out_dir = Path(self.test_dir) / "bundle_output"

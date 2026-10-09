@@ -30,6 +30,7 @@ ALLOWED_ROOT_DIRS = {
     "adapters",
     "connectors",
     "skills",
+    "prompts",
     "workflows",
     "docs",
 }
@@ -70,8 +71,20 @@ README_INSTALL_CONTENT = """# Mac Deployment Bundle
 This bundle was created with deterministic content hashing and verified file integrity.
 
 ## Prerequisites
-- Python 3.10+
+- Python 3.11+ (the onboarding adapters use the standard-library `tomllib` module)
 - Node.js (v20.19+, v22.12+, or v24+) & npm
+
+## Bundle Scope
+The bundle contains the loopback operations workspace, built town frontend,
+catalog, agent definitions, runtime adapters and onboarding interview prompts.
+Render a runtime's interview with `python3 -B scripts/onboard.py --prompt codex`
+(replace `codex` with the selected runtime).
+
+It does not install or start Hermes, shared gateways, agent runtimes, plugins or
+connectors. Host configuration, credentials and private instance records transfer
+separately. The Hermes configuration and graph-walk fixtures are not included;
+the corresponding legacy installer and service commands are outside this bundle's
+supported startup path.
 
 ## Verification & Launch Tooling
 Verify the bundle before installing dependencies:
@@ -219,6 +232,10 @@ def is_safe_allowlisted_relative_path(rel_str: str) -> bool:
     # skills
     if top == "skills":
         return filename.endswith((".md", ".yaml", ".yml", ".json"))
+
+    # The onboarding CLI reads these templates directly from CODE_ROOT.
+    if top == "prompts":
+        return len(parts) == 2 and filename.endswith(".md")
 
     # workflows
     if top == "workflows":

@@ -1,25 +1,16 @@
-# Snow Gloves fleet: three Mac minis, one gateway
+# Snow Gloves fleet: four Mac minis, three wings
 
-Snow Gloves OS runs on three Mac minis in the office, split by function: a **Marketing Mac**, a
-**Design Mac** and a **Coding Mac**. The Coding Mac is always on and hosts the shared OmniRoute
-gateway (port 20128) and Hermes (port 4100) for the whole fleet. The founder's own Mac is the
-**authoring seat**: configuration is built and tested there, then handed to the Coding Mac as a
-gateway kit.
+The fleet has four canonical device slots: **Mac Coding 01**, **Mac Coding 02**, **Mac Creative** and **Mac Marketing**. The two coding devices share the `coding` wing policy; Creative uses `design`, and Marketing uses `marketing`. These are four physical assignments and three capability profiles.
 
-This supersedes the coordinator/worker role split in `docs/MAC-MINI-NODE-ONBOARDING-PLAN.md` with a
-function split. The single-machine software install stays `docs/MAC-MINI-SETUP.md`; this folder is
-what sits around it.
+Start with the [100-point onboarding checklist](ONBOARDING-100.md), the [repeatable local runbook](LOCAL-FIRST-TEST.md) and [capability transition map](CAPABILITY-TRANSITION.md). The [fleet world contract](../fleet-world.md) defines explicit unique private island assignments. The current Mac Coding 01 is the first local onboarding reference. Each other Mac needs its own identity and test evidence.
 
-**Private data.** This folder is the generic flow. An instance's inventory (`fleet.yaml`, `nodes/`),
-brand tenants, decisions, provider roster and receipts live in the private data checkout
-(`snow-gloves-ops`), which the scripts read when `SNOWGLOVES_DATA` points at it.
+Platform source belongs here. Fleet identity, tenants, receipts and device-specific configuration belong in the separate private `snow-gloves-ops` checkout. A configured island is inventory metadata; device, runtime, connector, reboot and capacity tests retain separate acceptance.
 
-**Status:** Software: documented and tested on the authoring seat. Physical minis: pending (see the
-reconciliation receipt in `snow-gloves-ops/docs/fleet/` and the pilot in `ISA.md`).
+The existing operations workspace supports owned foreground loopback startup. The historical resumable bootstrap CLI remains unimplemented. The commands below describe individual tools and policies; do not run the legacy global installer or port-killing smoke target as the local first test. Gateway placement and service activation require observed device-specific configuration.
 
 ## The spine: ten steps per mini
 
-Run them in order on each mini. `<wing>` is `marketing`, `design` or `coding`; names come from
+Use this policy spine alongside the current local runbook; inspect each command before changing host settings. `<wing>` is `marketing`, `design` or `coding`; names come from
 `fleet.yaml` in the data checkout (start a new one from `fleet.example.yaml`).
 
 ### 0. Company and data checkout (private: `snow-gloves-ops/docs/fleet/00-COMPANY.md`)
@@ -30,7 +21,7 @@ repo, not here.
 
 ```bash
 export SNOWGLOVES_DATA=/path/to/snow-gloves-ops   # tenants/, fleet.yaml, nodes/
-cat "$SNOWGLOVES_DATA/fleet.yaml"                 # new instance: cp fleet.example.yaml "$SNOWGLOVES_DATA/fleet.yaml"
+python3 scripts/ops_workspace.py check --data-root "$SNOWGLOVES_DATA"  # safe summary; raw inventory stays private
 ```
 
 ### 1. Apple Account and users ([01-APPLE-ACCOUNT.md](01-APPLE-ACCOUNT.md))
@@ -44,11 +35,12 @@ bash scripts/fleet/remote_access.sh --wing <wing>          # dry-run: prints the
 
 ### 2. Tailscale ([02-NETWORK-REMOTE-ACCESS.md](02-NETWORK-REMOTE-ACCESS.md))
 
-Every mini and every team Mac joins the tailnet. MagicDNS names are the `overlay` values in
-`fleet.yaml`: `marketing-mac`, `design-mac`, `coding-mac`.
+Every mini and every team Mac joins the tailnet. Each physical device needs a unique MagicDNS name recorded in its private island inventory. The two coding devices must not reuse the same hostname.
 
 ```bash
-sudo tailscale up && sudo tailscale set --hostname <wing>-mac && tailscale status
+sudo tailscale up
+sudo tailscale set --hostname <reviewed-unique-device-name>
+tailscale status
 ```
 
 ### 3. Remote access: ARD, Screen Sharing, SSH (same doc: [02-NETWORK-REMOTE-ACCESS.md](02-NETWORK-REMOTE-ACCESS.md))
