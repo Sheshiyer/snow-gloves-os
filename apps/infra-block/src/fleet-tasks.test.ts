@@ -138,6 +138,7 @@ describe('Task graph rendering', () => {
     expect(graphLines({...parent, graph: {children: [], status: 'none'}} as never)).toEqual([]);
     expect(graphLines({...parent, graph: {status: 'incomplete', children: [{logical_role: 'librarian', stage: 'reference', status: 'succeeded', artifact: {path: 'a', sha256: 'x'}}, {logical_role: 'sentinel', stage: null, status: 'queued', artifact: null}]}} as never))
       .toEqual(['Task graph · incomplete', 'librarian · reference · succeeded · artifact attached', 'sentinel · — · queued · no artifact']);
+    expect(graphLines({...parent, graph: {status: 'incomplete', children: [{logical_role: 'sentinel', stage: 'verify', status: 'failed', artifact: null, superseded_by: 'n'}]}} as never)[1]).toBe('sentinel · verify · failed · no artifact · retried');
   });
   it('shows role and stage on labels and renders the graph panel as text', async () => {
     vi.stubGlobal('document', {createElement: (tag: string) => new ElementHarness(tag)});

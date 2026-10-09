@@ -159,3 +159,109 @@ def test_list_exposes_parent_id_so_the_board_can_group(fleet):
     kid = child(c, conf, parent, 'cto')
     rows = {t['id']: t for t in c.list_tasks('founder', conf['principals']['founder'])}
     assert rows[kid['id']]['parent_id'] == parent['id'] and rows[parent['id']]['parent_id'] is None
+
+
+def failed_child(c, conf, parent, role='sentinel', key=None):
+    kid = child(c, conf, parent, role, key=key)
+    running = claim(c, conf)
+    assert running['id'] == kid['id']
+    report(c, conf, running, type='failed', message='gateway 429')
+    return kid
+
+
+def retry(c, conf, parent, original, role='sentinel', key=None, **updates):
+    return child(c, conf, parent, role, key=key or 'retry-' + original['id'][:6], supersedes=original['id'], **updates)
+
+
+def graph(c, conf, parent):
+    return c.detail('founder', conf['principals']['founder'], parent['id'])['graph']
+
+
+def test_retry_replaces_a_failed_child_and_graph_can_verify(fleet):
+    c, conf, _ = fleet
+    parent = submit(c, conf)
+    finish(c, conf, parent['id'], name='parent.json')
+    bad = failed_child(c, conf, parent)
+    assert graph(c, conf, parent)['status'] == 'failed'
+    good = retry(c, conf, parent, bad)
+    assert good['supersedes'] == bad['id']
+    assert graph(c, conf, parent)['status'] == 'incomplete'
+    finish(c, conf, good['id'])
+    g = graph(c, conf, parent)
+    assert g['status'] == 'verified'
+    rows = {k['id']: k for k in g['children']}
+    assert rows[bad['id']]['superseded_by'] == good['id'] and rows[good['id']]['superseded_by'] is None
+
+
+@pytest.mark.parametrize('state', ['queued', 'succeeded', 'interrupted', 'cancelled'])
+def test_only_failed_children_can_be_superseded(fleet, state):
+    c, conf, now = fleet
+    principal = conf['principals']['founder']
+    parent = submit(c, conf)
+    finish(c, conf, parent['id'], name='parent.json')
+    kid = child(c, conf, parent, 'sentinel')
+    if state == 'succeeded':
+        finish(c, conf, kid['id'])
+    elif state == 'interrupted':
+        claim(c, conf)
+        now[0] += 10_000
+        c.list_tasks('founder', principal)  # lease expiry marks it interrupted
+    elif state == 'cancelled':
+        c.cancel('founder', principal, kid['id'])
+    with pytest.raises(Rejected) as exc:
+        retry(c, conf, parent, kid)
+    assert exc.value.status == 409
+    assert c.detail('founder', principal, kid['id'])['status'] == state
+
+
+def test_retry_must_match_parent_role_and_be_unique(fleet):
+    c, conf, _ = fleet
+    parent = submit(c, conf)
+    finish(c, conf, parent['id'], name='parent.json')
+    bad = failed_child(c, conf, parent)
+    other = submit(c, conf, idempotency_key='other-root')
+    with pytest.raises(Rejected) as exc:
+        retry(c, conf, parent, bad, role='librarian')
+    assert exc.value.status == 409
+    with pytest.raises(Rejected) as exc:
+        child(c, conf, other, 'sentinel', key='cross', supersedes=bad['id'])
+    assert exc.value.status == 409
+    with pytest.raises(Rejected) as exc:
+        child(c, conf, parent, 'sentinel', key='ghost', supersedes='e' * 32)
+    assert exc.value.status == 404
+    with pytest.raises(Rejected) as exc:
+        submit(c, conf, idempotency_key='noparent', supersedes=bad['id'])
+    assert exc.value.status == 400
+    retry(c, conf, parent, bad, key='first')
+    with pytest.raises(Rejected) as exc:
+        retry(c, conf, parent, bad, key='second')
+    assert exc.value.status == 409
+
+
+def test_retry_chain_is_bounded_and_replay_is_idempotent(fleet):
+    c, conf, _ = fleet
+    parent = submit(c, conf)
+    finish(c, conf, parent['id'], name='parent.json')
+    first = failed_child(c, conf, parent)
+    second = retry(c, conf, parent, first, key='r1')
+    assert retry(c, conf, parent, first, key='r1')['id'] == second['id']
+    running = claim(c, conf)
+    report(c, conf, running, type='failed')
+    third = retry(c, conf, parent, second, key='r2')
+    running = claim(c, conf)
+    report(c, conf, running, type='failed')
+    with pytest.raises(Rejected) as exc:
+        retry(c, conf, parent, third, key='r3')
+    assert exc.value.status == 409
+
+
+def test_retries_do_not_consume_the_child_limit(fleet):
+    c, conf, _ = fleet
+    parent = submit(c, conf)
+    finish(c, conf, parent['id'], name='parent.json')
+    bad = failed_child(c, conf, parent)
+    retry(c, conf, parent, bad)
+    for index in range(6):
+        child(c, conf, parent, 'dispatcher', key='fill-%d' % index)
+    with pytest.raises(Rejected):
+        child(c, conf, parent, 'dispatcher', key='over')

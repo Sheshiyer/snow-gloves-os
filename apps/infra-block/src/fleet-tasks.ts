@@ -28,7 +28,7 @@ export function orderTasks(tasks: FleetTask[]): {task: FleetTask; child: boolean
 export function graphLines(task: FleetTask): string[] {
   const graph = task.graph;
   if (!record(graph) || !Array.isArray(graph.children) || !graph.children.length) return [];
-  return [`Task graph · ${displayValue(graph.status)}`, ...graph.children.filter(record).map(kid => [kid.logical_role, kid.stage, kid.status, kid.artifact ? 'artifact attached' : 'no artifact'].map(displayValue).join(' · '))];
+  return [`Task graph · ${displayValue(graph.status)}`, ...graph.children.filter(record).map(kid => [kid.logical_role, kid.stage, kid.status, kid.artifact ? 'artifact attached' : 'no artifact'].map(displayValue).join(' · ') + (kid.superseded_by ? ' · retried' : ''))];
 }
 export class FleetClient {
   #token: string;

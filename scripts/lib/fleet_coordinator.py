@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROLES = ('ceo','cto','chief-of-staff','librarian','interpreter','dispatcher','sentinel')
 STAGES = ('plan','reference','review','dispatch','verify')
 MAX_CHILDREN = 7
+MAX_ATTEMPTS = 3  # original plus two retries per role chain
 NO_NEW_CHILDREN = ('cancelled','cancel_requested','failed','interrupted')
 
 
@@ -64,7 +65,7 @@ class Coordinator:
         columns = {r[1] for r in self.db.execute('PRAGMA table_info(tasks)')}
         if 'logical_role' not in columns:
             self.db.execute("ALTER TABLE tasks ADD COLUMN logical_role TEXT NOT NULL DEFAULT 'cto'")
-        for column in ('parent_id', 'stage'):
+        for column in ('parent_id', 'stage', 'supersedes'):
             if column not in columns:
                 self.db.execute('ALTER TABLE tasks ADD COLUMN %s TEXT' % column)
         self.db.execute('CREATE INDEX IF NOT EXISTS tasks_parent ON tasks(parent_id)')
@@ -109,7 +110,7 @@ class Coordinator:
             self.db.execute('INSERT OR IGNORE INTO events(task_id,attempt_id,event_id,type,message,created) VALUES(?,?,?,?,?,?)', (row['id'],row['attempt_id'],'lease-expired','interrupted','Worker heartbeat expired; manual reconciliation required',now))
 
     def _public(self, row):
-        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage')
+        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes')
         result = {k: row[k] for k in keys}
         project = self.config['projects'][row['project']]
         result.update(tenant=project['tenant'],organization=project['organization'],session_id=row['id'])
@@ -135,17 +136,21 @@ class Coordinator:
         for field in ('title', 'category'):
             if field in body and (not isinstance(body[field],str) or len(body[field]) > 200):
                 raise Rejected(400, 'Invalid '+field)
-        parent_id, role, stage = body.get('parent_id'), body.get('logical_role'), body.get('stage')
+        parent_id, role, stage, supersedes = body.get('parent_id'), body.get('logical_role'), body.get('stage'), body.get('supersedes')
         if parent_id is None:
-            if role is not None or stage is not None:
-                raise Rejected(400, 'Role and stage require a parent task')
+            if role is not None or stage is not None or supersedes is not None:
+                raise Rejected(400, 'Role, stage and supersedes require a parent task')
         elif not isinstance(parent_id,str) or not re.fullmatch(r'[a-f0-9]{32}',parent_id):
             raise Rejected(400, 'Invalid parent_id')
         elif role not in ROLES or (stage is not None and stage not in STAGES):
             raise Rejected(400, 'Invalid logical_role or stage')
+        elif supersedes is not None and (not isinstance(supersedes,str) or not re.fullmatch(r'[a-f0-9]{32}',supersedes)):
+            raise Rejected(400, 'Invalid supersedes')
         request = {k: body.get(k) for k in ('project','brief','runtime','title','category')}
         if parent_id is not None:
             request.update(parent_id=parent_id,logical_role=role,stage=stage)
+            if supersedes is not None:
+                request['supersedes'] = supersedes
         digest = hashlib.sha256(json.dumps(request,sort_keys=True).encode()).hexdigest()
         with self.lock:
             prior = self.db.execute('SELECT * FROM tasks WHERE owner=? AND idem=?',(owner,body['idempotency_key'])).fetchone()
@@ -194,13 +199,26 @@ class Coordinator:
                     raise Rejected(409, 'Task graphs are one level deep')
                 if parent['status'] in NO_NEW_CHILDREN:
                     raise Rejected(409, 'Parent no longer accepts children')
-                if self.db.execute('SELECT count(*) FROM tasks WHERE parent_id=?',(parent_id,)).fetchone()[0] >= MAX_CHILDREN:
+                if supersedes is not None:
+                    old = self._owned(owner,principal,supersedes)
+                    if old['parent_id'] != parent_id or old['logical_role'] != role or old['stage'] != stage:
+                        raise Rejected(409, 'A retry must match the parent, role and stage of the failed task')
+                    if old['status'] != 'failed':
+                        raise Rejected(409, 'Only failed tasks can be retried; interrupted tasks need manual reconciliation')
+                    if self.db.execute('SELECT 1 FROM tasks WHERE supersedes=?',(supersedes,)).fetchone():
+                        raise Rejected(409, 'Task was already retried')
+                    attempts, cursor = 1, old
+                    while cursor['supersedes']:
+                        attempts, cursor = attempts + 1, self.db.execute('SELECT * FROM tasks WHERE id=?',(cursor['supersedes'],)).fetchone()
+                    if attempts >= MAX_ATTEMPTS:
+                        raise Rejected(409, 'Retry limit reached for this role')
+                elif self.db.execute('SELECT count(*) FROM tasks WHERE parent_id=? AND id NOT IN (SELECT supersedes FROM tasks WHERE supersedes IS NOT NULL)',(parent_id,)).fetchone()[0] >= MAX_CHILDREN:
                     raise Rejected(409, 'Parent already has the maximum number of children')
             tid, now = uuid.uuid4().hex, self.clock()
             self.db.execute('INSERT INTO tasks(id,owner,project,title,brief,runtime,category,idem,request_hash,status,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
               (tid,owner,project,self.sanitize(body.get('title') or 'Fleet task'),self.sanitize(body['brief']),runtime,self.sanitize(body.get('category') or 'development'),body['idempotency_key'],digest,'queued',now,now))
             if parent_id is not None:
-                self.db.execute('UPDATE tasks SET parent_id=?,logical_role=?,stage=? WHERE id=?',(parent_id,role,stage,tid))
+                self.db.execute('UPDATE tasks SET parent_id=?,logical_role=?,stage=?,supersedes=? WHERE id=?',(parent_id,role,stage,supersedes,tid))
             if interpretation:
                 self.db.execute('UPDATE tasks SET title=?,brief=?,category=?,logical_role=? WHERE id=?',(
                     self.sanitize(interpretation.get('title') or body.get('title') or 'Fleet task')[:200],
@@ -229,7 +247,9 @@ class Coordinator:
 
     def _graph(self, parent):
         kids = self.db.execute('SELECT * FROM tasks WHERE parent_id=? ORDER BY created',(parent['id'],)).fetchall()
-        children = [{k: v for k, v in self._public(kid).items() if k in ('id','logical_role','stage','status','artifact')} for kid in kids]
+        replaced = {kid['supersedes']: kid['id'] for kid in kids if kid['supersedes']}
+        children = [dict({k: v for k, v in self._public(kid).items() if k in ('id','logical_role','stage','status','artifact','supersedes')}, superseded_by=replaced.get(kid['id'])) for kid in kids]
+        kids = [kid for kid in kids if kid['id'] not in replaced]  # a retried attempt no longer counts
         statuses = {kid['status'] for kid in kids}
         if not kids:
             status = 'none'
