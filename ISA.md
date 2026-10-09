@@ -1526,3 +1526,5 @@ Founder defers ERP product/dossier integration and requests the next checklist i
 ## 2026-10-09 — Generic fan-out source verification
 
 ISC-389 through ISC-392: unrestricted local pytest reports 100 passed across fanout, coordinator, manual graph, write-access and execution regressions. Compile and whitespace checks pass. Review-driven tests reject manual additions to planned roots, preserve authorized retry positions and require predecessor artifact task/attempt identity in the exact checksum-verified bytes. Source provenance remains opaque metadata, not substantive Sentinel review. Private FANOUT-SOURCE.json and NEXT-UI-HERMES-FLOW.md record the source/runtime distinction. ISC-393 remains open: no live source activation or actual Hermes fan-out round trip.
+
+Follow-through: merged current PR34 source d45518c into the fan-out branch, retaining verification confinement and the separate fleet MCP server. Combined local regressions report 114 passed and 1 optional MCP SDK test skipped (dependency unavailable). No live write/fan-out activation or Gary task authorization follows from this merge.
