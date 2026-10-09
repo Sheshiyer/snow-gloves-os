@@ -13,7 +13,11 @@ const proxy = {
   },
 };
 
+// Explicit deployment hostnames only; never disable Vite's Host validation.
+const allowedHosts = (process.env.SNOWGLOVES_UI_ALLOWED_HOSTS || '')
+  .split(',').map((host) => host.trim()).filter(Boolean);
+
 export default defineConfig({
-  server: { proxy },
-  preview: { proxy },
+  server: { proxy, allowedHosts },
+  preview: { proxy, allowedHosts },
 });

@@ -4,13 +4,15 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 327/370
+progress: 343/384
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
 ---
 
 ## Problem
+
+Current approved Hermes pilot: Coding 01 hosts the primary conversational coordinator, authenticated task authority and separate worker. Prove a real routed event-to-artifact flow, independent SSH continuity and source/browser security before expanding to the remaining Macs.
 
 Current AXIO migration lane: the founder selects AXIO as replacement Coding 01. Transfer reviewed platform and private instance into an isolated destination, preserve the former local reference and older target checkout, and verify destination workspace separately from host runtime, model, connectors and recovery.
 
@@ -92,6 +94,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Deliver the founder-approved Hermes fleet coordinator pilot on AXIO using an isolated Hermes profile, one shared OmniRoute gateway, one durable task authority, a separate Codex worker and equivalent UI/SSH controls. Record physical restart, restore and external-domain acceptance independently.
 
 Migrate the reviewed Snow Gloves workspace to AXIO as canonical Coding 01, retain rollback evidence, and prove destination configuration, private scope and actual execution at their own acceptance boundaries.
 
@@ -489,16 +493,16 @@ until the actual mini supplies evidence.
 - [x] ISC-349: Reviewed PAI and Temperance runtime hooks pass AXIO installation verification.
 - [x] ISC-350: An admitted real model job on AXIO records resolved provider and verified artifact.
 - [ ] ISC-351: Selected pinned MCP dependencies pass authenticated destination reads.
-- [ ] ISC-352: AXIO Hermes passes an actual scoped event-to-artifact round trip.
+- [x] ISC-352: AXIO Hermes passes an actual scoped event-to-artifact round trip.
 - [ ] ISC-353: Owned persistent startup survives an actual AXIO reboot.
 - [ ] ISC-354: AXIO restore drill recovers the reviewed configuration and owned artifacts.
 - [ ] ISC-355: Migrated tenant source references resolve or are explicitly held on AXIO.
 - [ ] ISC-356: Scanner-flagged private files receive individual disposition before any further transfer.
 
 - [ ] ISC-357: The company gateway passes valid HTTPS, authenticated private access and unauthorized-access rejection from another network.
-- [ ] ISC-358: The persistent fleet UI and API enforce company identity and application scope through the external access route.
+- [x] ISC-358: The persistent fleet UI and API enforce company identity and application scope through the external access route.
 - [ ] ISC-359: A named remote pilot user edits and builds a separate Snow Gloves checkout on Coding 01.
-- [ ] ISC-360: A Coding 01 pilot job survives client disconnect and exposes logs and a verified artifact after reconnect.
+- [x] ISC-360: A Coding 01 pilot job survives client disconnect and exposes logs and a verified artifact after reconnect.
 - [ ] ISC-361: The externally accessed fleet UI attributes the remote pilot job and artifact to Coding 01.
 - [ ] ISC-362: Concurrent named remote editor sessions preserve separate working copies and the one-desktop-operator arrangement.
 - [ ] ISC-363: Coding 01 remote desktop passes monitor-disconnected testing with lock and recovery limitations recorded.
@@ -508,7 +512,25 @@ until the actual mini supplies evidence.
 - [ ] ISC-367: Marketing passes device enrollment, remote access and a node-attributed job test on its intended network.
 - [x] ISC-368: The private fleet rollout checklist records founder actions, evidence-linked tests, owners, dependencies and next planning step without promoting historical host proof.
 
+- [x] ISC-369: The pilot coordinator persists authorized tasks, assignments and redacted events in one private local SQLite authority.
+- [x] ISC-370: The authenticated fleet CLI submits, lists, inspects, logs and cancels tasks through the coordinator API.
+- [x] ISC-371: The isolated AXIO Hermes profile preserves default configuration and pins the verified installed Hermes revision.
+- [x] ISC-372: The authenticated Hermes bridge interprets requests without tools or permission overrides and fails closed on invalid output.
+- [x] ISC-373: The Coding 01 worker uses an allowlisted independent Git worktree and explicit OmniRoute route to produce a hash-verified artifact.
+- [x] ISC-374: Managed single-slot assignments enforce worker-specific leases, event deduplication and stale-attempt interruption.
+- [x] ISC-375: Source tests reject unauthorized projects, forged reports, invalid artifacts and secret-bearing output.
+- [x] ISC-376: Actual browser testing verifies the Hermes message board, explicit authentication, task lifecycle and safe output display.
+- [x] ISC-377: An actual AXIO Hermes interpretation-to-Codex-artifact round trip is visible through the same authorized CLI and board API.
+- [x] ISC-378: An AXIO managed task survives SSH client disconnect and reconnect without duplicate execution.
+- [x] ISC-379: A coordinator restart preserves and reconciles an active separate worker attempt without duplicate execution.
+- [ ] ISC-380: Owned coordinator, Hermes bridge and worker launch agents run with loopback listeners and preserved native configuration.
+- [x] ISC-381: An isolated pilot restore drill recovers coordinator state and verifies accepted artifact hashes.
+- [x] ISC-382: The reviewed pilot package and runbook record scoped runtime capabilities, limitations and rollout evidence.
+
 ## Test Strategy
+
+- ISC-369..375 | source and host integration | coordinator/worker/bridge authorization, duplicate/failure/cancel/artifact and profile-pin tests | fail closed and preserve one assignment | pytest + scoped host probes
+- ISC-376..382 | browser and AXIO operational | real task, client disconnect, coordinator restart, owned listeners/config hashes and isolated restore | dated receipts per boundary; reboot remains ISC-353 | IAB + SSH + artifact digest
 
 - ISC-357..367 | physical remote-workspace acceptance | private checklist T04..T09,T15..T17 with dated per-node receipts | all linked scenarios pass; no inferred remote/reboot/capacity proof | SSH/editor/browser/physical devices
 - ISC-368 | documentation integrity | validate F01..F08/T01..T17, ISA mappings, evidence paths and historical preservation | all checks pass | focused validator + git diff
@@ -574,6 +596,8 @@ Local onboarding: count IDs in template/private JSON/Markdown; reconcile source 
 | 51 | claims | receipt evidence-level audit | no readiness promotion | receipt audit |
 
 ## Features
+
+- Hermes fleet coordinator pilot | satisfies: ISC-369..382, ISC-352 | depends_on: approved AXIO runtime baseline | parallelizable: backend, UI and execution services have disjoint ownership; host activation is sequential
 
 - Remote engineering pilot and fleet rollout | satisfies: ISC-357..368 | depends_on: reviewed AXIO baseline, founder network/identity prerequisites | parallelizable: false; access planning may proceed while DNS is pending
 
@@ -647,6 +671,11 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 <!-- arch-assets:end -->
 
 ## Decisions
+
+- refined: 2026-10-09 founder declines Cloudflare Zero Trust Access; use private Tailscale transport plus application authorization for the fleet UI. The company hostname remains `fleet.hey-zack.fr`. Founder has on-site recovery help available for the scheduled reboot; no reboot evidence is inferred.
+- 2026-10-09 access-first steering: verify Coding 01 SSH over Tailscale and move the localhost UI to private persistent HTTPS before further Hermes acceptance. Physical SSH and tailnet HTTPS pass; custom company DNS/certificate and browser QA remain open.
+
+- 2026-10-09: refined: founder explicitly authorizes implementing and activating the Hermes Agent plus Snow Gloves bus/coordinator pilot with automatic routine dispatch within project permissions. Use Snow Gloves UI and SSH, preserve native configs, pin installed Hermes, start one managed Codex slot and retain loopback services. This authorization supersedes historical remote-activation holds only for owned pilot services; no domain exposure, provider-seat replacement or unrelated service restart is implied. Founder separately authorizes scoped HeyZack Wrangler login and subdomain configuration after account/access verification; DNS authority remains an evidence prerequisite; later founder steering explicitly removes Access enrollment.
 
 - 2026-10-09: refined: founder approves persistent private founder/test checklists, Snow Gloves as Coding 01 remote pilot, named team accounts with independent editor sessions and one desktop operator per Mac. Current authoring seat is separate from fleet Coding 02. Domain commitments remain pending until evidenced; historical host proofs do not establish remote access, continuity or recovery. Private fleet decisions hold domain and identity details.
 
@@ -1418,3 +1447,55 @@ AXIO checkpoint: platform archive c42260cb4bc84c1914d79b02ab28c8b06da0081acce41c
 ## Verification — persistent fleet rollout checklist, 9 October 2026
 
 - ISC-368: documentation integrity — focused validator reports "PASS: 8 founder actions; 17 tests; 3 dated passes / 14 pending; all ISA mappings and file links resolve; receipts parse; historical checklist unchanged; operational criteria remain open." Private docs/fleet/FLEET-ROLLOUT-CHECKLIST.md is the operational view; CHECKLIST-VALIDATION.json records its hash. Both repository diff whitespace checks pass. Existing source/local/device evidence is retained separately; no DNS, accounts or services were changed.
+
+## Verification — Coding 01 private Tailscale access, 9 October 2026
+
+Existing fleet key and pinned host identity authenticate `axio` over Tailscale `100.117.187.123`; local alias `coding-01-tailnet` uses verified MagicDNS. Private Serve fronts the isolated UI at `https://coding-mac.tail32e298.ts.net/`; UI and approved-origin snapshot return 200, unapproved Host/Origin return 403. Owned UI/API launch agents bind loopback 18764/18765. TypeScript/Vite build passed on AXIO; 20 cockpit tests passed locally. Private receipt: `docs/fleet/onboarding/2026-10-09-hermes-pilot/TAILSCALE-SSH.json`. Actual IAB unavailable; browser verification blocked explicitly. Company domain and real Hermes execution remain pending at this checkpoint.
+
+## Verification — Hermes pilot actual AXIO execution, 9 October 2026
+
+Accepted ISC-352,369,372..379,381,382 at their recorded evidence levels. Source:
+23 fleet coordinator/execution tests pass; 20 cockpit tests pass; AXIO TypeScript
+and production build pass. Local browser fixture: authenticated lifecycle,
+cancellation, safe text and credential clearing pass (BROWSER-QA.json). Actual
+AXIO browser remains blocked by IAB availability, not promoted from the fixture.
+Physical AXIO: task c590d2de5aba4f3cb9c0f8b0e990f0f9 received pinned Hermes
+interpretation, ran one Codex attempt e748701fee524e1b8b6619fd1a14f7da and returned
+HERMES_FLEET_OK mac-coding-1. Coordinator independently verified artifact SHA-256
+ad58eb9fdb8278d0f2bb16332ad42af75fc7dd6cce217e93d2e41a5dc4c0260b. SSH client
+closure and coordinator restart retained the same attempt. Private HTTPS board API
+returns the authorized completed task (200) and rejects a missing app token (401).
+Physical unauthorized project/runtime and forged-worker reports return 403;
+worker credentials cannot list user tasks. Duplicate submission returns the same
+task. Isolated SQLite backup/restore recovers the succeeded task and artifact hash.
+Evidence: private docs/fleet/onboarding/2026-10-09-hermes-pilot/E2E.json.
+Default/native configuration hash recheck, full CLI cancellation and physical
+reboot remain pending. No paid/native fallback, Claude readiness, broader restore,
+external network test or company custom-domain readiness is inferred.
+
+## Verification — company private HTTPS and recovery follow-through, 9 October 2026
+
+ISC-358 and ISC-360 accepted for the founder-controlled pilot. Both company DNS
+records are DNS-only A records to the verified Tailscale address. Caddy 2.11.7
+with Cloudflare DNS module 0.2.4 serves valid public CA certificates behind
+Tailscale TCP443; no public Tunnel/Funnel. Fleet UI, scoped snapshot and authorized
+task return 200; missing task credential returns 401; unapproved Origin returns
+403. Gateway models return 200 with the existing key and 401 without it. Founder
+confirms the actual company URL loads and shows Connected. Automated actual-device
+IAB remains unavailable, distinct from that human verification. Source docs use
+placeholders; DNS credentials are private files, never stored in this repository.
+ISC-370 accepted after actual CLI cancellation; duplicate worker event is acknowledged
+without duplication. ISC-371 accepted: default Hermes configuration, environment
+credentials and SOUL hashes match the baseline; installed revision stays pinned.
+Reboot: founder disabled FileVault and restarted; all five pilot agents restored
+after login, retaining the original succeeded task and artifact. Gateway startup
+required a backed-up bind repair to loopback, with separate private TCP20129 access.
+A real post-repair Hermes/Codex task 8666ca794c654ffba6d4860a856d529b succeeds.
+Repeat physical reboot after the repair remains pending; ISC-353 stays open.
+Native Claude settings match. Codex configuration hash changed at 11:45:30 UTC
+after login, before the post-reboot canary. Its older backup does not match the
+baseline; no speculative restoration or attribution. ISC-380 stays open for drift.
+The actual worker-failure drill interrupts its single attempt, creates a recovery
+hold and does not replay execution. Verified orphan runtime termination precedes
+manual reconciliation. Private receipts: PRIVATE-HTTPS.json, DNS.json,
+GATEWAY-DNS.json, REBOOT.json, CANCELLATION.json and WORKER-FAILURE.json.

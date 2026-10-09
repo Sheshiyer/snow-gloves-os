@@ -115,7 +115,7 @@ class Worker:
 
     def command(self, worktree):
         c = self.config
-        return [c['codex_path'], '--ignore-user-config', 'exec', '--json', '--sandbox', 'read-only',
+        return [c['codex_path'], 'exec', '--ignore-user-config', '--json', '--sandbox', 'read-only',
                 '--skip-git-repo-check', '-C', str(worktree), '-m', c.get('model', 'noesis-fast'),
                 '-c', 'model_provider="omniroute"', '-c', 'model_providers.omniroute.name="OmniRoute"',
                 '-c', 'model_providers.omniroute.base_url=' + json.dumps(c['gateway_url']),

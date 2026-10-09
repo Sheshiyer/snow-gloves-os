@@ -68,7 +68,8 @@ class Bridge:
         for name in tuple(env):
             if name.startswith(('ANTHROPIC_', 'OPENROUTER_', 'OPENAI_', 'HERMES_MODEL', 'HERMES_PROVIDER')):
                 env.pop(name)
-        env.update(OPENAI_BASE_URL=self.config['gateway_url'], OPENAI_API_KEY=key,
+        env.update(CUSTOM_BASE_URL=self.config['gateway_url'],
+                   OPENAI_BASE_URL=self.config['gateway_url'], OPENAI_API_KEY=key,
                    HERMES_EPHEMERAL_SYSTEM_PROMPT='You are a constrained Snow Gloves task interpreter. Output JSON only.')
         command = [self.config['hermes_python'], '-c', BOOTSTRAP, self.config['hermes_root'],
                    '-p', self.config.get('hermes_profile', 'snowgloves'), 'chat', '--oneshot', '--format', 'stream-json',

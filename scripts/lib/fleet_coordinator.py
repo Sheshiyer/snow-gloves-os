@@ -140,6 +140,8 @@ class Coordinator:
             if parsed.scheme != 'http' or parsed.hostname not in ('127.0.0.1','localhost') or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path:
                 raise Rejected(503,'Hermes bridge configuration unavailable')
             request_body = {key: body.get(key) for key in ('title','brief','project','category')}
+            request_body['title'] = body.get('title') or 'Fleet task'
+            request_body['category'] = body.get('category') or 'development'
             request = urllib.request.Request(url+'/interpret',data=json.dumps(request_body).encode(),headers={'Authorization':'Bearer '+bridge['token'],'Content-Type':'application/json'})
             try:
                 with urllib.request.urlopen(request,timeout=min(90,float(bridge.get('timeout',90)))) as response:

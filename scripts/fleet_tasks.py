@@ -46,7 +46,7 @@ def main():
             body={}
     request=urllib.request.Request(args.endpoint.rstrip('/')+path,data=json.dumps(body).encode() if body is not None else None,headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'})
     try:
-        with urllib.request.urlopen(request,timeout=30) as response:
+        with urllib.request.urlopen(request,timeout=100 if args.command == 'submit' else 30) as response:
             print(json.dumps(json.load(response),indent=2))
     except urllib.error.HTTPError as exc:
         print('Fleet request failed: HTTP '+str(exc.code),file=sys.stderr)

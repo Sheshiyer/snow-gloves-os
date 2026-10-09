@@ -112,3 +112,31 @@ coordinator restart, failure behavior, restore and scheduled reboot separately.
 Launch agents run in the selected logged-in user context. FileVault unlock and
 before-login availability require physical-device evidence; SSH persistence is
 not proof of unattended cold-boot recovery.
+
+## Private UI transport
+
+A reviewed UI may be exposed through private Tailscale Serve while its UI, API,
+coordinator and bridge remain bound to loopback. Configure the UI with
+`SNOWGLOVES_UI_ALLOWED_HOSTS` as a comma-separated list of exact hostnames.
+Set `SNOWGLOVES_COCKPIT_PORT` to the selected loopback projection API port.
+The cockpit CLI accepts repeated `--allowed-origin https://exact-ui-host`
+arguments; the coordinator has a separate exact `allowed_origins` list.
+Never disable Host validation or introduce wildcard Origins for remote access.
+
+The browser uses same-origin `/api/fleet` for authorized coordinator operations
+and `/api/infra` for the scoped projection. A tailnet connection does not replace
+the coordinator bearer credential or project authorization. Tailscale Serve's
+HTTPS hostname belongs to the tailnet domain; an organization-owned hostname
+requires separately verified DNS, a certificate and a private TLS proxy.
+A DNS CNAME alone does not supply the organization hostname's certificate.
+
+The verified installed Hermes revision uses `CUSTOM_BASE_URL` to choose a custom
+endpoint. The bridge binds both that variable and `OPENAI_BASE_URL` to the same
+loopback gateway and supplies its key only in the child environment. The installed
+Codex CLI requires `exec --ignore-user-config` in that order. These contracts
+were discovered by real installation probes; mocks alone did not establish them.
+
+The task client exposes `submit`, `list`, `status`, `logs` and `cancel`.
+Use `python3 scripts/fleet_tasks.py --token-file /private/founder.token COMMAND`.
+Submission allows 100 seconds for Hermes interpretation; all other operations
+use 30 seconds. A rejected interpretation does not create a queued task.

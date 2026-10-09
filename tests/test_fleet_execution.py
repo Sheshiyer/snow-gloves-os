@@ -50,6 +50,7 @@ def test_worker_artifact_and_explicit_route(worker):
     assert json.loads(path.read_text())['output'] == 'done [REDACTED]'
     assert not w.active.exists() and not w.pending.exists()
     command = w.command('/tmp/worktree')
+    assert command[1:3] == ['exec', '--ignore-user-config']
     assert '--ignore-user-config' in command and 'read-only' in command
     assert 'model_provider="omniroute"' in command
     assert command[-1] == '-'
@@ -125,6 +126,7 @@ def test_bridge_preserves_request_identity_and_disables_tools(bridge, monkeypatc
     result = bridge.interpret(body)
     assert result['brief'] == body['brief'] and result['project'] == body['project']
     command, kwargs = commands[0]
+    assert kwargs['env']['CUSTOM_BASE_URL'] == bridge.config['gateway_url']
     assert 'snowgloves-none' in command and '--safe-mode' in command
     assert kwargs['env']['OPENAI_BASE_URL'] == 'http://127.0.0.1:20128/v1'
     assert 'create_custom_toolset' in command[2]
