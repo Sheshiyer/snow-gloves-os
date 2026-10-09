@@ -124,10 +124,14 @@ arguments; the coordinator has a separate exact `allowed_origins` list.
 Never disable Host validation or introduce wildcard Origins for remote access.
 
 The browser uses same-origin `/api/fleet` for authorized coordinator operations
-and `/api/infra` for the scoped projection. A tailnet connection does not replace
-the coordinator bearer credential or project authorization. Tailscale Serve's
-HTTPS hostname belongs to the tailnet domain; an organization-owned hostname
-requires separately verified DNS, a certificate and a private TLS proxy.
+and `/api/infra` for the scoped projection. The fleet proxy permits only task
+list/detail/events GETs and bounded task-submit, cancel, and read-only fanout
+POSTs; `/fanout` accepts only its existing empty object body. It keeps the
+browser bearer and Origin headers for the coordinator to validate, and uses
+bounded request/upstream timeouts. A tailnet connection does not replace the
+coordinator bearer credential or project authorization. Tailscale Serve's HTTPS
+hostname belongs to the tailnet domain; an organization-owned hostname requires
+separately verified DNS, a certificate and a private TLS proxy.
 A DNS CNAME alone does not supply the organization hostname's certificate.
 
 The verified installed Hermes revision uses `CUSTOM_BASE_URL` to choose a custom
@@ -182,7 +186,14 @@ Limits: macOS only. A script that swallows the denied write and exits 0 is not d
 
 ## Connecting other Hermes clients (fleet MCP over SSH)
 
-`scripts/fleet_mcp.py` is a stdio MCP server that wraps the coordinator: `fleet_list`, `fleet_status`, `fleet_logs`, `fleet_cancel`, `fleet_submit` (with `parent_id`, `logical_role`, `stage`, `supersedes`, `access`). It is a thin loopback client; authentication, project scope, the task graph and the write gates all stay in the coordinator, and the operator token is read on Coding 01 and never leaves it.
+`scripts/fleet_mcp.py` is a stdio MCP server that wraps the coordinator's six
+tools: `fleet_list`, `fleet_status`, `fleet_logs`, `fleet_cancel`,
+`fleet_fanout`, and `fleet_submit` (with `parent_id`, `logical_role`, `stage`,
+`supersedes`, `access`). `fleet_fanout(task_id)` sends only `{}` to the
+existing validated task route; it has no role, scope, option, credential-export
+or scheduler override. It is a thin loopback client; authentication, project
+scope, fanout admission, the task graph and the write gates all stay in the
+coordinator, and the operator token is read on Coding 01 and never leaves it.
 
 On Coding 01 a wrapper (not in Git, like `snowgloves-fleet`) runs it with the Hermes Python that has `mcp`:
 
@@ -198,3 +209,15 @@ hermes mcp test snowgloves-fleet
 ```
 
 Limits: whoever can SSH to the account gets the founder's coordinator authority (per-person principals are checklist row F04). Write stays off at the coordinator, so `access=write` returns 403. The SSH hop itself was not exercised from the authoring Mac; the wrapper was exercised over stdio with a real MCP client against the live coordinator.
+
+## Scoped principals (read-only observers)
+
+A coordinator principal may carry `"permissions"` (any of `read`, `submit`, `cancel`; absent means all three, so existing principals are unchanged) and `"view_owners"` (names of other principals whose tasks it may read). Viewing never grants mutation: cancelling, submitting, attaching children and fanout stay with the task owner. Fanout additionally requires current `submit` permission and the default-off project/principal fanout admission. Config load rejects unknown permissions and unknown owners.
+
+Example observer: `{"token": "...", "projects": ["snowgloves"], "permissions": ["read"], "view_owners": ["founder"]}`. It can list, read detail and events (including a parent's graph); submit, cancel and write return 403. Source: `tests/test_fleet_scoped_principals.py` (13 tests, the owner-only rule mutation-checked, plus an HTTP round trip).
+
+## Transient provider errors (bounded safe retry)
+
+Live write and review attempts intermittently failed with `429 Too Many Requests` from the gateway: `noesis-execute` is a priority combo whose first member is a free-tier model that keeps going into cooldown (OmniRoute app log, `command-code/poolside/laguna-s-2.1-free`). Host routing is not changed from this repo.
+
+The worker now retries a failed Codex run only when the failure is a transient provider error (429, "Too Many Requests", dropped stream) **and the run provably did nothing**: no command, file change, tool or web call started. Up to `transient_retries` (default 2) fresh runs, waiting `transient_backoff` seconds (default 20) times the attempt number, with heartbeats, cancellation, shutdown and the overall `job_timeout` still honoured during the wait. Each run keeps its own log (`<attempt>.retryN.jsonl`). Anything that ran, any other failure, and any uncertain outcome are never replayed. Tests: `tests/test_fleet_transient_retry.py` (10, both safety conditions mutation-checked).

@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROLES = ('ceo','cto','chief-of-staff','librarian','interpreter','dispatcher','sentinel')
 STAGES = ('plan','reference','review','dispatch','verify')
 MAX_CHILDREN = 7
+PERMISSIONS = ('read','submit','cancel')  # a principal without 'permissions' keeps all three
 MAX_ATTEMPTS = 3  # original plus two retries per role chain
 NO_NEW_CHILDREN = ('cancelled','cancel_requested','failed','interrupted')
 NO_FANOUT_ROOTS = ('cancelled','cancel_requested','failed','interrupted')
@@ -28,6 +29,15 @@ MAX_FANOUT_BRIEF = 4000
 # output small enough for a bounded read-only prompt; the fanout count already
 # bounds the aggregate to seven such values.
 MAX_SOURCE_OUTPUT_BYTES = 4096
+FANOUT_ACTION_REASONS = {
+    'Submit unavailable': 'Read-only role planning is not permitted for this account.',
+    'Task not found': 'Read-only role planning is unavailable for this task.',
+    'Fanout unavailable': 'Read-only role planning is not enabled for this task.',
+    'Only root tasks can be fanned out': 'Only root tasks can plan read-only roles.',
+    'Only development tasks can be fanned out': 'Only development tasks can plan read-only roles.',
+    'Root no longer accepts automatic children': 'This task no longer accepts read-only role planning.',
+    'Manual children prevent automatic fanout': 'Manual children already exist, so read-only roles cannot be planned.',
+}
 
 
 class Rejected(Exception):
@@ -135,9 +145,16 @@ class Coordinator:
         result['artifact'] = json.loads(row['artifact']) if row['artifact'] else None
         return result
 
-    def _owned(self, owner, principal, task_id):
+    @staticmethod
+    def _need(principal, permission):
+        if permission not in principal.get('permissions', PERMISSIONS):
+            raise Rejected(403, permission.capitalize() + ' unavailable')
+
+    def _owned(self, owner, principal, task_id, mutate=False):
+        """Fetch a task the principal may see; mutations stay with the owner, viewing may be granted via view_owners."""
         row = self.db.execute('SELECT * FROM tasks WHERE id=?', (task_id,)).fetchone()
-        if not row or row['owner'] != owner or row['project'] not in principal['projects']:
+        owners = {owner} if mutate else {owner, *principal.get('view_owners', [])}
+        if not row or row['owner'] not in owners or row['project'] not in principal['projects']:
             raise Rejected(404, 'Task not found')
         return row
 
@@ -148,7 +165,11 @@ class Coordinator:
             raise Rejected(403, 'Fanout unavailable')
 
     def _fanout_preflight(self, owner, principal, root_id):
-        root = self._owned(owner, principal, root_id)
+        # Planning creates children. It must therefore use the same submit
+        # permission and owner-only mutation boundary as task submission,
+        # rather than the broader read/view_owners boundary used for detail.
+        self._need(principal, 'submit')
+        root = self._owned(owner, principal, root_id, mutate=True)
         self._fanout_allowed(principal, root['project'])
         plan = self.db.execute('SELECT * FROM fanout_plans WHERE root_id=?', (root_id,)).fetchone()
         if plan:
@@ -162,6 +183,38 @@ class Coordinator:
         if self.db.execute('SELECT 1 FROM tasks WHERE parent_id=? LIMIT 1', (root_id,)).fetchone():
             raise Rejected(409, 'Manual children prevent automatic fanout')
         return root, None
+
+    def _fanout_action(self, owner, principal, root):
+        """Derive a display-only admission contract from the same preflight as POST.
+
+        This never accepts authority from the browser.  A caller can see that a
+        durable plan exists even when a current grant no longer allows replay,
+        but `available` stays false unless the exact POST preflight passes.
+        """
+        planned = bool(self.db.execute(
+            'SELECT 1 FROM fanout_plans WHERE root_id=?', (root['id'],)
+        ).fetchone())
+        try:
+            _, plan = self._fanout_preflight(owner, principal, root['id'])
+        except Rejected as error:
+            return {
+                'available': False,
+                'planned': planned,
+                'reason': FANOUT_ACTION_REASONS.get(
+                    error.message, 'Read-only role planning is unavailable for this task.'
+                ),
+            }
+        if plan:
+            return {
+                'available': False,
+                'planned': True,
+                'reason': 'Read-only roles are already planned for this task.',
+            }
+        return {
+            'available': True,
+            'planned': False,
+            'reason': 'Read-only roles can be planned for this task.',
+        }
 
     def _validate_fanout_plan(self, value):
         if not isinstance(value, dict) or set(value) != {'children'} or not isinstance(value['children'], list):
@@ -451,6 +504,7 @@ class Coordinator:
         return result
 
     def submit(self, owner, principal, body):
+        self._need(principal, 'submit')
         project = body.get('project')
         if project not in principal['projects'] or project not in self.config['projects']:
             raise Rejected(403, 'Project unavailable')
@@ -531,7 +585,7 @@ class Coordinator:
                     raise Rejected(409, 'Idempotency key conflicts with prior request')
                 return self._public(prior)
             if parent_id is not None:
-                parent = self._owned(owner,principal,parent_id)
+                parent = self._owned(owner,principal,parent_id,mutate=True)
                 if parent['project'] != project:
                     raise Rejected(409, 'Parent belongs to another project')
                 if parent['parent_id'] is not None:
@@ -544,7 +598,7 @@ class Coordinator:
                 if plan and supersedes is None:
                     raise Rejected(409, 'Automatic fanout plans accept retries only')
                 if supersedes is not None:
-                    old = self._owned(owner,principal,supersedes)
+                    old = self._owned(owner,principal,supersedes,mutate=True)
                     if old['parent_id'] != parent_id or old['logical_role'] != role or old['stage'] != stage or old['access'] != access:
                         raise Rejected(409, 'A retry must match the parent, role, stage and access of the failed task')
                     if old['status'] != 'failed':
@@ -581,11 +635,14 @@ class Coordinator:
             return self._public(self.db.execute('SELECT * FROM tasks WHERE id=?',(tid,)).fetchone())
 
     def list_tasks(self, owner, principal):
+        self._need(principal, 'read')
+        owners = [owner, *principal.get('view_owners', [])]
         with self.transaction():
             self._expire()
-            return [self._public(r) for r in self.db.execute('SELECT * FROM tasks WHERE owner=? ORDER BY created DESC LIMIT 200',(owner,)) if r['project'] in principal['projects']]
+            return [self._public(r) for r in self.db.execute('SELECT * FROM tasks WHERE owner IN (%s) ORDER BY created DESC LIMIT 200' % ','.join('?' * len(owners)),owners) if r['project'] in principal['projects']]
 
     def detail(self, owner, principal, tid, events=False):
+        self._need(principal, 'read')
         with self.transaction():
             self._expire()
             row = self._owned(owner,principal,tid)
@@ -594,6 +651,7 @@ class Coordinator:
             result = self._public(row)
             if row['parent_id'] is None:
                 result['graph'] = self._graph(row)
+                result['fanout_action'] = self._fanout_action(owner, principal, row)
             else:
                 context = self._fanout_context(row)
                 if context:
@@ -631,15 +689,16 @@ class Coordinator:
         return {'children': children, 'status': status}
 
     def cancel(self, owner, principal, tid):
+        self._need(principal, 'cancel')
         with self.transaction():
             self._expire()
-            row = self._owned(owner,principal,tid)
+            row = self._owned(owner,principal,tid,mutate=True)
             status = {'queued':'cancelled','running':'cancel_requested'}.get(row['status'],row['status'])
             now = self.clock()
             self.db.execute('UPDATE tasks SET status=?,updated=? WHERE id=?',(status,now,tid))
             for kid in self.db.execute("SELECT id,status FROM tasks WHERE parent_id=? AND status IN ('queued','running')",(tid,)).fetchall():
                 self.db.execute('UPDATE tasks SET status=?,updated=? WHERE id=?',({'queued':'cancelled','running':'cancel_requested'}[kid['status']],now,kid['id']))
-            return self._public(self._owned(owner,principal,tid))
+            return self._public(self._owned(owner,principal,tid,mutate=True))
 
     def claim(self, name, worker):
         with self.transaction():
@@ -747,6 +806,12 @@ def load_config(path):
                 if (not isinstance(entry['fanout_projects'], list)
                         or any(project not in config['projects'] for project in entry['fanout_projects'])):
                     raise ValueError('Invalid fanout project scope')
+            if group=='principals':
+                permissions,viewed=entry.get('permissions',list(PERMISSIONS)),entry.get('view_owners',[])
+                if not isinstance(permissions,list) or not set(permissions)<=set(PERMISSIONS):
+                    raise ValueError('Invalid principal permissions')
+                if not isinstance(viewed,list) or not all(isinstance(name,str) and name in config['principals'] for name in viewed):
+                    raise ValueError('Invalid principal view_owners')
     config['capacity']=1
     return config
 

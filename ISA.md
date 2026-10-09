@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 346/390
+progress: 346/391
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
@@ -1531,6 +1531,7 @@ Founder defers ERP product/dossier integration and requests the next checklist i
 - [ ] ISC-393: Actual Coding01 Chief-of-Staff event-to-child-to-artifact flow is proven before advertising live automated fan-out.
 - [ ] ISC-394: An admitted Coding01 `artifact_context` project delivers checksum-verified, task/attempt-bound predecessor output to an automatic read-only Sentinel in a live run.
 - [ ] ISC-395: An operator reviews a live authorized Sentinel result against delivered predecessor context and records actual semantic validation before any substantive-verification claim is made.
+- [ ] ISC-396: Live Coding01 board sends one admitted fanout request and refreshes its graph without claiming semantic validation.
 
 ## 2026-10-09 — Generic fan-out source verification
 
@@ -1540,6 +1541,12 @@ Follow-through: merged current PR34 source d45518c into the fan-out branch, reta
 
 ## Verification — controller source context, 9 October 2026
 
-The default-off `artifact_context` option delivers only bounded predecessor output from checksum-verified, task/attempt-bound bytes to automatic read-only children. Coordinator and worker independently validate the contract, redact their configured tokens and retain opaque artifact references. Source context remains untrusted; graph rollup does not establish semantic review. All 122 focused fleet tests pass with the installed Hermes MCP SDK, including its native `input_schema` contract. The full Python suite reports 947 passed, 276 skipped and 23 subtests passed with existing PyYAML and MCP package paths explicitly available to temporary-HOME subprocesses. The cockpit acceptance suite passes after keeping new criterion wording within its display limit. ISC-393 through ISC-395 remain pending live acceptance.
+The default-off `artifact_context` option delivers only bounded predecessor output from checksum-verified, task/attempt-bound bytes to automatic read-only children. Coordinator and worker independently validate the contract, redact their configured tokens and retain opaque artifact references. Source context remains untrusted; graph rollup does not establish semantic review. All 122 focused fleet tests pass with the installed Hermes MCP SDK, including its native `input_schema` contract. The full Python suite reports 947 passed, 276 skipped and 23 subtests passed with existing PyYAML and MCP package paths explicitly available to temporary-HOME subprocesses. The cockpit acceptance suite passes after keeping new criterion wording within its display limit. ISC-393 through ISC-396 remain pending live acceptance.
 
 A disposable confinement probe on this Mac re-runs the original edited-test escape against the repaired worker: verification fails and the outside marker remains unchanged. This is source-level OS sandbox evidence, not a completed live write task. A fresh native default-profile Hermes session (`20261009_172741_58fb93`) discovers the configured fleet MCP server and calls only `fleet_list` successfully, reporting 20 tasks. The SSH hop, teammate account installation, authenticated production graph and physical reboot remain separately unproven. No live service, write, fanout or context configuration was changed by this source pass.
+
+## Verification — controller role-planning clients, 9 October 2026
+
+Integrated serving graph source 4c2d1f2 with bounded fanout and source context, retaining scoped principals, conservative transient retries, pruning and the Vite patch. Fanout now requires submit permission and owner-only mutation before the planner is called. Root detail derives display-only eligibility from that same preflight; the board and sixth MCP tool delegate to the admitted endpoint without granting scope. The proxy forwards authorization and origin with a bounded route/body contract. Planning allows the bridge's 90-second window; stale board requests and duplicate clicks are guarded. A completed root can still cancel open children.
+
+Independent checks: 258 fleet/cockpit Python tests pass with the installed MCP SDK; all 213 frontend tests and the TypeScript/Vite production build pass. Compile and whitespace checks pass. In an actual IAB disposable fixture, one explicit board click traversed the real proxy/coordinator, created exactly two read-only children, refreshed the selected graph, displayed Sentinel's dependency hold and disabled replay. The planner was a synthetic stub and no role model ran, so ISC-393 through ISC-396 remain unchecked. The native Execute worker was intentionally interrupted for review handoff; its source was independently inspected and corrected before these checks. Upstream combo attribution remains unproven. Production services and admission flags were unchanged.

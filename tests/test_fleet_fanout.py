@@ -144,6 +144,42 @@ def test_fanout_is_atomic_idempotent_durable_and_audited(fleet):
         reopened.close()
 
 
+def test_root_detail_derives_a_small_fanout_action_without_granting_authority(fleet):
+    c, conf, _ = fleet
+    root = submit(c, conf)
+    disabled = c.detail('founder', conf['principals']['founder'], root['id'])
+    assert disabled['fanout_action'] == {
+        'available': False,
+        'planned': False,
+        'reason': 'Read-only role planning is not enabled for this task.',
+    }
+    assert set(disabled['fanout_action']) == {'available', 'planned', 'reason'}
+    assert 'source_outputs' not in json.dumps(disabled['fanout_action'])
+    assert str(c.artifacts) not in json.dumps(disabled['fanout_action'])
+
+    enable(conf)
+    calls = []
+    planner(c, plan(), calls)
+    admitted = c.detail('founder', conf['principals']['founder'], root['id'])
+    assert admitted['fanout_action'] == {
+        'available': True,
+        'planned': False,
+        'reason': 'Read-only roles can be planned for this task.',
+    }
+    first = c.fanout('founder', conf['principals']['founder'], root['id'], {})
+    replay = c.fanout('founder', conf['principals']['founder'], root['id'], {})
+    planned = c.detail('founder', conf['principals']['founder'], root['id'])
+    assert replay == first and len(calls) == 1
+    assert planned['fanout_action'] == {
+        'available': False,
+        'planned': True,
+        'reason': 'Read-only roles are already planned for this task.',
+    }
+    assert [child['id'] for child in planned['graph']['children']] == [
+        child['id'] for child in first['children']
+    ]
+
+
 def test_coordinator_plan_request_has_only_sanitized_authorized_brief_and_constraints(fleet, monkeypatch):
     c, conf, _ = fleet
     root = submit(c, conf, brief='Review bridge-secret-token without changing scope.')

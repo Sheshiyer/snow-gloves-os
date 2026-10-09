@@ -32,9 +32,11 @@ predecessor-result delivery, retain the two admission grants above and set:
 }
 ```
 
-The request body may be empty and accepts no options. It requires the root
-task's owner credential; worker credentials cannot submit, plan, cancel, or
-otherwise administer work. The SSH-friendly equivalent is:
+The request body may be empty and accepts no options. It requires both the
+root task owner's current `submit` permission and its per-project fanout
+grant; `view_owners` and an accidental `fanout_projects` entry never grant
+mutation. Worker credentials cannot submit, plan, cancel, or otherwise
+administer work. The SSH-friendly equivalent is:
 
 ```sh
 scripts/fleet_tasks.py fanout <root-id>
@@ -53,7 +55,33 @@ SQLite transaction. The sole exception is an ordinary, bounded retry whose
 read-only role and stage; it keeps that member's plan position. Roots without a
 fanout plan retain the existing manual-only graph behavior.
 
+## Cockpit action contract
+
+Authenticated `GET /v1/tasks/<root-id>` returns a deliberately small,
+derived `fanout_action` object for a root:
+
+```json
+{"available": true, "planned": false, "reason": "Read-only roles can be planned for this task."}
+```
+
+`available`, `planned`, and the short safe `reason` are display data only.
+They are recomputed from the same owner/submit/capability/root/manual-child
+admission as the POST, plus durable plan state. They contain no token, path,
+artifact, or source output. A missing or malformed contract is not usable by
+the cockpit, so older coordinator responses keep working with no plan button.
+The button sends only `{}` to the existing fanout POST; the coordinator
+rechecks every gate and never accepts browser-provided authority.
+
+When a durable plan exists (including a replay), `planned` is true and the
+root graph remains the source of the ordered children. The cockpit shows that
+single graph and any child `hold_reason`; it does not add client-side children.
+
 ## Planning boundary
+
+Board submission and planning requests allow 100 seconds for the bridge's
+90-second execution window; the same-origin proxy allows 105 seconds. Read and
+cancellation requests remain bounded at 10 seconds. A succeeded root with open
+children still permits the board's existing graph-cancellation action.
 
 After coordinator authorization and scope checks pass, the coordinator calls
 the existing authenticated loopback Hermes bridge at `POST /plan`. The bridge
@@ -145,3 +173,11 @@ The graph's existing `verified` status remains a derived execution/artifact
 condition. Source-context delivery, including a Sentinel prompt with bounded
 predecessor output, does not prove Sentinel substantive verification or any
 stronger semantic or live validation.
+
+## Source and live gates
+
+The contracts in this document are source-tested only. Default-off project and
+principal admission must be configured separately on Coding01, and a live
+authenticated click plus returned graph remains a pending acceptance item.
+Neither an admitted plan, predecessor output, nor a `verified` graph rollup
+claims that a Sentinel performed semantic validation.

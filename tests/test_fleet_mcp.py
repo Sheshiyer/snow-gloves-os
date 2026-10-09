@@ -75,6 +75,28 @@ def test_bad_task_ids_never_reach_the_network(api):
             fleet_api.status(bad)
         with pytest.raises(ValueError):
             fleet_api.cancel(bad)
+        with pytest.raises(ValueError):
+            fleet_api.fanout(bad)
+
+
+def test_fanout_posts_an_empty_object_and_surfaces_coordinator_errors(api, monkeypatch):
+    fleet_api, _, _ = api
+    calls = []
+
+    def call(method, path, body=None):
+        calls.append((method, path, body))
+        return {'plan_id': 'b' * 32, 'root_id': 'a' * 32, 'children': []}
+
+    monkeypatch.setattr(fleet_api, 'call', call)
+    assert fleet_api.fanout('a' * 32)['root_id'] == 'a' * 32
+    assert calls == [('POST', '/v1/tasks/' + 'a' * 32 + '/fanout', {})]
+
+    def refused(*_args, **_kwargs):
+        raise FleetError('Coordinator refused the request (HTTP 403): Fanout unavailable')
+
+    monkeypatch.setattr(fleet_api, 'call', refused)
+    with pytest.raises(FleetError, match='403'):
+        fleet_api.fanout('a' * 32)
 
 
 def test_wrong_token_is_reported_without_leaking_it(fleet):
@@ -90,13 +112,22 @@ def test_wrong_token_is_reported_without_leaking_it(fleet):
         http.server_close()
 
 
-def test_mcp_server_registers_exactly_the_fleet_tools(api):
+def test_mcp_server_registers_exactly_six_fleet_tools_and_delegates_fanout(api, monkeypatch):
     pytest.importorskip('mcp.server')
     fleet_api, _, _ = api
     server_ = create_server(fleet_api)
     tools = asyncio.run(server_.list_tools())
-    assert sorted(t.name for t in tools) == ['fleet_cancel', 'fleet_list', 'fleet_logs', 'fleet_status', 'fleet_submit']
+    assert sorted(t.name for t in tools) == ['fleet_cancel', 'fleet_fanout', 'fleet_list', 'fleet_logs', 'fleet_status', 'fleet_submit']
     submit = next(t for t in tools if t.name == 'fleet_submit')
     assert {'project', 'brief', 'parent_id', 'logical_role', 'stage', 'supersedes', 'access'} <= set(submit.input_schema['properties'])
     result = asyncio.run(server_.call_tool('fleet_submit', {'project': 'snowgloves', 'brief': 'via mcp'}))
     assert 'queued' in json.dumps(result, default=str)
+    with pytest.raises(ValueError, match='32-character'):
+        FleetApi.fanout(fleet_api, '../bad')
+    calls = []
+    monkeypatch.setattr(fleet_api, 'fanout', lambda task_id: calls.append(task_id) or {
+        'plan_id': 'b' * 32, 'root_id': task_id, 'children': [],
+    })
+    result = asyncio.run(server_.call_tool('fleet_fanout', {'task_id': 'a' * 32}))
+    assert calls == ['a' * 32]
+    assert 'plan_id' in json.dumps(result, default=str)
