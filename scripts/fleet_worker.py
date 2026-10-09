@@ -39,8 +39,13 @@ SECRET_PATTERNS = tuple(re.compile(pattern) for pattern in (
 
 
 WRITE_PREAMBLE = ('You are in an isolated, disposable working tree. Edit files here only. Do not commit, push, use the network, '
-                  'or touch credentials, .env files, .git or CI configuration. Edit with shell commands; the apply_patch tool is unavailable here. '
+                  'or touch credentials, .env files, .git or CI configuration. Make every edit yourself by running shell commands with your shell tool; '
+                  'the apply_patch tool is unavailable here, and describing or suggesting a command without running it makes no change. '
                   'The operator reviews your diff and the worker runs the tests.\n\n')
+
+
+EFFECT_ITEMS = ('command_execution', 'file_change', 'mcp_tool_call', 'web_search')
+TRANSIENT = re.compile(r'\b429\b|Too Many Requests|stream (?:closed|disconnected)', re.I)
 
 
 class WriteRejected(ValueError):
@@ -154,6 +159,54 @@ class Worker:
                 '-c', 'model_providers.omniroute.env_key="OMNIROUTE_API_KEY"',
                 '-c', 'model_providers.omniroute.wire_api="responses"', '-']
 
+    def transient_before_effects(self, log):
+        """True only when a failed run hit a transient provider error and provably did nothing yet:
+        no command, edit, tool or web call started, so replaying cannot repeat a side effect."""
+        transient = False
+        for line in Path(log).read_text(errors='replace').splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if (row.get('item') or {}).get('type') in EFFECT_ITEMS:
+                return False
+            message = row.get('message') or (row.get('error') or {}).get('message') or ''
+            if row.get('type') in ('error', 'turn.failed') and TRANSIENT.search(str(message)):
+                transient = True
+        return transient
+
+    def monitor(self, task, start, done, process=None):
+        """Heartbeat, honour cancellation, the time budget and shutdown until done(). Returns (kind, message)
+        when stopped early, else (None, None)."""
+        last_heartbeat = 0
+        while not done():
+            if self.stopping:
+                if process:
+                    stop_group(process)
+                return 'interrupted', 'Worker stopped; manual reconciliation required'
+            now = time.monotonic()
+            if now - start > self.config.get('job_timeout', 300):
+                if process:
+                    stop_group(process)
+                return 'interrupted', 'Execution time budget exceeded; no automatic replay'
+            if now - last_heartbeat >= min(10, self.config.get('heartbeat_seconds', 5)):
+                last_heartbeat = now
+                try:
+                    response = self.request('/v1/worker/report', self.report(task, 'heartbeat'))
+                    if response.get('cancel_requested'):
+                        if process:
+                            stop_group(process)
+                        return 'cancelled', 'Cancellation completed'
+                except HTTPError as error:
+                    if error.code in (403, 409):
+                        if process:
+                            stop_group(process)
+                        return 'interrupted', 'Assignment lost; manual reconciliation required'
+                except (OSError, ValueError):
+                    pass  # separate worker survives a brief coordinator restart
+            time.sleep(0.2)
+        return None, None
+
     def write_enabled(self, root):
         return (root in [Path(p).resolve() for p in self.config.get('write_roots', [])]
                 and bool(self.config.get('test_commands', {}).get(str(root))))
@@ -183,6 +236,43 @@ class Worker:
         with os.fdopen(fd, 'w') as stream:
             stream.write(text)
 
+    def verification_profile(self, worktree, scratch):
+        """Seatbelt profile for proposed code: writes only in the worktree and a private scratch dir, no home
+        reads, no network except loopback. An argv allowlist and a cwd do not confine what the argv executes."""
+        home = os.path.realpath(os.path.expanduser('~'))
+        denied = [os.path.realpath(p) for p in self.config.get('verify_deny_read', [home])]
+        library = [os.path.realpath(p) for p in self.config.get('verify_python_paths', [])]
+        paths = [str(worktree), str(scratch), *denied, *library]
+        if any(c in p for p in paths for c in '"\\\n'):
+            raise WriteRejected('Verification paths contain unsafe characters')
+        return '\n'.join([
+            '(version 1)', '(allow default)',
+            '(deny network*)', '(allow network* (remote ip "localhost:*"))', '(allow network-bind network-inbound (local ip "localhost:*"))',
+            '(deny file-write*)',
+            '(allow file-write* (subpath "%s") (subpath "%s") (literal "/dev/null") (literal "/dev/dtracehelper") (literal "/dev/tty"))' % (worktree, scratch),
+            *['(deny file-read* (subpath "%s"))' % p for p in denied],
+            '(allow file-read-metadata)',
+            '(allow file-read* (subpath "%s") (subpath "%s"))' % (worktree, scratch),
+            *['(allow file-read* (subpath "%s"))' % p for p in library],  # read-only interpreter libraries, e.g. pytest
+            '(deny signal)', '(allow signal (target same-sandbox) (target self))', ''])  # no killing the worker or its neighbours
+
+    def sandboxed(self, task, worktree):
+        """Return (argv prefix, scratch dir) that confines a verification command, or fail closed."""
+        sandbox = self.config.get('sandbox_exec_path', '/usr/bin/sandbox-exec')
+        if not os.access(sandbox, os.X_OK):
+            raise WriteRejected('Verification sandbox is unavailable')
+        scratch = self.state / 'verify-tmp' / task['attempt_id']
+        scratch.mkdir(parents=True, exist_ok=True, mode=0o700)
+        profile = scratch.parent / (task['attempt_id'] + '.sb')
+        fd = os.open(profile, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(self.verification_profile(Path(worktree).resolve(), scratch.resolve()))
+        prefix = [sandbox, '-f', str(profile)]
+        probe = subprocess.run([*prefix, '/usr/bin/true'], capture_output=True, timeout=15)
+        if probe.returncode:
+            raise WriteRejected('Verification sandbox is unavailable')
+        return prefix, scratch
+
     def collect_write(self, task, root, worktree):
         """Compute the patch ourselves (never trust the agent), gate it, then run the allowlisted tests."""
         git = self.config.get('git_path', 'git')
@@ -210,8 +300,11 @@ class Worker:
             raise WriteRejected('Patch is not valid UTF-8 text') from None
         if any(p.search(text) for p in SECRET_PATTERNS) or any(v and v in text for v in (self.config.get('token'), self.gateway_key)):
             raise WriteRejected('Patch contains credential-like content')
+        sandbox, scratch = self.sandboxed(task, worktree)
         env = runtime_environment()
-        env['PYTHONDONTWRITEBYTECODE'] = '1'
+        env.update(PYTHONDONTWRITEBYTECODE='1', HOME=str(scratch), TMPDIR=str(scratch))  # nothing from the real home or temp
+        if self.config.get('verify_python_paths'):
+            env['PYTHONPATH'] = os.pathsep.join(self.config['verify_python_paths'])
         results = []
         for command in self.config['test_commands'][str(root)]:
             argv = command['argv']
@@ -219,7 +312,7 @@ class Worker:
             if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv) or not cwd.is_relative_to(worktree.resolve()):
                 raise WriteRejected('Invalid test command configuration')
             try:
-                done = subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=command.get('timeout', 600))
+                done = subprocess.run([*sandbox, *argv], cwd=cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=command.get('timeout', 600))
             except subprocess.TimeoutExpired:
                 self.keep_patch(task, text)
                 raise WriteRejected('Test command timed out') from None
@@ -265,42 +358,30 @@ class Worker:
             worktree.parent.mkdir(exist_ok=True, mode=0o700)
             subprocess.run([self.config.get('git_path', 'git'), '-C', str(root), 'worktree', 'add', '--detach', str(worktree), 'HEAD'],
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
-            log = self.state / (task['attempt_id'] + '.jsonl')
             env = runtime_environment()
             env['OMNIROUTE_API_KEY'] = key
-            with os.fdopen(os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
-                process = subprocess.Popen(self.command(worktree, write), stdin=subprocess.PIPE, stdout=output, stderr=output,
-                                           env=env, start_new_session=True)
-                prompt = task['brief'] if business is None else business_worker_prompt(task['brief'], *business)
-                process.stdin.write(((WRITE_PREAMBLE if write else '') + prompt).encode())
-                process.stdin.close()
-                start, last_heartbeat = time.monotonic(), 0
-                while process.poll() is None:
-                    if self.stopping:
-                        stop_group(process)
-                        kind, message = 'interrupted', 'Worker stopped; manual reconciliation required'
-                        break
-                    now = time.monotonic()
-                    if now - start > self.config.get('job_timeout', 300):
-                        stop_group(process)
-                        kind, message = 'interrupted', 'Execution time budget exceeded; no automatic replay'
-                        break
-                    if now - last_heartbeat >= min(10, self.config.get('heartbeat_seconds', 5)):
-                        last_heartbeat = now
-                        try:
-                            response = self.request('/v1/worker/report', self.report(task, 'heartbeat'))
-                            if response.get('cancel_requested'):
-                                stop_group(process)
-                                kind, message = 'cancelled', 'Cancellation completed'
-                                break
-                        except HTTPError as error:
-                            if error.code in (403, 409):
-                                stop_group(process)
-                                kind, message = 'interrupted', 'Assignment lost; manual reconciliation required'
-                                break
-                        except (OSError, ValueError):
-                            pass  # separate worker survives a brief coordinator restart
-                    time.sleep(0.2)
+            start = time.monotonic()
+            runs = 1 + max(0, int(self.config.get('transient_retries', 2)))
+            for run in range(runs):
+                log = self.state / (task['attempt_id'] + ('.retry%d' % run if run else '') + '.jsonl')
+                with os.fdopen(os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
+                    process = subprocess.Popen(self.command(worktree, write), stdin=subprocess.PIPE, stdout=output, stderr=output,
+                                               env=env, start_new_session=True)
+                    prompt = task['brief'] if business is None else business_worker_prompt(task['brief'], *business)
+                    process.stdin.write(((WRITE_PREAMBLE if write else '') + prompt).encode())
+                    process.stdin.close()
+                    early, note = self.monitor(task, start, lambda: process.poll() is not None, process)
+                if early:
+                    kind, message = early, note
+                    break
+                if process.returncode == 0 or run + 1 == runs or not self.transient_before_effects(log):
+                    break
+                # certain outcome: a transient provider error before anything ran, so a fresh run is safe
+                deadline = time.monotonic() + self.config.get('transient_backoff', 20) * (run + 1)
+                early, note = self.monitor(task, start, lambda: time.monotonic() >= deadline)
+                if early:
+                    kind, message = early, note
+                    break
             if process.returncode == 0 and kind not in ('cancelled', 'interrupted'):
                 finals = []
                 for line in log.read_text(errors='replace').splitlines():
