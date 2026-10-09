@@ -75,7 +75,7 @@ export function createFleetBoard(): FleetBoard {
   const clearView = () => { list.replaceChildren(); details.replaceChildren(); };
   function failure(error: unknown) { clearView(); status.textContent = `Disconnected: ${error instanceof Error ? error.message : 'Request failed.'} No current task data.`; client = null; submit.disabled = true; abortRequests(); }
   async function request<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> { const controller = new AbortController(); requests.add(controller); try { return await operation(controller.signal); } finally { requests.delete(controller); } }
-  const taskLabel = (task: FleetTask) => [task.title || task.id, task.status, task.organization || task.org || 'Organization unspecified', task.project, task.category, task.node || task.node_id || 'Unassigned', task.runtime].map(displayValue).join(' · ');
+  const taskLabel = (task: FleetTask) => [task.title || task.id, task.status, task.organization || task.org || 'Organization unspecified', task.project, task.category, task.node || task.node_id || task.worker || 'Unassigned', task.runtime].map(displayValue).join(' · ');
   function renderDetail(task: FleetTask, events: RecordValue[]) {
     details.replaceChildren(node('h4', taskLabel(task)));
     const cancel = node('button', 'Cancel task'); cancel.className = 'oc-btn'; cancel.disabled = !['queued', 'running', 'needs_input'].includes(task.status);
