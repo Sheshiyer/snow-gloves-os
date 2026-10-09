@@ -29,7 +29,8 @@ SECRET_PATTERNS = tuple(re.compile(pattern) for pattern in (
 
 
 WRITE_PREAMBLE = ('You are in an isolated, disposable working tree. Edit files here only. Do not commit, push, use the network, '
-                  'or touch credentials, .env files, .git or CI configuration. Edit with shell commands; the apply_patch tool is unavailable here. '
+                  'or touch credentials, .env files, .git or CI configuration. Make every edit yourself by running shell commands with your shell tool; '
+                  'the apply_patch tool is unavailable here, and describing or suggesting a command without running it makes no change. '
                   'The operator reviews your diff and the worker runs the tests.\n\n')
 FANOUT_PREAMBLE = (
     'You are performing an authorized development read-only task. Your assigned role, stage, parent, '
@@ -226,6 +227,43 @@ class Worker:
             + '\nEND CHECKSUM REFERENCES\n'
         )
 
+    def verification_profile(self, worktree, scratch):
+        """Seatbelt profile for proposed code: writes only in the worktree and a private scratch dir, no home
+        reads, no network except loopback. An argv allowlist and a cwd do not confine what the argv executes."""
+        home = os.path.realpath(os.path.expanduser('~'))
+        denied = [os.path.realpath(p) for p in self.config.get('verify_deny_read', [home])]
+        library = [os.path.realpath(p) for p in self.config.get('verify_python_paths', [])]
+        paths = [str(worktree), str(scratch), *denied, *library]
+        if any(c in p for p in paths for c in '"\\\n'):
+            raise WriteRejected('Verification paths contain unsafe characters')
+        return '\n'.join([
+            '(version 1)', '(allow default)',
+            '(deny network*)', '(allow network* (remote ip "localhost:*"))', '(allow network-bind network-inbound (local ip "localhost:*"))',
+            '(deny file-write*)',
+            '(allow file-write* (subpath "%s") (subpath "%s") (literal "/dev/null") (literal "/dev/dtracehelper") (literal "/dev/tty"))' % (worktree, scratch),
+            *['(deny file-read* (subpath "%s"))' % p for p in denied],
+            '(allow file-read-metadata)',
+            '(allow file-read* (subpath "%s") (subpath "%s"))' % (worktree, scratch),
+            *['(allow file-read* (subpath "%s"))' % p for p in library],  # read-only interpreter libraries, e.g. pytest
+            '(deny signal)', '(allow signal (target same-sandbox) (target self))', ''])  # no killing the worker or its neighbours
+
+    def sandboxed(self, task, worktree):
+        """Return (argv prefix, scratch dir) that confines a verification command, or fail closed."""
+        sandbox = self.config.get('sandbox_exec_path', '/usr/bin/sandbox-exec')
+        if not os.access(sandbox, os.X_OK):
+            raise WriteRejected('Verification sandbox is unavailable')
+        scratch = self.state / 'verify-tmp' / task['attempt_id']
+        scratch.mkdir(parents=True, exist_ok=True, mode=0o700)
+        profile = scratch.parent / (task['attempt_id'] + '.sb')
+        fd = os.open(profile, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(self.verification_profile(Path(worktree).resolve(), scratch.resolve()))
+        prefix = [sandbox, '-f', str(profile)]
+        probe = subprocess.run([*prefix, '/usr/bin/true'], capture_output=True, timeout=15)
+        if probe.returncode:
+            raise WriteRejected('Verification sandbox is unavailable')
+        return prefix, scratch
+
     def collect_write(self, task, root, worktree):
         """Compute the patch ourselves (never trust the agent), gate it, then run the allowlisted tests."""
         git = self.config.get('git_path', 'git')
@@ -253,8 +291,11 @@ class Worker:
             raise WriteRejected('Patch is not valid UTF-8 text') from None
         if any(p.search(text) for p in SECRET_PATTERNS) or any(v and v in text for v in (self.config.get('token'), self.gateway_key)):
             raise WriteRejected('Patch contains credential-like content')
+        sandbox, scratch = self.sandboxed(task, worktree)
         env = runtime_environment()
-        env['PYTHONDONTWRITEBYTECODE'] = '1'
+        env.update(PYTHONDONTWRITEBYTECODE='1', HOME=str(scratch), TMPDIR=str(scratch))  # nothing from the real home or temp
+        if self.config.get('verify_python_paths'):
+            env['PYTHONPATH'] = os.pathsep.join(self.config['verify_python_paths'])
         results = []
         for command in self.config['test_commands'][str(root)]:
             argv = command['argv']
@@ -262,7 +303,7 @@ class Worker:
             if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv) or not cwd.is_relative_to(worktree.resolve()):
                 raise WriteRejected('Invalid test command configuration')
             try:
-                done = subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=command.get('timeout', 600))
+                done = subprocess.run([*sandbox, *argv], cwd=cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=command.get('timeout', 600))
             except subprocess.TimeoutExpired:
                 self.keep_patch(task, text)
                 raise WriteRejected('Test command timed out') from None
