@@ -1,5 +1,6 @@
 import { renderBrandPassport } from './brand-summary';
 import './ops.css';
+import { createFleetBoard } from './fleet-tasks';
 import { loadSnapshot, loadDocument, previewPlan, validateSnapshot } from './ops-client';
 import type { OpsSnapshot, OpsDocument, PlanRequest, PlanPreview } from './ops-contracts';
 import { fleetNodes, fleetActivity } from './fleet-model';
@@ -67,7 +68,7 @@ const BUILDING_ROUTING: Record<string, { section: SectionName; slugMatch?: strin
   'fleet-wings': { section: 'Fleet' },
   'omniroute-gateway': { section: 'Fleet' },
   'cloud-recovery': { section: 'Fleet' },
-  'hermes-bus': { section: 'Activity' },
+  'hermes-bus': { section: 'Hermes' },
   'knowledge-archive': { section: 'Resources' },
 };
 
@@ -80,6 +81,7 @@ const SECTIONS = [
   'Tenants',
   'Fleet',
   'Activity',
+  'Hermes',
   'Workbench',
   'Evidence',
   'Resources',
@@ -94,6 +96,7 @@ const STATION_NAMES: Record<SectionName, string> = {
   Tenants: 'Neighborhoods',
   Fleet: 'Wing hangar',
   Activity: 'Courier trail',
+  Hermes: 'Hermes',
   Workbench: 'Blueprint bench',
   Evidence: 'Stamp book',
   Resources: 'Field notes'
@@ -226,6 +229,7 @@ export function toyIcon(section: string): SVGSVGElement {
         <path d="M48 22 Q52 19 54 22" stroke="#f4edda" stroke-width="1.2" fill="none" stroke-linecap="round"/>
       `;
       break;
+    case 'Hermes':
     case 'Activity':
       content = `
         <ellipse cx="32" cy="56" rx="22" ry="4.5" fill="#283d36" opacity="0.22"/>
@@ -317,6 +321,7 @@ export function mountCockpit(
   host: HTMLElement,
   onSelectNode: (id: string) => void
 ): CockpitController {
+  const fleetBoard = createFleetBoard();
   let isOpen = false;
   let currentSection: SectionName = 'Overview';
   let selectedNodeContext: string | null = null;
@@ -418,6 +423,7 @@ export function mountCockpit(
       return;
     }
     isOpen = false;
+    fleetBoard.pause(true);
     rootEl.setAttribute('hidden', '');
     isFetching = false;
     isPlanning = false;
@@ -901,12 +907,13 @@ export function mountCockpit(
   }
 
   function visitStation(section: SectionName, nodeId?: string): void {
+    if (section !== 'Hermes') fleetBoard.pause();
     currentSection = section;
     focusStation(section, nodeId);
   }
 
   function focusStation(section: SectionName, nodeId?: string) {
-    const landmarks: Record<SectionName, string> = {Overview:'hermes-bus', Agents:'agent-chief-of-staff', Modules:'module-catalog', Runtimes:'runtime-adapters', Connectors:'connector-gate', Tenants:'tenant-vault', Fleet:'fleet-wings', Activity:'hermes-bus', Workbench:'agent-cto', Evidence:'agent-sentinel', Resources:'knowledge-archive'};
+    const landmarks: Record<SectionName, string> = {Overview:'hermes-bus', Agents:'agent-chief-of-staff', Modules:'module-catalog', Runtimes:'runtime-adapters', Connectors:'connector-gate', Tenants:'tenant-vault', Fleet:'fleet-wings', Activity:'hermes-bus', Hermes:'hermes-bus', Workbench:'agent-cto', Evidence:'agent-sentinel', Resources:'knowledge-archive'};
     host.dispatchEvent(new CustomEvent('cockpit-station', {detail:{nodeId:nodeId || landmarks[section]}}));
   }
 
@@ -1172,7 +1179,10 @@ export function mountCockpit(
       content.appendChild(errAlert);
     }
 
-    if (!snapshot) {
+    if (currentSection === 'Hermes') {
+      content.appendChild(fleetBoard.element);
+      fleetBoard.activate();
+    } else if (!snapshot) {
       const emptyCard = document.createElement('div');
       emptyCard.className = 'oc-card';
       emptyCard.innerHTML = safeHtml`<h3 class="oc-card-title">No Snapshot Loaded</h3>
