@@ -16,6 +16,12 @@ from urllib.parse import urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
+ROLES = ('ceo','cto','chief-of-staff','librarian','interpreter','dispatcher','sentinel')
+STAGES = ('plan','reference','review','dispatch','verify')
+MAX_CHILDREN = 7
+NO_NEW_CHILDREN = ('cancelled','cancel_requested','failed','interrupted')
+
+
 class Rejected(Exception):
     def __init__(self, status, message):
         self.status, self.message = status, message
@@ -55,9 +61,14 @@ class Coordinator:
           message TEXT NOT NULL, created REAL NOT NULL,
           UNIQUE(task_id, attempt_id, event_id));
         ''')
-        if 'logical_role' not in {r[1] for r in self.db.execute('PRAGMA table_info(tasks)')}:
+        columns = {r[1] for r in self.db.execute('PRAGMA table_info(tasks)')}
+        if 'logical_role' not in columns:
             self.db.execute("ALTER TABLE tasks ADD COLUMN logical_role TEXT NOT NULL DEFAULT 'cto'")
-            self.db.commit()
+        for column in ('parent_id', 'stage'):
+            if column not in columns:
+                self.db.execute('ALTER TABLE tasks ADD COLUMN %s TEXT' % column)
+        self.db.execute('CREATE INDEX IF NOT EXISTS tasks_parent ON tasks(parent_id)')
+        self.db.commit()
 
     @contextmanager
     def transaction(self):
@@ -98,7 +109,7 @@ class Coordinator:
             self.db.execute('INSERT OR IGNORE INTO events(task_id,attempt_id,event_id,type,message,created) VALUES(?,?,?,?,?,?)', (row['id'],row['attempt_id'],'lease-expired','interrupted','Worker heartbeat expired; manual reconciliation required',now))
 
     def _public(self, row):
-        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role')
+        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage')
         result = {k: row[k] for k in keys}
         project = self.config['projects'][row['project']]
         result.update(tenant=project['tenant'],organization=project['organization'],session_id=row['id'])
@@ -124,7 +135,17 @@ class Coordinator:
         for field in ('title', 'category'):
             if field in body and (not isinstance(body[field],str) or len(body[field]) > 200):
                 raise Rejected(400, 'Invalid '+field)
+        parent_id, role, stage = body.get('parent_id'), body.get('logical_role'), body.get('stage')
+        if parent_id is None:
+            if role is not None or stage is not None:
+                raise Rejected(400, 'Role and stage require a parent task')
+        elif not isinstance(parent_id,str) or not re.fullmatch(r'[a-f0-9]{32}',parent_id):
+            raise Rejected(400, 'Invalid parent_id')
+        elif role not in ROLES or (stage is not None and stage not in STAGES):
+            raise Rejected(400, 'Invalid logical_role or stage')
         request = {k: body.get(k) for k in ('project','brief','runtime','title','category')}
+        if parent_id is not None:
+            request.update(parent_id=parent_id,logical_role=role,stage=stage)
         digest = hashlib.sha256(json.dumps(request,sort_keys=True).encode()).hexdigest()
         with self.lock:
             prior = self.db.execute('SELECT * FROM tasks WHERE owner=? AND idem=?',(owner,body['idempotency_key'])).fetchone()
@@ -133,7 +154,7 @@ class Coordinator:
                     raise Rejected(409, 'Idempotency key conflicts with prior request')
                 return self._public(prior)
         interpretation = None
-        bridge = self.config.get('hermes_bridge')
+        bridge = self.config.get('hermes_bridge') if parent_id is None else None  # a parent assigns child roles; no model call
         if bridge:
             url = bridge['url'].rstrip('/')
             parsed = urlsplit(url)
@@ -149,8 +170,7 @@ class Coordinator:
                     if len(raw)>32768:
                         raise ValueError('Oversized response')
                     interpretation=json.loads(raw)
-                roles=('ceo','cto','chief-of-staff','librarian','interpreter','dispatcher','sentinel')
-                if not isinstance(interpretation,dict) or interpretation.get('logical_role','cto') not in roles:
+                if not isinstance(interpretation,dict) or interpretation.get('logical_role','cto') not in ROLES:
                     raise ValueError('Invalid role')
                 for key in ('title','brief','category','summary','hermes_revision'):
                     if key in interpretation and (not isinstance(interpretation[key],str) or len(interpretation[key])>16000):
@@ -166,9 +186,21 @@ class Coordinator:
                 if prior['request_hash'] != digest:
                     raise Rejected(409, 'Idempotency key conflicts with prior request')
                 return self._public(prior)
+            if parent_id is not None:
+                parent = self._owned(owner,principal,parent_id)
+                if parent['project'] != project:
+                    raise Rejected(409, 'Parent belongs to another project')
+                if parent['parent_id'] is not None:
+                    raise Rejected(409, 'Task graphs are one level deep')
+                if parent['status'] in NO_NEW_CHILDREN:
+                    raise Rejected(409, 'Parent no longer accepts children')
+                if self.db.execute('SELECT count(*) FROM tasks WHERE parent_id=?',(parent_id,)).fetchone()[0] >= MAX_CHILDREN:
+                    raise Rejected(409, 'Parent already has the maximum number of children')
             tid, now = uuid.uuid4().hex, self.clock()
             self.db.execute('INSERT INTO tasks(id,owner,project,title,brief,runtime,category,idem,request_hash,status,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
               (tid,owner,project,self.sanitize(body.get('title') or 'Fleet task'),self.sanitize(body['brief']),runtime,self.sanitize(body.get('category') or 'development'),body['idempotency_key'],digest,'queued',now,now))
+            if parent_id is not None:
+                self.db.execute('UPDATE tasks SET parent_id=?,logical_role=?,stage=? WHERE id=?',(parent_id,role,stage,tid))
             if interpretation:
                 self.db.execute('UPDATE tasks SET title=?,brief=?,category=?,logical_role=? WHERE id=?',(
                     self.sanitize(interpretation.get('title') or body.get('title') or 'Fleet task')[:200],
@@ -190,14 +222,36 @@ class Coordinator:
             row = self._owned(owner,principal,tid)
             if events:
                 return [dict(r) for r in self.db.execute('SELECT seq,attempt_id,event_id,type,message,created FROM events WHERE task_id=? ORDER BY seq LIMIT 1000',(tid,))]
-            return self._public(row)
+            result = self._public(row)
+            if row['parent_id'] is None:
+                result['graph'] = self._graph(row)
+            return result
+
+    def _graph(self, parent):
+        kids = self.db.execute('SELECT * FROM tasks WHERE parent_id=? ORDER BY created',(parent['id'],)).fetchall()
+        children = [{k: v for k, v in self._public(kid).items() if k in ('id','logical_role','stage','status','artifact')} for kid in kids]
+        statuses = {kid['status'] for kid in kids}
+        if not kids:
+            status = 'none'
+        elif statuses & {'failed','interrupted'}:
+            status = 'failed'
+        elif 'cancelled' in statuses or 'cancel_requested' in statuses:
+            status = 'cancelled'
+        elif statuses == {'succeeded'} and parent['status'] == 'succeeded' and any(kid['logical_role'] == 'sentinel' and kid['artifact'] for kid in kids):
+            status = 'verified'  # derived on read: no scheduler owns this state
+        else:
+            status = 'incomplete'
+        return {'children': children, 'status': status}
 
     def cancel(self, owner, principal, tid):
         with self.transaction():
             self._expire()
             row = self._owned(owner,principal,tid)
             status = {'queued':'cancelled','running':'cancel_requested'}.get(row['status'],row['status'])
-            self.db.execute('UPDATE tasks SET status=?,updated=? WHERE id=?',(status,self.clock(),tid))
+            now = self.clock()
+            self.db.execute('UPDATE tasks SET status=?,updated=? WHERE id=?',(status,now,tid))
+            for kid in self.db.execute("SELECT id,status FROM tasks WHERE parent_id=? AND status IN ('queued','running')",(tid,)).fetchall():
+                self.db.execute('UPDATE tasks SET status=?,updated=? WHERE id=?',({'queued':'cancelled','running':'cancel_requested'}[kid['status']],now,kid['id']))
             return self._public(self._owned(owner,principal,tid))
 
     def claim(self, name, worker):

@@ -140,3 +140,15 @@ The task client exposes `submit`, `list`, `status`, `logs` and `cancel`.
 Use `python3 scripts/fleet_tasks.py --token-file /private/founder.token COMMAND`.
 Submission allows 100 seconds for Hermes interpretation; all other operations
 use 30 seconds. A rejected interpretation does not create a queued task.
+
+## Parent/child task graph (step 2, source-tested only)
+
+A task may be a child: `submit --parent <id> --role <role> --stage <plan|reference|review|dispatch|verify>` (API: `parent_id`, `logical_role`, `stage`). The coordinator remains the only state owner; there is no scheduler.
+
+- One level deep, same project, at most 7 children per parent. A parent that is cancelled, cancel-requested, failed or interrupted takes no new children; a succeeded parent does.
+- Roles are assigned by the caller (the Chief of Staff step), so children skip the Hermes bridge. Roots still go through interpretation.
+- Cancelling a parent cancels queued children and requests cancellation of a running one.
+- Parent detail carries `graph: {children, status}`. Status is derived on read: `verified` only when the parent and every child succeeded and a Sentinel child has a verified artifact; `failed` and `cancelled` take precedence; otherwise `incomplete` (or `none`).
+- Execution is unchanged: one worker slot, FIFO claim, so children queue.
+
+Evidence: `tests/test_fleet_task_graph.py` (14 tests) and the schema migration run against a copy of the live pilot database (columns added, 10 existing rows stay roots). Not yet deployed to the Coding 01 services, and the board does not render the graph yet.
