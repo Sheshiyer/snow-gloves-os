@@ -1511,3 +1511,13 @@ ISC-353 accepted after the founder-confirmed second physical AXIO reboot. After 
 Reviewed source is published on feat/cloud-gateway and PR31 is updated for the accumulated fleet UI/Hermes pilot. Current upstream Actions retirement is incorporated. Clean Coding01 Git checkouts live at /Users/axio/Projects/snow-gloves-os and /Users/axio/Projects/snow-gloves-ops; the UI, API, coordinator, bridge and worker now use the canonical source checkout. Own dependency install and production build pass; HTTPS UI/snapshot/bridge health return200 after supervised restart. Live SQLite/credentials/artifacts retain the prior private runtime location. The accepted physical reboot receipt predates this path cutover; no further reboot is inferred.
 
 Real task79e51fe012b64787a22e4f6e6753a744 selects CTO and succeeds at transport/execution on the new checkout, with checksum-verified artifact. Source review rejects its nonexistent TSX component references. This is not accepted UI analysis or seven-agent fan-out. Private UI-REVIEW.json and NEXT-UI-HERMES-FLOW.md record the failure and next source-grounding/role-graph requirements. Native config drift ISC-380, other nodes, teammate scope and remaining fleet gates stay open.
+
+
+## 2026-10-09 — Gary isolated Hermes SSH access
+
+Founder authorizes Gary's existing dedicated SSH public key for gary-hermes on Coding01, limited to diagnostics and public platform source. Gary is independently observed online on the company tailnet. No project/task authority, model or private operations access is implied. Use a forced command and protected public source snapshot; a standard account alone is not read-only.
+
+- [ ] ISC-394: Restricted SSH dispatcher validates bounded diagnostic/source commands without arbitrary shell, paths, writes or symlink escapes.
+- [ ] ISC-395: Reviewed macOS installation plan preserves existing SSH settings, restricts Gary key/IP and user behavior, validates effective configuration and supports rollback.
+- [ ] ISC-396: Coding01 standard account and restricted key install pass device readback without exposing secrets; existing founder SSH remains available.
+- [ ] ISC-397: Gary MacBook authenticates with its own key, diagnostics/public source pass, disallowed shell/write/forwarding fail, and actual Hermes execution is distinguished from transport readiness.
