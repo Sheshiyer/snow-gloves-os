@@ -12,6 +12,24 @@ export function displayValue(value: unknown): string {
   if (value === undefined || value === null) return '—';
   return typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
 }
+/** Roots in server order, each followed by its children (oldest first). Children never nest further. */
+export function orderTasks(tasks: FleetTask[]): {task: FleetTask; child: boolean}[] {
+  const ids = new Set(tasks.map(item => item.id));
+  const kids = new Map<string, FleetTask[]>();
+  const roots: FleetTask[] = [];
+  for (const item of tasks) {
+    const parent = item.parent_id;
+    if (typeof parent === 'string' && ids.has(parent)) kids.set(parent, [...(kids.get(parent) ?? []), item]);
+    else roots.push(item);
+  }
+  return roots.flatMap(root => [{task: root, child: false}, ...(kids.get(root.id) ?? []).sort((a, b) => Number(a.created) - Number(b.created)).map(item => ({task: item, child: true}))]);
+}
+/** Text rows for a parent's coordinator-derived graph; empty when the task has no children. */
+export function graphLines(task: FleetTask): string[] {
+  const graph = task.graph;
+  if (!record(graph) || !Array.isArray(graph.children) || !graph.children.length) return [];
+  return [`Task graph · ${displayValue(graph.status)}`, ...graph.children.filter(record).map(kid => [kid.logical_role, kid.stage, kid.status, kid.artifact ? 'artifact attached' : 'no artifact'].map(displayValue).join(' · '))];
+}
 export class FleetClient {
   #token: string;
   constructor(token: string, private transport: typeof fetch = (input, init) => fetch(input, init)) {
@@ -75,10 +93,12 @@ export function createFleetBoard(): FleetBoard {
   const clearView = () => { list.replaceChildren(); details.replaceChildren(); };
   function failure(error: unknown) { clearView(); status.textContent = `Disconnected: ${error instanceof Error ? error.message : 'Request failed.'} No current task data.`; client = null; submit.disabled = true; abortRequests(); }
   async function request<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> { const controller = new AbortController(); requests.add(controller); try { return await operation(controller.signal); } finally { requests.delete(controller); } }
-  const taskLabel = (task: FleetTask) => [task.title || task.id, task.status, task.organization || task.org || 'Organization unspecified', task.project, task.category, task.node || task.node_id || task.worker || 'Unassigned', task.runtime].map(displayValue).join(' · ');
+  const taskLabel = (task: FleetTask) => [task.title || task.id, task.status, task.logical_role, task.stage, task.organization || task.org || 'Organization unspecified', task.project, task.category, task.node || task.node_id || task.worker || 'Unassigned', task.runtime].map(displayValue).join(' · ');
   function renderDetail(task: FleetTask, events: RecordValue[]) {
     details.replaceChildren(node('h4', taskLabel(task)));
-    const cancel = node('button', 'Cancel task'); cancel.className = 'oc-btn'; cancel.disabled = !['queued', 'running', 'needs_input'].includes(task.status);
+    const graph = graphLines(task);
+    if (graph.length) { const panel = node('div'); panel.className = 'fleet-graph'; panel.append(node('h5', graph[0]), ...graph.slice(1).map(line => node('p', line))); details.append(panel); }
+    const cancel = node('button', graph.length ? 'Cancel task and open children' : 'Cancel task'); cancel.className = 'oc-btn'; cancel.disabled = !['queued', 'running', 'needs_input'].includes(task.status);
     cancel.onclick = async () => {
       if (!client || busy) return;
       const epoch = generation; busy = true; cancel.disabled = true;
@@ -99,7 +119,7 @@ export function createFleetBoard(): FleetBoard {
       if (epoch !== generation || !active) return;
       list.replaceChildren(node('h4', 'Managed tasks'));
       if (!tasks.length) list.append(node('p', 'No managed tasks in your authorized scope.'));
-      tasks.forEach(task => { const button = node('button', taskLabel(task)); button.className = 'oc-btn fleet-task'; button.setAttribute('aria-pressed', String(selected === task.id)); button.onclick = () => { abortRequests(); selected = task.id; details.replaceChildren(); void refresh(); }; list.append(button); });
+      orderTasks(tasks).forEach(({task, child}) => { const button = node('button', taskLabel(task)); button.className = child ? 'oc-btn fleet-task fleet-task-child' : 'oc-btn fleet-task'; button.setAttribute('aria-pressed', String(selected === task.id)); button.onclick = () => { abortRequests(); selected = task.id; details.replaceChildren(); void refresh(); }; list.append(button); });
       if (detail) renderDetail(detail, events);
       status.textContent = 'Connected · Live coordinator records · Updates every 4 seconds';
     } catch (error) { if (epoch === generation) failure(error); }
