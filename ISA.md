@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 344/384
+progress: 344/390
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
@@ -1511,3 +1511,15 @@ ISC-353 accepted after the founder-confirmed second physical AXIO reboot. After 
 Reviewed source is published on feat/cloud-gateway and PR31 is updated for the accumulated fleet UI/Hermes pilot. Current upstream Actions retirement is incorporated. Clean Coding01 Git checkouts live at /Users/axio/Projects/snow-gloves-os and /Users/axio/Projects/snow-gloves-ops; the UI, API, coordinator, bridge and worker now use the canonical source checkout. Own dependency install and production build pass; HTTPS UI/snapshot/bridge health return200 after supervised restart. Live SQLite/credentials/artifacts retain the prior private runtime location. The accepted physical reboot receipt predates this path cutover; no further reboot is inferred.
 
 Real task79e51fe012b64787a22e4f6e6753a744 selects CTO and succeeds at transport/execution on the new checkout, with checksum-verified artifact. Source review rejects its nonexistent TSX component references. This is not accepted UI analysis or seven-agent fan-out. Private UI-REVIEW.json and NEXT-UI-HERMES-FLOW.md record the failure and next source-grounding/role-graph requirements. Native config drift ISC-380, other nodes, teammate scope and remaining fleet gates stay open.
+
+
+## 2026-10-09 — ERP commercial integration source pass
+
+Founder confirms CRM is integrated into the existing custom ERP and product reconciliation is underway. Implement reusable preparation templates and immutable ERP dossier context through the existing authenticated Hermes graph. Adjacent axtech-campaign-agent audit supplies dated read-only MCP contract evidence; per-brand runtime access and current catalog readiness remain unverified. No external effects or live activation follows from this source pass.
+
+- [ ] ISC-383: Nineteen reusable business templates remain separate from seven control roles and connector permissions.
+- [ ] ISC-384: Authorized ERP dossier context persists through idempotency, graph inheritance, Hermes input, worker assignment and artifact provenance.
+- [ ] ISC-385: Server-owned catalog evidence gates price-dependent preparation; requester assertions and business metadata cannot grant writes or cross-project scope.
+- [ ] ISC-386: Existing development and database compatibility plus commercial negative cases pass meaningful local tests.
+- [ ] ISC-387: Private planning records existing ERP/CRM and ongoing reconciliation, with dated source and explicit unverified runtime boundaries.
+- [ ] ISC-388: Actual Coding01 commercial event-to-artifact and scoped ERP reference read are proven separately before advertising live commercial capability.
