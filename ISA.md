@@ -4,13 +4,15 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 305/331
+progress: 323/358
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
 ---
 
 ## Problem
+
+Current AXIO migration lane: the founder selects AXIO as replacement Coding 01. Transfer reviewed platform and private instance into an isolated destination, preserve the former local reference and older target checkout, and verify destination workspace separately from host runtime, model, connectors and recovery.
 
 Current local onboarding lane: produce a detailed 100-point fleet checklist, identify and explicitly enroll this localhost as Mac Coding 01, use HeyZack for a bounded configuration/workspace test, and prepare repeatable transition material for Coding 02, Creative and Marketing. Historical bootstrap implementation and real runtime/connector/recovery acceptance retain their own open gates.
 
@@ -90,6 +92,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Migrate the reviewed Snow Gloves workspace to AXIO as canonical Coding 01, retain rollback evidence, and prove destination configuration, private scope and actual execution at their own acceptance boundaries.
 
 Deliver exactly 100 evidence-linked completed/needed onboarding checks, current Coding 01 hardware and canonical enrollment proof, an isolated repeatable HeyZack adapter artifact, actual scoped town readback and a freshly verified transfer bundle/runbook.
 
@@ -463,7 +467,38 @@ until the actual mini supplies evidence.
 - [x] ISC-330: Independently extracted bundle starts the scoped local workspace.
 - [x] ISC-331: Anti: held model canary and incomplete runtime/recovery steps remain visibly unaccepted.
 
+- [x] ISC-332: Dedicated fleet SSH key authenticates to AXIO as axio.
+- [x] ISC-333: AXIO hardware evidence records M4 and 16 GB without serial identifiers.
+- [x] ISC-334: Destination archive SHA matches the reviewed platform transfer receipt.
+- [x] ISC-335: Extracted destination platform passes VERIFY.py.
+- [x] ISC-336: Existing AXIO checkout and untracked CodeGraph state are preserved.
+- [x] ISC-337: Destination workspace dependencies install inside the isolated migration directory.
+- [x] ISC-338: Destination TypeScript and Vite production build passes.
+- [x] ISC-339: Private destination snapshot verifies every included file hash.
+- [x] ISC-340: Anti: Scanner-flagged private files are excluded from the migration snapshot.
+- [x] ISC-341: Backed-up canonical Coding 01 inventory binds to mac-coding and axio.
+- [x] ISC-342: Destination private workspace preflight reports ready.
+- [x] ISC-343: AXIO isolated adapter output repeats with identical three-file hashes.
+- [x] ISC-344: Remote HeyZack API exposes the fresh AXIO canary job.
+- [x] ISC-345: The HeyZack-locked remote API rejects Axtech scope with tenant_scope_mismatch.
+- [x] ISC-346: Actual IAB envelope shows AXIO canary with nodeId mac-coding-1.
+- [x] ISC-347: Destination runtime audit distinguishes installed tools from unavailable gateway and skill hubs.
+- [ ] ISC-348: Reviewed skill hubs and pointer targets are installed and resolve on AXIO.
+- [x] ISC-348.1: Destination active hubs and preserved skill links pass structural health with no broken startup links.
+- [ ] ISC-348.2: Native upstream skill implementations referenced by the coding pointers pass AXIO availability checks.
+- [ ] ISC-349: Reviewed PAI and Temperance runtime hooks pass AXIO installation verification.
+- [x] ISC-350: An admitted real model job on AXIO records resolved provider and verified artifact.
+- [ ] ISC-351: Selected pinned MCP dependencies pass authenticated destination reads.
+- [ ] ISC-352: AXIO Hermes passes an actual scoped event-to-artifact round trip.
+- [ ] ISC-353: Owned persistent startup survives an actual AXIO reboot.
+- [ ] ISC-354: AXIO restore drill recovers the reviewed configuration and owned artifacts.
+- [ ] ISC-355: Migrated tenant source references resolve or are explicitly held on AXIO.
+- [ ] ISC-356: Scanner-flagged private files receive individual disposition before any further transfer.
+
 ## Test Strategy
+
+- ISC-332..347 | destination integration | SSH allowlist, archive/per-file hashes, owned dependency/build commands, private check, repeat render, scoped HTTP and actual IAB envelope | each stated result passes | SSH/Python/IAB
+- ISC-348..356 | destination operational | individual skill/hook/model/MCP/Hermes/startup/restore/reference/disposition probes | held until actual destination receipt | selected runtime and owner gates
 
 Local onboarding: count IDs in template/private JSON/Markdown; reconcile source inventory; compare hardware and private DNS-safe registration; hash before/after and generated outputs; run copied bundle prompt and focused regressions; inspect tenant isolation and actual browser envelope; test owned child cleanup and independently extracted workspace. Historical installer and live/provider criteria remain unchanged.
 
@@ -524,6 +559,9 @@ Local onboarding: count IDs in template/private JSON/Markdown; reconcile source 
 
 ## Features
 
+- AXIO workspace migration | satisfies: ISC-332..347 | depends_on: local onboarding reference | parallelizable: false
+- AXIO operating-runtime migration | satisfies: ISC-348..356 | depends_on: authenticated destination baseline | parallelizable: false
+
 - Local onboarding checklist and capability map: ISC300..309, parallel read-only source/host audits.
 - Identified private enrollment and repeatable configuration canary: ISC310..325, root owns device/private record writes.
 - Verified transfer and honest runtime boundaries: ISC326..331, packaging worker plus root extracted lifecycle.
@@ -577,7 +615,7 @@ Local onboarding: count IDs in template/private JSON/Markdown; reconcile source 
 <!-- arch-assets:start -->
 
 _Auto-maintained by `ArchitectureAssetsSync.hook.ts` on release events._  
-_Last refreshed: 2026-10-08T15:37:31.160Z_
+_Last refreshed: 2026-10-08T16:21:19.999Z_
 
 | Asset | Status | How it's generated |
 |---|---|---|
@@ -645,6 +683,12 @@ _Last refreshed: 2026-10-08T15:37:31.160Z_
 - 2026-10-08: Fullscreen navigation source and browser checks pass. The independently reviewed input rail suspends movement continuously when editing, inspecting or hidden; the selected identity remains separate from observed presence. Advisor attempts returned cached quota429 for antigravity/claude-sonnet-4-6, with no verdict. Heavy source generation resolved through antigravity/gemini-3.7-flash-low. Four invoked thinking capabilities are FirstPrinciples, SystemsThinking, ISA and ReReadCheck; independent source review and root IAB provide distinct evidence.
 
 - 2026-10-08 18:31: Fleet frontend lane complete at source/browser boundaries: exactly two coding, one creative and one marketing slot. Three configured source assignments and planned Coding 02 remain distinct from current work and physical acceptance. Independent QATester passes; final Advisor quota429 supplies no verdict. The 26 historical device/cloud requirements remain open and master phase stays execute. Protected managed worktrees and unrelated architecture-hook changes are preserved.
+
+
+- 2026-10-09 11:33: refined: Founder selects AXIO to replace local Coding 01. Backed-up private inventory now binds mac-coding/axio. Local source Mac remains authoring/rollback seat; no Coding 02 enrollment follows. Historical receipts retain original machine provenance.
+- 2026-10-09 11:33: Existing dedicated fleet key succeeds; default SSH key selection failure was not missing authorization. Non-login PATH omits installed Homebrew tools; explicit paths/login-shell inventory is required. AXIO Codex remains unchanged and routes to unavailable coding-mac:20128.
+
+- 2026-10-09: Founder explicitly keeps routed execution held for OmniRoute migration, then reports independently installing OmniRoute on mac-coding. Agent service activation remains unapproved and unperformed; no changes may race the operator installer. Existing AXIO3.8.50 and provider-count observations predate that installation.
 
 ## Changelog
 
@@ -1316,3 +1360,25 @@ Final public-source check: regenerated with SNOWGLOVES_DATA unset and --snapshot
 
 - ISC-329: Actual candidate archive —394manifestfiles;1,039,974archivebytes; outerSHA253ce9e25ef677fcb0f71855b601a4dd449402f1a0734cfe1da36924caee37f2; independently extracted VERIFY.py passes. Finaldeliverable regenerated fromacceptedsource below.
 - ISC-330: Actual independent extract — ownPythonvenv/PyYAML6.0.3 +npmci; copiedonboardingprompt works; explicitprivateworkspacecheckready; ownedAPI/UI18871/18870 starts; actualIAB scopedHeyZackcanary/nodeId verified. Initial extraction nested insideprivate data wascorrectlyheld, thena fresh code rootoutsideprivate data passed.
+
+- ISC-332: Destination probe — Dedicated fleet SSH key authenticates to AXIO as axio. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-333: Destination probe — AXIO hardware evidence records M4 and 16 GB without serial identifiers. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-334: Destination probe — Destination archive SHA matches the reviewed platform transfer receipt. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-335: Destination probe — Extracted destination platform passes VERIFY.py. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-336: Destination probe — Existing AXIO checkout and untracked CodeGraph state are preserved. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-337: Destination probe — Destination workspace dependencies install inside the isolated migration directory. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-338: Destination probe — Destination TypeScript and Vite production build passes. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-339: Destination probe — Private destination snapshot verifies every included file hash. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-340: Destination probe — Anti: Scanner-flagged private files are excluded from the migration snapshot. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-341: Destination probe — Backed-up canonical Coding 01 inventory binds to mac-coding and axio. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-342: Destination probe — Destination private workspace preflight reports ready. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-343: Destination probe — AXIO isolated adapter output repeats with identical three-file hashes. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-344: Destination probe — Remote HeyZack API exposes the fresh AXIO canary job. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-345: Destination probe — The HeyZack-locked remote API rejects Axtech scope with tenant_scope_mismatch. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-346: Destination probe — Actual IAB envelope shows AXIO canary with nodeId mac-coding-1. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+- ISC-347: Destination probe — Destination runtime audit distinguishes installed tools from unavailable gateway and skill hubs. Evidence: private docs/fleet/onboarding/2026-10-09-axio-migration/; AXIO-CANARY.json and live IAB axio-coding01-adapter-20261009.
+
+AXIO checkpoint: platform archive c42260cb4bc84c1914d79b02ab28c8b06da0081acce41c413f4393921f32d670; private snapshot f96913fd3442d55bb61ab9c45d15783ff8ce357cbadceb7545cfb26a05f197c1 (2146 included files, four scanner-flagged files excluded). Post-extraction fleet/profile edits are deliberate and separately recorded; original archive hash remains the transfer baseline. Actual destination M4/16GB/macOS27.0.1, Python3.14.8, Node22.23.3, Codex0.160.0, Claude2.1.287. Workspace ready and strict build pass; original older checkout 7bcbbb9 plus untracked .codegraph preserved. Existing Codex ChatGPT login detected, but configured model_provider omniroute and gateway TCP refused; no model inference claimed. Owned foreground launcher and SSH tunnel do not provide reboot persistence. Historical local Coding01 test is retained separately from the fresh AXIO canary; operatorProduced true and agentExecuted false.
+
+- ISC-350: Actual AXIO inference — authenticated localhost20128/v1/models HTTP200 exposes noesis portfolios; noesis-fast completes HTTP200 on OmniRoute3.8.51. Response model poolside/laguna-s-2.1-free, x-omniroute-provider cmd, 90tokens. Independently read JSON artifact equals nodeIdmac-coding-1/probeAXIO_ROUTE_OK; SHAee58ea492f2906db0af580209a47c7cabe55a4d9fa384c39976e5515e93b57a0. No connector invocation or saved runtime config change. Private AXIO-MODEL-CANARY.json records correlation and usage.
+- ISC-348.1: Destination checks — 5649hashed source files transferred; 64activehubs/32clusters,28preservedskills,43preservedaliases and0deadstartup links. Skills-Health PASS0errors/191descriptionwarnings; audit-refs PASS and tier list verified. Saved Codex/Claude config hashes unchanged. 20documentation files omit credential-like examples;8flagged source-code files held outside transfer. 968Temperance source files added without live hook registration. Native upstream pointers, Bun dependency, full PAI doctrine and Pulse compatibility remain separately unaccepted.
