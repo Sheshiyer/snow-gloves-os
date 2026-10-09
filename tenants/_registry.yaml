@@ -2,3 +2,4 @@ tenants:
   - acme  # Acme Co
   - tryambakam-noesis  # Tryambakam Noesis (vocation org; specs/002-orchestration-wiring)
   - _demo  # demo fixture tenant
+  - axio  # Axio

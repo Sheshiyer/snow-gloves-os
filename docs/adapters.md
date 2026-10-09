@@ -100,3 +100,5 @@ With `--out DIR`, all three roots are redirected under `DIR/` so you can inspect
 5. Inspect `/tmp/sg-render/` and `render.json`. Only render for real with `--write` after the paths are confirmed.
 
 `tests/test_adapters.py` validates every runtime in its `EXPECTED` set against the schema and checks that each `verify` key names a real field. Add your id to `EXPECTED` so CI covers it.
+
+Opting a runtime into OmniRoute without replacing its provider is covered in [omniroute.md](omniroute.md).

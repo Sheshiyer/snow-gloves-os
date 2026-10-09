@@ -1,0 +1,83 @@
+# Written by scripts/onboard.py. Credentials do not go in this file.
+# Only add/pointer ids appear here; hold and refused ids are never enabled.
+schema: snowgloves.enabled.v1
+tenant: axio
+updated_at: '2026-09-30T15:25:24Z'
+agents:
+- dispatcher
+- interpreter
+- chief-of-staff
+- librarian
+modules:
+- id: ms-prospecting
+  category: skills
+  kind: skill
+  disposition: add
+  risk: medium
+  approval: 'yes'
+- id: ms-revops
+  category: skills
+  kind: skill
+  disposition: add
+  risk: low
+  approval: 'no'
+- id: ms-cold-email
+  category: skills
+  kind: skill
+  disposition: add
+  risk: high
+  approval: 'yes'
+- id: ms-copywriting
+  category: skills
+  kind: skill
+  disposition: add
+  risk: low
+  approval: 'no'
+- id: ms-offers
+  category: skills
+  kind: skill
+  disposition: add
+  risk: low
+  approval: 'no'
+- id: ms-product-marketing
+  category: skills
+  kind: skill
+  disposition: add
+  risk: low
+  approval: 'no'
+- id: ms-customer-research
+  category: skills
+  kind: skill
+  disposition: add
+  risk: low
+  approval: 'no'
+- id: ms-analytics
+  category: skills
+  kind: skill
+  disposition: add
+  risk: low
+  approval: 'no'
+- id: executive-assistant
+  category: skills
+  kind: skill-pack
+  disposition: add
+  risk: medium
+  approval: 'yes'
+- id: google_drive
+  category: connector
+  kind: g-stack
+  disposition: add
+  risk: low
+  approval: 'no'
+- id: google_calendar
+  category: connector
+  kind: g-stack
+  disposition: add
+  risk: medium
+  approval: 'no'
+- id: gmail
+  category: connector
+  kind: g-stack
+  disposition: add
+  risk: high
+  approval: 'yes'
