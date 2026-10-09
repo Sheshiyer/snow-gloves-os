@@ -29,7 +29,8 @@ SECRET_PATTERNS = tuple(re.compile(pattern) for pattern in (
 
 
 WRITE_PREAMBLE = ('You are in an isolated, disposable working tree. Edit files here only. Do not commit, push, use the network, '
-                  'or touch credentials, .env files, .git or CI configuration. Edit with shell commands; the apply_patch tool is unavailable here. '
+                  'or touch credentials, .env files, .git or CI configuration. Make every edit yourself by running shell commands with your shell tool; '
+                  'the apply_patch tool is unavailable here, and describing or suggesting a command without running it makes no change. '
                   'The operator reviews your diff and the worker runs the tests.\n\n')
 
 
