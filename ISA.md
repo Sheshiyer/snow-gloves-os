@@ -1517,8 +1517,12 @@ Real task79e51fe012b64787a22e4f6e6753a744 selects CTO and succeeds at transport/
 
 Founder defers ERP product/dossier integration and requests the next checklist item. Continue generic development intake through Chief-of-Staff bounded role planning and the existing authorized task graph. Commercial source PR35 remains separate; no live service or business connector activation follows from this source pass.
 
-- [ ] ISC-389: An explicitly admitted owner/project can request one bounded Hermes Chief-of-Staff child plan for an existing development root, with seven-role and read-only validation.
-- [ ] ISC-390: Plan and children persist atomically and replay without duplicate assignments or a second scheduler.
-- [ ] ISC-391: Managed planned children respect root/preceding artifacts and failures, preserve one-slot capacity, and receive role and source provenance.
-- [ ] ISC-392: Authorization, malformed plans, races/replay, cancellation/recovery and existing manual graph compatibility pass local tests; private checklist records source versus runtime evidence.
+- [x] ISC-389: An explicitly admitted owner/project can request one bounded Hermes Chief-of-Staff child plan for an existing development root, with seven-role and read-only validation.
+- [x] ISC-390: Plan and children persist atomically and replay without duplicate assignments or a second scheduler.
+- [x] ISC-391: Managed planned children respect root/preceding artifacts and failures, preserve one-slot capacity, and receive role and source provenance.
+- [x] ISC-392: Authorization, malformed plans, races/replay, cancellation/recovery and existing manual graph compatibility pass local tests; private checklist records source versus runtime evidence.
 - [ ] ISC-393: Actual Coding01 Chief-of-Staff event-to-child-to-artifact flow is proven before advertising live automated fan-out.
+
+## 2026-10-09 — Generic fan-out source verification
+
+ISC-389 through ISC-392: unrestricted local pytest reports 100 passed across fanout, coordinator, manual graph, write-access and execution regressions. Compile and whitespace checks pass. Review-driven tests reject manual additions to planned roots, preserve authorized retry positions and require predecessor artifact task/attempt identity in the exact checksum-verified bytes. Source provenance remains opaque metadata, not substantive Sentinel review. Private FANOUT-SOURCE.json and NEXT-UI-HERMES-FLOW.md record the source/runtime distinction. ISC-393 remains open: no live source activation or actual Hermes fan-out round trip.
