@@ -609,7 +609,7 @@ def collect_snapshot_entries(
     if not _COMMIT_RE.fullmatch(commit):
         raise InstallerError("Git HEAD is invalid")
 
-    tree_result = _git(runner, source, ["ls-tree", "-r", "-z", "--full-tree", "HEAD"])
+    tree_result = _git(runner, source, ["ls-tree", "-r", "-z", "--full-tree", commit])
     if len(tree_result.stdout) > MAX_GIT_TREE_BYTES:
         raise InstallerError("Git tree listing exceeds the snapshot bound")
 
