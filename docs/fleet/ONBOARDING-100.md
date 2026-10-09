@@ -133,4 +133,3 @@ See [local first-test runbook](LOCAL-FIRST-TEST.md) and [capability transition m
 - [ ] **098.** Onboard Mac Creative with a reviewed creative pack and first artifact.
 - [ ] **099.** Onboard Mac Marketing with scoped connector choices and a local draft artifact.
 - [ ] **100.** Run four-device isolation, cross-device handoff and measured acceptance.
-

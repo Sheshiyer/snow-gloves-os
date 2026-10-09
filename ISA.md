@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 302/331
+progress: 305/331
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
@@ -458,9 +458,9 @@ until the actual mini supplies evidence.
 - [x] ISC-325: Actual in-app browser envelope displays nodeId mac-coding-1.
 - [x] ISC-326: Copied bundle onboarding prompt executes without source-checkout dependencies.
 - [x] ISC-327: Bundle installation guide requires Python 3.11 for onboarding TOML support.
-- [ ] ISC-328: Owned workspace shutdown reaps its loopback child listeners.
-- [ ] ISC-329: Fresh transfer archive passes outer and per-file checksum verification.
-- [ ] ISC-330: Independently extracted bundle starts the scoped local workspace.
+- [x] ISC-328: Owned workspace shutdown reaps its loopback child listeners.
+- [x] ISC-329: Fresh transfer archive passes outer and per-file checksum verification.
+- [x] ISC-330: Independently extracted bundle starts the scoped local workspace.
 - [x] ISC-331: Anti: held model canary and incomplete runtime/recovery steps remain visibly unaccepted.
 
 ## Test Strategy
@@ -1311,3 +1311,8 @@ Final public-source check: regenerated with SNOWGLOVES_DATA unset and --snapshot
 - ISC-310..325: Current localhost + actual subprocess/IAB — Macmini M4/24GB/arm64/macOS27.2; privateunique LocalHostName/profileagreement with priorbytesbackup; explicitpreflight ready; isolatedrender twiceidentical; independently read artifactSHA and privatecompletionexactnode; Axtech excludesHeyZackjob; actualIAB Courier trail completion/envelope nodeIdmac-coding-1. Operatorproduced/agentExecutedfalse retained.
 - ISC-326..327: Copied bundle CLI regression — onboarding prompt runs withoutsourcecheckout or writes; generatedREADME requiresPython3.11; focusedsource69passed and bundle10passed.
 - ISC-331: Actual routed attempt — noesis-verify exit125 host_pressure_elevated before inference; model/provider/connector/recovery acceptance explicitly held in checklist.
+
+- ISC-328: Actual owned lifecycle — exact launcher SIGTERM; both child PIDs exit and loopback listeners disappear. Initial bare-bind shutdown probe was refined because TCP TIME_WAIT can hold an otherwise released port; no unrelated process touched. Final132focused backend checks passed in1.23s.
+
+- ISC-329: Actual candidate archive —394manifestfiles;1,039,974archivebytes; outerSHA253ce9e25ef677fcb0f71855b601a4dd449402f1a0734cfe1da36924caee37f2; independently extracted VERIFY.py passes. Finaldeliverable regenerated fromacceptedsource below.
+- ISC-330: Actual independent extract — ownPythonvenv/PyYAML6.0.3 +npmci; copiedonboardingprompt works; explicitprivateworkspacecheckready; ownedAPI/UI18871/18870 starts; actualIAB scopedHeyZackcanary/nodeId verified. Initial extraction nested insideprivate data wascorrectlyheld, thena fresh code rootoutsideprivate data passed.

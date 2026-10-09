@@ -1,6 +1,6 @@
 {
   "schema": "snowgloves.cockpit.v1",
-  "generatedAt": "2026-10-08T16:31:43.567352+00:00",
+  "generatedAt": "2026-10-09T08:59:08.692605+00:00",
   "scope": {
     "mode": "public-fixtures",
     "tenant": null,
@@ -5707,6 +5707,198 @@
       "criterion": "Integrated fleet projection and frontend pass focused regressions and strict compilation.",
       "status": "accepted",
       "source": "ISA.md"
+    },
+    {
+      "id": "ISC-300",
+      "criterion": "Public onboarding template contains exactly 100 uniquely numbered checks.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-301",
+      "criterion": "Private completed-needed checklist contains exactly the same 100 stable item IDs.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-302",
+      "criterion": "Checklist distinguishes source completion from current local and pending device evidence.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-303",
+      "criterion": "Capability inventory reconciles all 135 current catalog dispositions.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-304",
+      "criterion": "Transition map enumerates the nine source runtime adapters.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-305",
+      "criterion": "Transition map identifies seven complete agent definition packages.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-306",
+      "criterion": "Transition map records eight connector contracts and eighteen capabilities.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-307",
+      "criterion": "HeyZack coding admission resolves exactly five effective module IDs.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-308",
+      "criterion": "Three admitted coding pointer references resolve on the inspected host.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-309",
+      "criterion": "Host plugin inventory remains separate from portable fleet defaults.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-310",
+      "criterion": "Current local hardware is identified as a Mac mini without serial or UUID disclosure.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-311",
+      "criterion": "Current local receipt records chip, architecture, memory and macOS.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-312",
+      "criterion": "Mac Coding 01 private island registration matches its unique current local hostname.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-313",
+      "criterion": "Pre-enrollment inventory bytes are retained with a SHA-256-bound private backup.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-314",
+      "criterion": "Configured Coding 01 projection retains null device-health observation.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-315",
+      "criterion": "Current workspace preflight passes using an explicit isolated private data root.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-316",
+      "criterion": "Anti: the adapter canary writes no native host runtime configuration.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-317",
+      "criterion": "Coding adapter dry-run leaves the proposed output directory absent.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-318",
+      "criterion": "Actual adapter canary outputs remain beneath its owned review root.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-319",
+      "criterion": "Two actual coding adapter renders produce identical file hashes.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-320",
+      "criterion": "Generated manifest records five modules and zero selected tenant agents.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-321",
+      "criterion": "Local canary artifact passes independent SHA-256 readback.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-322",
+      "criterion": "Private completion record binds the exact canonical Coding 01 node ID.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-323",
+      "criterion": "HeyZack canary completion is absent from a second tenant snapshot.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-324",
+      "criterion": "Actual in-app browser displays the local canary completion.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-325",
+      "criterion": "Actual in-app browser envelope displays nodeId mac-coding-1.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-326",
+      "criterion": "Copied bundle onboarding prompt executes without source-checkout dependencies.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-327",
+      "criterion": "Bundle installation guide requires Python 3.11 for onboarding TOML support.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-328",
+      "criterion": "Owned workspace shutdown reaps its loopback child listeners.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-329",
+      "criterion": "Fresh transfer archive passes outer and per-file checksum verification.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-330",
+      "criterion": "Independently extracted bundle starts the scoped local workspace.",
+      "status": "accepted",
+      "source": "ISA.md"
+    },
+    {
+      "id": "ISC-331",
+      "criterion": "Anti: held model canary and incomplete runtime/recovery steps remain visibly unaccepted.",
+      "status": "accepted",
+      "source": "ISA.md"
     }
   ],
   "routing": {
@@ -7175,7 +7367,7 @@
       "path": "docs/OPS-WORKSPACE.md",
       "title": "OPS-WORKSPACE",
       "kind": "md",
-      "bytes": 5991
+      "bytes": 6083
     },
     {
       "path": "docs/SESSION-WORLD-DESIGN.md",
@@ -7229,7 +7421,7 @@
       "path": "docs/fleet/README.md",
       "title": "README",
       "kind": "md",
-      "bytes": 6519
+      "bytes": 6947
     },
     {
       "path": "docs/infra-cockpit.md",
