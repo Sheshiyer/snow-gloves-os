@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 323/358
+progress: 326/358
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
@@ -483,10 +483,10 @@ until the actual mini supplies evidence.
 - [x] ISC-345: The HeyZack-locked remote API rejects Axtech scope with tenant_scope_mismatch.
 - [x] ISC-346: Actual IAB envelope shows AXIO canary with nodeId mac-coding-1.
 - [x] ISC-347: Destination runtime audit distinguishes installed tools from unavailable gateway and skill hubs.
-- [ ] ISC-348: Reviewed skill hubs and pointer targets are installed and resolve on AXIO.
+- [x] ISC-348: Reviewed skill hubs and pointer targets are installed and resolve on AXIO.
 - [x] ISC-348.1: Destination active hubs and preserved skill links pass structural health with no broken startup links.
-- [ ] ISC-348.2: Native upstream skill implementations referenced by the coding pointers pass AXIO availability checks.
-- [ ] ISC-349: Reviewed PAI and Temperance runtime hooks pass AXIO installation verification.
+- [x] ISC-348.2: Native upstream skill implementations referenced by the coding pointers pass AXIO availability checks.
+- [x] ISC-349: Reviewed PAI and Temperance runtime hooks pass AXIO installation verification.
 - [x] ISC-350: An admitted real model job on AXIO records resolved provider and verified artifact.
 - [ ] ISC-351: Selected pinned MCP dependencies pass authenticated destination reads.
 - [ ] ISC-352: AXIO Hermes passes an actual scoped event-to-artifact round trip.
@@ -1382,3 +1382,10 @@ AXIO checkpoint: platform archive c42260cb4bc84c1914d79b02ab28c8b06da0081acce41c
 
 - ISC-350: Actual AXIO inference — authenticated localhost20128/v1/models HTTP200 exposes noesis portfolios; noesis-fast completes HTTP200 on OmniRoute3.8.51. Response model poolside/laguna-s-2.1-free, x-omniroute-provider cmd, 90tokens. Independently read JSON artifact equals nodeIdmac-coding-1/probeAXIO_ROUTE_OK; SHAee58ea492f2906db0af580209a47c7cabe55a4d9fa384c39976e5515e93b57a0. No connector invocation or saved runtime config change. Private AXIO-MODEL-CANARY.json records correlation and usage.
 - ISC-348.1: Destination checks — 5649hashed source files transferred; 64activehubs/32clusters,28preservedskills,43preservedaliases and0deadstartup links. Skills-Health PASS0errors/191descriptionwarnings; audit-refs PASS and tier list verified. Saved Codex/Claude config hashes unchanged. 20documentation files omit credential-like examples;8flagged source-code files held outside transfer. 968Temperance source files added without live hook registration. Native upstream pointers, Bun dependency, full PAI doctrine and Pulse compatibility remain separately unaccepted.
+
+## Verification — AXIO approved host runtime, 9 October 2026
+
+- ISC-348 / ISC-348.2: Destination native availability — reviewed Superpowers6.4.1 source provides15 native Claude skill links; GSD1.42.3 execute/verify/map workflows and compatibility CLI plus SDK query pass. Taste skill and required ISA/execute/verify/Superpowers files resolve. 256upstream source hashes verify; source-pinned npm SDK installed in isolated tooling with install scripts disabled. Package deprecation observed; no version substitution. GSD planning entrypoints excluded; ISA retains planning/acceptance authority. Native skill availability receipt records150 Claude-discoverable skill definitions, including hubs/preserved aliases and reviewed upstream skills.
+- ISC-349: Founder explicitly approves three Claude hooks and loopback Pulse activation. Twelve hook/dependency files compile; installed PromptProcessing emits valid MINIMAL and ALGORITHM context, ISASync updates an isolated fixture registry, CheckpointPerISC performs no commit with the default absent repository allowlist. Reviewed enrichment resolves without fallback;20Manifest support source files preserve an explicit OFFLINE bridge receipt. Approved settings preserve all other existing fields; launchctl reports Pulse running and lsof verifies only127.0.0.1:31337. ISA skill plus PromptProcessing/ISASync/CheckpointPerISC and live Pulse compatibility verify before enabling AlgorithmLATESTv6.3.0. Codex PAI path resolves; native Codex config and provider credentials untouched. This accepts reviewed primary-Claude hook installation, not reboot, audio delivery, Manifest service activation or connector/recovery readiness. Evidence: private HOOK-INSTALL-BEHAVIOR.json, HOOK-ACTIVATION.json, MANIFEST-HOOK-SUPPORT.json and HOST-MIGRATION-AUDIT.json.
+
+- ISC-350 follow-through: Actual AXIO Codex0.160 CLI runs an ephemeral read-only noesis-fast canary through explicit127.0.0.1:20128/v1 Responses API overrides after normal host-pressure admission. Exit0, zero tool calls, exact nodeIdmac-coding-1/probeAXIO_CODEX_ROUTE_OK JSON independently verified; artifactSHAca8dabd6d81d7c14665e1eaa7fd7d5b15f35ac9b7e1a2a28a2c4a9dfa4959ea4. Saved Codex config unchanged and no native fallback. Remote HeyZack audit/API and actual IAB model envelope expose the original verified model job/artifact bound to mac-coding-1.
