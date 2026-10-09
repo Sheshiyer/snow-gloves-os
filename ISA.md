@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 344/384
+progress: 344/389
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
@@ -1511,3 +1511,20 @@ ISC-353 accepted after the founder-confirmed second physical AXIO reboot. After 
 Reviewed source is published on feat/cloud-gateway and PR31 is updated for the accumulated fleet UI/Hermes pilot. Current upstream Actions retirement is incorporated. Clean Coding01 Git checkouts live at /Users/axio/Projects/snow-gloves-os and /Users/axio/Projects/snow-gloves-ops; the UI, API, coordinator, bridge and worker now use the canonical source checkout. Own dependency install and production build pass; HTTPS UI/snapshot/bridge health return200 after supervised restart. Live SQLite/credentials/artifacts retain the prior private runtime location. The accepted physical reboot receipt predates this path cutover; no further reboot is inferred.
 
 Real task79e51fe012b64787a22e4f6e6753a744 selects CTO and succeeds at transport/execution on the new checkout, with checksum-verified artifact. Source review rejects its nonexistent TSX component references. This is not accepted UI analysis or seven-agent fan-out. Private UI-REVIEW.json and NEXT-UI-HERMES-FLOW.md record the failure and next source-grounding/role-graph requirements. Native config drift ISC-380, other nodes, teammate scope and remaining fleet gates stay open.
+
+
+## 2026-10-09 — ERP-independent Hermes role fan-out
+
+Founder defers ERP product/dossier integration and requests the next checklist item. Continue generic development intake through Chief-of-Staff bounded role planning and the existing authorized task graph. Commercial source PR35 remains separate; no live service or business connector activation follows from this source pass.
+
+- [x] ISC-389: An explicitly admitted owner/project can request one bounded Hermes Chief-of-Staff child plan for an existing development root, with seven-role and read-only validation.
+- [x] ISC-390: Plan and children persist atomically and replay without duplicate assignments or a second scheduler.
+- [x] ISC-391: Managed planned children respect root/preceding artifacts and failures, preserve one-slot capacity, and receive role and source provenance.
+- [x] ISC-392: Authorization, malformed plans, races/replay, cancellation/recovery and existing manual graph compatibility pass local tests; private checklist records source versus runtime evidence.
+- [ ] ISC-393: Actual Coding01 Chief-of-Staff event-to-child-to-artifact flow is proven before advertising live automated fan-out.
+
+## 2026-10-09 — Generic fan-out source verification
+
+ISC-389 through ISC-392: unrestricted local pytest reports 100 passed across fanout, coordinator, manual graph, write-access and execution regressions. Compile and whitespace checks pass. Review-driven tests reject manual additions to planned roots, preserve authorized retry positions and require predecessor artifact task/attempt identity in the exact checksum-verified bytes. Source provenance remains opaque metadata, not substantive Sentinel review. Private FANOUT-SOURCE.json and NEXT-UI-HERMES-FLOW.md record the source/runtime distinction. ISC-393 remains open: no live source activation or actual Hermes fan-out round trip.
+
+Follow-through: merged current PR34 source d45518c into the fan-out branch, retaining verification confinement and the separate fleet MCP server. Combined local regressions report 114 passed and 1 optional MCP SDK test skipped (dependency unavailable). No live write/fan-out activation or Gary task authorization follows from this merge.
