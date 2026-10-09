@@ -34,6 +34,10 @@ WRITE_PREAMBLE = ('You are in an isolated, disposable working tree. Edit files h
                   'The operator reviews your diff and the worker runs the tests.\n\n')
 
 
+EFFECT_ITEMS = ('command_execution', 'file_change', 'mcp_tool_call', 'web_search')
+TRANSIENT = re.compile(r'\b429\b|Too Many Requests|stream (?:closed|disconnected)', re.I)
+
+
 class WriteRejected(ValueError):
     """A write attempt failed a gate; the message is safe to report."""
 
@@ -144,6 +148,54 @@ class Worker:
                 '-c', 'model_providers.omniroute.base_url=' + json.dumps(c['gateway_url']),
                 '-c', 'model_providers.omniroute.env_key="OMNIROUTE_API_KEY"',
                 '-c', 'model_providers.omniroute.wire_api="responses"', '-']
+
+    def transient_before_effects(self, log):
+        """True only when a failed run hit a transient provider error and provably did nothing yet:
+        no command, edit, tool or web call started, so replaying cannot repeat a side effect."""
+        transient = False
+        for line in Path(log).read_text(errors='replace').splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if (row.get('item') or {}).get('type') in EFFECT_ITEMS:
+                return False
+            message = row.get('message') or (row.get('error') or {}).get('message') or ''
+            if row.get('type') in ('error', 'turn.failed') and TRANSIENT.search(str(message)):
+                transient = True
+        return transient
+
+    def monitor(self, task, start, done, process=None):
+        """Heartbeat, honour cancellation, the time budget and shutdown until done(). Returns (kind, message)
+        when stopped early, else (None, None)."""
+        last_heartbeat = 0
+        while not done():
+            if self.stopping:
+                if process:
+                    stop_group(process)
+                return 'interrupted', 'Worker stopped; manual reconciliation required'
+            now = time.monotonic()
+            if now - start > self.config.get('job_timeout', 300):
+                if process:
+                    stop_group(process)
+                return 'interrupted', 'Execution time budget exceeded; no automatic replay'
+            if now - last_heartbeat >= min(10, self.config.get('heartbeat_seconds', 5)):
+                last_heartbeat = now
+                try:
+                    response = self.request('/v1/worker/report', self.report(task, 'heartbeat'))
+                    if response.get('cancel_requested'):
+                        if process:
+                            stop_group(process)
+                        return 'cancelled', 'Cancellation completed'
+                except HTTPError as error:
+                    if error.code in (403, 409):
+                        if process:
+                            stop_group(process)
+                        return 'interrupted', 'Assignment lost; manual reconciliation required'
+                except (OSError, ValueError):
+                    pass  # separate worker survives a brief coordinator restart
+            time.sleep(0.2)
+        return None, None
 
     def write_enabled(self, root):
         return (root in [Path(p).resolve() for p in self.config.get('write_roots', [])]
@@ -275,41 +327,29 @@ class Worker:
             worktree.parent.mkdir(exist_ok=True, mode=0o700)
             subprocess.run([self.config.get('git_path', 'git'), '-C', str(root), 'worktree', 'add', '--detach', str(worktree), 'HEAD'],
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
-            log = self.state / (task['attempt_id'] + '.jsonl')
             env = runtime_environment()
             env['OMNIROUTE_API_KEY'] = key
-            with os.fdopen(os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
-                process = subprocess.Popen(self.command(worktree, write), stdin=subprocess.PIPE, stdout=output, stderr=output,
-                                           env=env, start_new_session=True)
-                process.stdin.write(((WRITE_PREAMBLE if write else '') + task['brief']).encode())
-                process.stdin.close()
-                start, last_heartbeat = time.monotonic(), 0
-                while process.poll() is None:
-                    if self.stopping:
-                        stop_group(process)
-                        kind, message = 'interrupted', 'Worker stopped; manual reconciliation required'
-                        break
-                    now = time.monotonic()
-                    if now - start > self.config.get('job_timeout', 300):
-                        stop_group(process)
-                        kind, message = 'interrupted', 'Execution time budget exceeded; no automatic replay'
-                        break
-                    if now - last_heartbeat >= min(10, self.config.get('heartbeat_seconds', 5)):
-                        last_heartbeat = now
-                        try:
-                            response = self.request('/v1/worker/report', self.report(task, 'heartbeat'))
-                            if response.get('cancel_requested'):
-                                stop_group(process)
-                                kind, message = 'cancelled', 'Cancellation completed'
-                                break
-                        except HTTPError as error:
-                            if error.code in (403, 409):
-                                stop_group(process)
-                                kind, message = 'interrupted', 'Assignment lost; manual reconciliation required'
-                                break
-                        except (OSError, ValueError):
-                            pass  # separate worker survives a brief coordinator restart
-                    time.sleep(0.2)
+            start = time.monotonic()
+            runs = 1 + max(0, int(self.config.get('transient_retries', 2)))
+            for run in range(runs):
+                log = self.state / (task['attempt_id'] + ('.retry%d' % run if run else '') + '.jsonl')
+                with os.fdopen(os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
+                    process = subprocess.Popen(self.command(worktree, write), stdin=subprocess.PIPE, stdout=output, stderr=output,
+                                               env=env, start_new_session=True)
+                    process.stdin.write(((WRITE_PREAMBLE if write else '') + task['brief']).encode())
+                    process.stdin.close()
+                    early, note = self.monitor(task, start, lambda: process.poll() is not None, process)
+                if early:
+                    kind, message = early, note
+                    break
+                if process.returncode == 0 or run + 1 == runs or not self.transient_before_effects(log):
+                    break
+                # certain outcome: a transient provider error before anything ran, so a fresh run is safe
+                deadline = time.monotonic() + self.config.get('transient_backoff', 20) * (run + 1)
+                early, note = self.monitor(task, start, lambda: time.monotonic() >= deadline)
+                if early:
+                    kind, message = early, note
+                    break
             if process.returncode == 0 and kind not in ('cancelled', 'interrupted'):
                 finals = []
                 for line in log.read_text(errors='replace').splitlines():

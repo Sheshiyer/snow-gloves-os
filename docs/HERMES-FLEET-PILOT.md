@@ -204,3 +204,9 @@ Limits: whoever can SSH to the account gets the founder's coordinator authority 
 A coordinator principal may carry `"permissions"` (any of `read`, `submit`, `cancel`; absent means all three, so existing principals are unchanged) and `"view_owners"` (names of other principals whose tasks it may read). Viewing never grants mutation: cancelling, submitting and attaching children stay with the task owner. Config load rejects unknown permissions and unknown owners.
 
 Example observer: `{"token": "...", "projects": ["snowgloves"], "permissions": ["read"], "view_owners": ["founder"]}`. It can list, read detail and events (including a parent's graph); submit, cancel and write return 403. Source: `tests/test_fleet_scoped_principals.py` (13 tests, the owner-only rule mutation-checked, plus an HTTP round trip).
+
+## Transient provider errors (bounded safe retry)
+
+Live write and review attempts intermittently failed with `429 Too Many Requests` from the gateway: `noesis-execute` is a priority combo whose first member is a free-tier model that keeps going into cooldown (OmniRoute app log, `command-code/poolside/laguna-s-2.1-free`). Host routing is not changed from this repo.
+
+The worker now retries a failed Codex run only when the failure is a transient provider error (429, "Too Many Requests", dropped stream) **and the run provably did nothing**: no command, file change, tool or web call started. Up to `transient_retries` (default 2) fresh runs, waiting `transient_backoff` seconds (default 20) times the attempt number, with heartbeats, cancellation, shutdown and the overall `job_timeout` still honoured during the wait. Each run keeps its own log (`<attempt>.retryN.jsonl`). Anything that ran, any other failure, and any uncertain outcome are never replayed. Tests: `tests/test_fleet_transient_retry.py` (10, both safety conditions mutation-checked).
