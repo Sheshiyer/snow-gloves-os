@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 346/391
+progress: 350/395
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
@@ -742,6 +742,8 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 
 - 2026-10-09: Founder explicitly keeps routed execution held for OmniRoute migration, then reports independently installing OmniRoute on mac-coding. Agent service activation remains unapproved and unperformed; no changes may race the operator installer. Existing AXIO3.8.50 and provider-count observations predate that installation.
 
+- 2026-10-09: refined: a completed artifact is insufficient cleanup authority. Preserve changed/ignored work and unretained history; fail closed on recovery state and recheck before normal Git removal. The source correction follows two reproduced PR39 review findings; live cleanup and services stay untouched.
+
 ## Changelog
 
 - 2026-10-09 | conjectured: the historical 100-point checklist could summarize the current fleet rollout.
@@ -999,6 +1001,11 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
   learned: Measured HUD margins, a north-oriented chart, settled layout refits, mode-specific depth planes and a compact landscape helm preserve coast visibility and control reachability.
   criterion now: ISC-288 and ISC-295 accepted only after actual desktop/portrait/landscape screenshots and all nine control center points were unobstructed.
 
+- 2026-10-09 | conjectured: an old worktree with a result artifact can be forcibly removed without losing recovery evidence.
+  refuted by: disposable PR39-head probes deleted an unarchived later edit and allowed cleanup with an empty recovery-required record.
+  learned: artifact existence does not cover later files or detached history, and a global worker hold must also hold cleanup.
+  criterion now: ISC-397 and ISC-398 require preservation and fail-closed holds, including a final removal recheck.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -1213,6 +1220,9 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 Cockpit verification receipts: /Users/sheshnarayaniyer/.codex/visualizations/2026/10/07/01a1176d-6b04-79c3-9549-9884312e0e4b/infra-cockpit-browser.json and /Users/sheshnarayaniyer/.codex/visualizations/2026/10/07/01a1176d-6b04-79c3-9549-9884312e0e4b/infra-cockpit-receipt.json. Root executed IAB; independent agent reviewed source and saved receipts. Focused backend 44 passed; frontend 53 passed; full repository 791 passed, 271 skipped, 23 subtests; catalog current. Full suite precedes final presentation/timestamp validation fixes; latest focused rerun and production build cover those changes.
 
 ReReadCheck — latest user request: "Fan out and integrate all the infra and do a deep pass on implementing all the features on top of this". Three independently owned API/client/UI lanes integrated above the existing city. Eleven workspaces cover all current source inventory and bounded private metadata; full browser flows and gate-checked local proposal export are implemented. Runtime operations without an existing control contract are explicitly unavailable; existing game remains functional. This finishes the cockpit lane and does not close historical physical/deployment requirements.
+
+- ISC-397: actual disposable Git regressions — changed/staged/untracked/ignored files survive cleanup refusal; unretained detached commits survive until a branch saves their history; locked checkouts and edits added after planning survive. Broader focused fleet/cockpit suite: "288 passed in 29.67s".
+- ISC-398: actual disposable state/Git regressions — any recovery-required record holds all attempts; missing, null, list and empty active/pending identifiers fail closed; a hold added after a clean plan prevents removal. Broader focused fleet/cockpit suite: "288 passed in 29.67s". Production flags remain false and no live cleanup ran.
 
 ## Change log — standalone import body bridge, 6 October 2026
 
@@ -1532,6 +1542,8 @@ Founder defers ERP product/dossier integration and requests the next checklist i
 - [ ] ISC-394: An admitted Coding01 `artifact_context` project delivers checksum-verified, task/attempt-bound predecessor output to an automatic read-only Sentinel in a live run.
 - [ ] ISC-395: An operator reviews a live authorized Sentinel result against delivered predecessor context and records actual semantic validation before any substantive-verification claim is made.
 - [ ] ISC-396: Live Coding01 board sends one admitted fanout request and refreshes its graph without claiming semantic validation.
+- [x] ISC-397: Anti: worker cleanup discards changed or ignored files, unretained commits, locked checkouts or work added after planning.
+- [x] ISC-398: Any recovery hold and malformed active/pending state prevent cleanup; removal rechecks holds added after planning.
 
 ## 2026-10-09 — Generic fan-out source verification
 

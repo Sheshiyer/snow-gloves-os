@@ -221,3 +221,11 @@ Example observer: `{"token": "...", "projects": ["snowgloves"], "permissions": [
 Live write and review attempts intermittently failed with `429 Too Many Requests` from the gateway: `noesis-execute` is a priority combo whose first member is a free-tier model that keeps going into cooldown (OmniRoute app log, `command-code/poolside/laguna-s-2.1-free`). Host routing is not changed from this repo.
 
 The worker now retries a failed Codex run only when the failure is a transient provider error (429, "Too Many Requests", dropped stream) **and the run provably did nothing**: no command, file change, tool or web call started. Up to `transient_retries` (default 2) fresh runs, waiting `transient_backoff` seconds (default 20) times the attempt number, with heartbeats, cancellation, shutdown and the overall `job_timeout` still honoured during the wait. Each run keeps its own log (`<attempt>.retryN.jsonl`). Anything that ran, any other failure, and any uncertain outcome are never replayed. Tests: `tests/test_fleet_transient_retry.py` (10, both safety conditions mutation-checked).
+
+## Preserving worker worktrees during cleanup
+
+`scripts/fleet_worker_gc.py` defaults to a dry run. An old result artifact does not prove that all work in its checkout has been preserved. Cleanup keeps tracked edits, staged edits, untracked and ignored files, unknown Git state and detached commits that no branch or tag retains. Preserve that work in a reviewed recovery archive before considering removal; a retained branch only saves committed history.
+
+Any `recovery-required.json` file holds all cleanup, matching the worker's dispatch hold. Malformed or unreadable active/pending records also hold all cleanup. A valid active/pending record protects its specific attempt. `--include-failed` relaxes only the result-artifact requirement, never these preservation gates.
+
+Removal rechecks assignment holds and checkout state, then uses normal Git worktree removal so dirty or locked checkouts are refused. A refusal stops the apply operation for review; it does not retry with `--force`. Source tests use real disposable Git repositories to cover these boundaries. This change does not archive or remove any live worktree.
