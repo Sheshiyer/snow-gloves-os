@@ -14,7 +14,7 @@ export function displayValue(value: unknown): string {
 }
 export class FleetClient {
   #token: string;
-  constructor(token: string, private transport: typeof fetch = fetch) {
+  constructor(token: string, private transport: typeof fetch = (input, init) => fetch(input, init)) {
     if (!token.trim() || /[\r\n]/.test(token)) throw new Error('Enter a valid operator token.');
     this.#token = token.trim();
   }

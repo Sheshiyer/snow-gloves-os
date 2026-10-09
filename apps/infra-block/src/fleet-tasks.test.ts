@@ -32,6 +32,16 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('Fleet client contract', () => {
+  it('calls browser fetch without binding the client as its receiver', async () => {
+    let receiver: unknown;
+    vi.stubGlobal('fetch', function(this: unknown) {
+      receiver = this;
+      if (this instanceof FleetClient) throw new TypeError('Illegal invocation');
+      return Promise.resolve(json({tasks: [task]}));
+    });
+    expect(await new FleetClient('key').tasks(signal())).toEqual([task]);
+    expect(receiver).not.toBeInstanceOf(FleetClient);
+  });
   it('uses same-origin proxy and a bearer header without persistent credentials', async () => {
     const fetcher = vi.fn().mockResolvedValue(json({tasks: [task]}));
     const storage = {setItem: vi.fn()}; vi.stubGlobal('localStorage', storage); vi.stubGlobal('sessionStorage', storage);
