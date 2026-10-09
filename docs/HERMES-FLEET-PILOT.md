@@ -198,3 +198,9 @@ hermes mcp test snowgloves-fleet
 ```
 
 Limits: whoever can SSH to the account gets the founder's coordinator authority (per-person principals are checklist row F04). Write stays off at the coordinator, so `access=write` returns 403. The SSH hop itself was not exercised from the authoring Mac; the wrapper was exercised over stdio with a real MCP client against the live coordinator.
+
+## Scoped principals (read-only observers)
+
+A coordinator principal may carry `"permissions"` (any of `read`, `submit`, `cancel`; absent means all three, so existing principals are unchanged) and `"view_owners"` (names of other principals whose tasks it may read). Viewing never grants mutation: cancelling, submitting and attaching children stay with the task owner. Config load rejects unknown permissions and unknown owners.
+
+Example observer: `{"token": "...", "projects": ["snowgloves"], "permissions": ["read"], "view_owners": ["founder"]}`. It can list, read detail and events (including a parent's graph); submit, cancel and write return 403. Source: `tests/test_fleet_scoped_principals.py` (13 tests, the owner-only rule mutation-checked, plus an HTTP round trip).
