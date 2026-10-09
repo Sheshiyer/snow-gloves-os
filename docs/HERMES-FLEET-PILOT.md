@@ -179,3 +179,22 @@ Fix: every verification command now runs under macOS Seatbelt (`sandbox-exec`) w
 Allowlist guidance: do **not** put `tests/test_fleet_write_worker.py` in `test_commands`; its tests start their own sandboxes and macOS cannot nest them. The remaining four fleet files (`test_fleet_coordinator.py`, `test_fleet_task_graph.py`, `test_fleet_write_access.py`, `test_fleet_execution.py`) pass 56/56 inside the sandbox in about 5 s.
 
 Limits: macOS only. A script that swallows the denied write and exits 0 is not detected as a violation, only prevented from changing anything. Reads outside `$HOME` (system files) remain possible. Write stays disabled on the mini until this is deployed and re-probed there.
+
+## Connecting other Hermes clients (fleet MCP over SSH)
+
+`scripts/fleet_mcp.py` is a stdio MCP server that wraps the coordinator: `fleet_list`, `fleet_status`, `fleet_logs`, `fleet_cancel`, `fleet_submit` (with `parent_id`, `logical_role`, `stage`, `supersedes`, `access`). It is a thin loopback client; authentication, project scope, the task graph and the write gates all stay in the coordinator, and the operator token is read on Coding 01 and never leaves it.
+
+On Coding 01 a wrapper (not in Git, like `snowgloves-fleet`) runs it with the Hermes Python that has `mcp`:
+
+```sh
+~/.local/bin/snowgloves-fleet-mcp      # exec <hermes venv python> scripts/fleet_mcp.py --token-file <founder.token>
+```
+
+From another Hermes install on the tailnet that has the `coding-01-tailnet` SSH alias:
+
+```sh
+hermes mcp add snowgloves-fleet --command ssh --args coding-01-tailnet /Users/axio/.local/bin/snowgloves-fleet-mcp
+hermes mcp test snowgloves-fleet
+```
+
+Limits: whoever can SSH to the account gets the founder's coordinator authority (per-person principals are checklist row F04). Write stays off at the coordinator, so `access=write` returns 403. The SSH hop itself was not exercised from the authoring Mac; the wrapper was exercised over stdio with a real MCP client against the live coordinator.
