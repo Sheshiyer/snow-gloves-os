@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 344/390
+progress: 349/390
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
@@ -1517,9 +1517,18 @@ Real task79e51fe012b64787a22e4f6e6753a744 selects CTO and succeeds at transport/
 
 Founder confirms CRM is integrated into the existing custom ERP and product reconciliation is underway. Implement reusable preparation templates and immutable ERP dossier context through the existing authenticated Hermes graph. Adjacent axtech-campaign-agent audit supplies dated read-only MCP contract evidence; per-brand runtime access and current catalog readiness remain unverified. No external effects or live activation follows from this source pass.
 
-- [ ] ISC-383: Nineteen reusable business templates remain separate from seven control roles and connector permissions.
-- [ ] ISC-384: Authorized ERP dossier context persists through idempotency, graph inheritance, Hermes input, worker assignment and artifact provenance.
-- [ ] ISC-385: Server-owned catalog evidence gates price-dependent preparation; requester assertions and business metadata cannot grant writes or cross-project scope.
-- [ ] ISC-386: Existing development and database compatibility plus commercial negative cases pass meaningful local tests.
-- [ ] ISC-387: Private planning records existing ERP/CRM and ongoing reconciliation, with dated source and explicit unverified runtime boundaries.
-- [ ] ISC-388: Actual Coding01 commercial event-to-artifact and scoped ERP reference read are proven separately before advertising live commercial capability.
+- [x] ISC-383: Nineteen reusable business templates remain separate from seven control roles and connector permissions.
+- [x] ISC-384: Authorized ERP dossier context persists through idempotency, graph inheritance, Hermes input, worker assignment and artifact provenance.
+- [x] ISC-385: Server-owned catalog evidence gates price-dependent preparation; requester assertions and business metadata cannot grant writes or cross-project scope.
+- [x] ISC-386: Existing development and database compatibility plus commercial negative cases pass meaningful local tests.
+- [x] ISC-387: Private planning records existing ERP/CRM and ongoing reconciliation, with dated source and explicit unverified runtime boundaries.
+- [ ] ISC-388: Actual Coding01 commercial event-to-artifact and scoped ERP reference read are proven separately before advertising live commercial capability. Deferred by founder on 9 October until ERP product connection is complete.
+
+
+### Commercial source verification — 9 October 2026
+
+ISC-383–387 accepted at source/local test level only. Nineteen preparation templates remain independent of seven control roles. Validated project-admitted ERP references persist through normalization, replay, child inheritance, retry, Hermes input, worker claim and artifact provenance. Server-owned exact catalog evidence gates estimator/buyer/sales-follow-up/finance-admin; pending intake remains available. Configured credential values reject in context/readiness. Status and graph show explicit derived dispatch holds.
+
+Local command: python3 -m pytest -q tests/test_fleet_business.py tests/test_fleet_coordinator.py tests/test_fleet_task_graph.py tests/test_fleet_write_access.py tests/test_fleet_write_worker.py tests/test_fleet_execution.py — 103 passed. py_compile and git diff --check pass. Source reviewer confirms the catalog, secret-reference, hold-status and inherited-CLI fixes; focused subset 7 passed. Routed build used exact codex/gpt-5.6-terra-max, with matching local gateway session evidence and real tool/file effects; worker was handed off for root review (exit143), not treated as a completed worker receipt. No Coding01 service change or business connector call occurred.
+
+Founder defers the ERP dossier pilot because product connection is unfinished. ISC-388 remains open/deferred, along with commercial UI intake/live connector/write/voice/finance acceptance. Next independent lane is bounded Chief-of-Staff role fan-out through the existing coordinator for development tasks.

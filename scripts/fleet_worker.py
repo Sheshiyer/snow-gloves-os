@@ -16,6 +16,16 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
 from lib.fleet_coordinator import redact
+from lib.fleet_business import (
+    COMMERCIAL_PREPARATION_CATEGORY,
+    BusinessContextError,
+    business_artifact_provenance,
+    business_worker_prompt,
+    ensure_catalog_readiness,
+    normalize_business_context,
+    normalize_readiness_snapshot,
+    template_for,
+)
 
 
 DENY_DIRS = ('.git', '.github', '_runtime')
@@ -148,6 +158,24 @@ class Worker:
         return (root in [Path(p).resolve() for p in self.config.get('write_roots', [])]
                 and bool(self.config.get('test_commands', {}).get(str(root))))
 
+    def business_assignment(self, task):
+        """Verify claimed server metadata again before exposing it to a runtime."""
+        value = task.get('business_context')
+        if value is None:
+            return None
+        try:
+            if task.get('category') != COMMERCIAL_PREPARATION_CATEGORY:
+                raise BusinessContextError('Invalid business category claim')
+            context = normalize_business_context(value)
+            template = template_for(context['domain_role'])
+            readiness = normalize_readiness_snapshot(task.get('business_readiness'))
+            if task.get('business_template') != template:
+                raise BusinessContextError('Invalid business template claim')
+            ensure_catalog_readiness(context, template, readiness)
+        except BusinessContextError:
+            raise ValueError('Invalid business assignment') from None
+        return context, template, readiness
+
     def keep_patch(self, task, text):
         path = self.state / 'patches' / (task['attempt_id'] + '.patch')
         path.parent.mkdir(exist_ok=True, mode=0o700)
@@ -217,7 +245,10 @@ class Worker:
             root = Path(task['root']).resolve()
             if root not in [Path(p).resolve() for p in self.config['allowed_roots']] or task['runtime'] != 'codex':
                 raise ValueError('Unsupported assignment')
+            business = self.business_assignment(task)
             write = task.get('access') == 'write'
+            if business is not None and write:
+                raise WriteRejected('Business preparation is read-only')
             if write and not self.write_enabled(root):
                 raise WriteRejected('Write is not enabled for this worker and project')
             artifact_root = Path(task['artifacts_root']).resolve()
@@ -240,7 +271,8 @@ class Worker:
             with os.fdopen(os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
                 process = subprocess.Popen(self.command(worktree, write), stdin=subprocess.PIPE, stdout=output, stderr=output,
                                            env=env, start_new_session=True)
-                process.stdin.write(((WRITE_PREAMBLE if write else '') + task['brief']).encode())
+                prompt = task['brief'] if business is None else business_worker_prompt(task['brief'], *business)
+                process.stdin.write(((WRITE_PREAMBLE if write else '') + prompt).encode())
                 process.stdin.close()
                 start, last_heartbeat = time.monotonic(), 0
                 while process.poll() is None:
@@ -285,6 +317,8 @@ class Worker:
                 artifact_path = artifact_root / (task['id'] + '-' + task['attempt_id'] + '.json')
                 payload = dict(task_id=task['id'], attempt_id=task['attempt_id'], node=self.config['node_id'],
                                runtime='codex', model=self.config.get('model', 'noesis-fast'), output=result)
+                if business is not None:
+                    payload['provenance'] = business_artifact_provenance(*business)
                 if write:
                     payload.update(self.collect_write(task, root, worktree))
                 private_json(artifact_path, payload)

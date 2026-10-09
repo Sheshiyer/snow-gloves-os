@@ -1,0 +1,249 @@
+[
+  {
+    "id": "brand-director",
+    "name": "Brand director",
+    "desk": "management",
+    "control_owner": "ceo",
+    "mission": "Set brand priorities and summarize decisions",
+    "deliverables": [
+      "brand scorecard",
+      "decision brief"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "commercial-director",
+    "name": "Commercial director",
+    "desk": "commercial",
+    "control_owner": "chief-of-staff",
+    "mission": "Allocate scoped leads and supervise pipeline",
+    "deliverables": [
+      "pipeline review",
+      "assignment proposal"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "lead-prospector",
+    "name": "Lead and prospecting agent",
+    "desk": "commercial",
+    "control_owner": "dispatcher",
+    "mission": "Find and qualify candidate opportunities",
+    "deliverables": [
+      "lead dossier",
+      "contact draft"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "telephone-agent",
+    "name": "Telephone agent",
+    "desk": "commercial",
+    "control_owner": "dispatcher",
+    "mission": "Handle approved real-time conversations and structured outcomes",
+    "deliverables": [
+      "call disposition",
+      "callback or handoff packet"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "account-executive",
+    "name": "Account executive",
+    "desk": "commercial",
+    "control_owner": "dispatcher",
+    "mission": "Qualify needs and manage customer relationship",
+    "deliverables": [
+      "qualification record",
+      "next-action proposal"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "commercial-secretary",
+    "name": "Commercial secretary",
+    "desk": "commercial",
+    "control_owner": "interpreter",
+    "mission": "Classify requests, documents and appointments",
+    "deliverables": [
+      "intake dossier",
+      "appointment draft"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "cctp-analyst",
+    "name": "CCTP analyst",
+    "desk": "technical-quoting",
+    "control_owner": "librarian",
+    "mission": "Extract source-linked requirements and missing evidence",
+    "deliverables": [
+      "requirements matrix",
+      "clarification list"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "tender-response-writer",
+    "name": "Tender response writer",
+    "desk": "technical-quoting",
+    "control_owner": "dispatcher",
+    "mission": "Draft compliant answers from validated materials",
+    "deliverables": [
+      "response dossier",
+      "evidence index"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "estimator",
+    "name": "Estimator",
+    "desk": "technical-quoting",
+    "control_owner": "dispatcher",
+    "mission": "Calculate a reproducible quote from approved prices and costs",
+    "deliverables": [
+      "quote draft",
+      "margin and assumptions"
+    ],
+    "preparation_only": true,
+    "price_dependent": true
+  },
+  {
+    "id": "sales-follow-up",
+    "name": "Sales and follow-up agent",
+    "desk": "commercial",
+    "control_owner": "dispatcher",
+    "mission": "Present approved offers and handle authorized follow-up",
+    "deliverables": [
+      "response draft",
+      "CRM next action"
+    ],
+    "preparation_only": true,
+    "price_dependent": true
+  },
+  {
+    "id": "human-transfer",
+    "name": "Human transfer agent",
+    "desk": "commercial",
+    "control_owner": "sentinel",
+    "mission": "Detect escalation and prepare a complete transfer",
+    "deliverables": [
+      "handoff packet",
+      "return-to-AI checkpoint"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "marketing-director",
+    "name": "Marketing director",
+    "desk": "marketing",
+    "control_owner": "chief-of-staff",
+    "mission": "Prepare brand-specific campaign and editorial plans",
+    "deliverables": [
+      "campaign brief",
+      "editorial calendar"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "content-creator",
+    "name": "Content creator",
+    "desk": "marketing",
+    "control_owner": "dispatcher",
+    "mission": "Produce grounded posts, visuals, scripts and videos",
+    "deliverables": [
+      "draft content",
+      "asset provenance"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "community-publisher",
+    "name": "Community and publication agent",
+    "desk": "marketing",
+    "control_owner": "dispatcher",
+    "mission": "Schedule or publish only approved content and route responses",
+    "deliverables": [
+      "publication proposal",
+      "delivery receipt"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "buyer",
+    "name": "Buyer",
+    "desk": "operations",
+    "control_owner": "dispatcher",
+    "mission": "Compare approved supplier offers and availability",
+    "deliverables": [
+      "sourcing comparison",
+      "purchase proposal"
+    ],
+    "preparation_only": true,
+    "price_dependent": true
+  },
+  {
+    "id": "operations-coordinator",
+    "name": "Operations coordinator",
+    "desk": "operations",
+    "control_owner": "dispatcher",
+    "mission": "Assemble delivery/site dossiers and confirmed schedules",
+    "deliverables": [
+      "operations dossier",
+      "assignment proposal"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "artisans-liaison",
+    "name": "Artisans OS liaison",
+    "desk": "operations",
+    "control_owner": "dispatcher",
+    "mission": "Transfer approved installation dossiers through a verified contract",
+    "deliverables": [
+      "handoff package",
+      "external acknowledgment"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  },
+  {
+    "id": "finance-admin",
+    "name": "Finance and administration",
+    "desk": "finance-admin",
+    "control_owner": "dispatcher",
+    "mission": "Prepare invoices and reconciliation without assuming payment authority",
+    "deliverables": [
+      "invoice draft",
+      "receivables report"
+    ],
+    "preparation_only": true,
+    "price_dependent": true
+  },
+  {
+    "id": "customer-service",
+    "name": "Customer service and SAV",
+    "desk": "operations",
+    "control_owner": "dispatcher",
+    "mission": "Classify service requests and coordinate resolution",
+    "deliverables": [
+      "SAV case",
+      "resolution proposal"
+    ],
+    "preparation_only": true,
+    "price_dependent": false
+  }
+]
