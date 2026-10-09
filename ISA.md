@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 343/384
+progress: 344/384
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
@@ -494,7 +494,7 @@ until the actual mini supplies evidence.
 - [x] ISC-350: An admitted real model job on AXIO records resolved provider and verified artifact.
 - [ ] ISC-351: Selected pinned MCP dependencies pass authenticated destination reads.
 - [x] ISC-352: AXIO Hermes passes an actual scoped event-to-artifact round trip.
-- [ ] ISC-353: Owned persistent startup survives an actual AXIO reboot.
+- [x] ISC-353: Owned persistent startup survives an actual AXIO reboot.
 - [ ] ISC-354: AXIO restore drill recovers the reviewed configuration and owned artifacts.
 - [ ] ISC-355: Migrated tenant source references resolve or are explicitly held on AXIO.
 - [ ] ISC-356: Scanner-flagged private files receive individual disposition before any further transfer.
@@ -1499,3 +1499,8 @@ The actual worker-failure drill interrupts its single attempt, creates a recover
 hold and does not replay execution. Verified orphan runtime termination precedes
 manual reconciliation. Private receipts: PRIVATE-HTTPS.json, DNS.json,
 GATEWAY-DNS.json, REBOOT.json, CANCELLATION.json and WORKER-FAILURE.json.
+
+
+## 2026-10-09 — Final configuration reboot verification
+
+ISC-353 accepted after the founder-confirmed second physical AXIO reboot. After account login, all six persistent pilot services, the scheduled certificate renewal agent, OmniRoute and Pulse are registered with successful status. Company UI HTTPS returns200; authenticated gateway returns200, missing credential401; loopback gateway and Pulse health return200. The original successful task retains its attempt and verified artifact digest. Before-login availability remains unobserved. Private receipt: docs/fleet/onboarding/2026-10-09-hermes-pilot/REBOOT-FINAL.json. ISC-380 remains open for previously observed native Codex configuration drift.
