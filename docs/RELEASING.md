@@ -1,3 +1,7 @@
+> **Hosted release retirement checkpoint.**
+
+GitHub Actions is retired. `make release-push` pushes source and tags only; it does not build, sign, or publish. `make release-dispatch` fails with an explicit retirement notice. Use `make app-build` for a local build. Multi-platform signing, GitHub asset upload, updater manifest generation, and static-site publishing are pending local migration and are not scheduled. The former hosted procedure below is historical reference and must not be followed as active automation.
+
 # Releasing Snow Gloves OS
 
 A release covers two things that share one version number:
