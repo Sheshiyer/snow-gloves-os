@@ -1504,3 +1504,10 @@ GATEWAY-DNS.json, REBOOT.json, CANCELLATION.json and WORKER-FAILURE.json.
 ## 2026-10-09 — Final configuration reboot verification
 
 ISC-353 accepted after the founder-confirmed second physical AXIO reboot. After account login, all six persistent pilot services, the scheduled certificate renewal agent, OmniRoute and Pulse are registered with successful status. Company UI HTTPS returns200; authenticated gateway returns200, missing credential401; loopback gateway and Pulse health return200. The original successful task retains its attempt and verified artifact digest. Before-login availability remains unobserved. Private receipt: docs/fleet/onboarding/2026-10-09-hermes-pilot/REBOOT-FINAL.json. ISC-380 remains open for previously observed native Codex configuration drift.
+
+
+## 2026-10-09 — Published workspace and first UI review
+
+Reviewed source is published on feat/cloud-gateway and PR31 is updated for the accumulated fleet UI/Hermes pilot. Current upstream Actions retirement is incorporated. Clean Coding01 Git checkouts live at /Users/axio/Projects/snow-gloves-os and /Users/axio/Projects/snow-gloves-ops; the UI, API, coordinator, bridge and worker now use the canonical source checkout. Own dependency install and production build pass; HTTPS UI/snapshot/bridge health return200 after supervised restart. Live SQLite/credentials/artifacts retain the prior private runtime location. The accepted physical reboot receipt predates this path cutover; no further reboot is inferred.
+
+Real task79e51fe012b64787a22e4f6e6753a744 selects CTO and succeeds at transport/execution on the new checkout, with checksum-verified artifact. Source review rejects its nonexistent TSX component references. This is not accepted UI analysis or seven-agent fan-out. Private UI-REVIEW.json and NEXT-UI-HERMES-FLOW.md record the failure and next source-grounding/role-graph requirements. Native config drift ISC-380, other nodes, teammate scope and remaining fleet gates stay open.
