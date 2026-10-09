@@ -37,6 +37,7 @@ def env(tmp_path):
     root.mkdir()
     git(root, 'init', '-q')
     (root / 'app.txt').write_text('one\n')
+    (root / 'verify.py').write_text('print("ok")\n')
     git(root, 'add', '.')
     git(root, 'commit', '-q', '-m', 'initial')
     key = tmp_path / 'key'
@@ -160,3 +161,119 @@ def test_read_tasks_ignore_write_machinery(env):
     _, final = run(config, task)
     art = json.loads(Path(final['artifact']['path']).read_text())
     assert final['type'] == 'succeeded' and 'patch' not in art and art.get('access', 'read') == 'read'
+
+
+# --- ISC-383: verification runs proposed code, so it must be confined by the OS, not by argv or cwd ---
+needs_sandbox = pytest.mark.skipif(not Path('/usr/bin/sandbox-exec').exists(), reason='macOS Seatbelt required')
+
+
+def verify_with(config, code):
+    """Make the agent edit the tracked verify.py, which the unchanged allowlisted command then executes."""
+    root = config['write_roots'][0]
+    config['test_commands'] = {root: [{'argv': [sys.executable, 'verify.py']}]}
+    return 'WRITE verify.py ' + code.replace('\n', '\\n')
+
+
+@needs_sandbox
+def test_edited_verification_script_cannot_write_outside_the_worktree(env):
+    config, task, _, tmp = env
+    marker = tmp / 'outside' / 'marker.txt'
+    marker.parent.mkdir()
+    marker.write_bytes(b'original')
+    for swallow in (False, True):  # a script that hides the denial must not change the outcome on disk
+        code = 'import pathlib\ntry:\n    pathlib.Path(%r).write_text("pwned")\nexcept Exception:\n    %s' % (str(marker), 'pass' if swallow else 'raise')
+        task['brief'] = verify_with(config, code)
+        task['attempt_id'] = 'attempt-%s' % swallow
+        worker, final = run(config, task)
+        assert marker.read_bytes() == b'original'
+        if not swallow:
+            assert final['type'] == 'failed' and 'Tests failed' in final['message'] and 'artifact' not in final
+
+
+@needs_sandbox
+def test_verification_cannot_reach_the_network_but_may_use_loopback(env):
+    config, task, _, _ = env
+    external = 'import socket,sys\ntry:\n    socket.create_connection(("1.1.1.1", 80), timeout=3)\n    sys.exit(7)\nexcept OSError:\n    pass'
+    task['brief'] = verify_with(config, external)
+    _, final = run(config, task)
+    assert final['type'] == 'succeeded', final.get('message')  # exit 7 would mean the connection was possible
+    loopback = 'import socket\ns = socket.socket()\ns.bind(("127.0.0.1", 0))\ns.listen()\nsocket.create_connection(s.getsockname(), timeout=3).close()'
+    task['brief'] = verify_with(config, loopback)
+    task['attempt_id'] = 'attempt-loop'
+    _, final = run(config, task)
+    assert final['type'] == 'succeeded', final.get('message')
+
+
+@needs_sandbox
+def test_verification_cannot_read_denied_locations(env):
+    config, task, _, tmp = env
+    secret = tmp / 'secrets' / 'key.txt'
+    secret.parent.mkdir()
+    secret.write_text('SECRETDATA')
+    code = 'import sys\ntry:\n    open(%r).read()\nexcept OSError:\n    sys.exit(5)' % str(secret)
+    config['verify_deny_read'] = [str(secret.parent)]
+    task['brief'] = verify_with(config, code)
+    _, final = run(config, task)
+    assert final['type'] == 'failed' and 'exit 5' in final['message']
+    config['verify_deny_read'] = []  # positive control: without the deny rule the same script succeeds
+    config['test_commands'] = {config['write_roots'][0]: [{'argv': [sys.executable, 'verify.py']}]}
+    task['attempt_id'] = 'attempt-control'
+    _, final = run(config, task)
+    assert final['type'] == 'succeeded', final.get('message')
+
+
+def test_missing_sandbox_fails_closed_before_running_any_test(env):
+    config, task, _, tmp = env
+    marker = tmp / 'ran.txt'
+    config['sandbox_exec_path'] = str(tmp / 'no-such-sandbox')
+    config['test_commands'] = {config['write_roots'][0]: [{'argv': [sys.executable, '-c', 'open(%r, "w").write("x")' % str(marker)]}]}
+    _, final = run(config, task)
+    assert final['type'] == 'failed' and 'sandbox is unavailable' in final['message']
+    assert not marker.exists() and 'artifact' not in final
+
+
+@needs_sandbox
+def test_verification_gets_a_private_home_and_temp(env):
+    config, task, _, _ = env
+    code = 'import os,sys\\nsys.exit(0 if os.environ["HOME"] == os.environ["TMPDIR"] and "verify-tmp" in os.environ["HOME"] else 9)'
+    task['brief'] = verify_with(config, code)
+    _, final = run(config, task)
+    assert final['type'] == 'succeeded', final.get('message')
+
+
+@needs_sandbox
+def test_only_listed_python_library_paths_are_readable_inside_a_denied_area(env):
+    config, task, _, tmp = env
+    area = tmp / 'denied'
+    (area / 'lib').mkdir(parents=True)
+    (area / 'lib' / 'allowedmod.py').write_text('VALUE = 1\n')
+    (area / 'other.txt').write_text('private')
+    config['verify_deny_read'] = [str(area)]
+    code = 'import sys\nimport allowedmod\ntry:\n    open(%r).read()\n    sys.exit(4)\nexcept OSError:\n    pass' % str(area / 'other.txt')
+    task['brief'] = verify_with(config, code)
+    _, final = run(config, task)
+    assert final['type'] == 'failed'  # not importable without the explicit path
+    config['verify_python_paths'] = [str(area / 'lib')]
+    task['attempt_id'] = 'attempt-lib'
+    _, final = run(config, task)
+    assert final['type'] == 'succeeded', final.get('message')  # library readable, sibling file still denied
+
+
+@needs_sandbox
+def test_verification_cannot_signal_processes_outside_its_sandbox_but_may_manage_its_own(env):
+    config, task, _, _ = env
+    outsider = subprocess.Popen(['sleep', '60'])
+    try:
+        code = ('import os, signal, subprocess, sys, time\n'
+                'p = subprocess.Popen(["sleep", "30"], start_new_session=True)\n'
+                'time.sleep(0.2)\n'
+                'os.killpg(p.pid, signal.SIGTERM)\n'
+                'p.wait(timeout=5)\n'
+                'try:\n    os.kill(%d, signal.SIGTERM)\n    sys.exit(6)\nexcept PermissionError:\n    pass' % outsider.pid)
+        task['brief'] = verify_with(config, code)
+        _, final = run(config, task)
+        assert final['type'] == 'succeeded', final.get('message')
+        assert outsider.poll() is None  # still running
+    finally:
+        outsider.kill()
+        outsider.wait()

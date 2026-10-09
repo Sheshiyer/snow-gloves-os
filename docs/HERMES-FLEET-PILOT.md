@@ -169,3 +169,13 @@ On a write task the worker runs Codex with `--sandbox workspace-write` and netwo
 On success the artifact carries `base`, `files`, the `patch` text with its sha256, and the test results. **Nothing is applied, committed or pushed**; a person reviews the diff and applies it (`git apply`). When tests fail or change the tree, the task fails and the patch is kept privately at `state/patches/<attempt>.patch`; gate failures keep no patch. Sentinel must still verify the graph before it counts as `verified`.
 
 Evidence (source): `tests/test_fleet_write_access.py` (9), `tests/test_fleet_write_worker.py` (19, each gate mutation-checked), retry tests in `tests/test_fleet_task_graph.py`. Local: real Codex accepts the flags through the gateway; network and `git commit` blocked; writes outside the worktree blocked when the worktree is not under `/tmp`. Codex always treats `/tmp` and `$TMPDIR` as writable, so keep the worker state root outside them. Real Codex's `apply_patch` tool is unavailable through this gateway, so the preamble tells it to edit via shell. **Not deployed, not enabled, not run on the mini.**
+
+### Verification confinement (ISC-383) — fix, source/local only
+
+Finding (recorded in the platform ISA by an independent audit): the write adapter ran its allowlisted test command directly. Because the agent can edit a test or script that command executes, an argv allowlist and a worktree `cwd` do not confine the code. The audit probe wrote outside the worktree and the task was still accepted.
+
+Fix: every verification command now runs under macOS Seatbelt (`sandbox-exec`) with a generated profile: writes only in the worktree and a private scratch dir (also its `HOME` and `TMPDIR`); no reads under `$HOME` (override `verify_deny_read`); no network except loopback; no signals outside its own sandbox. It fails closed when `sandbox-exec` is missing or cannot apply the profile (`sandbox_exec_path` to override the path). Interpreter libraries living under `$HOME` must be listed read-only in `verify_python_paths` (also added to `PYTHONPATH`), e.g. the user site-packages that holds pytest.
+
+Allowlist guidance: do **not** put `tests/test_fleet_write_worker.py` in `test_commands`; its tests start their own sandboxes and macOS cannot nest them. The remaining four fleet files (`test_fleet_coordinator.py`, `test_fleet_task_graph.py`, `test_fleet_write_access.py`, `test_fleet_execution.py`) pass 56/56 inside the sandbox in about 5 s.
+
+Limits: macOS only. A script that swallows the denied write and exits 0 is not detected as a violation, only prevented from changing anything. Reads outside `$HOME` (system files) remain possible. Write stays disabled on the mini until this is deployed and re-probed there.
