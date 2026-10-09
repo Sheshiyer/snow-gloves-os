@@ -97,6 +97,6 @@ def test_mcp_server_registers_exactly_the_fleet_tools(api):
     tools = asyncio.run(server_.list_tools())
     assert sorted(t.name for t in tools) == ['fleet_cancel', 'fleet_list', 'fleet_logs', 'fleet_status', 'fleet_submit']
     submit = next(t for t in tools if t.name == 'fleet_submit')
-    assert {'project', 'brief', 'parent_id', 'logical_role', 'stage', 'supersedes', 'access'} <= set(submit.inputSchema['properties'])
+    assert {'project', 'brief', 'parent_id', 'logical_role', 'stage', 'supersedes', 'access'} <= set(submit.input_schema['properties'])
     result = asyncio.run(server_.call_tool('fleet_submit', {'project': 'snowgloves', 'brief': 'via mcp'}))
     assert 'queued' in json.dumps(result, default=str)

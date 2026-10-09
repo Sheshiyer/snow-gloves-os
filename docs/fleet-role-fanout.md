@@ -20,6 +20,18 @@ only when both configuration grants are present:
 }
 ```
 
+`artifact_context` is a separate, default-off project boolean. It has no effect
+outside an admitted automatic fanout plan. To opt a project into bounded
+predecessor-result delivery, retain the two admission grants above and set:
+
+```json
+{
+  "projects": {
+    "example": { "fanout": true, "artifact_context": true }
+  }
+}
+```
+
 The request body may be empty and accepts no options. It requires the root
 task's owner credential; worker credentials cannot submit, plan, cancel, or
 otherwise administer work. The SSH-friendly equivalent is:
@@ -93,19 +105,43 @@ queued with a derived `hold_reason` in task detail and graph responses.
 Retries retain the existing bounded child retry behavior and remain in the
 same plan position. Manual children retain their existing graph semantics.
 
-On claim, an automatic child receives its validated role/stage plus only
-coordinator-verified, relative-path SHA-256 references to the completed root
-and prior plan artifacts in the same owner/project scope. The worker validates
-that metadata before creating a worktree, gives the model a fixed read-only
-role prompt with delimited untrusted brief/context, and records role, stage,
-parent, and source references in its result artifact. References are opaque
-provenance metadata; they do not cause artifact reading or knowledge ingestion.
-Before a reference is propagated, the coordinator rechecks artifact
-containment and checksum, then parses its JSON envelope and requires its
-`task_id` and `attempt_id` to match the selected completed task attempt.
-Missing, malformed, changed, or foreign envelopes hold downstream planned
-children rather than supplying a reference.
+On claim, every automatic child receives its validated role/stage plus
+coordinator-verified, relative-path SHA-256 `source_artifacts` references to
+the completed root and prior plan artifacts in the same owner/project scope.
+This is the compatibility mode when `artifact_context` is absent or `false`:
+the references stay opaque provenance metadata and do not cause the worker to
+open, ingest, or claim knowledge from an artifact.
+
+With `artifact_context: true`, the coordinator re-reads the same contained,
+checksum-verified bytes before every dependency claim. It parses the JSON
+envelope with duplicate-key rejection, requires its `task_id` and `attempt_id`
+to match the selected completed attempt, and extracts only a nonblank string
+`output` no larger than **4,096 UTF-8 bytes**. It sanitizes all configured
+coordinator principal, worker, and Hermes tokens before attaching the bounded
+values as `source_outputs` alongside the unchanged `source_artifacts`.
+Each output contains only `task_id`, `attempt_id`, and `output`; it never
+contains an artifact path, checksum, envelope, or other artifact payload.
+The plan bound limits a claim to at most seven source outputs.
+
+Malformed JSON, a changed checksum, foreign task/attempt binding, a missing or
+non-string output, blank output, and oversized output leave the downstream
+automatic child queued with a visible dependency hold. No stale or cached
+artifact output is reused after a failed recheck.
+
+Before model launch, the worker validates that `source_outputs` has exactly
+the same ordered task IDs and count as `source_artifacts`, validates every
+attempt ID and output bound, and rejects any extra or malformed shape. It
+never resolves a supplied artifact path. The fixed read-only prompt keeps
+checksum references separate and embeds only the verified outputs in a clearly
+delimited **untrusted JSON task-data** section. Neither the output, the brief,
+nor any reference can authorize tools, paths, writes, connectors, credentials,
+or other capabilities. The worker independently redacts its own credentials
+before prompting the model. Its result artifact records
+`source_context_mode` as `metadata-only` or `verified-output`, retains only
+the `source_artifacts` metadata, and never copies `source_outputs` or a full
+predecessor artifact into the result.
 
 The graph's existing `verified` status remains a derived execution/artifact
-condition. Metadata-only source references do not prove Sentinel substantive
-verification or any stronger semantic validation.
+condition. Source-context delivery, including a Sentinel prompt with bounded
+predecessor output, does not prove Sentinel substantive verification or any
+stronger semantic or live validation.

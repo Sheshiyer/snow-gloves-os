@@ -24,6 +24,10 @@ NO_NEW_CHILDREN = ('cancelled','cancel_requested','failed','interrupted')
 NO_FANOUT_ROOTS = ('cancelled','cancel_requested','failed','interrupted')
 MAX_FANOUT_TITLE = 200
 MAX_FANOUT_BRIEF = 4000
+# A source result is task data, not an artifact transfer.  Keep each delivered
+# output small enough for a bounded read-only prompt; the fanout count already
+# bounds the aggregate to seven such values.
+MAX_SOURCE_OUTPUT_BYTES = 4096
 
 
 class Rejected(Exception):
@@ -326,10 +330,19 @@ class Coordinator:
                 return current
             current = successor
 
-    def _source_reference(self, row, owner, project):
+    def _source_reference(self, row, owner, project, include_output=False):
+        """Recheck a completed source and optionally extract its bounded output.
+
+        The returned output is derived from the exact bytes whose digest was
+        rechecked here.  It is never an artifact envelope or a path the worker
+        should resolve.  The final value class lets fanout expose a safe,
+        actionable dependency hold without disclosing artifact contents.
+        """
         if (not row or row['owner'] != owner or row['project'] != project
-                or not isinstance(row['id'], str) or not isinstance(row['attempt_id'], str)):
-            return None
+                or not isinstance(row['id'], str) or not re.fullmatch(r'[a-f0-9]{32}', row['id'])
+                or not isinstance(row['attempt_id'], str)
+                or not re.fullmatch(r'[a-f0-9]{32}', row['attempt_id'])):
+            return None, None, 'artifact'
         try:
             artifact = json.loads(row['artifact']) if row['artifact'] else None
             verified, payload = self._artifact_payload(artifact)
@@ -350,10 +363,35 @@ class Coordinator:
             if (not isinstance(envelope, dict)
                     or envelope.get('task_id') != row['id']
                     or envelope.get('attempt_id') != row['attempt_id']):
-                return None
-        except (OSError, Rejected, TypeError, ValueError, RecursionError):
-            return None
-        return {'task_id': row['id'], 'artifact': verified}
+                return None, None, 'artifact'
+            source_output = None
+            if include_output:
+                output = envelope.get('output')
+                if not isinstance(output, str) or not output.strip():
+                    return None, None, 'output'
+                try:
+                    if len(output.encode('utf-8')) > MAX_SOURCE_OUTPUT_BYTES:
+                        return None, None, 'output'
+                except UnicodeError:
+                    return None, None, 'output'
+                # Coordinator credentials never cross from a predecessor
+                # artifact into a child claim.  This is intentionally done
+                # after validation so redaction cannot make malformed content
+                # look valid.
+                output = self.sanitize(output)
+                try:
+                    if not output.strip() or len(output.encode('utf-8')) > MAX_SOURCE_OUTPUT_BYTES:
+                        return None, None, 'output'
+                except UnicodeError:
+                    return None, None, 'output'
+                source_output = {
+                    'task_id': row['id'],
+                    'attempt_id': row['attempt_id'],
+                    'output': output,
+                }
+        except (OSError, Rejected, TypeError, ValueError, RecursionError, UnicodeError):
+            return None, None, 'artifact'
+        return {'task_id': row['id'], 'artifact': verified}, source_output, None
 
     def _fanout_context(self, row):
         """Derive a planned child's dependency hold and safe immutable inputs."""
@@ -363,17 +401,24 @@ class Coordinator:
         plan, member = membership
         root = self.db.execute('SELECT * FROM tasks WHERE id=?', (plan['root_id'],)).fetchone()
         base = {'plan_id': plan['id'], 'order': member['ordinal'] + 1}
+        include_outputs = self.config['projects'][row['project']].get('artifact_context') is True
         if (not root or root['owner'] != row['owner'] or root['project'] != row['project']
                 or root['parent_id'] is not None):
             return dict(base, hold_reason='Blocked: automatic plan context is unavailable')
+        if include_outputs and row['access'] != 'read':
+            return dict(base, hold_reason='Blocked: source context requires automatic read-only access')
         if root['status'] != 'succeeded':
             state = root['status']
             if state in NO_FANOUT_ROOTS:
                 return dict(base, hold_reason='Blocked: parent %s is %s' % (root['id'], state))
             return dict(base, hold_reason='Waiting: parent %s must succeed' % root['id'])
-        sources = [self._source_reference(root, row['owner'], row['project'])]
-        if not sources[0]:
-            return dict(base, hold_reason='Blocked: parent artifact integrity check failed')
+        root_source, root_output, root_failure = self._source_reference(
+            root, row['owner'], row['project'], include_outputs)
+        if not root_source:
+            suffix = 'artifact output context check failed' if root_failure == 'output' else 'artifact integrity check failed'
+            return dict(base, hold_reason='Blocked: parent %s' % suffix)
+        sources = [root_source]
+        outputs = [root_output] if include_outputs else []
         predecessors = self.db.execute('''
           SELECT tasks.*
           FROM fanout_children JOIN tasks ON tasks.id=fanout_children.task_id
@@ -390,11 +435,20 @@ class Coordinator:
                 if state in NO_NEW_CHILDREN:
                     return dict(base, hold_reason='Blocked: planned predecessor %s is %s' % (label, state))
                 return dict(base, hold_reason='Waiting: planned predecessor %s must succeed' % label)
-            source = self._source_reference(effective, row['owner'], row['project'])
+            if include_outputs and effective['access'] != 'read':
+                return dict(base, hold_reason='Blocked: predecessor source context requires read-only access')
+            source, source_output, failure = self._source_reference(
+                effective, row['owner'], row['project'], include_outputs)
             if not source:
-                return dict(base, hold_reason='Blocked: predecessor artifact integrity check failed')
+                suffix = 'artifact output context check failed' if failure == 'output' else 'artifact integrity check failed'
+                return dict(base, hold_reason='Blocked: predecessor %s' % suffix)
             sources.append(source)
-        return dict(base, source_artifacts=sources)
+            if include_outputs:
+                outputs.append(source_output)
+        result = dict(base, source_artifacts=sources)
+        if include_outputs:
+            result['source_outputs'] = outputs
+        return result
 
     def submit(self, owner, principal, body):
         project = body.get('project')
@@ -608,6 +662,8 @@ class Coordinator:
                 if context:
                     result['fanout'] = {'plan_id': context['plan_id'], 'order': context['order']}
                     result['source_artifacts'] = context['source_artifacts']
+                    if 'source_outputs' in context:
+                        result['source_outputs'] = context['source_outputs']
                 return result
             return None
 
@@ -674,6 +730,8 @@ def load_config(path):
             raise ValueError('Invalid project configuration')
         if 'fanout' in project and not isinstance(project['fanout'], bool):
             raise ValueError('Invalid project fanout configuration')
+        if 'artifact_context' in project and not isinstance(project['artifact_context'], bool):
+            raise ValueError('Invalid project artifact context configuration')
     tokens=set()
     for group in ('principals','workers'):
         for entry in config[group].values():
