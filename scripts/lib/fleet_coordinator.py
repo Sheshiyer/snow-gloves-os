@@ -68,6 +68,8 @@ class Coordinator:
         for column in ('parent_id', 'stage', 'supersedes'):
             if column not in columns:
                 self.db.execute('ALTER TABLE tasks ADD COLUMN %s TEXT' % column)
+        if 'access' not in columns:
+            self.db.execute("ALTER TABLE tasks ADD COLUMN access TEXT NOT NULL DEFAULT 'read'")
         self.db.execute('CREATE INDEX IF NOT EXISTS tasks_parent ON tasks(parent_id)')
         self.db.commit()
 
@@ -110,7 +112,7 @@ class Coordinator:
             self.db.execute('INSERT OR IGNORE INTO events(task_id,attempt_id,event_id,type,message,created) VALUES(?,?,?,?,?,?)', (row['id'],row['attempt_id'],'lease-expired','interrupted','Worker heartbeat expired; manual reconciliation required',now))
 
     def _public(self, row):
-        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes')
+        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes','access')
         result = {k: row[k] for k in keys}
         project = self.config['projects'][row['project']]
         result.update(tenant=project['tenant'],organization=project['organization'],session_id=row['id'])
@@ -146,7 +148,19 @@ class Coordinator:
             raise Rejected(400, 'Invalid logical_role or stage')
         elif supersedes is not None and (not isinstance(supersedes,str) or not re.fullmatch(r'[a-f0-9]{32}',supersedes)):
             raise Rejected(400, 'Invalid supersedes')
+        access = body.get('access', 'read')
+        if not isinstance(access,str) or access not in ('read','write'):
+            raise Rejected(400, 'Invalid access')
+        if access == 'write':
+            if parent_id is None:
+                raise Rejected(400, 'Write tasks must be children in a task graph')
+            if role != 'cto':
+                raise Rejected(403, 'Only the CTO role may write')
+            if not self.config['projects'][project].get('write') or project not in principal.get('write_projects',[]):
+                raise Rejected(403, 'Write access unavailable')
         request = {k: body.get(k) for k in ('project','brief','runtime','title','category')}
+        if access == 'write':
+            request['access'] = access
         if parent_id is not None:
             request.update(parent_id=parent_id,logical_role=role,stage=stage)
             if supersedes is not None:
@@ -201,8 +215,8 @@ class Coordinator:
                     raise Rejected(409, 'Parent no longer accepts children')
                 if supersedes is not None:
                     old = self._owned(owner,principal,supersedes)
-                    if old['parent_id'] != parent_id or old['logical_role'] != role or old['stage'] != stage:
-                        raise Rejected(409, 'A retry must match the parent, role and stage of the failed task')
+                    if old['parent_id'] != parent_id or old['logical_role'] != role or old['stage'] != stage or old['access'] != access:
+                        raise Rejected(409, 'A retry must match the parent, role, stage and access of the failed task')
                     if old['status'] != 'failed':
                         raise Rejected(409, 'Only failed tasks can be retried; interrupted tasks need manual reconciliation')
                     if self.db.execute('SELECT 1 FROM tasks WHERE supersedes=?',(supersedes,)).fetchone():
@@ -218,7 +232,7 @@ class Coordinator:
             self.db.execute('INSERT INTO tasks(id,owner,project,title,brief,runtime,category,idem,request_hash,status,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
               (tid,owner,project,self.sanitize(body.get('title') or 'Fleet task'),self.sanitize(body['brief']),runtime,self.sanitize(body.get('category') or 'development'),body['idempotency_key'],digest,'queued',now,now))
             if parent_id is not None:
-                self.db.execute('UPDATE tasks SET parent_id=?,logical_role=?,stage=?,supersedes=? WHERE id=?',(parent_id,role,stage,supersedes,tid))
+                self.db.execute('UPDATE tasks SET parent_id=?,logical_role=?,stage=?,supersedes=?,access=? WHERE id=?',(parent_id,role,stage,supersedes,access,tid))
             if interpretation:
                 self.db.execute('UPDATE tasks SET title=?,brief=?,category=?,logical_role=? WHERE id=?',(
                     self.sanitize(interpretation.get('title') or body.get('title') or 'Fleet task')[:200],

@@ -152,3 +152,20 @@ A task may be a child: `submit --parent <id> --role <role> --stage <plan|referen
 - Execution is unchanged: one worker slot, FIFO claim, so children queue.
 
 Evidence: `tests/test_fleet_task_graph.py` (14 tests) and the schema migration run against a copy of the live pilot database (columns added, 10 existing rows stay roots). Not yet deployed to the Coding 01 services, and the board does not render the graph yet.
+
+## Retry and the write adapter (steps 2–3, source-tested; **disabled by default**)
+
+**Retry.** `submit --parent P --role R --stage S --supersedes <failed child>`. Only a `failed` child can be retried (an `interrupted` one needs manual reconciliation because its outcome is uncertain); the retry must match parent, role, stage and access; at most 3 attempts per role. Superseded attempts stay visible (`superseded_by`, shown as "retried" on the board) but no longer count toward graph status or the 7-child limit.
+
+**Write adapter.** A task may ask for `access: write`. It is refused unless **all** hold: the project sets `"write": true` in coordinator config; the principal lists the project in `"write_projects"`; the task is a graph child (`--parent`) with role `cto`; and the worker config enables it (`"write_roots": [<root>]` plus non-empty `"test_commands": {<root>: [{"argv": [...], "cwd": "rel", "timeout": 600}]}`; optional `"max_patch_bytes"`, default 1 MiB).
+
+On a write task the worker runs Codex with `--sandbox workspace-write` and network off in a fresh detached worktree, then **computes the diff itself** and gates it:
+
+- must be non-empty and valid UTF-8 text, at most `max_patch_bytes`;
+- rejects denied paths (`.git`, `.github`, `_runtime`, `.env*`, `*.pem`, `*.key`, `id_rsa*`, `credentials*`, …), symlinks and submodules;
+- rejects credential-like content (key prefixes, bearer tokens, private-key headers, the gateway key, the worker token);
+- runs the allowlisted test commands (no shell); every one must exit 0 and none may change the tree.
+
+On success the artifact carries `base`, `files`, the `patch` text with its sha256, and the test results. **Nothing is applied, committed or pushed**; a person reviews the diff and applies it (`git apply`). When tests fail or change the tree, the task fails and the patch is kept privately at `state/patches/<attempt>.patch`; gate failures keep no patch. Sentinel must still verify the graph before it counts as `verified`.
+
+Evidence (source): `tests/test_fleet_write_access.py` (9), `tests/test_fleet_write_worker.py` (19, each gate mutation-checked), retry tests in `tests/test_fleet_task_graph.py`. Local: real Codex accepts the flags through the gateway; network and `git commit` blocked; writes outside the worktree blocked when the worktree is not under `/tmp`. Codex always treats `/tmp` and `$TMPDIR` as writable, so keep the worker state root outside them. Real Codex's `apply_patch` tool is unavailable through this gateway, so the preamble tells it to edit via shell. **Not deployed, not enabled, not run on the mini.**

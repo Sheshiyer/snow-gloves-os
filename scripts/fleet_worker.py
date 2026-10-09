@@ -2,6 +2,7 @@
 """Single-slot pilot worker. Never retries execution after an uncertain outcome."""
 import argparse
 import fcntl
+import fnmatch
 import hashlib
 import json
 import os
@@ -15,6 +16,25 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
 from lib.fleet_coordinator import redact
+
+
+DENY_DIRS = ('.git', '.github', '_runtime')
+DENY_FILES = ('.env', '.env.*', '*.pem', '*.key', '*.p12', '*.pfx', 'id_rsa*', 'id_ed25519*', 'credentials*', '*.token', '*.secret')
+SECRET_PATTERNS = tuple(re.compile(pattern) for pattern in (
+    r'\b(?:sk-|ghp_|gho_|github_pat_)[A-Za-z0-9_-]{8,}',
+    r'(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{20,}',
+    r'-----BEGIN [A-Z ]*PRIVATE KEY-----',
+    r'\bAKIA[0-9A-Z]{16}\b',
+))
+
+
+WRITE_PREAMBLE = ('You are in an isolated, disposable working tree. Edit files here only. Do not commit, push, use the network, '
+                  'or touch credentials, .env files, .git or CI configuration. Edit with shell commands; the apply_patch tool is unavailable here. '
+                  'The operator reviews your diff and the worker runs the tests.\n\n')
+
+
+class WriteRejected(ValueError):
+    """A write attempt failed a gate; the message is safe to report."""
 
 
 def load_config(path):
@@ -66,6 +86,7 @@ class Worker:
         self.active = self.state / 'active.json'
         self.held = self.state / 'recovery-required.json'
         self.stopping = False
+        self.gateway_key = None
         if not config['endpoint'].startswith('http://127.0.0.1:'):
             raise ValueError('Pilot coordinator must use loopback')
         if config.get('gateway_url') != 'http://127.0.0.1:20128/v1':
@@ -113,14 +134,77 @@ class Worker:
             private_json(self.pending, self.report(task, 'interrupted', message='Worker restarted; manual reconciliation required'))
         return self.flush()
 
-    def command(self, worktree):
+    def command(self, worktree, write=False):
         c = self.config
-        return [c['codex_path'], 'exec', '--ignore-user-config', '--json', '--sandbox', 'read-only',
+        return [c['codex_path'], 'exec', '--ignore-user-config', '--json', '--sandbox', 'workspace-write' if write else 'read-only',
                 '--skip-git-repo-check', '-C', str(worktree), '-m', c.get('model', 'noesis-fast'),
+                *(['-c', 'sandbox_workspace_write.network_access=false'] if write else []),
                 '-c', 'model_provider="omniroute"', '-c', 'model_providers.omniroute.name="OmniRoute"',
                 '-c', 'model_providers.omniroute.base_url=' + json.dumps(c['gateway_url']),
                 '-c', 'model_providers.omniroute.env_key="OMNIROUTE_API_KEY"',
                 '-c', 'model_providers.omniroute.wire_api="responses"', '-']
+
+    def write_enabled(self, root):
+        return (root in [Path(p).resolve() for p in self.config.get('write_roots', [])]
+                and bool(self.config.get('test_commands', {}).get(str(root))))
+
+    def keep_patch(self, task, text):
+        path = self.state / 'patches' / (task['attempt_id'] + '.patch')
+        path.parent.mkdir(exist_ok=True, mode=0o700)
+        fd = os.open(path, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(text)
+
+    def collect_write(self, task, root, worktree):
+        """Compute the patch ourselves (never trust the agent), gate it, then run the allowlisted tests."""
+        git = self.config.get('git_path', 'git')
+        def run_git(*args):
+            return subprocess.run([git, '-C', str(worktree), *args], check=True, capture_output=True, timeout=60).stdout
+        def snapshot():
+            run_git('add', '-A')
+            names = sorted(n for n in run_git('diff', '--cached', '--name-only', '-z', '--no-renames').decode('utf-8', 'replace').split('\0') if n)
+            return names, run_git('diff', '--cached', '--binary', '--no-color', '--no-renames')
+        names, raw = snapshot()
+        if not names:
+            raise WriteRejected('No changes were produced')
+        for name in names:
+            parts = name.split('/')
+            if any(part in DENY_DIRS for part in parts) or any(fnmatch.fnmatch(parts[-1], pattern) for pattern in DENY_FILES):
+                raise WriteRejected('Patch touches a denied path')
+        summary = run_git('diff', '--cached', '--summary', '--no-renames').decode('utf-8', 'replace')
+        if 'mode 120000' in summary or 'mode 160000' in summary:
+            raise WriteRejected('Patch adds a symlink or submodule')
+        if len(raw) > self.config.get('max_patch_bytes', 1048576):
+            raise WriteRejected('Patch is too large')
+        try:
+            text = raw.decode('utf-8')
+        except UnicodeDecodeError:
+            raise WriteRejected('Patch is not valid UTF-8 text') from None
+        if any(p.search(text) for p in SECRET_PATTERNS) or any(v and v in text for v in (self.config.get('token'), self.gateway_key)):
+            raise WriteRejected('Patch contains credential-like content')
+        env = runtime_environment()
+        env['PYTHONDONTWRITEBYTECODE'] = '1'
+        results = []
+        for command in self.config['test_commands'][str(root)]:
+            argv = command['argv']
+            cwd = (worktree / command.get('cwd', '.')).resolve()
+            if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv) or not cwd.is_relative_to(worktree.resolve()):
+                raise WriteRejected('Invalid test command configuration')
+            try:
+                done = subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=command.get('timeout', 600))
+            except subprocess.TimeoutExpired:
+                self.keep_patch(task, text)
+                raise WriteRejected('Test command timed out') from None
+            tail = redact((done.stdout + done.stderr).decode('utf-8', 'replace')[-2000:]).strip()
+            results.append({'argv': argv, 'exit_code': done.returncode, 'tail': tail})
+            if done.returncode:
+                self.keep_patch(task, text)
+                raise WriteRejected('Tests failed (exit %d): %s' % (done.returncode, os.path.basename(argv[0])))
+        if snapshot()[1] != raw:
+            self.keep_patch(task, text)
+            raise WriteRejected('Tests modified the working tree')
+        return dict(access='write', base=run_git('rev-parse', 'HEAD').decode().strip(), files=names,
+                    patch={'text': text, 'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw)}, tests=results)
 
     def execute(self, task):
         private_json(self.active, task)
@@ -133,6 +217,9 @@ class Worker:
             root = Path(task['root']).resolve()
             if root not in [Path(p).resolve() for p in self.config['allowed_roots']] or task['runtime'] != 'codex':
                 raise ValueError('Unsupported assignment')
+            write = task.get('access') == 'write'
+            if write and not self.write_enabled(root):
+                raise WriteRejected('Write is not enabled for this worker and project')
             artifact_root = Path(task['artifacts_root']).resolve()
             if artifact_root != Path(self.config['artifacts_root']).resolve():
                 raise ValueError('Unapproved artifact root')
@@ -142,6 +229,7 @@ class Worker:
             key = key_path.read_text().strip()
             if not key:
                 raise ValueError('Gateway credential unavailable')
+            self.gateway_key = key
             worktree = self.state / 'worktrees' / (task['id'] + '-' + task['attempt_id'])
             worktree.parent.mkdir(exist_ok=True, mode=0o700)
             subprocess.run([self.config.get('git_path', 'git'), '-C', str(root), 'worktree', 'add', '--detach', str(worktree), 'HEAD'],
@@ -150,9 +238,9 @@ class Worker:
             env = runtime_environment()
             env['OMNIROUTE_API_KEY'] = key
             with os.fdopen(os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
-                process = subprocess.Popen(self.command(worktree), stdin=subprocess.PIPE, stdout=output, stderr=output,
+                process = subprocess.Popen(self.command(worktree, write), stdin=subprocess.PIPE, stdout=output, stderr=output,
                                            env=env, start_new_session=True)
-                process.stdin.write(task['brief'].encode())
+                process.stdin.write(((WRITE_PREAMBLE if write else '') + task['brief']).encode())
                 process.stdin.close()
                 start, last_heartbeat = time.monotonic(), 0
                 while process.poll() is None:
@@ -195,12 +283,17 @@ class Worker:
                     raise ValueError('Runtime produced no final result')
                 result = redact(finals[-1]).replace(key, '[REDACTED]').replace(self.config['token'], '[REDACTED]')
                 artifact_path = artifact_root / (task['id'] + '-' + task['attempt_id'] + '.json')
-                private_json(artifact_path, dict(task_id=task['id'], attempt_id=task['attempt_id'], node=self.config['node_id'],
-                                               runtime='codex', model=self.config.get('model', 'noesis-fast'), output=result))
+                payload = dict(task_id=task['id'], attempt_id=task['attempt_id'], node=self.config['node_id'],
+                               runtime='codex', model=self.config.get('model', 'noesis-fast'), output=result)
+                if write:
+                    payload.update(self.collect_write(task, root, worktree))
+                private_json(artifact_path, payload)
                 artifact = {'path': str(artifact_path), 'sha256': hashlib.sha256(artifact_path.read_bytes()).hexdigest()}
                 kind, message = 'succeeded', 'Verified result artifact available'
             elif kind == 'failed':
                 message = 'Runtime exited unsuccessfully; no automatic replay'
+        except WriteRejected as error:
+            message = str(error)
         except (OSError, ValueError, KeyError, subprocess.SubprocessError):
             if process:
                 stop_group(process)
