@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 326/358
+progress: 327/370
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-09
@@ -495,7 +495,23 @@ until the actual mini supplies evidence.
 - [ ] ISC-355: Migrated tenant source references resolve or are explicitly held on AXIO.
 - [ ] ISC-356: Scanner-flagged private files receive individual disposition before any further transfer.
 
+- [ ] ISC-357: The company gateway passes valid HTTPS, authenticated private access and unauthorized-access rejection from another network.
+- [ ] ISC-358: The persistent fleet UI and API enforce company identity and application scope through the external access route.
+- [ ] ISC-359: A named remote pilot user edits and builds a separate Snow Gloves checkout on Coding 01.
+- [ ] ISC-360: A Coding 01 pilot job survives client disconnect and exposes logs and a verified artifact after reconnect.
+- [ ] ISC-361: The externally accessed fleet UI attributes the remote pilot job and artifact to Coding 01.
+- [ ] ISC-362: Concurrent named remote editor sessions preserve separate working copies and the one-desktop-operator arrangement.
+- [ ] ISC-363: Coding 01 remote desktop passes monitor-disconnected testing with lock and recovery limitations recorded.
+- [ ] ISC-364: Representative build and agent measurements establish a documented safe Coding 01 concurrency limit.
+- [ ] ISC-365: Coding 02 passes device enrollment, remote access and a node-attributed job test.
+- [ ] ISC-366: Creative passes device enrollment, remote access and a node-attributed job test on its intended network.
+- [ ] ISC-367: Marketing passes device enrollment, remote access and a node-attributed job test on its intended network.
+- [x] ISC-368: The private fleet rollout checklist records founder actions, evidence-linked tests, owners, dependencies and next planning step without promoting historical host proof.
+
 ## Test Strategy
+
+- ISC-357..367 | physical remote-workspace acceptance | private checklist T04..T09,T15..T17 with dated per-node receipts | all linked scenarios pass; no inferred remote/reboot/capacity proof | SSH/editor/browser/physical devices
+- ISC-368 | documentation integrity | validate F01..F08/T01..T17, ISA mappings, evidence paths and historical preservation | all checks pass | focused validator + git diff
 
 - ISC-332..347 | destination integration | SSH allowlist, archive/per-file hashes, owned dependency/build commands, private check, repeat render, scoped HTTP and actual IAB envelope | each stated result passes | SSH/Python/IAB
 - ISC-348..356 | destination operational | individual skill/hook/model/MCP/Hermes/startup/restore/reference/disposition probes | held until actual destination receipt | selected runtime and owner gates
@@ -558,6 +574,8 @@ Local onboarding: count IDs in template/private JSON/Markdown; reconcile source 
 | 51 | claims | receipt evidence-level audit | no readiness promotion | receipt audit |
 
 ## Features
+
+- Remote engineering pilot and fleet rollout | satisfies: ISC-357..368 | depends_on: reviewed AXIO baseline, founder network/identity prerequisites | parallelizable: false; access planning may proceed while DNS is pending
 
 - AXIO workspace migration | satisfies: ISC-332..347 | depends_on: local onboarding reference | parallelizable: false
 - AXIO operating-runtime migration | satisfies: ISC-348..356 | depends_on: authenticated destination baseline | parallelizable: false
@@ -630,6 +648,8 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 
 ## Decisions
 
+- 2026-10-09: refined: founder approves persistent private founder/test checklists, Snow Gloves as Coding 01 remote pilot, named team accounts with independent editor sessions and one desktop operator per Mac. Current authoring seat is separate from fleet Coding 02. Domain commitments remain pending until evidenced; historical host proofs do not establish remote access, continuity or recovery. Private fleet decisions hold domain and identity details.
+
 - 2026-10-09: refined: user identifies current localhost as Mac Coding 01 and selects HeyZack. Enroll the DNS-safe LocalHostName in the private four-slot seam; preserve legacy three-wing policies and native runtime configuration. The first test is actual local adapter generation, attributed to the CTO role with agentExecuted false. Model canary was refused before launch by host-pressure admission, exit125; no inferred model/provider acceptance.
 
 - 2026-10-08 refined: latest user confirms four islands, two mac-coding, one mac-creative and one mac-marketing. Existing three wing profiles are templates, not a four-device census; private inventory currently configures three wing hosts and the second coding slot is planned. FirstPrinciples separates slot identity, device assignment, node-specific work evidence and scenery. SystemsThinking maps inventory→nodeprojection→island, scopedactivity→selectedtownpresence, camera/travel→logicalorigin→boundedchunks. BeCreative compares nautical archipelago, floating sky isles, cartridge planets, rail ports and fjord settlements; chooses grounded nautical coasts to retain the recent material style. ISA Append adds32 stable atomic checks and CheckCompleteness preserves twelve-section structure. ReReadCheck will bind four slots, machine-specific activity and an expanding world to actual source/browser evidence. Temperance parallel dispatch handles three disjoint routed production lanes; root owns integration/ISA/IAB.
@@ -691,6 +711,11 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 - 2026-10-09: Founder explicitly keeps routed execution held for OmniRoute migration, then reports independently installing OmniRoute on mac-coding. Agent service activation remains unapproved and unperformed; no changes may race the operator installer. Existing AXIO3.8.50 and provider-count observations predate that installation.
 
 ## Changelog
+
+- 2026-10-09 | conjectured: the historical 100-point checklist could summarize the current fleet rollout.
+  refuted by: its host section records the former local Coding 01, while AXIO has separate destination evidence and remote-workspace gates remain untested.
+  learned: retain historical evidence and use an owner/dependency checklist linked to the sole ISA ledger for the current rollout.
+  criterion now: ISC-368 accepts documentation integrity only; ISC-357..367 remain open for physical remote-workspace proof.
 
 - 2026-10-08 | conjectured: plausible rooflines, painted facade detail and continuous terrain can improve spatial realism while reducing per-window geometry and repeated prop objects.
   refuted by: root visual review found peripheral paths dipping below the coarse landscape; vertex-only grounding passed but independent triangle-interior ray samples still found up to0.15units of submergence. Read-only review also found missing avenue shadow receivers and shader invalidation/disposal issues during quality changes.
@@ -1389,3 +1414,7 @@ AXIO checkpoint: platform archive c42260cb4bc84c1914d79b02ab28c8b06da0081acce41c
 - ISC-349: Founder explicitly approves three Claude hooks and loopback Pulse activation. Twelve hook/dependency files compile; installed PromptProcessing emits valid MINIMAL and ALGORITHM context, ISASync updates an isolated fixture registry, CheckpointPerISC performs no commit with the default absent repository allowlist. Reviewed enrichment resolves without fallback;20Manifest support source files preserve an explicit OFFLINE bridge receipt. Approved settings preserve all other existing fields; launchctl reports Pulse running and lsof verifies only127.0.0.1:31337. ISA skill plus PromptProcessing/ISASync/CheckpointPerISC and live Pulse compatibility verify before enabling AlgorithmLATESTv6.3.0. Codex PAI path resolves; native Codex config and provider credentials untouched. This accepts reviewed primary-Claude hook installation, not reboot, audio delivery, Manifest service activation or connector/recovery readiness. Evidence: private HOOK-INSTALL-BEHAVIOR.json, HOOK-ACTIVATION.json, MANIFEST-HOOK-SUPPORT.json and HOST-MIGRATION-AUDIT.json.
 
 - ISC-350 follow-through: Actual AXIO Codex0.160 CLI runs an ephemeral read-only noesis-fast canary through explicit127.0.0.1:20128/v1 Responses API overrides after normal host-pressure admission. Exit0, zero tool calls, exact nodeIdmac-coding-1/probeAXIO_CODEX_ROUTE_OK JSON independently verified; artifactSHAca8dabd6d81d7c14665e1eaa7fd7d5b15f35ac9b7e1a2a28a2c4a9dfa4959ea4. Saved Codex config unchanged and no native fallback. Remote HeyZack audit/API and actual IAB model envelope expose the original verified model job/artifact bound to mac-coding-1.
+
+## Verification — persistent fleet rollout checklist, 9 October 2026
+
+- ISC-368: documentation integrity — focused validator reports "PASS: 8 founder actions; 17 tests; 3 dated passes / 14 pending; all ISA mappings and file links resolve; receipts parse; historical checklist unchanged; operational criteria remain open." Private docs/fleet/FLEET-ROLLOUT-CHECKLIST.md is the operational view; CHECKLIST-VALIDATION.json records its hash. Both repository diff whitespace checks pass. Existing source/local/device evidence is retained separately; no DNS, accounts or services were changed.
