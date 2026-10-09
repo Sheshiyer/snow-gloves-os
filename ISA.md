@@ -1517,7 +1517,11 @@ Real task79e51fe012b64787a22e4f6e6753a744 selects CTO and succeeds at transport/
 
 Founder authorizes Gary's existing dedicated SSH public key for gary-hermes on Coding01, limited to diagnostics and public platform source. Gary is independently observed online on the company tailnet. No project/task authority, model or private operations access is implied. Use a forced command and protected public source snapshot; a standard account alone is not read-only.
 
-- [ ] ISC-394: Restricted SSH dispatcher validates bounded diagnostic/source commands without arbitrary shell, paths, writes or symlink escapes.
-- [ ] ISC-395: Reviewed macOS installation plan preserves existing SSH settings, restricts Gary key/IP and user behavior, validates effective configuration and supports rollback.
+- [x] ISC-394: Restricted SSH dispatcher validates bounded diagnostic/source commands without arbitrary shell, paths, writes or symlink escapes.
+- [x] ISC-395: Reviewed macOS installation plan preserves existing SSH settings, restricts Gary key/IP and user behavior, validates effective configuration and supports rollback.
 - [ ] ISC-396: Coding01 standard account and restricted key install pass device readback without exposing secrets; existing founder SSH remains available.
 - [ ] ISC-397: Gary MacBook authenticates with its own key, diagnostics/public source pass, disallowed shell/write/forwarding fail, and actual Hermes execution is distinguished from transport readiness.
+
+## 2026-10-09 — Restricted SSH source verification
+
+ISC-394/395 source and local checks: 34 focused tests pass, including path/symlink/shell denial, readable protected config, all-address user restrictions, inherited authority rejection, successful simulated apply/rerun and rollback. Peer review findings corrected; actual macOS dsmemberutil confirms exit0 with explicit nonmember text, now parsed correctly. Coding01 account exists UID502, /bin/sh, nonadmin. Local and Coding01 default dry runs remain separate from privileged installation. ISC-396 and ISC-397 stay open until actual installation, founder SSH preservation and Gary laptop tests. Routed producer contributed source, stopped for review with exit143; no completed worker receipt is inferred.
