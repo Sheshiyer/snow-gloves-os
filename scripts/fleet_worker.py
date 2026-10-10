@@ -14,8 +14,9 @@ import time
 import uuid
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+from urllib.parse import urlsplit
 
-from lib.fleet_coordinator import redact
+from lib.fleet_coordinator import MAX_HTTP_BODY_BYTES, MAX_REMOTE_ARTIFACT_BYTES, redact
 
 
 DENY_DIRS = ('.git', '.github', '_runtime')
@@ -40,6 +41,20 @@ TRANSIENT = re.compile(r'\b429\b|Too Many Requests|stream (?:closed|disconnected
 
 class WriteRejected(ValueError):
     """A write attempt failed a gate; the message is safe to report."""
+
+
+def loopback_endpoint(value):
+    """Accept only the local side of an SSH forward to the coordinator."""
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = urlsplit(value)
+        return (parsed.scheme == 'http' and parsed.hostname == '127.0.0.1' and
+                parsed.port is not None and 0 < parsed.port < 65536 and
+                not parsed.username and not parsed.password and not parsed.path and
+                not parsed.query and not parsed.fragment)
+    except ValueError:
+        return False
 
 
 def load_config(path):
@@ -92,17 +107,47 @@ class Worker:
         self.held = self.state / 'recovery-required.json'
         self.stopping = False
         self.gateway_key = None
-        if not config['endpoint'].startswith('http://127.0.0.1:'):
+        self.remote_artifacts = config.get('remote_artifacts', False)
+        if not isinstance(self.remote_artifacts, bool):
+            raise ValueError('remote_artifacts must be an explicit boolean')
+        self.project_roots = {}
+        if self.remote_artifacts:
+            mappings = config.get('project_roots')
+            allowed = config.get('allowed_roots')
+            if not isinstance(mappings, dict) or not mappings or not isinstance(allowed, list):
+                raise ValueError('Remote workers require project_roots and allowed_roots')
+            try:
+                allowlisted = {Path(path).resolve() for path in allowed
+                               if isinstance(path, str) and Path(path).is_absolute()}
+            except (OSError, ValueError):
+                raise ValueError('Invalid remote worker allowlist') from None
+            if len(allowlisted) != len(allowed):
+                raise ValueError('Invalid remote worker allowlist')
+            for project, path in mappings.items():
+                if (not isinstance(project, str) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,100}', project) or
+                        not isinstance(path, str) or not Path(path).is_absolute()):
+                    raise ValueError('Invalid remote project mapping')
+                root = Path(path).resolve()
+                if root not in allowlisted:
+                    raise ValueError('Remote project mapping is outside allowed_roots')
+                self.project_roots[project] = root
+        if not loopback_endpoint(config['endpoint']):
             raise ValueError('Pilot coordinator must use loopback')
         if config.get('gateway_url') != 'http://127.0.0.1:20128/v1':
             raise ValueError('Pilot gateway must use the reviewed loopback route')
 
     def request(self, route, body):
+        data = json.dumps(body, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+        if len(data) > MAX_HTTP_BODY_BYTES:
+            raise ValueError('Worker request body is too large')
         request = Request(self.config['endpoint'].rstrip('/') + route,
-                          data=json.dumps(body).encode(), method='POST',
+                          data=data, method='POST',
                           headers={'Authorization': 'Bearer ' + self.config['token'], 'Content-Type': 'application/json'})
         with urlopen(request, timeout=5) as response:
-            return json.load(response)
+            raw = response.read(MAX_HTTP_BODY_BYTES + 1)
+            if len(raw) > MAX_HTTP_BODY_BYTES:
+                raise ValueError('Coordinator response is too large')
+            return json.loads(raw)
 
     def report(self, task, kind, **fields):
         return dict(task_id=task['id'], attempt_id=task['attempt_id'],
@@ -208,6 +253,37 @@ class Worker:
         with os.fdopen(fd, 'w') as stream:
             stream.write(text)
 
+    @staticmethod
+    def remote_artifact(payload):
+        """Return a compact inline artifact that always fits the remote report bound."""
+        def serialize(value):
+            return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False,
+                              allow_nan=False).encode('utf-8')
+        try:
+            raw = serialize(payload)
+        except (TypeError, ValueError, UnicodeEncodeError):
+            raise WriteRejected('Remote artifact is not valid UTF-8 JSON') from None
+        if len(raw) > MAX_REMOTE_ARTIFACT_BYTES and isinstance(payload.get('output'), str):
+            # Runtime prose is the only expected large field for a read task.
+            # Preserve the envelope and a deterministic notice rather than making
+            # an oversized authenticated report that the coordinator must reject.
+            marker = '\n[TRUNCATED FOR REMOTE ARTIFACT BOUND]'
+            output = payload['output']
+            low, high, best = 0, len(output), None
+            while low <= high:
+                middle = (low + high) // 2
+                candidate = dict(payload, output=output[:middle] + marker)
+                encoded = serialize(candidate)
+                if len(encoded) <= MAX_REMOTE_ARTIFACT_BYTES:
+                    best, low = encoded, middle + 1
+                else:
+                    high = middle - 1
+            if best is not None:
+                raw = best
+        if not 0 < len(raw) <= MAX_REMOTE_ARTIFACT_BYTES:
+            raise WriteRejected('Remote artifact is too large')
+        return {'content': raw.decode('utf-8'), 'sha256': hashlib.sha256(raw).hexdigest()}
+
     def verification_profile(self, worktree, scratch):
         """Seatbelt profile for proposed code: writes only in the worktree and a private scratch dir, no home
         reads, no network except loopback. An argv allowlist and a cwd do not confine what the argv executes."""
@@ -307,15 +383,24 @@ class Worker:
             for key in ('id', 'attempt_id'):
                 if not re.fullmatch('[a-zA-Z0-9_-]{1,100}', task[key]):
                     raise ValueError('Invalid assignment identifier')
-            root = Path(task['root']).resolve()
+            if self.remote_artifacts:
+                if task.get('remote_artifacts') is not True:
+                    raise ValueError('Unsupported remote assignment')
+                project = task.get('project')
+                root = self.project_roots.get(project)
+                if root is None:
+                    raise ValueError('Project is not locally allowlisted')
+            else:
+                root = Path(task['root']).resolve()
             if root not in [Path(p).resolve() for p in self.config['allowed_roots']] or task['runtime'] != 'codex':
                 raise ValueError('Unsupported assignment')
             write = task.get('access') == 'write'
             if write and not self.write_enabled(root):
                 raise WriteRejected('Write is not enabled for this worker and project')
-            artifact_root = Path(task['artifacts_root']).resolve()
-            if artifact_root != Path(self.config['artifacts_root']).resolve():
-                raise ValueError('Unapproved artifact root')
+            if not self.remote_artifacts:
+                artifact_root = Path(task['artifacts_root']).resolve()
+                if artifact_root != Path(self.config['artifacts_root']).resolve():
+                    raise ValueError('Unapproved artifact root')
             key_path = Path(self.config['gateway_key_file'])
             if key_path.stat().st_mode & 0o077:
                 raise ValueError('Gateway key must have mode 0600')
@@ -363,13 +448,18 @@ class Worker:
                 if not finals or not finals[-1].strip():
                     raise ValueError('Runtime produced no final result')
                 result = redact(finals[-1]).replace(key, '[REDACTED]').replace(self.config['token'], '[REDACTED]')
-                artifact_path = artifact_root / (task['id'] + '-' + task['attempt_id'] + '.json')
                 payload = dict(task_id=task['id'], attempt_id=task['attempt_id'], node=self.config['node_id'],
                                runtime='codex', model=self.config.get('model', 'noesis-fast'), output=result)
+                if self.remote_artifacts:
+                    payload['project'] = task['project']
                 if write:
                     payload.update(self.collect_write(task, root, worktree))
-                private_json(artifact_path, payload)
-                artifact = {'path': str(artifact_path), 'sha256': hashlib.sha256(artifact_path.read_bytes()).hexdigest()}
+                if self.remote_artifacts:
+                    artifact = self.remote_artifact(payload)
+                else:
+                    artifact_path = artifact_root / (task['id'] + '-' + task['attempt_id'] + '.json')
+                    private_json(artifact_path, payload)
+                    artifact = {'path': str(artifact_path), 'sha256': hashlib.sha256(artifact_path.read_bytes()).hexdigest()}
                 kind, message = 'succeeded', 'Verified result artifact available'
             elif kind == 'failed':
                 message = 'Runtime exited unsuccessfully; no automatic replay'

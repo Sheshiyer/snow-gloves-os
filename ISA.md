@@ -739,6 +739,8 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 
 - 2026-10-09: Founder explicitly keeps routed execution held for OmniRoute migration, then reports independently installing OmniRoute on mac-coding. Agent service activation remains unapproved and unperformed; no changes may race the operator installer. Existing AXIO3.8.50 and provider-count observations predate that installation.
 
+- 2026-10-10: Shared OmniRoute inference credentials are permitted across fleet workers by founder decision; coordinator worker credentials remain distinct and project-scoped. ISC-365 stays open until a real remote worker returns a node-attributed verified artifact.
+
 ## Changelog
 
 - 2026-10-09 | conjectured: the historical 100-point checklist could summarize the current fleet rollout.
