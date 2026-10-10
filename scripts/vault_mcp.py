@@ -14,6 +14,8 @@ from lib.tenant_vault import Vault  # noqa: E402
 def create_server(vault):
     from mcp.server import MCPServer
     text = lambda value: json.dumps(value, indent=2, ensure_ascii=False)
+    # MCP runs tool functions on worker threads; a SQLite connection cannot cross threads, so each call opens its own.
+    fresh = lambda: Vault(vault.path, vault.domain, key_provider=vault._key_provider)
     mcp = MCPServer('snowgloves-vault-' + vault.domain, instructions=(
         'Restricted %s data for the tenant. Values are masked; full IBANs and address lists are never returned here. '
         'Use counts and samples to plan; a human performs reveals and exports.' % vault.domain))
@@ -21,32 +23,32 @@ def create_server(vault):
         @mcp.tool()
         def marketing_segments(tenant: str | None = None) -> str:
             """Contacts per segment: total, suppressed, reachable."""
-            return text(vault.segment_counts(tenant))
+            return text(fresh().segment_counts(tenant))
 
         @mcp.tool()
         def marketing_sample(segment: str, limit: int = 10) -> str:
             """A few masked reachable contacts of a segment (capped at 25)."""
-            return text(vault.sample(segment, limit))
+            return text(fresh().sample(segment, limit))
 
         @mcp.tool()
         def marketing_is_suppressed(email: str) -> str:
             """Whether an address is on the do-not-contact list."""
-            return text({'suppressed': vault.is_suppressed(email)})
+            return text({'suppressed': fresh().is_suppressed(email)})
     else:
         @mcp.tool()
         def finance_accounts() -> str:
             """Bank accounts per entity with bank, BIC and a masked IBAN."""
-            return text(vault.accounts())
+            return text(fresh().accounts())
 
         @mcp.tool()
         def finance_entities() -> str:
             """Legal entities with SIREN and VAT numbers."""
-            return text(vault.entities())
+            return text(fresh().entities())
 
         @mcp.tool()
         def finance_verify_iban(entity: str, iban: str) -> str:
             """True when the entity has an account with exactly this IBAN; never reveals a stored value."""
-            return text({'match': vault.verify_iban(entity, iban)})
+            return text({'match': fresh().verify_iban(entity, iban)})
     return mcp
 
 

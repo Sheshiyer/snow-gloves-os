@@ -221,3 +221,22 @@ def test_mcp_server_exposes_only_safe_tools(finance, marketing, tmp_path):
     assert names(marketing) == ['marketing_is_suppressed', 'marketing_sample', 'marketing_segments']
     for forbidden in ('reveal', 'export', 'iban_enc'):
         assert not any(forbidden in n for n in names(finance) + names(marketing))
+
+
+def test_mcp_tools_work_from_worker_threads_and_never_return_full_values(finance, marketing, tmp_path):
+    pytest.importorskip('mcp.server')
+    import asyncio
+    import json
+    from vault_mcp import create_server
+    finance.ingest_bank_markdown('axtech', BANK_MD, 'sold.md')
+    contacts, suppression = write_csvs(tmp_path)
+    marketing.ingest_contacts('axtech', contacts, suppression)
+
+    async def call(server, name, args):
+        result = await server.call_tool(name, args)
+        return json.dumps(result, default=str)
+    out = asyncio.run(call(create_server(finance), 'finance_accounts', {}))
+    assert 'FR76 **** 0189' in out and '30006000011234567890189' not in out
+    assert 'true' in asyncio.run(call(create_server(finance), 'finance_verify_iban', {'entity': 'SCI BETA', 'iban': IBAN_B})).lower()
+    out = asyncio.run(call(create_server(marketing), 'marketing_sample', {'segment': '01_active_clients', 'limit': 5}))
+    assert 'j***@example.test' in out and 'jane.doe@example.test' not in out and 'stop@' not in out
