@@ -62,7 +62,8 @@ def test_success_uses_fixed_read_endpoint_and_never_returns_token(target, monkey
     def auth(args):
         if args[0] == "whoami":
             return dict(loggedIn=True, email=target["identity"], accounts=[{"id": target["account_id"]}])
-        assert args == ["auth", "token", "--profile", target["profile"], "--json"]
+        assert args in (["auth", "token", "--profile", target["profile"], "--json"],
+                        ["auth", "token", "--cwd", target["profile_cwd"], "--json"])
         return {"token": "SYNTHETIC_SECRET"}
     class Response:
         def __enter__(self): return self
@@ -77,3 +78,21 @@ def test_success_uses_fixed_read_endpoint_and_never_returns_token(target, monkey
     result = guard.check(target)
     assert result["ok"] and result["resources_mutated"] is False
     assert "SYNTHETIC_SECRET" not in json.dumps(result)
+
+
+def test_identity_and_token_must_come_from_the_same_profile(target, monkeypatch):
+    """whoami reads the profile bound to profile_cwd; a different named profile must be refused."""
+    def auth(args):
+        if args[0] == "whoami":
+            assert args == ["whoami", "--cwd", target["profile_cwd"], "--json"]
+            return dict(loggedIn=True, email=target["identity"], accounts=[{"id": target["account_id"]}])
+        if "--profile" in args:
+            return {"token": "SYNTHETIC_NAMED_PROFILE"}
+        return {"token": "SYNTHETIC_BOUND_PROFILE"}
+    def fetch(request, **kwargs):
+        raise AssertionError("no API read with an unverified token")
+    monkeypatch.setattr(guard, "wrangler_json", auth)
+    monkeypatch.setattr(guard.urllib.request, "urlopen", fetch)
+    with pytest.raises(guard.ScopeError, match="not bound to the named profile") as error:
+        guard.check(target)
+    assert "SYNTHETIC" not in str(error.value)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hmac
 import json
 import os
 from pathlib import Path
@@ -79,14 +80,24 @@ def wrangler_json(args: list[str]) -> dict:
         raise ScopeError("Wrangler read unavailable or malformed; raw output suppressed") from exc
 
 
-def check(target: dict) -> dict:
-    validate_target(target)
-    identity = wrangler_json(["whoami", "--cwd", target["profile_cwd"], "--json"])
-    validate_identity(target, identity)
-    credentials = wrangler_json(["auth", "token", "--profile", target["profile"], "--json"])
+def profile_token(args: list[str]) -> str:
+    credentials = wrangler_json(args)
     token = credentials.get("token") or credentials.get("access_token")
     if not isinstance(token, str) or not token:
         raise ScopeError("named profile token unavailable")
+    return token
+
+
+def check(target: dict) -> dict:
+    validate_target(target)
+    # `wrangler whoami` has no --profile flag: it reports the profile bound to profile_cwd. The token
+    # comes from the named profile, so prove both are the same login before trusting the identity.
+    identity = wrangler_json(["whoami", "--cwd", target["profile_cwd"], "--json"])
+    validate_identity(target, identity)
+    token = profile_token(["auth", "token", "--profile", target["profile"], "--json"])
+    bound = profile_token(["auth", "token", "--cwd", target["profile_cwd"], "--json"])
+    if not hmac.compare_digest(token.encode(), bound.encode()):
+        raise ScopeError("profile_cwd is not bound to the named profile; identity and token differ")
     req = urllib.request.Request(
         "https://api.cloudflare.com/client/v4/zones/" + target["zone_id"],
         headers={"Authorization": "Bearer " + token},

@@ -9,6 +9,9 @@
 #   cloud_gateway.sh bootstrap-state                create the private, versioned, encrypted state bucket
 #   cloud_gateway.sh aws <init|plan|apply|destroy|output> [tofu args]
 #   cloud_gateway.sh cloudflare <init|plan|apply|destroy|output> [tofu args]
+#     tofu args may not set variables (-var / -var-file): every variable comes from the guard.
+#     `aws destroy` first applies termination_protection=false to the instance (its own prompt),
+#     then destroys; protection stays on for every other action.
 #   cloud_gateway.sh tls-refresh                    instance pulls the origin cert from SSM, reloads caddy
 #   cloud_gateway.sh tailnet-join                   one-shot auth key (Keychain) -> SSM -> instance joins, key deleted
 #   cloud_gateway.sh backup-now                     run the nightly backup immediately
@@ -24,7 +27,7 @@ GUARD="$REPO/scripts/fleet/cloud_guard.py"
 die() { echo "cloud_gateway: $*" >&2; exit 1; }
 log() { echo "cloud_gateway: $*"; }
 
-usage() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
 
 load_env() {
   local env
@@ -62,9 +65,22 @@ tofu_init() {
     -backend-config="use_lockfile=true"
 }
 
+# Variables come only from the guard's var file: a later -var / -var-file would override the
+# guard-bound values (aws_profile, hostname, zone, deny_domains, ...) and step around the boundary.
+reject_var_overrides() {
+  local a
+  for a in "$@"; do
+    case "$a" in
+      -var|-var=*|--var|--var=*|-var-file|-var-file=*|--var-file|--var-file=*)
+        die "refusing '$a': variables come from fleet.yaml via the guard, not the command line" ;;
+    esac
+  done
+}
+
 run_stack() {  # run_stack <aws|cloudflare> <action> [args]
   local stack="$1" action="${2:-}"; shift 2 || true
   case "$action" in init|plan|apply|destroy|output) ;; *) die "unknown action '$action' (init|plan|apply|destroy|output)";; esac
+  reject_var_overrides "$@"
   if [[ "$stack" == cloudflare ]]; then guard all; cf_token; else guard aws; fi
   if [[ "$action" == init ]]; then tofu_init "$stack"; return; fi
   [[ -d "$(tf_dir "$stack")" ]] || tofu_init "$stack"
@@ -78,6 +94,18 @@ run_stack() {  # run_stack <aws|cloudflare> <action> [args]
     [[ -d "$(tf_dir aws)" ]] || tofu_init aws >/dev/null
     ip="$(tofu_in aws output -raw elastic_ip 2>/dev/null)" || die "apply the aws stack first (no elastic_ip output)"
     extra+=(-var "origin_ip=$ip")
+  fi
+  if [[ "$stack" == aws && "$action" == destroy ]]; then
+    # The instance has API termination protection; lift it (and only it) before destroying.
+    extra+=(-var "termination_protection=false")
+    local approve=() a
+    for a in "$@"; do [[ "$a" == -auto-approve || "$a" == --auto-approve ]] && approve=(-auto-approve); done
+    log "disabling termination protection on aws_instance.gw before destroy"
+    tofu_in aws apply -input=false -var-file="$vars" "${extra[@]}" -target=aws_instance.gw ${approve[@]+"${approve[@]}"} \
+      || die "could not disable termination protection; nothing was destroyed"
+    tofu_in aws destroy -input=false -var-file="$vars" "${extra[@]}" "$@" \
+      || die "destroy failed or was declined; termination protection is now OFF (run 'cloud_gateway.sh aws apply' to restore it)"
+    return
   fi
   tofu_in "$stack" "$action" -input=false -var-file="$vars" ${extra[@]+"${extra[@]}"} "$@"
 }
@@ -125,8 +153,12 @@ tailnet_join() {
   local key
   key="$(security find-generic-password -s "$SG_TS_KEYCHAIN" -w 2>/dev/null)" \
     || die "no Tailscale auth key in Keychain service $SG_TS_KEYCHAIN (single-use, tag:gateway)"
+  local param="/$SG_NAME/tailscale/authkey"
+  # The instance deletes the parameter when sg-gw-tailnet runs; if send-command fails, times out or
+  # never reaches the instance, delete it here too so the auth key is never left behind in SSM.
+  trap 'aws ssm delete-parameter --name "'"$param"'" >/dev/null 2>&1 || true' EXIT
   # value via stdin, so the key never appears in the process list
-  printf '%s' "$key" | aws ssm put-parameter --name "/$SG_NAME/tailscale/authkey" --type SecureString \
+  printf '%s' "$key" | aws ssm put-parameter --name "$param" --type SecureString \
     --overwrite --value file:///dev/stdin >/dev/null
   unset key
   ssm_run "/usr/local/sbin/sg-gw-tailnet"

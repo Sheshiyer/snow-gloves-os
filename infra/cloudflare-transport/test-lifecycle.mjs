@@ -7,8 +7,10 @@ import {
   readLimitedBody,
   LIFECYCLE_OVERALL_TIMEOUT_MS,
   LIFECYCLE_HEALTH_TIMEOUT_MS,
-  LIFECYCLE_MAX_ATTEMPTS
+  LIFECYCLE_MAX_ATTEMPTS,
+  validateProviderEgress
 } from './lifecycle.ts';
+import { readFileSync } from 'node:fs';
 
 function makeStream(chunks, delayMs = 0) {
   return new ReadableStream({
@@ -31,7 +33,8 @@ const validEnv = {
   SG_BACKUP_KEY: btoa('k'.repeat(32)),
   SG_BACKUP_KEY_ID: 'backup-key-01',
   GATEWAY_INSTANCE_ID: 'instance-01',
-  GATEWAY_START_ALLOWED: 'true'
+  GATEWAY_START_ALLOWED: 'true',
+  GATEWAY_PROVIDER_EGRESS: '["api.provider.example"]'
 };
 
 test('preconditions: missing container, hold gate, short key, missing image', async () => {
@@ -40,6 +43,26 @@ test('preconditions: missing container, hold gate, short key, missing image', as
   await assert.rejects(() => mgr.ensureReady({ images: { base: validPinnedImage } }, { ...validEnv, GATEWAY_START_ALLOWED: 'false' }), /GATEWAY_START_HOLD/);
   await assert.rejects(() => mgr.ensureReady({ images: { base: validPinnedImage } }, { ...validEnv, STORAGE_ENCRYPTION_KEY: 'short' }), /INVALID_STORAGE_ENCRYPTION_KEY/);
   await assert.rejects(() => mgr.ensureReady({}, validEnv), /INVALID_CONTAINER_IMAGE/);
+});
+
+test('start gate fails closed without an explicit provider egress allowlist and never opens internet', async () => {
+  for (const egress of [undefined, '', '[]']) {
+    let starts = 0;
+    const container = { images: { base: validPinnedImage }, running: false, start: () => { starts++; } };
+    const env = { ...validEnv };
+    if (egress === undefined) delete env.GATEWAY_PROVIDER_EGRESS; else env.GATEWAY_PROVIDER_EGRESS = egress;
+    await assert.rejects(() => new ContainerLifecycleManager().ensureReady(container, env), /PROVIDER_EGRESS_HOLD/);
+    assert.equal(starts, 0);
+  }
+  for (const egress of ['api.provider.example', '["*"]', '["https://api.provider.example"]', '["a.example","a.example"]', '[1]', '{}']) {
+    await assert.rejects(() => new ContainerLifecycleManager().ensureReady({ images: { base: validPinnedImage } },
+      { ...validEnv, GATEWAY_PROVIDER_EGRESS: egress }), /INVALID_PROVIDER_EGRESS/);
+  }
+  assert.deepEqual(validateProviderEgress('["api.provider.example"]'), ['api.provider.example']);
+  const config = readFileSync(new URL('./wrangler.jsonc', import.meta.url), 'utf8');
+  assert.match(config, /"GATEWAY_PROVIDER_EGRESS": "\[\]"/);
+  assert.match(config, /"enable_request_signal"/);
+  assert.doesNotMatch(readFileSync(new URL('./lifecycle.ts', import.meta.url), 'utf8'), /enableInternet:\s*true/);
 });
 
 test('overrides validation: malicious values rejected', async () => {

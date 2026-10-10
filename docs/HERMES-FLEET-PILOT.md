@@ -230,7 +230,7 @@ The worker now retries a failed Codex run only when the failure is a transient p
 
 ## Preserving worker worktrees during cleanup
 
-`scripts/fleet_worker_gc.py` defaults to a dry run. An old result artifact does not prove that all work in its checkout has been preserved. Cleanup keeps tracked edits, staged edits, untracked and ignored files, unknown Git state and detached commits that no branch or tag retains. Preserve that work in a reviewed recovery archive before considering removal; a retained branch only saves committed history.
+`scripts/fleet_worker_gc.py` defaults to a dry run. A `remote_artifacts` worker keeps no local result file, so when the coordinator accepts its success report it writes `<state_root>/acknowledged/<task>-<attempt>.json`, which cleanup treats as the result artifact; failed, cancelled, interrupted and rejected attempts get no marker and stay preserved. An old result artifact does not prove that all work in its checkout has been preserved. Cleanup keeps tracked edits, staged edits, untracked and ignored files, unknown Git state and detached commits that no branch or tag retains. Preserve that work in a reviewed recovery archive before considering removal; a retained branch only saves committed history.
 
 Any `recovery-required.json` file holds all cleanup, matching the worker's dispatch hold. Malformed or unreadable active/pending records also hold all cleanup. A valid active/pending record protects its specific attempt. `--include-failed` relaxes only the result-artifact requirement, never these preservation gates.
 

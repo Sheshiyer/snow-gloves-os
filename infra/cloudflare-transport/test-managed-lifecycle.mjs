@@ -11,6 +11,7 @@ const validEnv = {
   SG_BACKUP_KEY_ID: 'key-id-01',
   GATEWAY_INSTANCE_ID: 'inst-01',
   GATEWAY_START_ALLOWED: 'true',
+  GATEWAY_PROVIDER_EGRESS: '["api.provider.example"]',
 };
 
 function makeStream(str) { return new Response(str).body; }

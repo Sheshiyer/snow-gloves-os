@@ -278,6 +278,11 @@ def test_boundary_passes_for_a_clean_cloud_gateway(tmp_path, capsys):
     ({"kind": "cloud", "url": "https://gw2.example.com"}, {}, "differs from cloud_gateway.hostname"),
     ({"kind": "cloud", "url": "https://gw.example.com", "tailnet_url": "http://personal-team-gw:20128"}, {},
      "denied domain personal-team"),
+    # a missing or misspelled kind must not skip the https / hostname pins
+    ({"url": "http://gw.example.com"}, {}, "must be https"),
+    ({"kind": "clould", "url": "https://gw2.example.com"}, {}, "differs from cloud_gateway.hostname"),
+    ({"kind": "clould", "url": "https://gw.example.com"}, {}, "gateway.kind must be cloud"),
+    ({"url": "https://gw.example.com"}, {}, "gateway.kind must be cloud"),
 ])
 def test_boundary_fails_closed(tmp_path, capsys, gateway, cloud, needle):
     root, home = seed_cloud(tmp_path, gateway, **cloud)

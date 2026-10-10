@@ -50,6 +50,18 @@ def test_failed_attempts_go_only_with_the_explicit_flag(world):
     assert verdicts(state, artifacts, include_failed=True) == {'t3-a3': 'remove'}
 
 
+def test_remote_acknowledged_success_counts_as_a_result_but_failures_stay(world):
+    """remote_artifacts workers write no local artifact; the accepted-success marker stands in for it."""
+    repo, state, artifacts, tree = world
+    tree('t1', 'a1', artifact=False)
+    tree('t2', 'a2', artifact=False)
+    (state / 'acknowledged').mkdir()
+    (state / 'acknowledged' / 't1-a1.json').write_text(json.dumps({'task_id': 't1', 'attempt_id': 'a1'}))
+    assert verdicts(state, artifacts) == {'t1-a1': 'remove', 't2-a2': 'keep'}
+    (state / 'pending.json').write_text(json.dumps({'attempt_id': 'a1'}))
+    assert verdicts(state, artifacts) == {'t1-a1': 'keep', 't2-a2': 'keep'}
+
+
 @pytest.mark.parametrize('name', ['active.json', 'pending.json', 'recovery-required.json'])
 def test_attempts_the_worker_still_holds_are_never_removed(world, name):
     repo, state, artifacts, tree = world

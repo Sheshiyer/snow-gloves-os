@@ -280,3 +280,40 @@ def test_verification_cannot_signal_processes_outside_its_sandbox_but_may_manage
     finally:
         outsider.kill()
         outsider.wait()
+
+
+def _alive(pid):
+    import os
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+@pytest.mark.parametrize('exit_code,timeout,outcome', [(0, 600, 'succeeded'), (3, 600, 'Tests failed'),
+                                                       (0, 1, 'timed out')])
+def test_verification_background_descendants_are_terminated(env, exit_code, timeout, outcome):
+    """A test that leaves a background child (holding stdout) must not outlive verification or hang it."""
+    import os, time
+    config, task, _, tmp = env
+    pidfile = Path(config['state_root']) / 'verify-tmp' / task['attempt_id'] / 'child.pid'  # the private TMPDIR
+    code = ('import os, subprocess, sys, time\n'
+            'p = subprocess.Popen(["sleep", "60"])\n'   # inherits stdout/stderr and the process group
+            'open(os.path.join(os.environ["TMPDIR"], "child.pid"), "w").write(str(p.pid))\n'
+            'time.sleep(%d)\n'
+            'sys.exit(%d)' % (5 if timeout == 1 else 0, exit_code))
+    config['test_commands'] = {config['write_roots'][0]: [{'argv': [sys.executable, '-c', code], 'timeout': timeout}]}
+    started = time.monotonic()
+    _, final = run(config, task)
+    assert time.monotonic() - started < 30, 'worker waited on a descendant'
+    child = int(pidfile.read_text())
+    try:
+        assert outcome in (final['type'] if outcome == 'succeeded' else final['message']), final
+        deadline = time.monotonic() + 3
+        while _alive(child) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert not _alive(child), 'verification descendant outlived its command'
+    finally:
+        if _alive(child):
+            os.kill(child, 9)

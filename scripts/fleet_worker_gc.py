@@ -2,7 +2,8 @@
 """Prune finished worker worktrees. Dry run unless --apply.
 
 Removes an attempt's worktree only when its result artifact exists (the evidence is already kept) and the
-attempt is not held, pending or active. Changed worktrees, including ignored files, and revisions not
+attempt is not held, pending or active. A remote-artifact worker keeps no local result file; there the
+coordinator-accepted success marker <state-root>/acknowledged/<task>-<attempt>.json counts instead. Changed worktrees, including ignored files, and revisions not
 retained by a branch or tag are kept for recovery.
 Failed, cancelled and interrupted attempts are kept for forensics unless --include-failed is given.
 Worktrees younger than --min-age-hours are always kept. --include-failed never bypasses preservation.
@@ -68,7 +69,8 @@ def plan(state, artifacts, min_age_hours=24, include_failed=False, now=None):
     for tree in sorted((state / 'worktrees').glob('*')) if (state / 'worktrees').is_dir() else []:
         task, _, attempt = tree.name.partition('-')
         age_hours = (now - tree.stat().st_mtime) / 3600
-        has_artifact = (artifacts / (tree.name + '.json')).is_file()
+        has_artifact = ((artifacts / (tree.name + '.json')).is_file()
+                        or (state / 'acknowledged' / (tree.name + '.json')).is_file())
         if '*' in protected or attempt in protected:
             verdict = 'keep: held, pending or active'
         elif age_hours < min_age_hours:

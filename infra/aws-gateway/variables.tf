@@ -51,3 +51,9 @@ variable "alarm_email" {
   type        = string
   default     = ""
 }
+
+variable "termination_protection" {
+  description = "EC2 API termination protection. Keep true; scripts/fleet/cloud_gateway.sh aws destroy sets it false for the instance just before destroying."
+  type        = bool
+  default     = true
+}

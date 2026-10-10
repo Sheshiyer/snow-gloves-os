@@ -204,7 +204,7 @@ resource "aws_instance" "gw" {
   subnet_id               = sort(data.aws_subnets.default.ids)[0]
   vpc_security_group_ids  = [aws_security_group.gw.id]
   iam_instance_profile    = aws_iam_instance_profile.gw.name
-  disable_api_termination = true
+  disable_api_termination = var.termination_protection
 
   metadata_options {
     http_tokens                 = "required"

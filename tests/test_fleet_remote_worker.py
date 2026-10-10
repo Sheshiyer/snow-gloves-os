@@ -8,7 +8,7 @@ import sys
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from fleet_worker import Worker
+from fleet_worker import Worker, private_json
 from lib.fleet_coordinator import (
     MAX_HTTP_BODY_BYTES,
     MAX_REMOTE_ARTIFACT_BYTES,
@@ -160,6 +160,11 @@ def test_remote_success_uses_local_mapping_and_coordinator_artifact(tmp_path, re
     terminal = reports[-1]
     assert terminal['type'] == 'succeeded'
     assert set(terminal['artifact']) == {'content', 'sha256'}
+    # the accepted success is recorded locally so worktree GC can treat the attempt as finished
+    ack = worker.state / 'acknowledged' / ('%s-%s.json' % (task['id'], task['attempt_id']))
+    assert (worker.state / 'worktrees' / ack.name[:-len('.json')]).is_dir()
+    marker = json.loads(ack.read_text())
+    assert marker['artifact_sha256'] == terminal['artifact']['sha256'] and ack.stat().st_mode & 0o077 == 0
     assert len(terminal['artifact']['content'].encode('utf-8')) <= MAX_REMOTE_ARTIFACT_BYTES
     detail = coordinator.detail('founder', config['principals']['founder'], task['id'])
     stored = coordinator.artifacts / detail['artifact']['path']
@@ -392,3 +397,31 @@ def test_remote_cancellation_rejects_artifact_before_file_write(remote_fleet):
         report(coordinator, config, task, {})
     assert exc.value.status == 409
     assert not list(coordinator.artifacts.iterdir())
+
+
+@pytest.mark.parametrize('kind,outcome', [('succeeded', 'accepted'), ('succeeded', 409), ('failed', 'accepted')])
+def test_only_an_accepted_remote_success_leaves_a_gc_marker(tmp_path, kind, outcome):
+    from urllib.error import HTTPError
+    root = tmp_path / 'checkout'
+    root.mkdir()
+    key = tmp_path / 'gateway.key'
+    key.write_text('k')
+    key.chmod(0o600)
+    worker = Worker({
+        'endpoint': 'http://127.0.0.1:4101', 'token': REMOTE_TOKEN, 'node_id': 'coding02',
+        'state_root': str(tmp_path / 'worker-state'), 'allowed_roots': [str(root)],
+        'project_roots': {'snowgloves': str(root)}, 'remote_artifacts': True,
+        'gateway_url': 'http://127.0.0.1:20128/v1', 'gateway_key_file': str(key), 'codex_path': '/bin/false',
+    })
+    body = dict(task_id='t1', attempt_id='a1', lease_token='l', event_id='e', type=kind,
+                **({'artifact': {'content': '{}', 'sha256': 'x' * 64}} if kind == 'succeeded' else {}))
+    private_json(worker.pending, body)
+
+    def request(route, sent):
+        if outcome != 'accepted':
+            raise HTTPError('http://127.0.0.1:4101' + route, outcome, 'conflict', {}, None)
+        return {}
+    worker.request = request
+    assert worker.flush() and not worker.pending.exists()
+    marker = worker.state / 'acknowledged' / 't1-a1.json'
+    assert marker.exists() == (kind == 'succeeded' and outcome == 'accepted')

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRecoveryIO,runtimeContext} from './recovery-io.ts';
 import {RecoveryHeld,TransientRecoveryFailure} from './recovery.ts';
-const env={MANAGEMENT_KEY:'management-key-synthetic-32-characters',BACKEND_API_KEY:'backend-key-synthetic-32-characters',STORAGE_ENCRYPTION_KEY:'storage-key-synthetic-32-characters',SG_BACKUP_KEY:btoa('a'.repeat(32)),SG_BACKUP_KEY_ID:'synthetic',GATEWAY_INSTANCE_ID:'synthetic',GATEWAY_START_ALLOWED:'true'};
+const env={MANAGEMENT_KEY:'management-key-synthetic-32-characters',BACKEND_API_KEY:'backend-key-synthetic-32-characters',STORAGE_ENCRYPTION_KEY:'storage-key-synthetic-32-characters',SG_BACKUP_KEY:btoa('a'.repeat(32)),SG_BACKUP_KEY_ID:'synthetic',GATEWAY_INSTANCE_ID:'synthetic',GATEWAY_START_ALLOWED:'true',GATEWAY_PROVIDER_EGRESS:'["api.provider.example"]'};
 const image='registry.local/synthetic@sha256:'+'a'.repeat(64);
 function fixture(fetch){const container={running:true,images:{base:image},inspect:async()=>({image}),getTcpPort:()=>({fetch}),start:()=>{}};return{container,io:createRecoveryIO({get:async()=>undefined}, {},container,env)};}
 test('management network failure is explicitly transient before any export side effect',async()=>{const f=fixture(async()=>{throw new TypeError('network');});await assert.rejects(f.io.checkpoint('b'.repeat(32),new AbortController().signal),error=>error instanceof TransientRecoveryFailure);});

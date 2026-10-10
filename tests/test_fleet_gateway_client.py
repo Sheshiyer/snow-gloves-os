@@ -282,6 +282,28 @@ def test_is_fleet_compares_scheme_host_and_default_port():
     assert gc.parse_gateway_url("gw.example.com") == ("http", "gw.example.com", 80)
 
 
+@pytest.mark.parametrize("url", [
+    "https://gw.example.com:443@other.example",   # userinfo: the request would go to other.example
+    "https://user@gw.example.com",
+    "https://gw.example.com@other.example/v1",
+    "https://gw.example.com:443junk",
+    "https://gw.example.com:99999",
+    "ftp://gw.example.com",
+    "https://gw example.com",
+])
+def test_parse_gateway_url_rejects_userinfo_and_malformed_authority(url):
+    assert gc.parse_gateway_url(url) == (None, None, None)
+    assert not gc.has_explicit_port(url)
+    assert not gc.is_fleet(url, "https://gw.example.com")
+
+
+def test_parse_gateway_url_accepts_paths_queries_and_ports():
+    assert gc.parse_gateway_url("https://gw.example.com:443/v1?x=1") == ("https", "gw.example.com", 443)
+    assert gc.parse_gateway_url("https://gw.example.com/a@b") == ("https", "gw.example.com", 443)
+    assert gc.parse_gateway_url("coding-mac:8080") == ("http", "coding-mac", 8080)
+    assert gc.has_explicit_port("coding-mac:8080") and not gc.has_explicit_port("https://gw.example.com/v1")
+
+
 def test_doctor_does_not_require_tailscale_for_an_https_gateway(home, capsys, monkeypatch):
     monkeypatch.setattr(gc.shutil, "which", lambda name: None)
     monkeypatch.setattr(gc.Path, "exists", lambda self: False)

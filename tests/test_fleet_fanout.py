@@ -564,7 +564,7 @@ def test_manual_graph_and_native_task_claim_remain_unplanned(fleet):
 
 
 def test_bridge_plan_uses_no_tools_and_rejects_model_authority_fields(tmp_path, monkeypatch):
-    monkeypatch.setattr(subprocess, 'check_output', lambda *args, **kwargs: 'revision\n')
+    monkeypatch.setattr(subprocess, 'check_output', lambda args, **kwargs: '' if 'status' in args else 'revision\n')
     key = tmp_path / 'gateway.key'
     key.write_text('gateway-secret')
     key.chmod(0o600)

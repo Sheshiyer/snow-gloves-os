@@ -106,15 +106,37 @@ def private_json(path, value):
     os.replace(temporary, path)
 
 
-def stop_group(process):
-    if process.poll() is not None:
-        return
-    os.killpg(process.pid, signal.SIGTERM)
+def _signal_group(pgid, signum):
+    """Signal a process group; False once no member is left."""
     try:
-        process.wait(timeout=5)
+        os.killpg(pgid, signum)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # a member exists that we may not signal; treat the group as still alive
+    return True
+
+
+def stop_group(process, grace=5):
+    """Terminate the whole session started for `process` (start_new_session=True) and reap the leader.
+
+    Runs even when the leader has already exited: background descendants it left behind share its
+    process group and must not keep running (or keep editing the worktree) after the run is over."""
+    pgid = process.pid
+    if _signal_group(pgid, signal.SIGTERM):
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            process.poll()  # reap the leader so a zombie does not keep the group alive
+            if not _signal_group(pgid, 0):
+                break
+            time.sleep(0.05)
+        else:
+            _signal_group(pgid, signal.SIGKILL)
+    try:
+        process.wait(timeout=grace)
     except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
-        process.wait(timeout=5)
+        _signal_group(pgid, signal.SIGKILL)
+        process.wait(timeout=grace)
 
 
 class Worker:
@@ -190,10 +212,23 @@ class Worker:
             return False
         except (OSError, ValueError):
             return False
+        self.acknowledge(body)
         self.pending.unlink()
         if self.active.exists():
             self.active.unlink()
         return True
+
+    def acknowledge(self, body):
+        """Record a coordinator-accepted remote success locally. A remote worker keeps no result file,
+        so this marker is what lets fleet_worker_gc.py treat the attempt's worktree as finished."""
+        if not self.remote_artifacts or body.get('type') != 'succeeded' or not isinstance(body.get('artifact'), dict):
+            return
+        task_id, attempt_id = body.get('task_id'), body.get('attempt_id')
+        if not all(isinstance(v, str) and re.fullmatch('[a-zA-Z0-9_-]{1,100}', v) for v in (task_id, attempt_id)):
+            return
+        private_json(self.state / 'acknowledged' / (task_id + '-' + attempt_id + '.json'),
+                     {'task_id': task_id, 'attempt_id': attempt_id, 'event_id': body.get('event_id'),
+                      'artifact_sha256': body['artifact'].get('sha256'), 'acknowledged_at': int(time.time())})
 
     def recover(self):
         # Do not resume/replay a CLI after worker loss. Coordinator lease fencing
@@ -548,21 +583,37 @@ class Worker:
         if self.config.get('verify_python_paths'):
             env['PYTHONPATH'] = os.pathsep.join(self.config['verify_python_paths'])
         results = []
-        for command in self.config['test_commands'][str(root)]:
+        for index, command in enumerate(self.config['test_commands'][str(root)]):
             argv = command['argv']
             cwd = (worktree / command.get('cwd', '.')).resolve()
             if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv) or not cwd.is_relative_to(worktree.resolve()):
                 raise WriteRejected('Invalid test command configuration')
+            # Own session per command, output to a private file rather than a pipe: the whole group is
+            # terminated on success, failure and timeout, so a background descendant can neither edit
+            # the worktree after the final snapshot nor hold a pipe open and hang the worker.
+            log_path = scratch.parent / ('%s.verify%d.log' % (task['attempt_id'], index))
+            with os.fdopen(os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'wb') as output:
+                process = subprocess.Popen([*sandbox, *argv], cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                                           stdout=output, stderr=output, start_new_session=True)
             try:
-                done = subprocess.run([*sandbox, *argv], cwd=cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=command.get('timeout', 600))
+                returncode = process.wait(timeout=command.get('timeout', 600))
             except subprocess.TimeoutExpired:
+                returncode = None
+            finally:
+                stop_group(process)
+            try:
+                with open(log_path, 'rb') as stream:
+                    stream.seek(max(0, os.fstat(stream.fileno()).st_size - 8192))
+                    tail = redact(stream.read().decode('utf-8', 'replace')[-2000:]).strip()
+            finally:
+                log_path.unlink(missing_ok=True)
+            if returncode is None:
                 self.keep_patch(task, text)
-                raise WriteRejected('Test command timed out') from None
-            tail = redact((done.stdout + done.stderr).decode('utf-8', 'replace')[-2000:]).strip()
-            results.append({'argv': argv, 'exit_code': done.returncode, 'tail': tail})
-            if done.returncode:
+                raise WriteRejected('Test command timed out')
+            results.append({'argv': argv, 'exit_code': returncode, 'tail': tail})
+            if returncode:
                 self.keep_patch(task, text)
-                raise WriteRejected('Tests failed (exit %d): %s' % (done.returncode, os.path.basename(argv[0])))
+                raise WriteRejected('Tests failed (exit %d): %s' % (returncode, os.path.basename(argv[0])))
         if snapshot()[1] != raw:
             self.keep_patch(task, text)
             raise WriteRejected('Tests modified the working tree')
@@ -639,6 +690,8 @@ class Worker:
                     process.stdin.write(((WRITE_PREAMBLE if write else '') + prompt).encode())
                     process.stdin.close()
                     early, note = self.monitor(task, start, lambda: process.poll() is not None, process)
+                    if not early:  # monitor already stopped the group on cancellation or timeout
+                        stop_group(process)  # the leader is done; nothing it started may outlive the run
                 if early:
                     kind, message = early, note
                     break

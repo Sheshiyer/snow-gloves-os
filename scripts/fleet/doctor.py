@@ -274,11 +274,15 @@ def check_fleet_boundary(fleet: dict | None) -> dict:
         problems.append(f"hostname {hostname} is not under zone {zone}")
     url = gateway_field(fleet, "url")
     scheme, host = url_parts(url)
-    if gateway_field(fleet, "kind") == "cloud":
-        if scheme != "https":
-            problems.append(f"gateway.url must be https for a cloud gateway (got {url or 'nothing'})")
-        if hostname and host != hostname:
-            problems.append(f"gateway.url host {host or '?'} differs from cloud_gateway.hostname {hostname}")
+    # A cloud_gateway block means the fleet gateway is the cloud one: check the URL whatever
+    # gateway.kind says, so a missing or misspelled kind cannot skip the https and hostname pins.
+    kind = gateway_field(fleet, "kind")
+    if kind != "cloud":
+        problems.append(f"gateway.kind must be cloud when cloud_gateway is set (got {kind or 'nothing'})")
+    if scheme != "https":
+        problems.append(f"gateway.url must be https for a cloud gateway (got {url or 'nothing'})")
+    if hostname and host != hostname:
+        problems.append(f"gateway.url host {host or '?'} differs from cloud_gateway.hostname {hostname}")
     hosts = {h for h in (host, hostname, zone.lower(), url_parts(gateway_field(fleet, "tailnet_url"))[1]) if h}
     for h in sorted(hosts):
         for d in deny:

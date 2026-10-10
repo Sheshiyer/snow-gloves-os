@@ -10,7 +10,8 @@ const validEnv = {
   SG_BACKUP_KEY: btoa('k'.repeat(32)),
   SG_BACKUP_KEY_ID: 'backup-key-01',
   GATEWAY_INSTANCE_ID: 'instance-01',
-  GATEWAY_START_ALLOWED: 'true'
+  GATEWAY_START_ALLOWED: 'true',
+  GATEWAY_PROVIDER_EGRESS: '["api.provider.example"]'
 };
 
 test('completed health probe leaves no live timer', async () => {

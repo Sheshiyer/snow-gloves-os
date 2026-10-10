@@ -12,7 +12,7 @@ from urllib.error import HTTPError
 import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from fleet_worker import Worker, private_json, stop_group
-from fleet_hermes_bridge import Bridge, server
+from fleet_hermes_bridge import Bridge, server, verify_hermes_checkout
 
 
 @pytest.fixture
@@ -107,9 +107,62 @@ def test_cancel_terminates_running_group(worker):
     assert not w.pending.exists()
 
 
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def wait_dead(pid, seconds=3):
+    import time
+    deadline = time.monotonic() + seconds
+    while alive(pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    return not alive(pid)
+
+
+BACKGROUND_LEADER = ('#!/usr/bin/env python3\nimport json,subprocess,sys\nsys.stdin.read()\n'
+                     'p = subprocess.Popen(["sleep","60"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n'
+                     'open(%r,"w").write(str(p.pid))\n'
+                     'print(json.dumps({"type":"item.completed","item":{"type":"agent_message","text":"done"}}))\n')
+
+
+def test_background_descendant_is_terminated_when_the_leader_exits_first(worker, tmp_path):
+    w, task = worker
+    pidfile = tmp_path / 'child.pid'
+    Path(w.config['codex_path']).write_text(BACKGROUND_LEADER % str(pidfile))
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    child = int(pidfile.read_text())
+    try:
+        assert reports[-1]['type'] == 'succeeded'
+        assert wait_dead(child), 'background child outlived its runtime leader'
+    finally:
+        if alive(child):
+            os.kill(child, 9)
+
+
+def test_stop_group_terminates_descendants_of_an_already_exited_leader(tmp_path):
+    pidfile = tmp_path / 'child.pid'
+    leader = subprocess.Popen([sys.executable, '-c', 'import subprocess; p = subprocess.Popen(["sleep","60"]); '
+                               'open(%r,"w").write(str(p.pid))' % str(pidfile)], start_new_session=True)
+    leader.wait(timeout=10)  # cancellation can arrive after the leader is gone
+    child = int(pidfile.read_text())
+    try:
+        assert alive(child)
+        stop_group(leader)
+        assert wait_dead(child)
+    finally:
+        if alive(child):
+            os.kill(child, 9)
+
+
 @pytest.fixture
 def bridge(tmp_path, monkeypatch):
-    monkeypatch.setattr(subprocess,'check_output',lambda *args,**kwargs:'revision\n')
+    monkeypatch.setattr(subprocess,'check_output',lambda args,**kwargs:'' if 'status' in args else 'revision\n')
     key = tmp_path/'key'
     key.write_text('gateway-secret')
     key.chmod(0o600)
@@ -216,3 +269,71 @@ def test_worker_entrypoint_uses_worker_config(worker, tmp_path):
     finally:
         process.terminate()
         process.communicate(timeout=5)
+
+
+@pytest.fixture
+def hermes_checkout(tmp_path):
+    root = tmp_path / 'hermes'
+    (root / 'hermes_cli').mkdir(parents=True)
+    (root / 'hermes_cli' / '__init__.py').write_text('')
+    (root / 'toolsets.py').write_text('')
+    (root / '.gitignore').write_text('venv/\n*.pyc\n__pycache__/\nbuild/\ncache/\n')
+    git = ['git', '-C', str(root), '-c', 'user.name=T', '-c', 'user.email=t@example.invalid']
+    subprocess.run(['git', 'init', '-q', str(root)], check=True)
+    subprocess.run([*git, 'add', '.'], check=True)
+    subprocess.run([*git, 'commit', '-q', '-m', 'pinned'], check=True)
+    revision = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip()
+    return root, revision
+
+
+def test_hermes_pin_accepts_a_clean_checkout_with_harmless_ignored_files(hermes_checkout):
+    root, revision = hermes_checkout
+    (root / 'venv' / 'lib').mkdir(parents=True)
+    (root / 'venv' / 'pyvenv.cfg').write_text('home = /usr/bin\n')
+    (root / 'venv' / 'lib' / 'site.py').write_text('')
+    (root / 'hermes_cli' / '__pycache__').mkdir()
+    (root / 'hermes_cli' / '__pycache__' / 'main.cpython-314.pyc').write_bytes(b'')
+    (root / 'cache').mkdir()
+    (root / 'cache' / 'data.json').write_text('{}')
+    verify_hermes_checkout(str(root), revision)
+    with pytest.raises(ValueError, match='differs from approved pin'):
+        verify_hermes_checkout(str(root), '0' * 40)
+
+
+@pytest.mark.parametrize('mutate', [
+    lambda root: (root / 'toolsets.py').write_text('import os; os.system("id")'),         # tracked edit
+    lambda root: (root / 'json.py').write_text(''),                                     # untracked shadow module
+    lambda root: (root / 'hermes_cli' / 'extra.py').write_text(''),                     # untracked in a package
+    lambda root: (root / 'toolsets.pyc').write_bytes(b''),                              # ignored sourceless bytecode
+    lambda root: ((root / 'build').mkdir(), (root / 'build' / '__init__.py').write_text('')),  # ignored package
+])
+def test_hermes_pin_refuses_a_dirty_checkout(hermes_checkout, mutate):
+    root, revision = hermes_checkout
+    mutate(root)
+    with pytest.raises(ValueError, match='refusing to run unpinned code'):
+        verify_hermes_checkout(str(root), revision)
+
+
+def test_bridge_rechecks_the_checkout_before_every_run(hermes_checkout, tmp_path, monkeypatch):
+    root, revision = hermes_checkout
+    key = tmp_path / 'key'
+    key.write_text('gateway-secret')
+    key.chmod(0o600)
+    bridge = Bridge(dict(token='bridge-secret', hermes_root=str(root), hermes_revision=revision,
+                         hermes_python='/python', gateway_key_file=str(key), gateway_url='http://127.0.0.1:20128/v1'))
+    ran = []
+    real_run = subprocess.run
+    def fake(command, **kwargs):
+        if command[0] == 'git':
+            return real_run(command, **kwargs)
+        ran.append(kwargs['env'])
+        return subprocess.CompletedProcess(command, 0, json.dumps({'type': 'result', 'exit_code': 0, 'text': json.dumps(
+            {'summary': 'Ready', 'logical_role': 'interpreter'})}) + '\n', '')
+    monkeypatch.setattr(subprocess, 'run', fake)
+    body = dict(title='Review', brief='Original instruction', project='snowgloves')
+    bridge.interpret(body)
+    assert ran and ran[-1]['PYTHONPYCACHEPREFIX'] == bridge.pycache and str(root) not in bridge.pycache
+    (root / 'toolsets.py').write_text('tampered = True\n')  # changed after the bridge started
+    with pytest.raises(ValueError, match='refusing to run unpinned code'):
+        bridge.interpret(body)
+    assert len(ran) == 1

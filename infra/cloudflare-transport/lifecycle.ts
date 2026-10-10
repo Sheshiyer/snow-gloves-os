@@ -7,6 +7,8 @@ export interface LifecycleEnv {
   GATEWAY_INSTANCE_ID: string;
   GATEWAY_START_ALLOWED: string;
   GATEWAY_INITIALIZE_FRESH?: string;
+  /** JSON array of provider hostnames the runtime may reach. Unset or `[]` (the default) holds start. */
+  GATEWAY_PROVIDER_EGRESS?: string;
 }
 
 export const LIFECYCLE_OVERALL_TIMEOUT_MS = 5000;
@@ -19,6 +21,8 @@ const KEY_REGEX = /^[A-Za-z0-9._~-]{32,256}$/;
 const BASE64_32_REGEX = /^(?:[A-Za-z0-9+/]{4}){10}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const INSTANCE_ID_REGEX = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const KEY_ID_REGEX = /^[a-z0-9][a-z0-9-]{0,63}$/;
+const HOSTNAME_REGEX = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const MAX_PROVIDER_EGRESS_HOSTS = 16;
 const DIGEST_PINNED_IMAGE_REGEX = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*@sha256:[0-9a-f]{64}$/;
 
 function validatePositiveFiniteBound(val: number | undefined, maxAllowed: number, defaultVal: number): number {
@@ -186,8 +190,27 @@ export async function checkManagedReady(
   }
 }
 
+/**
+ * The container starts with `enableInternet: false` and this lane has no outbound interceptor, so a
+ * started runtime cannot reach any model provider. Starting therefore requires an explicit provider
+ * egress allowlist; without one the start gate fails closed with PROVIDER_EGRESS_HOLD instead of
+ * starting a runtime whose provider calls would all fail. Internet access is never opened here.
+ */
+export function validateProviderEgress(value: string | undefined): string[] {
+  if (value === undefined || value === '' || value === '[]') throw new Error('PROVIDER_EGRESS_HOLD');
+  let hosts: unknown;
+  try { hosts = JSON.parse(value); } catch { throw new Error('INVALID_PROVIDER_EGRESS'); }
+  if (!Array.isArray(hosts) || hosts.length === 0 || hosts.length > MAX_PROVIDER_EGRESS_HOSTS
+      || !hosts.every((h) => typeof h === 'string' && HOSTNAME_REGEX.test(h))
+      || new Set(hosts).size !== hosts.length) {
+    throw new Error('INVALID_PROVIDER_EGRESS');
+  }
+  return hosts as string[];
+}
+
 export function validateEnv(env: LifecycleEnv): { imageDigest: string; envToInject: Record<string, string> } {
   if (env.GATEWAY_START_ALLOWED !== 'true') throw new Error('GATEWAY_START_HOLD');
+  validateProviderEgress(env.GATEWAY_PROVIDER_EGRESS);
   if (env.GATEWAY_INITIALIZE_FRESH !== undefined && env.GATEWAY_INITIALIZE_FRESH !== '1') throw new Error('INVALID_INITIALIZE_POLICY');
 
   for (const k of ['MANAGEMENT_KEY', 'BACKEND_API_KEY', 'STORAGE_ENCRYPTION_KEY'] as const) {
@@ -231,7 +254,7 @@ export class ContainerLifecycleManager {
   private ownedContainer: Container | null = null;
 
   private async computeConfigFingerprint(env: LifecycleEnv, selectedImage: string): Promise<string> {
-    const payload = JSON.stringify([env.MANAGEMENT_KEY, env.BACKEND_API_KEY, env.STORAGE_ENCRYPTION_KEY, env.SG_BACKUP_KEY, env.SG_BACKUP_KEY_ID, env.GATEWAY_INSTANCE_ID, env.GATEWAY_INITIALIZE_FRESH ?? null, selectedImage]);
+    const payload = JSON.stringify([env.MANAGEMENT_KEY, env.BACKEND_API_KEY, env.STORAGE_ENCRYPTION_KEY, env.SG_BACKUP_KEY, env.SG_BACKUP_KEY_ID, env.GATEWAY_INSTANCE_ID, env.GATEWAY_INITIALIZE_FRESH ?? null, env.GATEWAY_PROVIDER_EGRESS ?? null, selectedImage]);
     const data = new TextEncoder().encode(payload);
     const hash = await crypto.subtle.digest('SHA-256', data);
     return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');

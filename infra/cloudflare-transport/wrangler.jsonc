@@ -3,7 +3,8 @@
   "main": "index.ts",
   "compatibility_date": "2026-10-05",
   "compatibility_flags": [
-    "nodejs_compat"
+    "nodejs_compat",
+    "enable_request_signal"
   ],
   "workers_dev": false,
   "preview_urls": false,
@@ -12,7 +13,8 @@
   },
   "vars": {
     "GATEWAY_INSTANCE_ID": "company-gateway",
-    "GATEWAY_START_ALLOWED": "false"
+    "GATEWAY_START_ALLOWED": "false",
+    "GATEWAY_PROVIDER_EGRESS": "[]"
   },
   "exports": {
     "Gateway": {

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Authenticated loopback interpretation bridge; model output carries no authority."""
 import argparse
+import atexit
 import hmac
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
+import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from lib.fleet_coordinator import (
@@ -33,6 +36,42 @@ def runtime_environment():
             ('HOME', 'PATH', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'SSL_CERT_FILE', 'SSL_CERT_DIR')
             if name in os.environ}
 
+# Files Python can import from a directory on sys.path (sourceless .pyc included).
+IMPORTABLE = ('.py', '.pyc', '.pyo', '.pyw', '.pth', '.so', '.pyd')
+
+
+def _importable_ignored(root, rel):
+    """True when an ignored path could be imported from the Hermes checkout."""
+    parts = rel.rstrip('/').split('/')
+    if '__pycache__' in parts:
+        return False  # never read: the bridge points PYTHONPYCACHEPREFIX at a private directory
+    path = Path(root) / rel
+    if not rel.endswith('/'):
+        return path.suffix in IMPORTABLE
+    try:
+        if (path / 'pyvenv.cfg').is_file():
+            return False  # a virtualenv (e.g. the one hermes_python lives in) is not on the import path
+        return any(child.suffix in IMPORTABLE for child in path.iterdir())
+    except OSError:
+        return True
+
+
+def verify_hermes_checkout(root, revision):
+    """The pin only means something if the code that runs is the pinned commit: HEAD must match and the
+    checkout must have no tracked changes, no untracked files and no ignored importable files."""
+    head = subprocess.check_output(['git', '-C', root, 'rev-parse', 'HEAD'], text=True).strip()
+    if head != revision:
+        raise ValueError('Hermes revision differs from approved pin')
+    status = subprocess.check_output(['git', '-C', root, 'status', '--porcelain=v1', '-z',
+                                      '--untracked-files=all', '--ignored=matching'], text=True)
+    for entry in filter(None, status.split('\0')):
+        code, rel = entry[:2], entry[3:]
+        if code != '!!':
+            raise ValueError('Hermes checkout has uncommitted or untracked files; refusing to run unpinned code')
+        if _importable_ignored(root, rel):
+            raise ValueError('Hermes checkout has ignored importable files; refusing to run unpinned code')
+
+
 BOOTSTRAP = '''import sys
 sys.path.insert(0, sys.argv.pop(1))
 from toolsets import create_custom_toolset, resolve_toolset
@@ -49,9 +88,9 @@ class Bridge:
         self.lock = threading.Lock()
         if config['gateway_url'] != 'http://127.0.0.1:20128/v1':
             raise ValueError('Gateway must use reviewed loopback route')
-        revision = subprocess.check_output(['git', '-C', config['hermes_root'], 'rev-parse', 'HEAD'], text=True).strip()
-        if revision != config['hermes_revision']:
-            raise ValueError('Hermes revision differs from approved pin')
+        verify_hermes_checkout(config['hermes_root'], config['hermes_revision'])
+        self.pycache = tempfile.mkdtemp(prefix='snowgloves-hermes-pycache-')
+        atexit.register(shutil.rmtree, self.pycache, True)
 
     def _gateway_key(self):
         key_path = Path(self.config['gateway_key_file'])
@@ -71,12 +110,15 @@ class Bridge:
                 env.pop(name)
         env.update(CUSTOM_BASE_URL=self.config['gateway_url'],
                    OPENAI_BASE_URL=self.config['gateway_url'], OPENAI_API_KEY=key,
-                   HERMES_EPHEMERAL_SYSTEM_PROMPT=system_prompt)
+                   HERMES_EPHEMERAL_SYSTEM_PROMPT=system_prompt,
+                   PYTHONPYCACHEPREFIX=self.pycache)  # bytecode is never read from the checkout
         command = [self.config['hermes_python'], '-c', BOOTSTRAP, self.config['hermes_root'],
                    '-p', self.config.get('hermes_profile', 'snowgloves'), 'chat', '--oneshot', '--format', 'stream-json',
                    '--safe-mode', '--provider', 'custom', '-m', self.config.get('model', 'noesis-fast'),
                    '-t', 'snowgloves-none', '--max-turns', '2', '--run-budget', '60', '--query-file', '-']
         with self.lock:
+            # Re-check every run: the checkout is mutable after the bridge started.
+            verify_hermes_checkout(self.config['hermes_root'], self.config['hermes_revision'])
             completed = subprocess.run(command, input=prompt, text=True, capture_output=True, timeout=90, env=env)
         if completed.returncode:
             raise ValueError('Hermes execution failed')
