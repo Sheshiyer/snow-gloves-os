@@ -4,10 +4,10 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 344/384
+progress: 345/384
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 ## Problem
@@ -507,7 +507,7 @@ until the actual mini supplies evidence.
 - [ ] ISC-362: Concurrent named remote editor sessions preserve separate working copies and the one-desktop-operator arrangement.
 - [ ] ISC-363: Coding 01 remote desktop passes monitor-disconnected testing with lock and recovery limitations recorded.
 - [ ] ISC-364: Representative build and agent measurements establish a documented safe Coding 01 concurrency limit.
-- [ ] ISC-365: Coding 02 passes device enrollment, remote access and a node-attributed job test.
+- [x] ISC-365: Coding 02 passes device enrollment, remote access and a node-attributed job test.
 - [ ] ISC-366: Creative passes device enrollment, remote access and a node-attributed job test on its intended network.
 - [ ] ISC-367: Marketing passes device enrollment, remote access and a node-attributed job test on its intended network.
 - [x] ISC-368: The private fleet rollout checklist records founder actions, evidence-linked tests, owners, dependencies and next planning step without promoting historical host proof.
@@ -738,6 +738,8 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 - 2026-10-09 11:33: Existing dedicated fleet key succeeds; default SSH key selection failure was not missing authorization. Non-login PATH omits installed Homebrew tools; explicit paths/login-shell inventory is required. AXIO Codex remains unchanged and routes to unavailable coding-mac:20128.
 
 - 2026-10-09: Founder explicitly keeps routed execution held for OmniRoute migration, then reports independently installing OmniRoute on mac-coding. Agent service activation remains unapproved and unperformed; no changes may race the operator installer. Existing AXIO3.8.50 and provider-count observations predate that installation.
+
+- 2026-10-10: Shared OmniRoute inference credentials are permitted across fleet workers by founder decision; coordinator worker credentials remain distinct and project-scoped. ISC-365 stays open until a real remote worker returns a node-attributed verified artifact.
 
 ## Changelog
 
@@ -1210,6 +1212,8 @@ Fresh-machine, reboot, and restore verification remain pending on the actual min
 Cockpit verification receipts: /Users/sheshnarayaniyer/.codex/visualizations/2026/10/07/01a1176d-6b04-79c3-9549-9884312e0e4b/infra-cockpit-browser.json and /Users/sheshnarayaniyer/.codex/visualizations/2026/10/07/01a1176d-6b04-79c3-9549-9884312e0e4b/infra-cockpit-receipt.json. Root executed IAB; independent agent reviewed source and saved receipts. Focused backend 44 passed; frontend 53 passed; full repository 791 passed, 271 skipped, 23 subtests; catalog current. Full suite precedes final presentation/timestamp validation fixes; latest focused rerun and production build cover those changes.
 
 ReReadCheck — latest user request: "Fan out and integrate all the infra and do a deep pass on implementing all the features on top of this". Three independently owned API/client/UI lanes integrated above the existing city. Eleven workspaces cover all current source inventory and bounded private metadata; full browser flows and gate-checked local proposal export are implemented. Runtime operations without an existing control contract are explicitly unavailable; existing game remains functional. This finishes the cockpit lane and does not close historical physical/deployment requirements.
+
+- ISC-365: Physical device and source verification — 2026-10-10 remote worker enrollment, private SSH transport, 116 Coding02 tests and real Hermes-to-Codex-to-artifact round trip pass; artifact node is Coding02, SHA-256 matches, source constant/mapping references are verified, and the same attempt survives coordinator restart. Shared inference credential retained; remote writes, Claude/GitHub integration and physical reboot remain separate open checks.
 
 ## Change log — standalone import body bridge, 6 October 2026
 
