@@ -3,8 +3,8 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: build
-progress: 353/429
+phase: verify
+progress: 367/429
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -530,20 +530,20 @@ until the actual mini supplies evidence.
 
 ### Headless Hermes implementation, 10 October 2026
 
-- [ ] ISC-401: Combined remote artifacts and verified role context pass source regression.
-- [ ] ISC-402: Production web server serves the built UI without a desktop-session dependency.
-- [ ] ISC-403: Production web proxy rejects unapproved hosts, origins and worker routes.
-- [ ] ISC-404: Authenticated context exposes only authorized projects and worker choices.
-- [ ] ISC-405: Catalog readiness displays every entry with a concrete admission state.
-- [ ] ISC-406: Execution rejects disabled and refused catalog entries server-side.
-- [ ] ISC-407: Execution rejects missing adapters and mismatched pinned skill source.
-- [ ] ISC-408: Execution validates inputs against the reviewed adapter schema.
-- [ ] ISC-409: Capability dispatch rechecks tenant and principal project authority.
-- [ ] ISC-410: Approval requests bind tenant, capability and input digest.
-- [ ] ISC-411: Approval decisions derive actor from authenticated approve permission.
-- [ ] ISC-412: Approved execution consumes authorization without duplicate task creation.
-- [ ] ISC-413: Artifact retrieval rejects cross-owner or cross-project access.
-- [ ] ISC-414: Artifact retrieval verifies persisted bytes before presenting content.
+- [x] ISC-401: Combined remote artifacts and verified role context pass source regression.
+- [x] ISC-402: Production web server serves the built UI without a desktop-session dependency.
+- [x] ISC-403: Production web proxy rejects unapproved hosts, origins and worker routes.
+- [x] ISC-404: Authenticated context exposes only authorized projects and worker choices.
+- [x] ISC-405: Catalog readiness displays every entry with a concrete admission state.
+- [x] ISC-406: Execution rejects disabled and refused catalog entries server-side.
+- [x] ISC-407: Execution rejects missing adapters and mismatched pinned skill source.
+- [x] ISC-408: Execution validates inputs against the reviewed adapter schema.
+- [x] ISC-409: Capability dispatch rechecks tenant and principal project authority.
+- [x] ISC-410: Approval requests bind tenant, capability and input digest.
+- [x] ISC-411: Approval decisions derive actor from authenticated approve permission.
+- [x] ISC-412: Approved execution consumes authorization without duplicate task creation.
+- [x] ISC-413: Artifact retrieval rejects cross-owner or cross-project access.
+- [x] ISC-414: Artifact retrieval verifies persisted bytes before presenting content.
 - [ ] ISC-415: Fleet UI selects authorized projects and eligible workers.
 - [ ] ISC-416: Fleet UI exposes capability readiness and gated execution controls.
 - [ ] ISC-417: Fleet UI exposes approval decisions only to authorized approvers.
@@ -1619,3 +1619,8 @@ ISC-399: managed read and write commands now disable both `multi_agent` and `mul
 The actual candidate coordinator, pinned Hermes revision 93257fd and Codex completed root -> Librarian -> Sentinel with verified artifacts. Owned CLI session prompts were checked directly: Librarian received the exact 1,669-byte root output; Sentinel received that output plus the exact 1,065-byte Librarian output, with matching task/attempt IDs and ordering. Sentinel correctly detected and corrected all five root line-citation offsets against the executed source. Its output was 1,906 bytes, above the requested 1,800 but within the 4,096-byte context contract. Root content is not accepted wholesale.
 
 These jobs used isolated candidate servers and state, not the serving production board. Baseline production and native configuration hashes are unchanged; temporary servers stopped. ISC-393 through ISC-396 remain open for production admission, actual operator semantic acceptance and authenticated board operation. Browser observation after the operator reply still shows Disconnected. Private receipts retain actual capture timestamps of 9 October UTC; this verification entry uses the client's 10 October date.
+
+
+## Verification — headless fleet source integration, 10 October 2026
+
+ISC-401: integration69f7bce preserves remote artifacts and role context;212 focused tests passed. ISC-402/403: production stdlib server serves the built UI through loopback with bounded host/origin/route checks; four transport tests passed and actual disposable IAB reaches the built town. This does not satisfy installed-daemon or physical-boot acceptance. ISC-404–414:100 capability/coordinator/MCP/fanout/scope tests passed with one optional SDK test skipped in the local interpreter. Actual Coding01 installed MCP SDK independently discovered all14 tools through the HTTP adapter at an isolated loopback port. Artifact envelopes now always include project identity;67 worker/transport tests pass with synthetic claims corrected to include their project. The first integrated browser authentication exposed a missing-schema contract mismatch on unavailable catalog entries; UI acceptance stays open pending repair and replay.

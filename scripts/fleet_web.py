@@ -23,7 +23,7 @@ def fleet_route(method, path):
     return any(re.fullmatch(p, path) for p in (reads if method == 'GET' else writes if method == 'POST' else ()))
 
 
-def create_server(root, hosts, origins, port=18764, coordinator_port=4101, cockpit_port=18765):
+def create_server(root, hosts, origins, port=18764, coordinator_port=4101, cockpit_port=18765, mcp_port=4103):
     root = Path(root).resolve(strict=True)
     if not root.is_dir() or not (root / 'index.html').is_file():
         raise ValueError('Built UI directory with index.html required')
@@ -98,7 +98,12 @@ def create_server(root, hosts, origins, port=18764, coordinator_port=4101, cockp
             return self.reply(200, target.read_bytes(), mimetypes.guess_type(target.name)[0] or 'application/octet-stream')
 
         def proxy(self, origin, length):
-            if self.path.startswith('/api/fleet/'):
+            is_mcp = self.path == '/api/mcp'
+            if is_mcp:
+                if self.command != 'POST':
+                    return self.error(405, 'Method unavailable')
+                port, path = mcp_port, '/mcp'
+            elif self.path.startswith('/api/fleet/'):
                 if '?' in self.path or '#' in self.path or '%' in self.path:
                     return self.error(404, 'Route unavailable')
                 path = self.path[len('/api/fleet'):]
@@ -117,7 +122,7 @@ def create_server(root, hosts, origins, port=18764, coordinator_port=4101, cockp
             if len(self.headers.get_all('Authorization', [])) > 1:
                 return self.error(400, 'Invalid authorization')
             headers = {'Content-Type': 'application/json'}
-            for name in ('Authorization', 'Origin'):
+            for name in ('Authorization', 'Origin', 'Accept', 'MCP-Protocol-Version'):
                 if self.headers.get(name):
                     headers[name] = self.headers[name]
             payload = self.rfile.read(length) if length else None
@@ -131,6 +136,8 @@ def create_server(root, hosts, origins, port=18764, coordinator_port=4101, cockp
                 if len(body) > MAX_RESPONSE:
                     return self.error(502, 'Upstream response unavailable')
                 # No redirects, cookies or upstream diagnostic bodies cross the boundary.
+                if is_mcp and response.status in (202, 204):
+                    return self.reply(response.status, body)
                 if response.status != 200:
                     return self.error(response.status if response.status in (400,401,403,404,405,409,413,503) else 502, 'Fleet operation unavailable')
                 return self.reply(200, body)
@@ -150,8 +157,9 @@ def main():
     p.add_argument('--port', type=int, default=18764)
     p.add_argument('--coordinator-port', type=int, default=4101)
     p.add_argument('--cockpit-port', type=int, default=18765)
+    p.add_argument('--mcp-port', type=int, default=4103)
     args = p.parse_args()
-    server = create_server(args.root, args.host, args.origin, args.port, args.coordinator_port, args.cockpit_port)
+    server = create_server(args.root, args.host, args.origin, args.port, args.coordinator_port, args.cockpit_port, args.mcp_port)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

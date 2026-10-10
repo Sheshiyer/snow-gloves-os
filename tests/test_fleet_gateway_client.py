@@ -151,6 +151,8 @@ def test_key_values_never_appear_in_output(home, capsys, monkeypatch):
 
 def test_doctor_reports_env_key_ref_and_tailscale(home, capsys, monkeypatch):
     monkeypatch.setattr(gc.shutil, "which", lambda name: None)
+    exists = Path.exists
+    monkeypatch.setattr(Path, "exists", lambda path: False if str(path) == "/Applications/Tailscale.app/Contents/MacOS/Tailscale" else exists(path))
     rc, out, _ = run(capsys, "doctor", "--home", str(home), "--host", HOST, "--key-ref", "env:FAKE_KEY")
     assert "tailscale: MISSING" in out
     assert "key_ref env:FAKE_KEY: set" in out
