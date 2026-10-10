@@ -4,8 +4,8 @@ Grok Bot is an optional operational client. The coordinator, Hermes, worker,
 production UI and inference gateway run independently of the desktop app.
 
 Use **Bot Plugins → Add custom** only when that supported flow is visible in
-the actual installed app. The documented import accepts one MCP server per JSON
-configuration. If this app version or account does not expose custom import,
+the actual installed app. The existing candidate import contains one MCP server per JSON
+configuration; its acceptance by the current app remains unverified. If this app version or account does not expose custom import,
 record the app version, visible controls and missing capability as a blocker;
 stop registration there. Do not modify the signed app bundle, invent a settings
 schema or treat a different Connect Apps screen as successful registration.
@@ -152,3 +152,31 @@ The probe performs no tool calls or task submissions. It refuses redirects and
 ambient proxies, bounds response size and pagination, and reports only redacted
 transport evidence. The timeout applies per socket operation. Neither command
 registers the app or proves app-originated execution.
+
+## Current app and network observations
+
+The reviewed client-placement JSON is a candidate for supported registration;
+MCP transport success does not establish that a particular Grok Bot version
+accepts this schema. On 11 October, the authoring Mac's signed app version0.68.1
+exposed Connect Apps, Your plugins and settings, but no custom MCP import was
+observed in those inspected screens. Coding01 has the same installed app version;
+its actual registration screen remains unobserved. Do not infer equal feature
+availability from equal versions, or modify feature flags/settings to expose it.
+
+Current official guidance describes Remote HTTPS custom MCP servers for Team
+Bots and separate private-network routing from Grok's cloud computer. Prefer the
+actual supported registration fields presented by the selected app/account;
+do not assume the candidate `placement` field is accepted by that UI.
+
+On the authoring Mac, Settings → Computer → Network displayed Route traffic
+through this computer as On, with zero routed requests in that session. That
+is a configuration observation, not proof of fleet reachability from the cloud
+computer. It also does not prove Coding01 supplies the route. Verify a request
+from the actual Grok client before recording transport acceptance for that path.
+A desktop route depends on that desktop remaining available; it cannot prove
+continued private-network access after that desktop app closes. Distinguish
+backend continuation for a task already submitted from later cloud tool access.
+
+References: [private networks](https://docs.x.ai/grok-bot/private-networks),
+[settings](https://docs.x.ai/grok-bot/settings-and-notifications), and
+[Team Bot plugins](https://docs.x.ai/grok-bot/team-bots).
