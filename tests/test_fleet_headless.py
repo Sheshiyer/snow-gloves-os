@@ -66,6 +66,7 @@ class Headless(unittest.TestCase):
         self.stack.enter_context(patch.object(h.platform, 'system', lambda: 'Darwin'))
         self.stack.enter_context(patch.object(h.platform, 'node', lambda: 'coding01-test'))
         self.stack.enter_context(patch.object(h, 'user_info', self.fake_user_info))
+        self.stack.enter_context(patch.object(h, 'account', self.fake_account))
         self.stack.enter_context(patch.object(h, 'require_root', lambda: None))
         self.stack.enter_context(patch.object(h, 'root_private_directory', lambda p: self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o700)))
         self.stack.enter_context(patch.object(h, 'private_file', lambda p, uid, **kw: self.original_private_file(p, os.getuid() if uid == 0 else uid, **kw)))
@@ -91,6 +92,31 @@ class Headless(unittest.TestCase):
         if name not in policy['users']:
             raise h.Refused('Service user is not in the headless policy')
         return dict(self.info)
+
+    def fake_account(self, name):
+        if name != USER:
+            raise h.Refused('Service user account does not exist')
+        return dict(self.info)
+
+    def owned_as(self, stack, uid, overrides=None):
+        """Report every test file as owned by uid (per-file overrides) without real chown or root."""
+        real = {name: getattr(os, name) for name in ('stat', 'lstat', 'fstat')}
+        owners = {}
+        for top, dirs, files in os.walk(self.root):
+            for item in [top, *(os.path.join(top, n) for n in dirs + files)]:
+                st = real['lstat'](item)
+                owners[(st.st_dev, st.st_ino)] = uid
+        for item, owner in (overrides or {}).items():
+            st = real['lstat'](item)
+            owners[(st.st_dev, st.st_ino)] = owner
+        def remap(original):
+            def wrapper(*args, **kw):
+                st = original(*args, **kw)
+                owner = owners.get((st.st_dev, st.st_ino))
+                return st if owner is None else os.stat_result((*st[:4], owner, *st[5:10]))
+            return wrapper
+        for name, original in real.items():
+            stack.enter_context(patch.object(os, name, remap(original)))
 
     def write_policy(self, doc, name='policy.json'):
         path = self.root / name
@@ -501,6 +527,43 @@ class Headless(unittest.TestCase):
         self.assertEqual(policy, h.validate_policy(self.policy_doc))
         self.assertEqual(source['sha256'], h.digest(self.policy.read_bytes()))
         self.assertEqual(source['mode'], 0o600)
+
+    def test_root_run_plan_accepts_service_user_owned_policy_only(self):
+        service = 60001 if os.getuid() != 60001 else 60002
+        stranger = service + 1
+        self.info = dict(self.info, uid=service)
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(os, 'geteuid', lambda: 0))
+            self.owned_as(stack, service)
+            plan = self.plan()
+        self.assertEqual(plan['policy_source']['uid'], service)
+        self.assertEqual(plan['user']['uid'], service)
+        self.assertEqual(plan['policy'], h.validate_policy(self.policy_doc))
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(os, 'geteuid', lambda: 0))
+            self.owned_as(stack, service, {self.policy: 0})
+            self.assertEqual(self.plan()['policy_source']['uid'], 0)
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(os, 'geteuid', lambda: 0))
+            self.owned_as(stack, service, {self.policy: stranger})
+            with self.assertRaisesRegex(h.Refused, 'owned by the service user or root'):
+                self.plan()
+        self.policy.chmod(0o640)
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(os, 'geteuid', lambda: 0))
+            self.owned_as(stack, service)
+            with self.assertRaisesRegex(h.Refused, 'private'):
+                self.plan()
+        self.policy.chmod(0o600)
+        opened = []
+        real_open = os.open
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(os, 'geteuid', lambda: stranger))
+            stack.enter_context(patch.object(os, 'open', lambda *a, **kw: opened.append(a[0]) or real_open(*a, **kw)))
+            self.owned_as(stack, stranger)
+            with self.assertRaisesRegex(h.Refused, 'selected service user or root'):
+                self.plan()
+        self.assertNotIn(self.policy, [Path(x) for x in opened])
 
     def test_plan_refused_without_policy_with_clear_reason(self):
         with self.assertRaisesRegex(h.Refused, 'policy is required; pass --policy'):

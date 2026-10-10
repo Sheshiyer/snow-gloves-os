@@ -204,7 +204,12 @@ def working_directory(value, info):
 
 
 def account(user):
-    entry = pwd.getpwnam(user)
+    require(isinstance(user, str) and USER_NAME.fullmatch(user) is not None and user != 'root',
+            'Service user must be a valid non-root account name')
+    try:
+        entry = pwd.getpwnam(user)
+    except KeyError:
+        raise Refused('Service user account does not exist') from None
     require(entry.pw_uid > 0 and entry.pw_dir == '/Users/' + user,
             'Service user must be non-root with its expected home')
     return {'name': user, 'uid': entry.pw_uid, 'gid': entry.pw_gid, 'home': entry.pw_dir}
@@ -466,9 +471,13 @@ def filevault():
 def make_plan(user, labels, db, ssh_host=None, critical_files=(), identity_file=None, *, policy=None):
     require(policy, 'A private headless policy is required; pass --policy PATH')
     require(platform.system() == 'Darwin', 'This command requires the target macOS host')
-    policy, policy_source = read_policy(policy)
+    # Resolve the selected account before opening the policy so a root-run
+    # plan accepts a policy owned by that service user; nobody else's file is.
+    service = account(user)
+    require(os.geteuid() in (0, service['uid']), 'Run inspect/plan as the selected service user or root')
+    policy, policy_source = read_policy(policy, {0, os.geteuid(), service['uid']})
     info = user_info(user, policy)
-    require(os.geteuid() in (0, info['uid']), 'Run inspect/plan as the selected service user or root')
+    require(info['uid'] == service['uid'], 'Service user changed while reading the headless policy')
     require(policy_source['uid'] in (0, info['uid']), 'Headless policy must be owned by the service user or root')
     entry = user_policy(policy, info)
     quiescence = entry['quiescence']
