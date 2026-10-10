@@ -501,7 +501,7 @@ until the actual mini supplies evidence.
 - [x] ISC-355: Migrated tenant source references resolve or are explicitly held on AXIO.
 - [x] ISC-356: Scanner-flagged private files receive individual disposition before any further transfer.
 
-- [ ] ISC-357: The company gateway passes valid HTTPS, authenticated private access and unauthorized-access rejection from another network.
+- [x] ISC-357: The company gateway passes valid HTTPS, authenticated private access and unauthorized-access rejection from another network.
 - [x] ISC-358: The persistent fleet UI and API enforce company identity and application scope through the external access route.
 - [ ] ISC-359: A named remote pilot user edits and builds a separate Snow Gloves checkout on Coding 01.
 - [x] ISC-360: A Coding 01 pilot job survives client disconnect and exposes logs and a verified artifact after reconnect.
@@ -1790,3 +1790,7 @@ Founder requests final non-disruptive mapping and durable operating details befo
 ### 2026-10-11 — Cofounder MacBook Pro onboarding documentation
 
 Prepared private cofounder guide, founder enrollment sequence, four-host SSH config, verified host pins and actual-device checklist in docs/fleet/COFOUNDER-ONBOARDING-2026-10-11/. User selects MacBook Pro and same operator flow as authoring mini. SSH configuration parses for all four aliases; host keys recovered from existing verified HostKeyAlias pins and mapped to fleet DNS names, correcting previously empty departure pin export. Package copied to Coding01. Distinguish trusted shared macOS operator-account access from distinct application task ownership. No invitation, public-key enrollment, principal/token creation, credential sharing, service restart or cofounder-device acceptance performed. Identity/email/public fingerprint pending.
+
+### 2026-10-11 — Phone hotspot access verification
+
+ISC-357: travelling authoring mini default route uses Wi-Fi en1 through phone hotspot gateway172.20.10.1. All four fleet tailnet SSH aliases authenticated and returned hostname/account/uptime. Private fleet HTTPS responds200 with certificate verification; gateway rejects unauthenticated request401 and accepts existing credential200. Credential held in process memory only. Receipt: private docs/fleet/DEPARTURE-2026-10-11/HOTSPOT-VERIFICATION.json. No services restarted, network disconnected, reboot/logout or new managed task performed. App UI and cofounder enrollment remain separate.
