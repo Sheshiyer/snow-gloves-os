@@ -528,14 +528,14 @@ until the actual mini supplies evidence.
 - [x] ISC-382: The reviewed pilot package and runbook record scoped runtime capabilities, limitations and rollout evidence.
 - [ ] ISC-383: Anti: write-adapter verification commands can write outside the approved worktree; an edited verification script invoked by an unchanged allowlisted command is denied without an accepted artifact.
 
-- [ ] ISC-408: Grok import validation rejects unsafe files, placement, endpoints and credential formats without printing secrets.
-- [ ] ISC-409: Read-only Grok MCP probe initializes and discovers tools with bounded transport and redacted failures.
-- [ ] ISC-410: Expanded HTTP MCP boundary tests reject ambiguous headers, unauthorized origins and invalid routes.
-- [ ] ISC-411: Actual Coding01 installed Grok transport passes authenticated discovery with its restricted application identity.
+- [x] ISC-408: Grok import validation rejects unsafe files, placement, endpoints and credential formats without printing secrets.
+- [x] ISC-409: Read-only Grok MCP probe initializes and discovers tools with bounded transport and redacted failures.
+- [x] ISC-410: Expanded HTTP MCP boundary tests reject ambiguous headers, unauthorized origins and invalid routes.
+- [x] ISC-411: Actual Coding01 installed Grok transport passes authenticated discovery with its restricted application identity.
 - [ ] ISC-412: Actual Grok Bot app registers the supported plugin and discovers the fleet tools.
 - [ ] ISC-413: An app-originated bounded task matches its board identity and returns a checksum-verified artifact.
 - [ ] ISC-414: Actual app cancellation and app-closed backend continuity are observed independently.
-- [ ] ISC-415: Anti: transport/source evidence never promotes actual app or physical cold-boot acceptance.
+- [x] ISC-415: Anti: transport/source evidence never promotes actual app or physical cold-boot acceptance.
 
 ## Test Strategy
 
@@ -1687,3 +1687,9 @@ Founder defers the ERP dossier pilot because product connection is unfinished. I
 ### Commercial source completion audit — 9 October 2026
 
 Revalidated the full source-pass objective against current files, the published PR35 revision and private planning/reference evidence. Original commercial suite:103 passed. After incorporating upstream dedd326, combined commercial/coordinator/graph/write/execution/MCP/scoped-principal/transient-retry regressions:140 passed,1 optional MCP SDK test skipped because the dependency is absent. Business preparation remains read-only; the worker retains its delimited business prompt across safe transient retries, and child ownership is checked before context inheritance. Four dated ERP reference source hashes match the private contract. All five source/local criteria383–387 remain accepted; actual ERP read and Coding01 commercial execution criterion388 remains explicitly deferred by founder and outside source-pass completion. Publication is a draft source PR, not merge, deployment or connector activation.
+
+### 2026-10-11 — Grok client source and installed transport
+
+ISC-408/409: 38 synthetic client tests pass; integrated MCP regression reports 49 passed, 1 optional SDK skip. Private mode0600/symlink/duplicate-key/template credential, redirect/proxy/redaction and bounded discovery cases verified. ISC-411: actual Coding01 installed private HTTPS MCP initializes and lists14 tools with existing dedicated application credential. New CLI streamed over SSH returns exit0, transport-only, app_registration_verified=false and task_execution_verified=false. No service installation/restart, credential copy or actual app mutation. ISC-412–414 remain open. Receipt: private docs/fleet/onboarding/2026-10-10-fleet-online/GROK-INTEGRATION-VERIFICATION.json.
+
+ISC-410/415: integrated focused suite now82 passed,1 skipped after expanded HTTP authorization/route tests. Source commit b92895a contains only CLI, tests and supported app runbook; installed MCP and streamed physical probe are reported separately. Actual app registration/task/artifact/cancel/app-closed gates ISC-412–414 remain unchecked.
