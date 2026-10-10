@@ -19,6 +19,16 @@ from urllib.parse import urlsplit
 from lib.fleet_coordinator import (MAX_CHILDREN, MAX_HTTP_BODY_BYTES, MAX_REMOTE_ARTIFACT_BYTES,
                                    MAX_SOURCE_OUTPUT_BYTES, ROLES, STAGES, redact)
 from lib.fleet_write_review import ReviewEvidenceError, validate_evidence
+from lib.fleet_business import (
+    COMMERCIAL_PREPARATION_CATEGORY,
+    BusinessContextError,
+    business_artifact_provenance,
+    business_worker_prompt,
+    ensure_catalog_readiness,
+    normalize_business_context,
+    normalize_readiness_snapshot,
+    template_for,
+)
 
 
 DENY_DIRS = ('.git', '.github', '_runtime')
@@ -323,6 +333,24 @@ class Worker:
     def write_enabled(self, root):
         return (root in [Path(p).resolve() for p in self.config.get('write_roots', [])]
                 and bool(self.config.get('test_commands', {}).get(str(root))))
+
+    def business_assignment(self, task):
+        """Verify claimed server metadata again before exposing it to a runtime."""
+        value = task.get('business_context')
+        if value is None:
+            return None
+        try:
+            if task.get('category') != COMMERCIAL_PREPARATION_CATEGORY:
+                raise BusinessContextError('Invalid business category claim')
+            context = normalize_business_context(value)
+            template = template_for(context['domain_role'])
+            readiness = normalize_readiness_snapshot(task.get('business_readiness'))
+            if task.get('business_template') != template:
+                raise BusinessContextError('Invalid business template claim')
+            ensure_catalog_readiness(context, template, readiness)
+        except BusinessContextError:
+            raise ValueError('Invalid business assignment') from None
+        return context, template, readiness
 
     def keep_patch(self, task, text):
         path = self.state / 'patches' / (task['attempt_id'] + '.patch')
@@ -641,7 +669,12 @@ class Worker:
                 root = Path(task['root']).resolve()
             if root not in [Path(p).resolve() for p in self.config['allowed_roots']] or task['runtime'] != 'codex':
                 raise ValueError('Unsupported assignment')
+            business = self.business_assignment(task)
+            if business is not None and (fanout or review is not None):
+                raise ValueError('Invalid business assignment')
             write = task.get('access') == 'write'
+            if business is not None and write:
+                raise WriteRejected('Business preparation is read-only')
             if write and not self.write_enabled(root):
                 raise WriteRejected('Write is not enabled for this worker and project')
             if not self.remote_artifacts:
@@ -680,8 +713,11 @@ class Worker:
             env['OMNIROUTE_API_KEY'] = key
             start = time.monotonic()
             runs = 1 + max(0, int(self.config.get('transient_retries', 2)))
-            prompt = (self._review_prompt(task, review) if review is not None else
-                      self._fanout_prompt(task, fanout) if fanout else task['brief'])
+            if business is not None:
+                prompt = business_worker_prompt(task['brief'], *business)
+            else:
+                prompt = (self._review_prompt(task, review) if review is not None else
+                          self._fanout_prompt(task, fanout) if fanout else task['brief'])
             for run in range(runs):
                 log = self.state / (task['attempt_id'] + ('.retry%d' % run if run else '') + '.jsonl')
                 with os.fdopen(os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
@@ -733,6 +769,8 @@ class Worker:
                         'base': review['base'],
                         'patch_sha256': review['patch']['sha256'],
                     }
+                if business is not None:
+                    payload['provenance'] = business_artifact_provenance(*business)
                 if write:
                     payload.update(self.collect_write(task, root, worktree))
                 if self.remote_artifacts:

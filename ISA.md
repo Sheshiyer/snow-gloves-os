@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 376/401
+progress: 381/407
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -1644,3 +1644,27 @@ Founder authorizes Gary's existing dedicated SSH public key for gary-hermes on C
 ## 2026-10-09 — Restricted SSH source verification
 
 ISC-394/395 source and local checks: 34 focused tests pass, including path/symlink/shell denial, readable protected config, all-address user restrictions, inherited authority rejection, successful simulated apply/rerun and rollback. Peer review findings corrected; actual macOS dsmemberutil confirms exit0 with explicit nonmember text, now parsed correctly. Coding01 account exists UID502, /bin/sh, nonadmin. Local and Coding01 default dry runs remain separate from privileged installation. ISC-396 and ISC-397 stay open until actual installation, founder SSH preservation and Gary laptop tests. Routed producer contributed source, stopped for review with exit143; no completed worker receipt is inferred.
+
+## 2026-10-09 — ERP commercial integration source pass
+
+Founder confirms CRM is integrated into the existing custom ERP and product reconciliation is underway. Implement reusable preparation templates and immutable ERP dossier context through the existing authenticated Hermes graph. Adjacent axtech-campaign-agent audit supplies dated read-only MCP contract evidence; per-brand runtime access and current catalog readiness remain unverified. No external effects or live activation follows from this source pass.
+
+- [x] ISC-401: Nineteen reusable business templates remain separate from seven control roles and connector permissions.
+- [x] ISC-384: Authorized ERP dossier context persists through idempotency, graph inheritance, Hermes input, worker assignment and artifact provenance.
+- [x] ISC-385: Server-owned catalog evidence gates price-dependent preparation; requester assertions and business metadata cannot grant writes or cross-project scope.
+- [x] ISC-386: Existing development and database compatibility plus commercial negative cases pass meaningful local tests.
+- [x] ISC-387: Private planning records existing ERP/CRM and ongoing reconciliation, with dated source and explicit unverified runtime boundaries.
+- [ ] ISC-388: Actual Coding01 commercial event-to-artifact and scoped ERP reference read are proven separately before advertising live commercial capability. Deferred by founder on 9 October.
+
+
+### Commercial source verification — 9 October 2026
+
+ISC-401 and ISC-384–387 accepted at source/local test level only. Nineteen preparation templates remain independent of seven control roles. Validated project-admitted ERP references persist through normalization, replay, child inheritance, retry, Hermes input, worker claim and artifact provenance. Server-owned exact catalog evidence gates estimator/buyer/sales-follow-up/finance-admin; pending intake remains available. Configured credential values reject in context/readiness. Status and graph show explicit derived dispatch holds.
+
+Local command: python3 -m pytest -q tests/test_fleet_business.py tests/test_fleet_coordinator.py tests/test_fleet_task_graph.py tests/test_fleet_write_access.py tests/test_fleet_write_worker.py tests/test_fleet_execution.py — 103 passed. py_compile and git diff --check pass. Source reviewer confirms the catalog, secret-reference, hold-status and inherited-CLI fixes; focused subset 7 passed. Routed build used exact codex/gpt-5.6-terra-max, with matching local gateway session evidence and real tool/file effects; worker was handed off for root review (exit143), not treated as a completed worker receipt. No Coding01 service change or business connector call occurred.
+
+Founder defers the ERP dossier pilot because product connection is unfinished. ISC-388 remains open/deferred, along with commercial UI intake/live connector/write/voice/finance acceptance. Next independent lane is bounded Chief-of-Staff role fan-out through the existing coordinator for development tasks.
+
+### Commercial source completion audit — 9 October 2026
+
+Revalidated the full source-pass objective against current files, the published PR35 revision and private planning/reference evidence. Original commercial suite:103 passed. After incorporating upstream dedd326, combined commercial/coordinator/graph/write/execution/MCP/scoped-principal/transient-retry regressions:140 passed,1 optional MCP SDK test skipped because the dependency is absent. Business preparation remains read-only; the worker retains its delimited business prompt across safe transient retries, and child ownership is checked before context inheritance. Four dated ERP reference source hashes match the private contract. All five source/local criteria383–387 remain accepted; actual ERP read and Coding01 commercial execution criterion388 remains explicitly deferred by founder and outside source-pass completion. Publication is a draft source PR, not merge, deployment or connector activation.
