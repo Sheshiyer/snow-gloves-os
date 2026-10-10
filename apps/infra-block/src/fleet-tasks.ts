@@ -4,9 +4,43 @@ type RecordValue = Record<string, unknown>;
 const record = (value: unknown): value is RecordValue => typeof value === 'object' && value !== null && !Array.isArray(value);
 export const FLEET_STATES = ['queued', 'running', 'cancel_requested', 'cancelled', 'succeeded', 'failed', 'interrupted', 'needs_input'] as const;
 export type FleetTask = RecordValue & {id: string; status: typeof FLEET_STATES[number]};
+export interface FanoutAction {available: boolean; planned: boolean; reason: string}
+export interface FanoutPlan {plan_id: string; root_id: string; children: RecordValue[]}
+const TASK_ID = /^[a-f0-9]{32}$/;
+const FANOUT_ROLES = ['ceo', 'cto', 'chief-of-staff', 'librarian', 'interpreter', 'dispatcher', 'sentinel'];
+const FANOUT_STAGES = ['plan', 'reference', 'review', 'dispatch', 'verify'];
+const MAX_FLEET_BODY_BYTES = 32 * 1024;
+const FLEET_REQUEST_TIMEOUT_MS = 10_000;
+const FLEET_PLANNING_TIMEOUT_MS = 100_000; // The Hermes bridge can run for 90 seconds.
+
 export function validateTask(value: unknown): FleetTask {
   if (!record(value) || typeof value.id !== 'string' || !value.id || !FLEET_STATES.includes(value.status as typeof FLEET_STATES[number])) throw new Error('Invalid coordinator task response.');
   return value as FleetTask;
+}
+/** A missing or malformed optional display contract has no authority and no UI action. */
+export function fanoutAction(task: FleetTask): FanoutAction | null {
+  const action = task.fanout_action;
+  if (!record(action) || typeof action.available !== 'boolean' || typeof action.planned !== 'boolean'
+      || typeof action.reason !== 'string' || !action.reason.trim() || action.reason.length > 280
+      || (action.available && action.planned)) return null;
+  return {available: action.available, planned: action.planned, reason: action.reason};
+}
+export function validateFanoutPlan(value: unknown, rootId: string): FanoutPlan {
+  if (!record(value) || !TASK_ID.test(rootId) || value.root_id !== rootId
+      || typeof value.plan_id !== 'string' || !TASK_ID.test(value.plan_id)
+      || !Array.isArray(value.children) || value.children.length < 2 || value.children.length > 7
+      || !value.children.every((child, index) => record(child)
+        && typeof child.id === 'string' && TASK_ID.test(child.id)
+        && child.parent_id === rootId && child.access === 'read'
+        && typeof child.logical_role === 'string' && FANOUT_ROLES.includes(child.logical_role)
+        && typeof child.stage === 'string' && FANOUT_STAGES.includes(child.stage)
+        && child.order === index + 1)
+      || new Set(value.children.map(child => child.id)).size !== value.children.length
+      || new Set(value.children.map(child => child.logical_role)).size !== value.children.length
+      || value.children.at(-1)?.logical_role !== 'sentinel' || value.children.at(-1)?.stage !== 'verify') {
+    throw new Error('Invalid fanout plan response.');
+  }
+  return value as unknown as FanoutPlan;
 }
 export function displayValue(value: unknown): string {
   if (value === undefined || value === null) return '—';
@@ -28,7 +62,15 @@ export function orderTasks(tasks: FleetTask[]): {task: FleetTask; child: boolean
 export function graphLines(task: FleetTask): string[] {
   const graph = task.graph;
   if (!record(graph) || !Array.isArray(graph.children) || !graph.children.length) return [];
-  return [`Task graph · ${displayValue(graph.status)}`, ...graph.children.filter(record).map(kid => [kid.logical_role, kid.stage, kid.status, kid.artifact ? 'artifact attached' : 'no artifact'].map(displayValue).join(' · ') + (kid.superseded_by ? ' · retried' : ''))];
+  const status = graph.status === 'verified'
+    ? 'artifact checks passed · content review pending'
+    : displayValue(graph.status);
+  return [`Task graph · ${status}`, ...graph.children.filter(record).map(kid => {
+    const hold = typeof kid.hold_reason === 'string' && kid.hold_reason.trim() && kid.hold_reason.length <= 280
+      ? ` · hold: ${kid.hold_reason}` : '';
+    return [kid.logical_role, kid.stage, kid.status, kid.artifact ? 'artifact attached' : 'no artifact']
+      .map(displayValue).join(' · ') + (kid.superseded_by ? ' · retried' : '') + hold;
+  })];
 }
 export class FleetClient {
   #token: string;
@@ -37,15 +79,36 @@ export class FleetClient {
     this.#token = token.trim();
   }
   async request(path: string, signal: AbortSignal, body?: unknown): Promise<unknown> {
-    if (!/^\/tasks(?:\/[^/?#]+(?:\/(?:events|cancel))?)?$/.test(path)) throw new Error('Unsupported fleet operation.');
-    const response = await this.transport(`/api/fleet${path}`, {
-      method: body === undefined ? 'GET' : 'POST', signal, cache: 'no-store', credentials: 'omit',
+    const method = body === undefined ? 'GET' : 'POST';
+    const getAllowed = path === '/tasks' || /^\/tasks\/[^/?#]+(?:\/events)?$/.test(path);
+    const postAllowed = path === '/tasks' || /^\/tasks\/[^/?#]+\/(?:cancel|fanout)$/.test(path);
+    if ((method === 'GET' && !getAllowed) || (method === 'POST' && !postAllowed)) throw new Error('Unsupported fleet operation.');
+    if (path.endsWith('/fanout') && (!record(body) || Object.keys(body).length)) throw new Error('Fanout accepts no options.');
+    const encoded = body === undefined ? undefined : JSON.stringify(body);
+    if (encoded !== undefined && new TextEncoder().encode(encoded).byteLength > MAX_FLEET_BODY_BYTES) throw new Error('Fleet request body is too large.');
+    const bounded = new AbortController();
+    let timedOut = false;
+    const abort = () => bounded.abort();
+    signal.addEventListener('abort', abort, {once: true});
+    if (signal.aborted) bounded.abort();
+    const planning = method === 'POST' && (path === '/tasks' || path.endsWith('/fanout'));
+    const timeout = setTimeout(() => { timedOut = true; bounded.abort(); }, planning ? FLEET_PLANNING_TIMEOUT_MS : FLEET_REQUEST_TIMEOUT_MS);
+    try {
+      const response = await this.transport(`/api/fleet${path}`, {
+      method, signal: bounded.signal, cache: 'no-store', credentials: 'omit',
       headers: {Authorization: `Bearer ${this.#token}`, 'Content-Type': 'application/json'},
-      ...(body === undefined ? {} : {body: JSON.stringify(body)}),
-    });
-    // Never display response bodies on errors: they can contain upstream credentials or prompts.
-    if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'Access denied. Check your operator token and project permission.' : `Coordinator request failed (${response.status}).`);
-    try { return await response.json(); } catch { throw new Error('Coordinator returned invalid JSON.'); }
+      ...(encoded === undefined ? {} : {body: encoded}),
+      });
+      // Never display upstream error bodies; keep the timeout through body parsing.
+      if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'Access denied. Check your operator token and project permission.' : `Coordinator request failed (${response.status}).`);
+      try { return await response.json(); } catch { throw new Error('Coordinator returned invalid JSON.'); }
+    } catch (error) {
+      if (timedOut) throw new Error('Coordinator request timed out.');
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      signal.removeEventListener('abort', abort);
+    }
   }
   async tasks(signal: AbortSignal): Promise<FleetTask[]> {
     const result = await this.request('/tasks', signal);
@@ -60,6 +123,10 @@ export class FleetClient {
     const result = await this.request(`/tasks/${encodeURIComponent(id)}/events`, signal);
     if (!record(result) || !Array.isArray(result.events) || !result.events.every(record)) throw new Error('Invalid coordinator event list.');
     return result.events;
+  }
+  async fanout(id: string, signal: AbortSignal): Promise<FanoutPlan> {
+    if (!TASK_ID.test(id)) throw new Error('Fanout requires a 32-character lowercase hex task id.');
+    return validateFanoutPlan(await this.request(`/tasks/${id}/fanout`, signal, {}), id);
   }
 }
 
@@ -98,9 +165,38 @@ export function createFleetBoard(): FleetBoard {
     details.replaceChildren(node('h4', taskLabel(task)));
     const graph = graphLines(task);
     if (graph.length) { const panel = node('div'); panel.className = 'fleet-graph'; panel.append(node('h5', graph[0]), ...graph.slice(1).map(line => node('p', line))); details.append(panel); }
-    const cancel = node('button', graph.length ? 'Cancel task and open children' : 'Cancel task'); cancel.className = 'oc-btn'; cancel.disabled = !['queued', 'running', 'needs_input'].includes(task.status);
+    const action = fanoutAction(task);
+    if (action) {
+      const actionPanel = node('div'); actionPanel.className = 'fleet-fanout-action';
+      const actionStatus = node('p', action.reason);
+      const fanout = node('button', 'Plan read-only roles'); fanout.type = 'button'; fanout.className = 'oc-btn';
+      fanout.disabled = !action.available || action.planned || !client || !active;
+      fanout.onclick = async () => {
+        if (!client || !active || busy || !action.available || action.planned) return;
+        const currentClient = client, selectedRoot = task.id, epoch = generation;
+        busy = true; fanout.disabled = true;
+        status.textContent = 'Planning read-only roles…';
+        try {
+          await request(signal => currentClient.fanout(selectedRoot, signal));
+          if (epoch !== generation || !active || client !== currentClient || selected !== selectedRoot) return;
+          busy = false;
+          status.textContent = 'Read-only role plan accepted. Refreshing this task graph…';
+          void refresh();
+        } catch (error) {
+          if (epoch === generation && active && client === currentClient && selected === selectedRoot) failure(error);
+        } finally {
+          if (epoch === generation) busy = false;
+        }
+      };
+      actionPanel.append(actionStatus, fanout);
+      details.append(actionPanel);
+    }
+    const openStates = ['queued', 'running', 'needs_input'];
+    const openChildren = record(task.graph) && Array.isArray(task.graph.children)
+      && task.graph.children.some(child => record(child) && openStates.includes(String(child.status)));
+    const cancel = node('button', graph.length ? 'Cancel task and open children' : 'Cancel task'); cancel.className = 'oc-btn'; cancel.disabled = !openStates.includes(task.status) && !openChildren;
     cancel.onclick = async () => {
-      if (!client || busy) return;
+      if (!client || !active || busy || selected !== task.id || cancel.disabled) return;
       const epoch = generation; busy = true; cancel.disabled = true;
       try { await request(signal => client!.request(`/tasks/${encodeURIComponent(task.id)}/cancel`, signal, {})); if (epoch === generation) { busy = false; void refresh(); } } catch (error) { if (epoch === generation) failure(error); }
     };

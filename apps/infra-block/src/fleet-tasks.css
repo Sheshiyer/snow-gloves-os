@@ -13,3 +13,5 @@
 .fleet-task-child { margin-left: 1.25rem; border-left: 3px solid #587d76; }
 .fleet-graph { box-sizing: border-box; width: 100%; padding: .6rem .8rem; border: 1px solid var(--oc-border, #b7b39f); border-radius: .5rem; }
 .fleet-graph h5, .fleet-graph p { margin: 0 0 .25rem; overflow-wrap: anywhere; }
+.fleet-fanout-action { display: flex; flex-direction: column; align-items: start; gap: .45rem; width: 100%; padding: .6rem .8rem; border: 1px solid var(--oc-border, #b7b39f); border-radius: .5rem; }
+.fleet-fanout-action p { margin: 0; overflow-wrap: anywhere; }

@@ -31,6 +31,8 @@ def main():
     for command in ('status','logs','cancel'):
         child=sub.add_parser(command)
         child.add_argument('task_id')
+    fanout=sub.add_parser('fanout',help='ask the authorized Chief-of-Staff planner for bounded read-only children')
+    fanout.add_argument('task_id')
     args=parser.parse_args()
     token=Path(args.token_file).read_text().strip() if args.token_file else os.environ.get('SNOWGLOVES_FLEET_TOKEN','')
     if not token:
@@ -57,9 +59,12 @@ def main():
         elif args.command=='cancel':
             path+='/cancel'
             body={}
+        elif args.command=='fanout':
+            path+='/fanout'
+            body={}
     request=urllib.request.Request(args.endpoint.rstrip('/')+path,data=json.dumps(body).encode() if body is not None else None,headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'})
     try:
-        with urllib.request.urlopen(request,timeout=100 if args.command == 'submit' else 30) as response:
+        with urllib.request.urlopen(request,timeout=100 if args.command in ('submit','fanout') else 30) as response:
             print(json.dumps(json.load(response),indent=2))
     except urllib.error.HTTPError as exc:
         print('Fleet request failed: HTTP '+str(exc.code),file=sys.stderr)

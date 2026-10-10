@@ -6,6 +6,7 @@ import urllib.request
 
 import pytest
 
+from fleet_worker import Worker
 from lib.fleet_coordinator import Rejected, load_config
 from lib.fleet_coordinator import server as make_server
 from test_fleet_coordinator import claim, fleet, report, submit  # noqa: F401  (fleet is a fixture)
@@ -44,6 +45,55 @@ def test_observer_cannot_submit_cancel_or_write(observed):
         c.cancel('gary', gary, task['id'])
     assert exc.value.status == 403
     assert c.detail('founder', founder, task['id'])['status'] == 'queued'
+
+
+def test_fanout_requires_submit_and_owner_before_the_planner_runs(fleet):
+    c, conf, _ = fleet
+    conf['projects']['snowgloves']['fanout'] = True
+    reader = {
+        'token': 'reader-token-0123456789',
+        'projects': ['snowgloves'],
+        'permissions': ['read', 'submit'],
+        'fanout_projects': ['snowgloves'],
+    }
+    observer = {
+        'token': 'observer-fanout-token-0123456789',
+        'projects': ['snowgloves'],
+        'permissions': ['read'],
+        'view_owners': ['reader'],
+        # An accidental capability grant must not turn viewing into mutation.
+        'fanout_projects': ['snowgloves'],
+    }
+    conf['principals'].update(reader=reader, observer=observer)
+    root = c.submit('reader', reader, {
+        'project': 'snowgloves', 'brief': 'Read only root', 'runtime': 'codex',
+        'idempotency_key': 'reader-root',
+    })
+    calls = []
+    c._plan_from_hermes = lambda value: calls.append(value) or {'children': [
+        {'logical_role': 'librarian', 'stage': 'reference', 'title': 'References', 'brief': 'Read.'},
+        {'logical_role': 'sentinel', 'stage': 'verify', 'title': 'Verify', 'brief': 'Verify.'},
+    ]}
+
+    reader['permissions'] = ['read']  # Own task, but read-only principals cannot plan.
+    with pytest.raises(Rejected) as exc:
+        c.fanout('reader', reader, root['id'])
+    assert exc.value.status == 403
+    with pytest.raises(Rejected) as exc:
+        c.fanout('observer', observer, root['id'])
+    assert exc.value.status == 403
+    assert calls == []
+
+    observer['permissions'] = ['read', 'submit']
+    with pytest.raises(Rejected) as exc:
+        c.fanout('observer', observer, root['id'])
+    assert exc.value.status == 404  # view_owners never supplies owner mutation.
+    assert calls == []
+
+    reader['permissions'] = ['read', 'submit']
+    accepted = c.fanout('reader', reader, root['id'])
+    assert len(accepted['children']) == 2
+    assert len(calls) == 1
 
 
 def test_viewing_never_grants_mutation_even_with_all_permissions(observed):
@@ -125,6 +175,8 @@ def test_config_accepts_the_observer_shape(tmp_path):
 def test_observer_over_http_reads_but_cannot_write(observed):
     c, conf, founder, gary = observed
     task = submit(c, conf)
+    conf['projects']['snowgloves']['fanout'] = True
+    gary['fanout_projects'] = ['snowgloves']
     http = make_server(c, 0)
     threading.Thread(target=http.serve_forever, daemon=True).start()
     base = 'http://127.0.0.1:%d' % http.server_port
@@ -142,7 +194,59 @@ def test_observer_over_http_reads_but_cannot_write(observed):
         assert call('GET', '/v1/tasks/' + task['id'])[0] == 200
         assert call('POST', '/v1/tasks', {'project': 'snowgloves', 'brief': 'x', 'idempotency_key': 'h1'})[0] == 403
         assert call('POST', '/v1/tasks/%s/cancel' % task['id'], {})[0] == 403
+        assert call('POST', '/v1/tasks/%s/fanout' % task['id'], {})[0] == 403
         assert call('GET', '/v1/tasks', token='wrong-token-0123456789')[0] == 401
     finally:
         http.shutdown()
         http.server_close()
+
+
+def test_remote_fanout_keeps_local_root_mapping_and_verified_context(fleet, tmp_path):
+    """Combining remote artifacts and fanout must not reintroduce coordinator paths."""
+    c, conf, _ = fleet
+    project = conf['projects']['snowgloves']
+    project.update(fanout=True, artifact_context=True)
+    project.pop('root')  # Remote-only projects need no coordinator checkout.
+    owner = conf['principals']['founder']
+    owner['fanout_projects'] = ['snowgloves']
+    remote = conf['workers']['mac-coding-1']
+    remote.update(remote_artifacts=True, node_id='coding02')
+    c._plan_from_hermes = lambda _: {'children': [
+        {'logical_role': 'librarian', 'stage': 'reference', 'title': 'References', 'brief': 'Read.'},
+        {'logical_role': 'sentinel', 'stage': 'verify', 'title': 'Verify', 'brief': 'Verify.'},
+    ]}
+    root = submit(c, conf)
+    plan = c.fanout('founder', owner, root['id'])
+    checkout = tmp_path / 'remote-checkout'
+    checkout.mkdir()
+    worker = Worker({
+        'state_root': str(tmp_path / 'remote-state'), 'node_id': 'coding02',
+        'endpoint': 'http://127.0.0.1:14101', 'token': remote['token'],
+        'gateway_url': 'http://127.0.0.1:20128/v1', 'remote_artifacts': True,
+        'allowed_roots': [str(checkout)], 'project_roots': {'snowgloves': str(checkout)},
+    })
+    outputs = []
+    for expected in [root, *plan['children']]:
+        assigned = claim(c, conf)
+        assert assigned['id'] == expected['id']
+        assert assigned['remote_artifacts'] is True
+        assert 'root' not in assigned and 'artifacts_root' not in assigned
+        assert worker.project_roots[assigned['project']] == checkout
+        assignment = worker._fanout_assignment(assigned)
+        if outputs:
+            assert assignment['source_context_mode'] == 'verified-output'
+            assert [source['output'] for source in assigned['source_outputs']] == outputs
+            prompt = worker._fanout_prompt(assigned, assignment)
+            assert all(output in prompt for output in outputs)
+        else:
+            assert assignment is None
+        output = 'Verified result ' + assigned['id']
+        payload = dict(task_id=assigned['id'], attempt_id=assigned['attempt_id'],
+                       project='snowgloves', node='coding02', runtime='codex', output=output)
+        artifact = Worker.remote_artifact(payload)
+        report(c, conf, assigned, type='succeeded', artifact=artifact)
+        stored = c.detail('founder', owner, assigned['id'])['artifact']
+        assert stored['path'].startswith('remote-')
+        assert c._artifact_payload(stored)[1]
+        outputs.append(output)
+    assert claim(c, conf) is None

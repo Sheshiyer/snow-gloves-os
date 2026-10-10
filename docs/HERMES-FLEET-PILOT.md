@@ -124,10 +124,14 @@ arguments; the coordinator has a separate exact `allowed_origins` list.
 Never disable Host validation or introduce wildcard Origins for remote access.
 
 The browser uses same-origin `/api/fleet` for authorized coordinator operations
-and `/api/infra` for the scoped projection. A tailnet connection does not replace
-the coordinator bearer credential or project authorization. Tailscale Serve's
-HTTPS hostname belongs to the tailnet domain; an organization-owned hostname
-requires separately verified DNS, a certificate and a private TLS proxy.
+and `/api/infra` for the scoped projection. The fleet proxy permits only task
+list/detail/events GETs and bounded task-submit, cancel, and read-only fanout
+POSTs; `/fanout` accepts only its existing empty object body. It keeps the
+browser bearer and Origin headers for the coordinator to validate, and uses
+bounded request/upstream timeouts. A tailnet connection does not replace the
+coordinator bearer credential or project authorization. Tailscale Serve's HTTPS
+hostname belongs to the tailnet domain; an organization-owned hostname requires
+separately verified DNS, a certificate and a private TLS proxy.
 A DNS CNAME alone does not supply the organization hostname's certificate.
 
 The verified installed Hermes revision uses `CUSTOM_BASE_URL` to choose a custom
@@ -182,7 +186,14 @@ Limits: macOS only. A script that swallows the denied write and exits 0 is not d
 
 ## Connecting other Hermes clients (fleet MCP over SSH)
 
-`scripts/fleet_mcp.py` is a stdio MCP server that wraps the coordinator: `fleet_list`, `fleet_status`, `fleet_logs`, `fleet_cancel`, `fleet_submit` (with `parent_id`, `logical_role`, `stage`, `supersedes`, `access`). It is a thin loopback client; authentication, project scope, the task graph and the write gates all stay in the coordinator, and the operator token is read on Coding 01 and never leaves it.
+`scripts/fleet_mcp.py` is a stdio MCP server that wraps the coordinator's six
+tools: `fleet_list`, `fleet_status`, `fleet_logs`, `fleet_cancel`,
+`fleet_fanout`, and `fleet_submit` (with `parent_id`, `logical_role`, `stage`,
+`supersedes`, `access`). `fleet_fanout(task_id)` sends only `{}` to the
+existing validated task route; it has no role, scope, option, credential-export
+or scheduler override. It is a thin loopback client; authentication, project
+scope, fanout admission, the task graph and the write gates all stay in the
+coordinator, and the operator token is read on Coding 01 and never leaves it.
 
 On Coding 01 a wrapper (not in Git, like `snowgloves-fleet`) runs it with the Hermes Python that has `mcp`:
 
@@ -201,7 +212,7 @@ Limits: whoever can SSH to the account gets the founder's coordinator authority 
 
 ## Scoped principals (read-only observers)
 
-A coordinator principal may carry `"permissions"` (any of `read`, `submit`, `cancel`; absent means all three, so existing principals are unchanged) and `"view_owners"` (names of other principals whose tasks it may read). Viewing never grants mutation: cancelling, submitting and attaching children stay with the task owner. Config load rejects unknown permissions and unknown owners.
+A coordinator principal may carry `"permissions"` (any of `read`, `submit`, `cancel`; absent means all three, so existing principals are unchanged) and `"view_owners"` (names of other principals whose tasks it may read). Viewing never grants mutation: cancelling, submitting, attaching children and fanout stay with the task owner. Fanout additionally requires current `submit` permission and the default-off project/principal fanout admission. Config load rejects unknown permissions and unknown owners.
 
 Example observer: `{"token": "...", "projects": ["snowgloves"], "permissions": ["read"], "view_owners": ["founder"]}`. It can list, read detail and events (including a parent's graph); submit, cancel and write return 403. Source: `tests/test_fleet_scoped_principals.py` (13 tests, the owner-only rule mutation-checked, plus an HTTP round trip).
 
@@ -210,3 +221,22 @@ Example observer: `{"token": "...", "projects": ["snowgloves"], "permissions": [
 Live write and review attempts intermittently failed with `429 Too Many Requests` from the gateway: `noesis-execute` is a priority combo whose first member is a free-tier model that keeps going into cooldown (OmniRoute app log, `command-code/poolside/laguna-s-2.1-free`). Host routing is not changed from this repo.
 
 The worker now retries a failed Codex run only when the failure is a transient provider error (429, "Too Many Requests", dropped stream) **and the run provably did nothing**: no command, file change, tool or web call started. Up to `transient_retries` (default 2) fresh runs, waiting `transient_backoff` seconds (default 20) times the attempt number, with heartbeats, cancellation, shutdown and the overall `job_timeout` still honoured during the wait. Each run keeps its own log (`<attempt>.retryN.jsonl`). Anything that ran, any other failure, and any uncertain outcome are never replayed. Tests: `tests/test_fleet_transient_retry.py` (10, both safety conditions mutation-checked).
+
+## Preserving worker worktrees during cleanup
+
+`scripts/fleet_worker_gc.py` defaults to a dry run. An old result artifact does not prove that all work in its checkout has been preserved. Cleanup keeps tracked edits, staged edits, untracked and ignored files, unknown Git state and detached commits that no branch or tag retains. Preserve that work in a reviewed recovery archive before considering removal; a retained branch only saves committed history.
+
+Any `recovery-required.json` file holds all cleanup, matching the worker's dispatch hold. Malformed or unreadable active/pending records also hold all cleanup. A valid active/pending record protects its specific attempt. `--include-failed` relaxes only the result-artifact requirement, never these preservation gates.
+
+Removal rechecks assignment holds and checkout state, then uses normal Git worktree removal so dirty or locked checkouts are refused. A refusal stops the apply operation for review; it does not retry with `--force`. Source tests use real disposable Git repositories to cover these boundaries. This change does not archive or remove any live worktree.
+
+## One worker job also means no internal subagents
+
+An isolated real Coding01 run exposed a capacity gap: one admitted Codex invocation used its native collaboration tools to create additional agent threads. The candidate worker now disables both `multi_agent` and `multi_agent_v2` per invocation, for read and write jobs. The installed CLI recognizes both switches; they do not change the user's native configuration. Role assignments remain explicit coordinator tasks.
+
+Automatic transient retry requires a complete structured attempt trace with thread start, turn start and a transient failed turn. Only reasoning, message and error items count as evidence without effects. Collaboration calls, any other tool item, future unknown item types, malformed records, missing boundaries and conflicting failures prevent replay. Unknown outcomes retain their original task and attempt for reconciliation.
+
+The first isolated real-flow probe interpreted and planned through pinned Hermes, but its root hit the time limit after collaboration activity; its queued children did not run. Preserve that interrupted attempt. It does not prove predecessor delivery, semantic validation or production acceptance.
+
+
+Actual corrected candidate flow on Coding01 completed root → Librarian → Sentinel with the pinned Hermes bridge and three sequential Codex jobs, all with zero collaboration events. Exact predecessor output was verified in the owned CLI session prompts, rather than inferred from artifact references. Sentinel corrected five root citation offsets against the real checkout. This isolated run leaves production admission and human semantic acceptance pending; the serving board remains unchanged. The first interrupted candidate and all recovery evidence are preserved without replay.

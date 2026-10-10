@@ -52,6 +52,8 @@ def test_worker_artifact_and_explicit_route(worker):
     command = w.command('/tmp/worktree')
     assert command[1:3] == ['exec', '--ignore-user-config']
     assert '--ignore-user-config' in command and 'read-only' in command
+    disabled = [command[index + 1] for index, arg in enumerate(command) if arg == '--disable']
+    assert {'multi_agent', 'multi_agent_v2'} <= set(disabled)
     assert 'model_provider="omniroute"' in command
     assert command[-1] == '-'
     assert path.stat().st_mode & 0o077 == 0

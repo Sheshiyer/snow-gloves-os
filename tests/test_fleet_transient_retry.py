@@ -21,6 +21,8 @@ mode = state['modes'][min(state['calls'], len(state['modes']) - 1)]
 state['calls'] += 1
 (here / 'modes.json').write_text(json.dumps(state))
 def emit(row): print(json.dumps(row), flush=True)
+emit({"type": "thread.started", "thread_id": "fixture-thread"})
+emit({"type": "turn.started"})
 emit({"type": "item.completed", "item": {"type": "reasoning", "text": "thinking"}})
 if mode == 'ok':
     emit({"type": "item.completed", "item": {"type": "agent_message", "text": "done"}})
@@ -35,6 +37,14 @@ elif mode == '429-after-command':
     emit({"type": "item.started", "item": {"type": "command_execution", "command": "touch x"}})
     emit({"type": "item.completed", "item": {"type": "command_execution", "command": "touch x", "exit_code": 0}})
     emit({"type": "turn.failed", "error": {"message": "exceeded retry limit, last status: 429 Too Many Requests"}})
+    sys.exit(1)
+elif mode in ('429-after-collab', '429-after-future-tool'):
+    emit({"type": "item.started", "item": {"type": "collab_tool_call" if mode == '429-after-collab' else "future_effect_tool", "tool": "spawn_agent"}})
+    emit({"type": "turn.failed", "error": {"message": "429 Too Many Requests"}})
+    sys.exit(1)
+elif mode == 'malformed-429':
+    print('{incomplete event', flush=True)
+    emit({"type": "turn.failed", "error": {"message": "429 Too Many Requests"}})
     sys.exit(1)
 elif mode == 'other-failure':
     emit({"type": "turn.failed", "error": {"message": "model refused the request"}})
@@ -103,6 +113,31 @@ def test_a_429_after_a_command_ran_is_never_replayed(env):
     run, _ = env
     _, reports, calls = run(['429-after-command', 'ok'])
     assert calls == 1 and terminal(reports)['type'] == 'failed'
+
+
+@pytest.mark.parametrize('mode', ['429-after-collab', '429-after-future-tool', 'malformed-429'])
+def test_delegation_unknown_effects_and_incomplete_traces_are_never_replayed(env, mode):
+    run, _ = env
+    _, reports, calls = run([mode, 'ok'])
+    assert calls == 1 and terminal(reports)['type'] == 'failed'
+
+
+@pytest.mark.parametrize('rows', [
+    [{'type': 'error', 'message': '429 Too Many Requests'}],
+    [{'type': 'turn.failed', 'error': {'message': '429 Too Many Requests'}}],
+    [{'type': 'thread.started'}, {'type': 'turn.failed', 'error': {'message': '429 Too Many Requests'}}],
+    [{'type': 'thread.started'}, {'type': 'turn.started'}, {'type': 'error', 'message': '429 Too Many Requests'}],
+    [{'type': 'thread.started'}, {'type': 'turn.started'}, {'type': 'error', 'message': '429 Too Many Requests'}, {'type': 'turn.failed', 'error': {'message': 'model refused'}}],
+    [{'type': 'thread.started'}, {'type': 'turn.started'}, {'type': 'item.started', 'item': []}, {'type': 'turn.failed', 'error': {'message': '429 Too Many Requests'}}],
+    [{'type': 'thread.started'}, {'type': 'turn.started'}, {'type': 'turn.failed', 'error': {'message': 429}}],
+    [{'type': 'thread.started'}, {'type': 'turn.started'}, {'type': 'turn.failed', 'error': {'message': '429 Too Many Requests'}}, {'type': 'item.started', 'item': {'type': 'collab_tool_call'}}],
+    [None],
+    [[]],
+])
+def test_partial_malformed_or_conflicting_failure_evidence_is_not_no_effect_proof(tmp_path, rows):
+    log = tmp_path / 'attempt.jsonl'
+    log.write_text('\n'.join(json.dumps(row) for row in rows) + '\n')
+    assert Worker.transient_before_effects(None, log) is False
 
 
 def test_non_transient_failures_are_not_retried(env):
