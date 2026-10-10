@@ -44,7 +44,9 @@ platforms that do not provide one.
 
 Use absolute normalized paths without symlink ancestors. The installed manifest
 covers its five runtime files; the package manifest also covers the installer.
-Failed publication preserves its private `.stage-*` directory for review.
+If package directory publication fails after its archive is published, both the
+archive and private `.stage-*` directory are retained as recovery evidence;
+choose a fresh output path for the next attempt.
 
 ## Inspect, plan, and review
 

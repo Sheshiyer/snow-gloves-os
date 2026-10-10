@@ -6,6 +6,7 @@ visible to callers and ``profile_ready`` is always false.
 """
 from __future__ import annotations
 
+import ctypes
 import fcntl
 import hashlib
 import json
@@ -13,6 +14,7 @@ import os
 import re
 import stat
 import secrets
+import sys
 from typing import Any
 
 
@@ -458,6 +460,27 @@ def _link_noclobber(srcfd: int, src: str, dstfd: int, dst: str) -> bool:
         _fail(f"cannot publish target without clobbering: {exc}")
 
 
+def _rename_noreplace(srcfd: int, src: str, dstfd: int, dst: str) -> None:
+    """Atomically capture a target without replacing existing recovery data."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    src_b, dst_b = os.fsencode(src), os.fsencode(dst)
+    if sys.platform.startswith("linux") and hasattr(libc, "renameat2"):
+        fn = libc.renameat2
+        fn.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint)
+        fn.restype = ctypes.c_int
+        result = fn(srcfd, src_b, dstfd, dst_b, 1)  # RENAME_NOREPLACE
+    elif sys.platform == "darwin" and hasattr(libc, "renameatx_np"):
+        fn = libc.renameatx_np
+        fn.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint)
+        fn.restype = ctypes.c_int
+        result = fn(srcfd, src_b, dstfd, dst_b, 4)  # RENAME_EXCL
+    else:
+        _drift("platform lacks atomic exclusive rollback capture; manual recovery required")
+    if result != 0:
+        err = ctypes.get_errno()
+        _drift(f"atomic rollback capture failed; manual recovery required: {os.strerror(err)}")
+
+
 def _apply_one(rootfd: int, statefd: int, afd: int, plan: dict[str, Any], j: dict[str, Any], idx: int) -> None:
     rec = j["steps"][idx]
     step = plan["steps"][idx]
@@ -678,7 +701,7 @@ def _rollback_locked(rootfd: int, statefd: int, afd: int, plan: dict[str, Any], 
             try:
                 if _read_target(qfd, qname) is not None:
                     _drift(f"rollback capture path is already occupied: {rec['path']}")
-                os.rename(name, qname, src_dir_fd=parent, dst_dir_fd=qfd)
+                _rename_noreplace(parent, name, qfd, qname)
                 os.fsync(parent)
                 os.fsync(qfd)
                 captured = _read_target(qfd, qname)

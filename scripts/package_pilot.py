@@ -289,21 +289,12 @@ def package(output: str) -> dict[str, Any]:
             os.close(stagefd)
         _verify_dir(os.path.join(parent_path, stage))
         _tar_bytes(parentfd, tar_tmp, files, manifest)
-        # Publish archive with a no-clobber hard link, then the verified directory
-        # with an exclusive rename. Roll back our archive only if publication fails.
+        # Publish the archive with a no-clobber hard link, then publish the
+        # verified directory with an exclusive rename. Preserve both artifacts
+        # if directory publication fails so neither path can race with cleanup.
         os.link(tar_tmp, archive, src_dir_fd=parentfd, dst_dir_fd=parentfd, follow_symlinks=False)
-        tar_stat = os.stat(archive, dir_fd=parentfd, follow_symlinks=False)
         os.unlink(tar_tmp, dir_fd=parentfd)
-        try:
-            _rename_noreplace(parentfd, stage, parentfd, base)
-        except BaseException:
-            try:
-                current = os.stat(archive, dir_fd=parentfd, follow_symlinks=False)
-                if (current.st_dev, current.st_ino) == (tar_stat.st_dev, tar_stat.st_ino):
-                    os.unlink(archive, dir_fd=parentfd)
-            except OSError:
-                pass
-            raise
+        _rename_noreplace(parentfd, stage, parentfd, base)
         os.fsync(parentfd)
         return {"status": "created", "directory": os.path.join(parent_path, base),
                 "archive": os.path.join(parent_path, archive), "files": list(sorted(files)),

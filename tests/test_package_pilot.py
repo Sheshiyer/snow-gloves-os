@@ -104,7 +104,34 @@ def test_exclusive_directory_publication_preserves_raced_output(tmp_path, monkey
         package.package(str(out))
     assert out.is_dir()
     assert list(out.iterdir()) == []
-    assert not pathlib.Path(str(out) + ".tar.gz").exists()
+    archive = pathlib.Path(str(out) + ".tar.gz")
+    assert archive.is_file()
+    with tarfile.open(archive, "r:gz") as tar:
+        assert "SHA256SUMS" in tar.getnames()
+    stages = list(tmp_path.glob(".raced.stage-*"))
+    assert len(stages) == 1
+    assert (stages[0] / "SHA256SUMS").is_file()
+
+
+def test_publication_failure_preserves_raced_archive_replacement_and_stage(tmp_path, monkeypatch):
+    out = tmp_path / "raced-replacement"
+    archive = pathlib.Path(str(out) + ".tar.gz")
+    real = package._rename_noreplace
+
+    def race(srcfd, src, dstfd, dst):
+        os.unlink(archive, dir_fd=dstfd)
+        archive.write_bytes(b"foreign replacement archive")
+        os.mkdir(dst, 0o700, dir_fd=dstfd)
+        real(srcfd, src, dstfd, dst)
+
+    monkeypatch.setattr(package, "_rename_noreplace", race)
+    with pytest.raises(package.PackageError):
+        package.package(str(out))
+    assert archive.read_bytes() == b"foreign replacement archive"
+    assert out.is_dir() and list(out.iterdir()) == []
+    stages = list(tmp_path.glob(".raced-replacement.stage-*"))
+    assert len(stages) == 1
+    assert (stages[0] / "SHA256SUMS").is_file()
 
 
 def test_verify_missing_path_and_invalid_cli_have_json_errors(tmp_path):

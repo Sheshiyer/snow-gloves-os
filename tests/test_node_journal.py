@@ -243,25 +243,49 @@ def test_forged_owned_receipt_cannot_delete_preexisting_identical_file(root):
 def test_rollback_replacement_race_preserves_captured_foreign_file(root, monkeypatch):
     p = make_plan(root)
     apply(p)
-    original_rename = journal.os.rename
+    original_capture = journal._rename_noreplace
     raced = [False]
 
-    def replace_before_capture(src, dst, *args, **kwargs):
+    def replace_before_capture(srcfd, src, dstfd, dst):
         if src == "OPERATIONS.md" and not raced[0]:
             raced[0] = True
-            parentfd = kwargs["src_dir_fd"]
-            original_rename(src, "saved-owned", src_dir_fd=parentfd, dst_dir_fd=parentfd)
-            fd = os.open(src, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=parentfd)
+            original_capture(srcfd, src, srcfd, "saved-owned")
+            fd = os.open(src, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=srcfd)
             os.write(fd, b"foreign replacement")
             os.close(fd)
-        return original_rename(src, dst, *args, **kwargs)
+        return original_capture(srcfd, src, dstfd, dst)
 
-    monkeypatch.setattr(journal.os, "rename", replace_before_capture)
+    monkeypatch.setattr(journal, "_rename_noreplace", replace_before_capture)
     with pytest.raises(journal.BootstrapError):
         journal.rollback(p, p["digest"])
-    monkeypatch.setattr(journal.os, "rename", original_rename)
     state = root / journal.STATE_DIR
     assert (state / "quarantine" / "2.capture").read_bytes() == b"foreign replacement"
+
+
+def test_rollback_capture_destination_arrival_preserves_both_files_and_marks_manual(root, monkeypatch):
+    p = make_plan(root)
+    apply(p)
+    original_capture = journal._rename_noreplace
+    raced = [False]
+
+    def occupy_destination(srcfd, src, dstfd, dst):
+        if src == "OPERATIONS.md" and not raced[0]:
+            raced[0] = True
+            fd = os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=dstfd)
+            os.write(fd, b"foreign recovery capture")
+            os.close(fd)
+        return original_capture(srcfd, src, dstfd, dst)
+
+    monkeypatch.setattr(journal, "_rename_noreplace", occupy_destination)
+    target = root / journal.STATE_DIR / "OPERATIONS.md"
+    original_bytes = target.read_bytes()
+    with pytest.raises(journal.BootstrapError) as error:
+        journal.rollback(p, p["digest"])
+    assert error.value.code == 2
+    state = root / journal.STATE_DIR
+    assert (state / "quarantine" / "2.capture").read_bytes() == b"foreign recovery capture"
+    assert target.read_bytes() == original_bytes
+    assert journal.status(str(root))["state"] == "manual-recovery"
 
 
 def test_duplicate_json_key_and_symlink_paths_rejected(root):

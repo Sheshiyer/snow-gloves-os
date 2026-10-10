@@ -1541,3 +1541,15 @@ Configuration remains local metadata with profile_ready=false. These results do
 not accept physical enrollment, power-loss/reboot recovery, live runtime/vault
 activation, organization access, four-device execution, production role fanout,
 restore or measured capacity. All existing open criteria remain open.
+
+Published-head review subsequently reproduced three safety gaps: rollback could
+overwrite a raced recovery capture, failed package cleanup could delete a raced
+archive, and an extra `.git` member bypassed installer membership validation.
+The follow-up uses atomic exclusive rollback capture, retains partial package
+output and requires the exact shipped bundle. Fresh independent filesystem and
+installer probes verify preservation and refusal before prefix-parent creation.
+The same focused suites now pass 117 tests, the actual installed launcher passes
+20 checks, and all three process-kill probes pass against the repaired source.
+The original draft requires this correction before acceptance or activation;
+repository review/prepare wrappers are unavailable, so merge readiness remains
+unconfirmed. No broader fleet criterion changes in this source review.

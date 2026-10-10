@@ -61,6 +61,18 @@ def test_installer_rejects_extra_bundle_members_before_prefix_creation(bundle, t
     assert not prefix.exists()
 
 
+@pytest.mark.parametrize("members", ["git-only", "git-and-nested-extra"])
+def test_installer_rejects_git_metadata_before_any_prefix_effects(bundle, tmp_path, members):
+    (bundle / ".git").mkdir()
+    if members == "git-and-nested-extra":
+        (bundle / "scripts/foreign.py").write_text("foreign")
+    prefix = tmp_path / "not-created"
+    result = install(bundle, prefix)
+    assert result.returncode == 1
+    assert json.loads(result.stderr)["code"] == 1
+    assert not prefix.exists()
+
+
 def test_install_idempotency_and_launcher_work(bundle, tmp_path):
     prefix = tmp_path / "private-install"
     first = install(bundle, prefix)

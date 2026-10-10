@@ -135,22 +135,18 @@ def parse_manifest(raw, members):
 def read_payload(rootfd):
     actual_top = set(os.listdir(rootfd))
     expected_top = {"bin", "scripts", "docs", "VERSION", MANIFEST}
-    package_shape = actual_top == expected_top
-    # A source checkout carries its own packager and repository metadata; a
-    # shipped package is exactly the explicit payload tree.
-    if not package_shape and ".git" not in actual_top:
+    if actual_top != expected_top:
         fail("source package has missing or extra top-level members")
-    if package_shape:
-        expected_nested = {"bin": {"snowgloves"},
-                           "scripts": {"node_bootstrap.py", "node_journal.py", "install-local.sh"},
-                           "docs": {"LOCAL-MINI-PILOT.md"}}
-        for dirname, expected in expected_nested.items():
-            dfd = os.open(dirname, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=rootfd)
-            try:
-                if set(os.listdir(dfd)) != expected:
-                    fail("source package has missing or extra nested members")
-            finally:
-                os.close(dfd)
+    expected_nested = {"bin": {"snowgloves"},
+                       "scripts": {"node_bootstrap.py", "node_journal.py", "install-local.sh"},
+                       "docs": {"LOCAL-MINI-PILOT.md"}}
+    for dirname, expected in expected_nested.items():
+        dfd = os.open(dirname, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=rootfd)
+        try:
+            if set(os.listdir(dfd)) != expected:
+                fail("source package has missing or extra nested members")
+        finally:
+            os.close(dfd)
     files = {}
     for rel in PAYLOAD:
         parts = rel.split("/")
