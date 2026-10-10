@@ -563,14 +563,14 @@ until the actual mini supplies evidence.
 - [ ] ISC-432: Anti: authoring runtime, disk protection and fleet role stay unchanged.
 - [x] ISC-433: Combined remote artifacts and verified role context pass source regression (renumbered from incoming ISC-401, which collides with main).
 
-- [ ] ISC-408: Grok import validation rejects unsafe files, placement, endpoints and credential formats without printing secrets.
-- [ ] ISC-409: Read-only Grok MCP probe initializes and discovers tools with bounded transport and redacted failures.
-- [ ] ISC-410: Expanded HTTP MCP boundary tests reject ambiguous headers, unauthorized origins and invalid routes.
-- [ ] ISC-411: Actual Coding01 installed Grok transport passes authenticated discovery with its restricted application identity.
+- [x] ISC-408: Grok import validation rejects unsafe files, placement, endpoints and credential formats without printing secrets.
+- [x] ISC-409: Read-only Grok MCP probe initializes and discovers tools with bounded transport and redacted failures.
+- [x] ISC-410: Expanded HTTP MCP boundary tests reject ambiguous headers, unauthorized origins and invalid routes.
+- [x] ISC-411: Actual Coding01 installed Grok transport passes authenticated discovery with its restricted application identity.
 - [ ] ISC-412: Actual Grok Bot app registers the supported plugin and discovers the fleet tools.
 - [ ] ISC-413: An app-originated bounded task matches its board identity and returns a checksum-verified artifact.
 - [ ] ISC-414: Actual app cancellation and app-closed backend continuity are observed independently.
-- [ ] ISC-415: Anti: transport/source evidence never promotes actual app or physical cold-boot acceptance.
+- [x] ISC-415: Anti: transport/source evidence never promotes actual app or physical cold-boot acceptance.
 
 ## Test Strategy
 
@@ -1748,3 +1748,8 @@ Subsequent root69517747b1b84dceb3778ab91e4fad70 failed on routed response-stream
 
 
 Final maintenance review adds the actual tenant enabled.yaml authority to Coding01 inputs. The current Coding01 plan supersedes its earlier candidate: digest cddb542df78f34174e774c8dfbecd355f57da7b4b42b41fa384910e67e69b9d1,117fingerprinted inputs,10services. Coding02 retains digest0665acfd2889fe3e91dc2d80ffc49c75b186695c5592ab63b97cd358c90c3241. Both plans passed fresh source/account/database checks with0pending jobs. HTTPS application context and163catalog entries return200 for the dedicated app principal; its scope is heyzack/snowgloves with read/submit/cancel. Private Coding01 node profiles now advertise Codex alone; other installed tools remain outside accepted fleet runtime advertisement.
+### 2026-10-11 — Grok client source and installed transport
+
+ISC-408/409: 38 synthetic client tests pass; integrated MCP regression reports 49 passed, 1 optional SDK skip. Private mode0600/symlink/duplicate-key/template credential, redirect/proxy/redaction and bounded discovery cases verified. ISC-411: actual Coding01 installed private HTTPS MCP initializes and lists14 tools with existing dedicated application credential. New CLI streamed over SSH returns exit0, transport-only, app_registration_verified=false and task_execution_verified=false. No service installation/restart, credential copy or actual app mutation. ISC-412–414 remain open. Receipt: private docs/fleet/onboarding/2026-10-10-fleet-online/GROK-INTEGRATION-VERIFICATION.json.
+
+ISC-410/415: integrated focused suite now82 passed,1 skipped after expanded HTTP authorization/route tests. Source commit b92895a contains only CLI, tests and supported app runbook; installed MCP and streamed physical probe are reported separately. Actual app registration/task/artifact/cancel/app-closed gates ISC-412–414 remain unchecked.
