@@ -563,6 +563,15 @@ until the actual mini supplies evidence.
 - [ ] ISC-432: Anti: authoring runtime, disk protection and fleet role stay unchanged.
 - [x] ISC-433: Combined remote artifacts and verified role context pass source regression (renumbered from incoming ISC-401, which collides with main).
 
+- [ ] ISC-408: Grok import validation rejects unsafe files, placement, endpoints and credential formats without printing secrets.
+- [ ] ISC-409: Read-only Grok MCP probe initializes and discovers tools with bounded transport and redacted failures.
+- [ ] ISC-410: Expanded HTTP MCP boundary tests reject ambiguous headers, unauthorized origins and invalid routes.
+- [ ] ISC-411: Actual Coding01 installed Grok transport passes authenticated discovery with its restricted application identity.
+- [ ] ISC-412: Actual Grok Bot app registers the supported plugin and discovers the fleet tools.
+- [ ] ISC-413: An app-originated bounded task matches its board identity and returns a checksum-verified artifact.
+- [ ] ISC-414: Actual app cancellation and app-closed backend continuity are observed independently.
+- [ ] ISC-415: Anti: transport/source evidence never promotes actual app or physical cold-boot acceptance.
+
 ## Test Strategy
 
 - ISC-383 | verification confinement | edited verification script attempts an outside-worktree marker write through the allowlisted test command | outside bytes unchanged; violation denied; sandbox unavailable fails closed | disposable worker regression + OS sandbox probe
@@ -710,6 +719,15 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 ## Decisions
 
 - 2026-10-10: refined: approved implementation and completed preference interview select Coding01 primary, Coding02 worker, Grok Bot task operations, whole catalog with gated execution, unattended cold boot on Coding Macs only, no desktop autologin and separate protected authoring seat. ISC402–433 retain separate source, installed and physical acceptance.
+- 2026-10-11: Founder requests parallel implementation of Grok Bot–Hermes integration. Add ISC-408–415 for secret-safe setup, transport and actual app acceptance. Routed noesis-execute batch held by gateway credit gate; Antigravity fallback quota429. Independent in-session source workers operate isolated; no service restart during concurrent Claude reboot tests. App inspection tool currently unavailable; no app acceptance inferred. Existing handoff next_action superseded only for this authorized integration lane.
+
+- 2026-10-10: Founder explicitly selects FileVault On for Air/authoring-mini and Off for the four dedicated fleet minis. Fresh status: Coding01 Off; Coding02/Creative/Marketing On; founder devices On. Prepared private CLAUDE-COLD-BOOT-HANDOFF.md and UUID/account-guarded disable-fleet-filevault.command for the existing Claude restart session. No FileVault, password, auto-login, daemon or restart change applied here. Cold-boot acceptance remains open until device evidence.
+
+- 2026-10-10: Founder additionally authorizes identical setup on this authoring mini. Dedicated mini key authorized on four fleet Macs; Air/mini reciprocal SSH installed. Friendly authoring-mini-tailnet points to the verified current sheshnarayans-mac-mini overlay because older authoring-mini node timed out from Air. Local hardware UUID matches Air readback. All four fleet and authoring-mini power settings read sleep0/autorestart1. Marketing persistent terminal is hosted in authoring-mini tmux rather than installing Homebrew there. Private access-client records propagated to existing Coding private inventories. See private ACCESS-STATUS.md; GUI, hotspot, cold-boot and expiry gates stay explicit.
+
+- 2026-10-10: Founder authorizes four-device identity reconciliation and dual-client access. Private inventory, wing profiles and four island profiles match actual Mac hostnames/accounts; cockpit projection has four configured bindings, zero warnings, and 54 focused tests pass. Coding01/02 remote private inventories reconciled fieldwise with backups, preserving divergence. tmux 3.8 installed on Coding01/02/Creative and founder sessions survive reconnect. Tailscale start-login preference enabled on Coding02/Creative/Marketing; reboot behavior remains unverified. Marketing sudo power change staged on Desktop; Homebrew/tmux absent there. Air mages-macbook-air/magenarayan now accepts controller SSH and has its own locally generated SSH key, matching fleet aliases and successful outbound SSH to all four Macs. Hotspot and actual Codex GUI verification remain pending. No team permission, live policy, device expiry, service restart or release change.
+
+- 2026-10-10: Founder requests all-Mac SSH review and correct naming. Ten local aliases pass actual BatchMode SSH; eight canonical LAN/tailnet routes bind four unique hardware UUIDs. Creative/Marketing DHCP addresses drifted; local aliases now use IPv4 Bonjour and added MagicDNS tailnet aliases with existing strict host keys. Actual logins are axio, maccoding2, maccreative and mac-marketing. Private receipt: docs/fleet/onboarding/2026-10-10-fleet-online/SSH-MAPPING.md in snow-gloves-ops. Codex app reconnect remains unverified; historical wing templates and broader runtime criteria remain open.
 
 - 2026-10-09: refined: gate write enablement on ISC-383. The worker's verification subprocess executes proposed project code outside the Codex sandbox; an argv allowlist and a worktree cwd do not confine that code. Preserve default-off write configuration while OS-enforced verification confinement is repaired. Routed Observe dispatch is held by unavailable hosted gateway management admission; no worker/model resolution or local fallback is claimed.
 - refined: 2026-10-09 founder declines Cloudflare Zero Trust Access; use private Tailscale transport plus application authorization for the fleet UI. The company hostname remains `fleet.hey-zack.fr`. Founder has on-site recovery help available for the scheduled reboot; no reboot evidence is inferred.
