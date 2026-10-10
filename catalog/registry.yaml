@@ -3,15 +3,15 @@
 schema: snowgloves.modules.v1
 version: 0.2.1
 counts:
-  total: 135
+  total: 137
   by_disposition:
-    add: 64
+    add: 66
     hold: 14
     refuse: 12
     pointer: 45
   by_category:
     skills: 79
-    mcp: 6
+    mcp: 8
     connector: 1
     plugin: 13
     playbook: 36
@@ -2204,6 +2204,53 @@ cards:
   - codex
   summary: Claude/Codex skill for scroll-scrubbed 3D landing scenes. Repo URL not in the harvest.
   enableable: false
+- id: snowgloves-vault-finance
+  name: 'Snow Gloves Vault: finance'
+  category: mcp
+  kind: mcp-server
+  disposition: add
+  repo: scripts/vault_mcp.py
+  source: compress-integration-2026-10-10
+  risk: high
+  approval: 'yes'
+  agents:
+  - chief-of-staff
+  - sentinel
+  hooks: []
+  runtimes:
+  - any
+  summary: Read-only view of a tenant's legal entities and bank accounts with masked IBANs, plus a match check. Full IBANs leave only through a logged human reveal.
+  mcp:
+    command: snowgloves-vault-mcp
+    args:
+    - --domain
+    - finance
+    env:
+      SNOWGLOVES_VAULT_PATH: ${SNOWGLOVES_VAULT_FINANCE}
+  enableable: true
+- id: snowgloves-vault-marketing
+  name: 'Snow Gloves Vault: marketing'
+  category: mcp
+  kind: mcp-server
+  disposition: add
+  repo: scripts/vault_mcp.py
+  source: compress-integration-2026-10-10
+  risk: high
+  approval: 'yes'
+  agents:
+  - chief-of-staff
+  hooks: []
+  runtimes:
+  - any
+  summary: 'Read-only view of a tenant''s contacts: segment counts, masked samples, do-not-contact checks. Full address lists leave only through a logged human export.'
+  mcp:
+    command: snowgloves-vault-mcp
+    args:
+    - --domain
+    - marketing
+    env:
+      SNOWGLOVES_VAULT_PATH: ${SNOWGLOVES_VAULT_MARKETING}
+  enableable: true
 - id: spec-kit
   name: spec-kit
   category: skills

@@ -4,6 +4,7 @@ suppression and IBAN-match checks. There is deliberately no reveal and no export
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -54,9 +55,11 @@ def create_server(vault):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--vault', required=True)
+    parser.add_argument('--vault', default=os.environ.get('SNOWGLOVES_VAULT_PATH'), help='vault file (default: $SNOWGLOVES_VAULT_PATH)')
     parser.add_argument('--domain', required=True, choices=('finance', 'marketing'))
     args = parser.parse_args()
+    if not args.vault:
+        parser.error('Set --vault or SNOWGLOVES_VAULT_PATH')
     try:
         server = create_server(Vault(args.vault, args.domain))
     except ImportError:
