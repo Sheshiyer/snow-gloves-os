@@ -8,7 +8,8 @@ Read-only. Stdlib plus pyyaml. Never prints config file contents, keys, or IPs.
     python3 scripts/fleet/doctor.py --json           # machine-readable list of checks
 
 Each check is {name, ok, detail, critical}. Exit 0 when every critical check passes
-(node profile, gateway local-or-fleet, tenants registered); exit 1 otherwise.
+(node profile, gateway local-or-fleet, tenants registered, and fleet-boundary when fleet.yaml
+has a cloud_gateway block); exit 1 otherwise.
 Non-critical checks print as WARN and never change the exit code.
 
 fleet.yaml, nodes/ and tenants/ are read from $SNOWGLOVES_DATA when it is set (the
@@ -19,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -32,10 +34,11 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 from lib import paths  # noqa: E402
+from lib.gateway_url import parse_gateway_url  # noqa: E402
 SCHEMA = "snowgloves.fleet-doctor.v1"
 DEFAULT_GATEWAY_PORT = 20128
 DEFAULT_HERMES_PORT = 4100
-CRITICAL = ("node-profile", "gateway", "tenants")
+CRITICAL = ("node-profile", "gateway", "tenants")  # fleet-boundary is critical only with a cloud_gateway block
 RUNTIMES = ("claude", "codex", "grok", "opencode")
 # Candidate config files per runtime, relative to --home. First one that exists wins.
 RUNTIME_CONFIGS = {
@@ -118,11 +121,29 @@ def wings_of(fleet: dict | None) -> dict:
 
 def gateway_of(fleet: dict | None) -> tuple[str, int]:
     gw = (fleet or {}).get("gateway") or {}
+    if not isinstance(gw, dict):
+        gw = {}  # a malformed gateway entry reads as "no gateway" instead of crashing the doctor
     try:
         port = int(gw.get("port") or DEFAULT_GATEWAY_PORT)
     except (TypeError, ValueError):
         port = DEFAULT_GATEWAY_PORT
     return str(gw.get("url") or "").rstrip("/"), port
+
+
+def gateway_field(fleet: dict | None, key: str) -> str:
+    gw = (fleet or {}).get("gateway") or {}
+    return str(gw.get(key) or "").rstrip("/") if isinstance(gw, dict) else ""
+
+
+def url_parts(url: str) -> tuple[str, str]:
+    """(scheme, host) of a URL, host lowercased; empty strings when it does not parse."""
+    scheme, host, _ = parse_gateway_url(url)
+    return scheme or "", (host or "").lower()
+
+
+def under(host: str, domain: str) -> bool:
+    host, domain = host.lower().rstrip("."), domain.lower().strip(".")
+    return bool(domain) and (host == domain or host.endswith("." + domain))
 
 
 # ---------------------------------------------------------------- wing identity
@@ -212,8 +233,10 @@ def check_gateway(fleet: dict | None, timeout: float) -> dict:
     local_url = f"http://127.0.0.1:{port}"
     ok_any = False
     parts = []
-    lan_url = str(((fleet or {}).get("gateway") or {}).get("lan_url") or "") if isinstance(fleet, dict) else ""
-    targets = [("fleet", fleet_url)] + ([("lan", lan_url)] if lan_url else []) + [("local", local_url)]
+    lan_url = gateway_field(fleet, "lan_url")
+    tailnet_url = gateway_field(fleet, "tailnet_url")
+    targets = ([("fleet", fleet_url)] + ([("tailnet", tailnet_url)] if tailnet_url else [])
+               + ([("lan", lan_url)] if lan_url else []) + [("local", local_url)])
     for label, base in targets:
         if not base:
             parts.append(f"{label}: no gateway.url in fleet.yaml")
@@ -222,6 +245,68 @@ def check_gateway(fleet: dict | None, timeout: float) -> dict:
         ok_any = ok_any or ok
         parts.append(f"{label} {base}/healthz: {'ok' if ok else 'down'} ({detail})")
     return check("gateway", ok_any, "; ".join(parts))
+
+
+def check_fleet_boundary(fleet: dict | None) -> dict:
+    """Offline guard that a cloud gateway stays inside its own domain and accounts.
+
+    Reads fleet.yaml cloud_gateway: {hostname, zone, aws_profile, aws_account_id, cf_account_id,
+    cf_zone_id, deny_domains, deny_aws_profiles}. Every gateway URL host must sit under `zone`
+    and under none of `deny_domains`; the AWS profile must be named and not denied. Live account
+    checks (sts identity, Cloudflare zone ownership) are scripts/fleet/cloud_guard.py.
+    """
+    cg = (fleet or {}).get("cloud_gateway") if isinstance(fleet, dict) else None
+    if cg is None:  # absent, or a key whose children are all commented out (a staged block)
+        return check("fleet-boundary", True, "no cloud_gateway in fleet.yaml; nothing to guard")
+    if not isinstance(cg, dict):
+        c = check("fleet-boundary", False, "cloud_gateway is not a mapping")
+        c["critical"] = True
+        return c
+    problems = []
+    zone = str(cg.get("zone") or "").strip()
+    hostname = str(cg.get("hostname") or "").strip().lower()
+    deny = [str(d).strip() for d in (cg.get("deny_domains") or []) if str(d).strip()]
+    if not zone or zone.startswith("<"):
+        problems.append("cloud_gateway.zone unset")
+    if not hostname or hostname.startswith("<"):
+        problems.append("cloud_gateway.hostname unset")
+    elif zone and not under(hostname, zone):
+        problems.append(f"hostname {hostname} is not under zone {zone}")
+    url = gateway_field(fleet, "url")
+    scheme, host = url_parts(url)
+    # A cloud_gateway block means the fleet gateway is the cloud one: check the URL whatever
+    # gateway.kind says, so a missing or misspelled kind cannot skip the https and hostname pins.
+    kind = gateway_field(fleet, "kind")
+    if kind != "cloud":
+        problems.append(f"gateway.kind must be cloud when cloud_gateway is set (got {kind or 'nothing'})")
+    if scheme != "https":
+        problems.append(f"gateway.url must be https for a cloud gateway (got {url or 'nothing'})")
+    if hostname and host != hostname:
+        problems.append(f"gateway.url host {host or '?'} differs from cloud_gateway.hostname {hostname}")
+    hosts = {h for h in (host, hostname, zone.lower(), url_parts(gateway_field(fleet, "tailnet_url"))[1]) if h}
+    for h in sorted(hosts):
+        for d in deny:
+            if under(h, d) or d.lower() in h:
+                problems.append(f"{h} matches denied domain {d}")
+    profile = str(cg.get("aws_profile") or "").strip()
+    deny_profiles = {"default"} | {str(p) for p in (cg.get("deny_aws_profiles") or [])}
+    if not profile:
+        problems.append("cloud_gateway.aws_profile unset (a named profile is required)")
+    elif profile in deny_profiles:
+        problems.append(f"aws_profile {profile} is denied")
+    for key in ("region", "aws_account_id", "cf_account_id", "cf_zone_id"):
+        if not str(cg.get(key) or "").strip() or str(cg.get(key)).startswith("<"):
+            problems.append(f"cloud_gateway.{key} unset")
+    account = cg.get("aws_account_id")
+    if account and not str(account).startswith("<") and not (
+            isinstance(account, str) and re.fullmatch(r"\d{12}", account.strip())):
+        # an unquoted id parses as an int (octal with a leading 0), which never equals STS's string
+        problems.append("cloud_gateway.aws_account_id must be a quoted 12-digit string")
+    detail = "; ".join(problems) if problems else (
+        f"{hostname} under {zone}; profile {profile}; {len(deny)} denied domains clear")
+    c = check("fleet-boundary", not problems, detail)
+    c["critical"] = True
+    return c
 
 
 def check_remote_management() -> dict:
@@ -302,7 +387,7 @@ def expected_runtimes(node: dict | None) -> list[str] | None:
 
 def check_runtimes(home: Path, fleet: dict | None, node: dict | None) -> list[dict]:
     fleet_url, port = gateway_of(fleet)
-    needles = {fleet_url, f"127.0.0.1:{port}", f"localhost:{port}"} - {""}
+    needles = {fleet_url, gateway_field(fleet, "tailnet_url"), f"127.0.0.1:{port}", f"localhost:{port}"} - {""}
     expected = expected_runtimes(node)
     out = []
     for rt in RUNTIMES:
@@ -344,6 +429,7 @@ def run_checks(root: Path, fleet_path: Path, home: Path, wing_override: str | No
     checks.append(profile_check)
     checks.append(check_tailscale())
     checks.append(check_gateway(fleet, gateway_timeout))
+    checks.append(check_fleet_boundary(fleet))
     checks.append(check_remote_management())
     checks.append(check_ssh())
     checks.append(check_hermes(fleet, wing))

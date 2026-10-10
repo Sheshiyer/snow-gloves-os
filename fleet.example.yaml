@@ -14,6 +14,24 @@ gateway:
   port: 20128
   url: "http://coding-mac:20128"     # clients over Tailscale (see docs/fleet/04-GATEWAY.md for the bind policy)
   # lan_url: "http://<gateway-lan-name>.local:20128"   # optional: the Coding Mac on the office LAN before Tailscale
+# Cloud variant (docs/fleet/08-CLOUD-GATEWAY.md): OmniRoute on EC2 behind Cloudflare. Replace the gateway block with
+#   gateway: {kind: cloud, port: 20128, url: "https://gw.<zone>", tailnet_url: "http://<tailnet_hostname>:20128"}
+# and add the cloud_gateway block below (doctor.py fleet-boundary and cloud_guard.py read it).
+# cloud_gateway:
+#   name: snowgloves-gw
+#   region: <aws-region>
+#   hostname: gw.<zone>
+#   zone: <zone>
+#   aws_profile: <company-profile>          # never `default`
+#   aws_account_id: "<12 digits>"
+#   cf_account_id: <cloudflare-account-id>
+#   cf_zone_id: <cloudflare-zone-id>
+#   tailnet_hostname: snowgloves-gw
+#   allow_ips: ["<office-egress-ip>"]
+#   access_emails: ["<operator-email>"]
+#   alarm_email: "<ops-email>"
+#   deny_domains: ["<personal-zone>"]
+#   deny_aws_profiles: ["<personal-profile>"]
 authoring_seat:
   role: staging                      # the founder's own Mac: authors config, exports the gateway kit; not a wing
   hostname: "<founder-mac>"

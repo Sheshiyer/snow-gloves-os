@@ -42,6 +42,14 @@
 
 **Docs for new users:** [snow-gloves-wiki](https://snow-gloves-wiki.vercel.app) — how to use the app and the ecosystem (install, pick a runtime, onboard, modules, a quiet week). Slides, audio, and video live there. The [modules dashboard](https://sheshiyer.github.io/snow-gloves-os/) is the catalog, not the human guide.
 
+The [Infrastructure cockpit](docs/infra-cockpit.md) connects the playable Infra
+Block city to catalog, agent routing, runtime adapters, connector gates, scoped
+tenant metadata, wing profiles, activity records and acceptance evidence. Run
+`python3 scripts/infra_cockpit.py` and `npm --prefix apps/infra-block run dev`, then
+open `http://127.0.0.1:18760/`. The workspace supports source inspection and
+gate-checked proposal exports. Private instance metadata requires an explicit
+`--data-root`; execution and enablement remain outside this read-only interface.
+
 <img src="https://capsule-render.vercel.app/api?type=rect&color=gradient&customColorList=12,13,14&height=2" width="100%" />
 
 ## ✨ Highlights

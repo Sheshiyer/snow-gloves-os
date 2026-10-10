@@ -22,7 +22,7 @@ def home(tmp_path, monkeypatch):
     monkeypatch.delenv("OMNIROUTE_API_KEY", raising=False)
     # never touch the network: stub the probe
     monkeypatch.setattr(gc, "probe_health",
-                        lambda host, port, timeout=3.0: (f"http://{host}:{port}/healthz", "HTTP 200 (stub)"))
+                        lambda root_url, timeout=3.0: (f"{root_url}/healthz", "HTTP 200 (stub)"))
     return tmp_path / "home"
 
 
@@ -197,7 +197,7 @@ def test_probe_health_is_offline_safe(monkeypatch):
         raise urllib.error.URLError("connection refused")
 
     monkeypatch.setattr(gc.urllib.request, "urlopen", refuse)
-    url, result = gc.probe_health("coding-mac", 20128, timeout=0.1)
+    url, result = gc.probe_health("http://coding-mac:20128", timeout=0.1)
     assert url == "http://coding-mac:20128/healthz"
     assert result == "unreachable (URLError)"
 
@@ -205,7 +205,7 @@ def test_probe_health_is_offline_safe(monkeypatch):
         raise urllib.error.HTTPError(url, 401, "nope", hdrs=None, fp=None)
 
     monkeypatch.setattr(gc.urllib.request, "urlopen", unauthorized)
-    assert gc.probe_health("coding-mac", 20128)[1] == "HTTP 401"
+    assert gc.probe_health("http://coding-mac:20128")[1] == "HTTP 401"
 
 
 def test_default_host_comes_from_fleet_yaml(tmp_path, home, capsys):
@@ -246,3 +246,112 @@ def test_set_default_provider_is_opt_in(home, capsys):
     assert text.count('model_provider = "omniroute"') == 1
     rc, out, _ = run(capsys, *set_url(home, "--apply", "--set-default-provider"))
     assert files["codex"].read_text().count('model_provider = "omniroute"') == 1
+
+
+# ----------------------------------------------------------------------------- cloud (https) gateway
+
+CLOUD = "https://gw.example.com"
+
+
+def test_https_url_writes_root_and_v1_without_a_port(home, capsys):
+    rc, out, _ = run(capsys, "set-url", "--home", str(home), "--url", CLOUD + "/", "--key-ref", "env:FAKE_KEY", "--apply")
+    assert rc == 0
+    files = surface_files(home)
+    assert json.loads(files["claude"].read_text())["env"]["ANTHROPIC_BASE_URL"] == CLOUD
+    assert tomllib.loads(files["codex"].read_text())["model_providers"]["omniroute"]["base_url"] == CLOUD + "/v1"
+    assert tomllib.loads(files["grok"].read_text())["model"]["te-fast"]["base_url"] == CLOUD + "/v1"
+    assert json.loads(files["opencode"].read_text())["provider"]["omniroute"]["options"]["baseURL"] == CLOUD + "/v1"
+    assert f"gateway: {CLOUD}" in out
+
+
+def test_moving_from_tailnet_to_cloud_rewrites_managed_blocks_and_status_follows(home, capsys):
+    run(capsys, *set_url(home, "--apply"))
+    rc, out, _ = run(capsys, "set-url", "--home", str(home), "--url", CLOUD, "--key-ref", "env:FAKE_KEY", "--apply")
+    assert rc == 0 and out.count("updated base_url") == 2
+    rc, out, _ = run(capsys, "status", "--home", str(home), "--url", CLOUD, "--no-probe")
+    assert rc == 0 and out.count(" FLEET ") == 4
+    rc, out, _ = run(capsys, "status", "--home", str(home), "--host", HOST, "--no-probe")
+    assert rc == 1 and out.count("NOT-FLEET") == 4
+
+
+def test_is_fleet_compares_scheme_host_and_default_port():
+    assert gc.is_fleet("https://gw.example.com/v1", "https://gw.example.com")
+    assert gc.is_fleet("https://GW.example.com:443", "https://gw.example.com")
+    assert not gc.is_fleet("http://gw.example.com/v1", "https://gw.example.com")
+    assert not gc.is_fleet("https://gw.example.com:8443", "https://gw.example.com")
+    assert gc.parse_gateway_url("gw.example.com") == ("http", "gw.example.com", 80)
+
+
+@pytest.mark.parametrize("url", [
+    "https://gw.example.com:443@other.example",   # userinfo: the request would go to other.example
+    "https://user@gw.example.com",
+    "https://gw.example.com@other.example/v1",
+    "https://gw.example.com:443junk",
+    "https://gw.example.com:99999",
+    "ftp://gw.example.com",
+    "https://gw example.com",
+])
+def test_parse_gateway_url_rejects_userinfo_and_malformed_authority(url):
+    assert gc.parse_gateway_url(url) == (None, None, None)
+    assert not gc.has_explicit_port(url)
+    assert not gc.is_fleet(url, "https://gw.example.com")
+
+
+def test_parse_gateway_url_accepts_paths_queries_and_ports():
+    assert gc.parse_gateway_url("https://gw.example.com:443/v1?x=1") == ("https", "gw.example.com", 443)
+    assert gc.parse_gateway_url("https://gw.example.com/a@b") == ("https", "gw.example.com", 443)
+    assert gc.parse_gateway_url("coding-mac:8080") == ("http", "coding-mac", 8080)
+    assert gc.has_explicit_port("coding-mac:8080") and not gc.has_explicit_port("https://gw.example.com/v1")
+
+
+def test_doctor_does_not_require_tailscale_for_an_https_gateway(home, capsys, monkeypatch):
+    monkeypatch.setattr(gc.shutil, "which", lambda name: None)
+    monkeypatch.setattr(gc.Path, "exists", lambda self: False)
+    run(capsys, "set-url", "--home", str(home), "--url", CLOUD, "--key-ref", "env:FAKE_KEY", "--apply")
+    monkeypatch.setenv("OMNIROUTE_API_KEY", "x")
+    rc, out, _ = run(capsys, "doctor", "--home", str(home), "--url", CLOUD, "--no-probe")
+    assert "tailscale: absent (optional" in out
+    assert rc == 0
+
+
+def test_fleet_yaml_cloud_url_and_tailnet_fallback(tmp_path, home, capsys):
+    fleet = tmp_path / "fleet.yaml"
+    fleet.write_text("schema: snowgloves.fleet.v1\ngateway:\n  kind: cloud\n"
+                     f'  url: "{CLOUD}"\n  tailnet_url: "http://cloud-gw"\n')
+    rc, out, _ = run(capsys, "status", "--home", str(home), "--fleet", str(fleet), "--no-probe")
+    assert f"gateway: {CLOUD}\n" in out
+    rc, out, _ = run(capsys, "status", "--home", str(home), "--fleet", str(fleet), "--via", "tailnet", "--no-probe")
+    assert "gateway: http://cloud-gw:20128" in out
+
+
+@pytest.mark.parametrize("via,key", [("cloud", "gateway.url"), ("tailnet", "gateway.tailnet_url")])
+def test_malformed_fleet_yaml_url_is_refused_not_written(tmp_path, home, capsys, via, key):
+    fleet = tmp_path / "fleet.yaml"
+    fleet.write_text('schema: snowgloves.fleet.v1\ngateway:\n  url: "https://user@gw.example.com"\n'
+                     '  tailnet_url: "http://user@cloud-gw"\n')
+    argv = ["set-url", "--home", str(home), "--fleet", str(fleet), "--key-ref", "env:FAKE_KEY", "--apply"]
+    if via == "tailnet":
+        argv += ["--via", "tailnet"]
+    with pytest.raises(SystemExit) as error:
+        gc.main(argv)
+    assert f"bad fleet.yaml {key}" in str(error.value)
+    assert "None" not in str(error.value)
+    assert not any("None://" in p.read_text(errors="ignore") for p in home.rglob("*") if p.is_file())
+
+
+def test_url_and_host_together_are_rejected(home):
+    with pytest.raises(SystemExit):
+        gc.main(["status", "--home", str(home), "--url", CLOUD, "--host", HOST])
+
+
+@pytest.mark.parametrize("url,want", [
+    ("coding-mac:8080", "gateway: http://coding-mac:8080\n"),        # no scheme, explicit port: kept
+    ("http://coding-mac", "gateway: http://coding-mac:20128\n"),     # bare http host: OmniRoute default
+    ("coding-mac", "gateway: http://coding-mac:20128\n"),
+    ("https://gw.example.com", "gateway: https://gw.example.com\n"),  # https default port stays 443
+])
+def test_fleet_yaml_port_resolution(tmp_path, home, capsys, url, want):
+    fleet = tmp_path / "fleet.yaml"
+    fleet.write_text(f'schema: snowgloves.fleet.v1\ngateway:\n  url: "{url}"\n')
+    _, out, _ = run(capsys, "status", "--home", str(home), "--fleet", str(fleet), "--no-probe")
+    assert want in out

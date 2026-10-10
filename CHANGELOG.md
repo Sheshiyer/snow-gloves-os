@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Controller data audit.** Read-only tenant-reference verification and checksum-bound private-file holds, with a candidate transfer preflight that rejects declared paths and copied held bytes. Capability presence grants no runtime authority.
+
+- **Manual Sentinel write review (source-only, default-off).** Owners can submit a read-only Sentinel verification child bound to a succeeded CTO write child's exact attempt and artifact checksum. The coordinator revalidates the binding and current authorization at claim, delivers bounded verified patch evidence, and the worker checks patch applicability without applying it. No automatic fanout, write, merge, or deployment authority is added.
+
+- **Local node bootstrap pilot.** `bin/snowgloves node` provides read-only inventory, deterministic digest-bound planning, apply/resume, status, held diagnostics, allowlisted debug data and ownership-checked rollback. `scripts/package_pilot.py` builds a checksum-verifiable archive; its self-contained installer supports dry-run and an isolated private prefix. Configuration stays beneath `.snowgloves-local/`; live enrollment, runtime/service activation and physical fleet acceptance retain separate gates. Runbook: `docs/LOCAL-MINI-PILOT.md`.
+- **Pilot recovery and package safety.** Rollback captures now use atomic exclusive rename, preserving a raced recovery file and the still-installed owned file while recording manual recovery. A failed package-directory publication retains its archive and private stage for recovery, and the installer rejects any extra top-level or nested bundle member, including `.git`.
+
+- **Cloud gateway.** OmniRoute can run on EC2 behind Cloudflare instead of the Coding Mac: `infra/aws-gateway` (Elastic IP, Cloudflare-only security group, SSM, S3 backups, DLM snapshots, alarms, budget) and `infra/cloudflare-gateway` (proxied DNS, Origin CA cert via SSM, WAF office allowlist on `/v1`, Access on the dashboard), driven by `scripts/fleet/cloud_gateway.sh`. `scripts/fleet/cloud_guard.py` and the doctor's `fleet-boundary` check refuse any account, zone or domain outside the `cloud_gateway` block. `gateway_client.py` takes `--url https://…` and `--via tailnet`. Docs: `docs/fleet/08-CLOUD-GATEWAY.md`.
+
 ## v0.2.1 — Onboarding TUI (2026-09-30)
 
 - **TUI + headless runner.** `make tui` / `scripts/tui_onboard.py` walks doctor, smoke, walk, harvest apply, catalog enable, render, and graph-upgrade dry-run. Toggle agent vs manual TUI; agent needs `claude`, `codex`, or `kimi`/`kimi-cli` on PATH or it falls back. Agents: `--headless`. `hold`/`refuse` stay refused. Hermes is not started headless.

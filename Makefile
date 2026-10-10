@@ -5,7 +5,7 @@ HERMES_PORT ?= 4100
 # the private data checkout, so they drop SNOWGLOVES_DATA (see scripts/lib/paths.py).
 FIXTURE_ENV := env -u SNOWGLOVES_DATA
 
-.PHONY: help install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade graph-upgrade walk tui app-install app-dev app-build
+.PHONY: help test-runtime-files test-runtime-crypto test-cloud-transport cloud-transport-check install onboard onboard-prompt hermes smoke embed sentinel kill-hermes clean doctor test tenant-new approvals replay catalog catalog-check legacy-check site upgrade graph-upgrade walk tui app-install app-dev app-build
 
 help:
 	@echo "Snow Gloves OS — make targets"
@@ -32,6 +32,10 @@ help:
 	@echo "  make approvals T=<tenant>  # list pending approval tickets"
 	@echo "  make replay N=5            # replay last N events through current hooks"
 	@echo "  make test                  # pytest"
+	@echo "  make test-runtime-crypto   # Node 24+ backup crypto checks; Python3 fixture"
+	@echo "  make test-runtime-files    # Linux Node 24+ owned-file backup checks"
+	@echo "  make test-cloud-transport  # Node 24+ transport boundary tests"
+	@echo "  make cloud-transport-check # generated types + strict compilation; npm ci first"
 	@echo "  make kill-hermes           # free port $(HERMES_PORT)"
 	@echo "  make app-install           # npm install for the Tauri onboarding app"
 	@echo "  make app-dev               # tauri dev (GUI; do not leave running in agents)"
@@ -42,6 +46,8 @@ help:
 	@echo "  make fleet-connect W=<wing>             # open a shell on a wing over Tailscale"
 	@echo "  make fleet-kit-export                   # export the gateway kit from the authoring seat"
 	@echo "  make fleet-remote-access W=<wing>       # ARD / Screen Sharing / SSH plan (dry-run)"
+	@echo "  make fleet-cloud-guard                  # historical AWS lane (deferred): combined account guard"
+	@echo "  make fleet-cloud S=aws|cloudflare A=plan  # historical AWS lane (deferred); see docs/fleet/08-CLOUD-GATEWAY.md"
 
 doctor:
 	bash scripts/doctor.sh
@@ -132,7 +138,7 @@ clean:
 	rm -f .hermes.pid .e2e.json
 
 # ---- fleet (three Mac minis by wing; see docs/fleet/README.md) ----
-.PHONY: fleet-doctor fleet-render fleet-enable fleet-connect fleet-kit-export fleet-remote-access
+.PHONY: fleet-doctor fleet-render fleet-enable fleet-connect fleet-kit-export fleet-remote-access fleet-cloud-guard fleet-cloud
 fleet-doctor:
 	$(PYTHON) scripts/fleet/doctor.py $(if $(W),--wing $(W),)
 
@@ -154,6 +160,13 @@ fleet-kit-export:
 fleet-remote-access:
 	@if [ -z "$(W)" ]; then echo "usage: make fleet-remote-access W=<wing>"; exit 1; fi
 	bash scripts/fleet/remote_access.sh --wing $(W)
+
+fleet-cloud-guard:
+	$(PYTHON) scripts/fleet/cloud_guard.py check all
+
+fleet-cloud:
+	@if [ -z "$(S)" ] || [ -z "$(A)" ]; then echo "usage: make fleet-cloud S=aws|cloudflare A=init|plan|apply|destroy|output"; exit 1; fi
+	bash scripts/fleet/cloud_gateway.sh $(S) $(A)
 
 
 # ---- Onboarding app (Tauri v2) ----
@@ -192,3 +205,18 @@ release-dispatch:
 	@test -n "$(V)" || (echo "usage: make release-dispatch V=0.1.0"; exit 1)
 	@echo 'GitHub Actions release dispatch is retired. Build locally with make app-build; review signing, platform assets, and updater metadata before separate publication.' >&2
 	@exit 2
+
+# Generic local gateway checks; no cloud deployment or provider calls.
+test-runtime-crypto:
+	node --test infra/cloudflare-runtime/test-backup-crypto.mjs
+
+test-cloud-transport:
+	node --test infra/cloudflare-transport/*.mjs
+
+cloud-transport-check:
+	cd infra/cloudflare-transport && npm run typecheck
+
+# Linux-only /proc/self/fd confinement and actual CLI checks.
+test-runtime-files:
+	node --test infra/cloudflare-runtime/test-backup-files.mjs
+

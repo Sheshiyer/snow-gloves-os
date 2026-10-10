@@ -1,0 +1,79 @@
+.sg-fleet-atlas {
+  position: fixed;
+  top: calc(var(--ih-header-bottom, 70px) + 8px);
+  right: 16px;
+  width: min(650px, calc(100vw - 310px));
+  padding: 8px;
+  color: #283d36;
+  background: rgba(245, 237, 215, .96);
+  border: 1px solid #4c6459;
+  border-radius: 14px;
+  box-shadow: 2px 3px 0 #34443866, inset 0 0 0 3px #fbf7e866;
+  z-index: 22;
+  font-family: "DM Sans", sans-serif;
+  pointer-events: auto;
+}
+.sg-fleet-atlas[hidden], .field-kit-open .sg-fleet-atlas, .source-notes-open .sg-fleet-atlas, .home-encounter-open .sg-fleet-atlas, .home-flat-map .sg-fleet-atlas { display: none !important; }
+.sg-fleet-heading { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.sg-fleet-title { display: grid; min-width: 0; gap: 2px; padding-left: 4px; }
+.sg-fleet-title strong { font: 700 17px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.sg-fleet-source { font-size: 9px; line-height: 1.2; }
+.sg-fleet-world-note { font-size: 8px; line-height: 1.2; color: #607266; }
+.sg-fleet-actions { display: flex; flex-shrink: 0; gap: 5px; }
+.sg-fleet-action { min-height: 44px; padding: 0 10px; border: 1px solid #4c6459; border-radius: 8px; background: #fbf7e8; color: #283d36; font: 600 11px "DM Sans", sans-serif; cursor: pointer; }
+.sg-fleet-action[aria-pressed="true"], .sg-fleet-action[aria-pressed="true"]:hover { background: #405e51; color: #fbf7e8; }
+.sg-fleet-islands { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.sg-fleet-island { display: flex; align-items: center; gap: 3px; min-height: 65px; min-width: 0; padding: 4px; border: 1px solid #a6b3a3; border-radius: 10px; background: #edf1e8; color: #283d36; text-align: left; cursor: pointer; }
+.sg-fleet-island[aria-pressed="true"] { background: #fffae9; border-color: #3c5c50; box-shadow: inset 0 -3px 0 var(--island-accent, #d5b466); }
+.sg-fleet-island[data-assignment="planned"] { border-style: dashed; }
+.sg-fleet-thumbnail { flex: 0 0 42px; width: 42px; }
+.sg-fleet-thumbnail svg { display: block; width: 100%; }
+.sg-fleet-water { fill: none; stroke: #84aeb0; stroke-width: 1.4; }
+.sg-fleet-shore { fill: #9d9983; }
+.sg-fleet-land { fill: #b4c2a2; }
+.sg-fleet-building { fill: #f1e8cc; stroke: #506359; stroke-width: .7; }
+.sg-fleet-roof { fill: var(--island-accent, #698c8d); stroke: #506359; stroke-width: .7; }
+.sg-fleet-window { fill: #405b55; }
+.sg-fleet-flag { fill: var(--island-accent, #698c8d); stroke: #506359; stroke-width: .8; }
+.sg-fleet-caption { display: grid; gap: 2px; min-width: 0; }
+.sg-fleet-caption strong { font-family: "Barlow Condensed", sans-serif; font-size: 14px; line-height: 1.05; }
+.sg-fleet-assignment { font-size: 9px; }
+.sg-fleet-work { font-size: 9px; color: #607266; }
+.sg-fleet-island[data-work="observed"] .sg-fleet-work { color: #285f48; font-weight: 700; }
+.sg-fleet-action:focus-visible, .sg-fleet-island:focus-visible { outline: 3px solid #c97858; outline-offset: 3px; }
+.sg-fleet-action:hover, .sg-fleet-island:hover { background: #fffae9; }
+.sg-fleet-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 1000px) and (min-width: 769px) {
+  .sg-fleet-atlas { width: calc(100vw - 300px); }
+  .sg-fleet-thumbnail { display: none; }
+  .sg-fleet-island { justify-content: center; padding: 6px; }
+}
+@media (max-width: 768px) {
+  .sg-fleet-atlas { top: calc(var(--ih-header-bottom, 110px) + 4px); left: 8px; right: 8px; width: auto; padding: 6px; border-radius: 12px; }
+  .sg-fleet-heading { margin-bottom: 4px; gap: 4px; }
+  .sg-fleet-title strong { font-size: 16px; }
+  .sg-fleet-source { font-size: 8px; max-width: 165px; }
+  .sg-fleet-world-note { max-width: 175px; font-size: 7px; }
+  .sg-fleet-action { padding: 0 8px; }
+  .sg-fleet-islands { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .sg-fleet-island { min-height: 46px; padding: 3px 6px; gap: 7px; }
+  .sg-fleet-caption { grid-template-columns: 1fr auto; gap: 2px 4px; flex: 1; }
+  .sg-fleet-caption strong { grid-column: 1/-1; font-size: 15px; }
+  .sg-fleet-work, .sg-fleet-assignment { font-size: 8px; }
+  .sg-fleet-thumbnail { flex-basis: 34px; width: 34px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .sg-fleet-atlas { top: calc(var(--ih-header-bottom, 58px) + 4px); left: 8px; right: auto; width: calc(100vw - 285px); padding: 4px; }
+  .sg-fleet-heading { gap: 4px; margin-bottom: 3px; }
+  .sg-fleet-title strong { font-size: 14px; }
+  .sg-fleet-source { font-size: 8px; max-width: 200px; }
+  .sg-fleet-world-note { max-width: 250px; font-size: 7px; }
+  .sg-fleet-action { min-height: 44px; padding: 0 8px; }
+  .sg-fleet-islands { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .sg-fleet-island { min-height: 44px; padding: 3px; }
+  .sg-fleet-thumbnail { display: none; }
+  .sg-fleet-caption { display: grid; gap: 1px; }
+  .sg-fleet-caption strong { font-size: 12px; }
+  .sg-fleet-assignment, .sg-fleet-work { font-size: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .sg-fleet-atlas * { transition: none; animation: none; } }

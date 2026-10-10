@@ -7,6 +7,8 @@ authoring seat: it edits this repo and exports a handoff kit; it does not serve 
 instance's decisions and its provider roster with wing defaults are private:
 `snow-gloves-ops/docs/fleet/DECISIONS.md` and `snow-gloves-ops/docs/fleet/PROVIDERS.md`.
 
+Prefer a hosted gateway with a static IP? See [08-CLOUD-GATEWAY.md](08-CLOUD-GATEWAY.md) (OmniRoute on EC2 behind Cloudflare).
+
 ## Topology
 
 ```

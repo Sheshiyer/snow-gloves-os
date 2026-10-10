@@ -1636,7 +1636,7 @@
         "cto"
       ],
       "approval": "no",
-      "body": "# GitHub MCP Server\n\nMCP server for GitHub repositories, issues, pull requests, and Actions. The coding wing (`nodes/coding/node.yaml`) serves it; `nodes/coding/node.yaml` `mcps.github-mcp` carries the same launch spec and wins at render.\n\nThe `mcp:` block above launches the npm reference server; upstream also ships a Go binary and a Docker image (`github-mcp-server stdio`). Swap the launch spec in the node file if the Mac runs that instead.\n\nEnv values are variable names; secrets live in the runtime env or Keychain. Nothing here grants a token: the tenant must enable `github-mcp` in `enabled.yaml` and `connector-gate` still runs before every call.\n",
+      "body": "# GitHub MCP Server\n\nMCP server for GitHub repositories, issues, pull requests, and Actions. The coding wing (`nodes/coding/node.yaml`) serves it; `nodes/coding/node.yaml` `mcps.github-mcp` carries the same launch spec and wins at render.\n\nThe `mcp:` block launches GitHub's official native server with `github-mcp-server stdio`. The former npm reference package is deprecated and is retained only in historical device-probe evidence. Install a reviewed upstream release with its version and checksum recorded before this launcher is used on a wing. A render does not install or authenticate the binary.\n\nThe default server capability set is preserved; each action remains subject to connector-gate and repository review. For a read-only probe, upstream supports `--read-only`. Company PAT or OAuth authentication is a separate device gate; the public anonymous legacy probe does not satisfy it. See https://github.com/github/github-mcp-server for supported installation and authentication.\n\nEnv values are variable names; secrets live in the runtime env or Keychain. Nothing here grants a token: the tenant must enable `github-mcp` in `enabled.yaml` and `connector-gate` still runs before every call.\n",
       "category": "mcp",
       "disposition": "add",
       "enableable": true,
@@ -1645,10 +1645,9 @@
       "kind": "mcp-server",
       "mcp": {
         "args": [
-          "-y",
-          "@modelcontextprotocol/server-github"
+          "stdio"
         ],
-        "command": "npx",
+        "command": "github-mcp-server",
         "env": {
           "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
         }
@@ -3271,6 +3270,69 @@
     },
     {
       "agents": [
+        "chief-of-staff",
+        "sentinel"
+      ],
+      "approval": "yes",
+      "body": "# Snow Gloves Vault: finance\n\nFirst-party MCP server over the tenant's local finance vault. Tools: `finance_accounts` (bank, BIC, masked IBAN), `finance_entities` (SIREN, VAT), `finance_verify_iban` (true or false; never reveals a stored value). There is no reveal tool: a person runs `tenant_vault.py reveal` with an actor and a reason, which is audited.\n\nIBANs are AES-256 encrypted at rest with a per-domain Keychain key and are **not** in the knowledge base or any embedding index, so they are never sent to a hosted model for retrieval. The server cannot move money, change billing or contact a bank.\n\nNothing here grants access: the tenant must enable `snowgloves-vault-finance` in `enabled.yaml` and point `SNOWGLOVES_VAULT_FINANCE` at its vault file.\n",
+      "category": "mcp",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "snowgloves-vault-finance",
+      "kind": "mcp-server",
+      "mcp": {
+        "args": [
+          "--domain",
+          "finance"
+        ],
+        "command": "snowgloves-vault-mcp",
+        "env": {
+          "SNOWGLOVES_VAULT_PATH": "${SNOWGLOVES_VAULT_FINANCE}"
+        }
+      },
+      "name": "Snow Gloves Vault: finance",
+      "repo": "scripts/vault_mcp.py",
+      "risk": "high",
+      "runtimes": [
+        "any"
+      ],
+      "source": "compress-integration-2026-10-10",
+      "summary": "Read-only view of a tenant's legal entities and bank accounts with masked IBANs, plus a match check. Full IBANs leave only through a logged human reveal."
+    },
+    {
+      "agents": [
+        "chief-of-staff"
+      ],
+      "approval": "yes",
+      "body": "# Snow Gloves Vault: marketing\n\nFirst-party MCP server over the tenant's local marketing vault (`scripts/lib/tenant_vault.py`). Tools: `marketing_segments`, `marketing_sample` (masked, capped at 25, with an `erp_linked` flag), `marketing_erp_link_status`, `marketing_is_suppressed`. There is no export tool: a person runs `tenant_vault.py export`, which refuses to overwrite and writes an audit entry.\n\nThe contact data is **not** in the knowledge base and is not embedded. Suppression always wins. Sending anything stays behind the tenant's own approval rule; this server cannot send.\n\nNothing here grants access: the tenant must enable `snowgloves-vault-marketing` in `enabled.yaml` and point `SNOWGLOVES_VAULT_MARKETING` at its vault file (a 0600 file in a 0700 directory outside any git repo). The vault key lives in the macOS Keychain, not in the environment.\n",
+      "category": "mcp",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "snowgloves-vault-marketing",
+      "kind": "mcp-server",
+      "mcp": {
+        "args": [
+          "--domain",
+          "marketing"
+        ],
+        "command": "snowgloves-vault-mcp",
+        "env": {
+          "SNOWGLOVES_VAULT_PATH": "${SNOWGLOVES_VAULT_MARKETING}"
+        }
+      },
+      "name": "Snow Gloves Vault: marketing",
+      "repo": "scripts/vault_mcp.py",
+      "risk": "high",
+      "runtimes": [
+        "any"
+      ],
+      "source": "compress-integration-2026-10-10",
+      "summary": "Read-only view of a tenant's contacts: segment counts, masked samples, do-not-contact checks. Full address lists leave only through a logged human export."
+    },
+    {
+      "agents": [
         "ceo",
         "cto"
       ],
@@ -3615,18 +3677,18 @@
   "counts": {
     "by_category": {
       "connector": 1,
-      "mcp": 6,
+      "mcp": 8,
       "playbook": 36,
       "plugin": 13,
       "skills": 79
     },
     "by_disposition": {
-      "add": 64,
+      "add": 66,
       "hold": 14,
       "pointer": 45,
       "refuse": 12
     },
-    "total": 135
+    "total": 137
   },
   "schema": "snowgloves.modules.v1",
   "version": "0.2.1"

@@ -1,0 +1,12 @@
+{
+  "schema": "snowgloves.infra-block.assets.v1",
+  "policy": "Procedural first delivery. No generation API is called during play.",
+  "slots": [
+    { "id": "munch", "family": "character", "status": "procedural", "futureFile": "public/assets/monster-animated.glb" },
+    { "id": "bongo", "family": "character", "status": "procedural", "futureFile": "public/assets/bongo-animated.glb" },
+    { "id": "bolt", "family": "character", "status": "procedural", "futureFile": "public/assets/bolt-animated.glb" },
+    { "id": "city_building", "family": "infrastructure-landmark", "status": "procedural", "instances": 16 },
+    { "id": "city_car", "family": "throwable-simulation-prop", "status": "procedural", "instances": 13 },
+    { "id": "city_decor", "family": "street-furniture", "status": "procedural" }
+  ]
+}
