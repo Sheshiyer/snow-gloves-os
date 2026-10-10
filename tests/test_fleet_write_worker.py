@@ -72,6 +72,9 @@ def test_sandbox_is_workspace_write_only_for_write_tasks(env):
     assert 'workspace-write' in worker.command('/tmp/w', write=True) and 'read-only' not in worker.command('/tmp/w', write=True)
     assert 'read-only' in worker.command('/tmp/w') and 'workspace-write' not in worker.command('/tmp/w')
     assert 'sandbox_workspace_write.network_access=false' in worker.command('/tmp/w', write=True)
+    command = worker.command('/tmp/w', write=True)
+    disabled = [command[index + 1] for index, arg in enumerate(command) if arg == '--disable']
+    assert {'multi_agent', 'multi_agent_v2'} <= set(disabled)
 
 
 def test_write_task_returns_a_reviewable_patch_and_test_evidence(env):

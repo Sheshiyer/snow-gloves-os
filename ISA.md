@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 345/382
+progress: 355/397
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -526,9 +526,11 @@ until the actual mini supplies evidence.
 - [ ] ISC-380: Owned coordinator, Hermes bridge and worker launch agents run with loopback listeners and preserved native configuration.
 - [x] ISC-381: An isolated pilot restore drill recovers coordinator state and verifies accepted artifact hashes.
 - [x] ISC-382: The reviewed pilot package and runbook record scoped runtime capabilities, limitations and rollout evidence.
+- [ ] ISC-383: Anti: write-adapter verification commands can write outside the approved worktree; an edited verification script invoked by an unchanged allowlisted command is denied without an accepted artifact.
 
 ## Test Strategy
 
+- ISC-383 | verification confinement | edited verification script attempts an outside-worktree marker write through the allowlisted test command | outside bytes unchanged; violation denied; sandbox unavailable fails closed | disposable worker regression + OS sandbox probe
 - ISC-369..375 | source and host integration | coordinator/worker/bridge authorization, duplicate/failure/cancel/artifact and profile-pin tests | fail closed and preserve one assignment | pytest + scoped host probes
 - ISC-376..382 | browser and AXIO operational | real task, client disconnect, coordinator restart, owned listeners/config hashes and isolated restore | dated receipts per boundary; reboot remains ISC-353 | IAB + SSH + artifact digest
 
@@ -656,7 +658,7 @@ Local onboarding: count IDs in template/private JSON/Markdown; reconcile source 
 
 <!-- arch-assets:start -->
 
-_Auto-maintained by `ArchitectureAssetsSync.hook.ts` on release events._  
+_Auto-maintained by `ArchitectureAssetsSync.hook.ts` on release events._
 _Last refreshed: 2026-10-08T16:21:19.999Z_
 
 | Asset | Status | How it's generated |
@@ -672,6 +674,7 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 
 ## Decisions
 
+- 2026-10-09: refined: gate write enablement on ISC-383. The worker's verification subprocess executes proposed project code outside the Codex sandbox; an argv allowlist and a worktree cwd do not confine that code. Preserve default-off write configuration while OS-enforced verification confinement is repaired. Routed Observe dispatch is held by unavailable hosted gateway management admission; no worker/model resolution or local fallback is claimed.
 - refined: 2026-10-09 founder declines Cloudflare Zero Trust Access; use private Tailscale transport plus application authorization for the fleet UI. The company hostname remains `fleet.hey-zack.fr`. Founder has on-site recovery help available for the scheduled reboot; no reboot evidence is inferred.
 - 2026-10-09 access-first steering: verify Coding 01 SSH over Tailscale and move the localhost UI to private persistent HTTPS before further Hermes acceptance. Physical SSH and tailnet HTTPS pass; custom company DNS/certificate and browser QA remain open.
 
@@ -739,6 +742,7 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 
 - 2026-10-09: Founder explicitly keeps routed execution held for OmniRoute migration, then reports independently installing OmniRoute on mac-coding. Agent service activation remains unapproved and unperformed; no changes may race the operator installer. Existing AXIO3.8.50 and provider-count observations predate that installation.
 
+- 2026-10-09: refined: a completed artifact is insufficient cleanup authority. Preserve changed/ignored work and unretained history; fail closed on recovery state and recheck before normal Git removal. The source correction follows two reproduced PR39 review findings; live cleanup and services stay untouched.
 - 2026-10-10: Shared OmniRoute inference credentials are permitted across fleet workers by founder decision; coordinator worker credentials remain distinct and project-scoped. ISC-365 stays open until a real remote worker returns a node-attributed verified artifact.
 
 ## Changelog
@@ -998,6 +1002,16 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
   learned: Measured HUD margins, a north-oriented chart, settled layout refits, mode-specific depth planes and a compact landscape helm preserve coast visibility and control reachability.
   criterion now: ISC-288 and ISC-295 accepted only after actual desktop/portrait/landscape screenshots and all nine control center points were unobstructed.
 
+- 2026-10-09 | conjectured: an old worktree with a result artifact can be forcibly removed without losing recovery evidence.
+  refuted by: disposable PR39-head probes deleted an unarchived later edit and allowed cleanup with an empty recovery-required record.
+  learned: artifact existence does not cover later files or detached history, and a global worker hold must also hold cleanup.
+  criterion now: ISC-397 and ISC-398 require preservation and fail-closed holds, including a final removal recheck.
+
+- 2026-10-10 | conjectured: one coordinator claim guarantees one native Codex job, and known tool items exhaust possible effects.
+  refuted by: the actual isolated root spawned two native Codex agents; a collaboration-only failure was omitted from the retry blacklist.
+  learned: disable both native multi-agent features per invocation and require a complete positive effect-free trace before retry.
+  criterion now: ISC-399 and ISC-400 cover invocation isolation and conservative retry proof; production and human role-flow acceptance remain open.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -1214,6 +1228,8 @@ Cockpit verification receipts: /Users/sheshnarayaniyer/.codex/visualizations/202
 ReReadCheck — latest user request: "Fan out and integrate all the infra and do a deep pass on implementing all the features on top of this". Three independently owned API/client/UI lanes integrated above the existing city. Eleven workspaces cover all current source inventory and bounded private metadata; full browser flows and gate-checked local proposal export are implemented. Runtime operations without an existing control contract are explicitly unavailable; existing game remains functional. This finishes the cockpit lane and does not close historical physical/deployment requirements.
 
 - ISC-365: Physical device and source verification — 2026-10-10 remote worker enrollment, private SSH transport, 116 Coding02 tests and real Hermes-to-Codex-to-artifact round trip pass; artifact node is Coding02, SHA-256 matches, source constant/mapping references are verified, and the same attempt survives coordinator restart. Shared inference credential retained; remote writes, Claude/GitHub integration and physical reboot remain separate open checks.
+- ISC-397: actual disposable Git regressions — changed/staged/untracked/ignored files survive cleanup refusal; unretained detached commits survive until a branch saves their history; locked checkouts and edits added after planning survive. Broader focused fleet/cockpit suite: "288 passed in 29.67s".
+- ISC-398: actual disposable state/Git regressions — any recovery-required record holds all attempts; missing, null, list and empty active/pending identifiers fail closed; a hold added after a clean plan prevents removal. Broader focused fleet/cockpit suite: "288 passed in 29.67s". Production flags remain false and no live cleanup ran.
 
 ## Change log — standalone import body bridge, 6 October 2026
 
@@ -1517,6 +1533,64 @@ Reviewed source is published on feat/cloud-gateway and PR31 is updated for the a
 Real task79e51fe012b64787a22e4f6e6753a744 selects CTO and succeeds at transport/execution on the new checkout, with checksum-verified artifact. Source review rejects its nonexistent TSX component references. This is not accepted UI analysis or seven-agent fan-out. Private UI-REVIEW.json and NEXT-UI-HERMES-FLOW.md record the failure and next source-grounding/role-graph requirements. Native config drift ISC-380, other nodes, teammate scope and remaining fleet gates stay open.
 
 
+## Verification — write-adapter confinement audit, 9 October 2026
+
+- ISC-383: disposable source probe — FAILED at bdbd1e1: `accepted=true`, `test_exit_code=0`, `outside_file_written=true`, `changed_paths=["verify.py"]`. All paths and synthetic configuration were temporary; no live worker task ran. Existing 75 focused fleet tests and frontend production build pass but do not cover this escape. Private receipt: `docs/fleet/onboarding/2026-10-09-hermes-pilot/WRITE-ADAPTER-CONFINEMENT-AUDIT.json`. Actual IAB reaches the operator-token prompt; authenticated graph rendering and reboot after source-path/branch cutover remain pending. No acceptance is promoted.
+
+## 2026-10-09 — ERP-independent Hermes role fan-out
+
+Founder defers ERP product/dossier integration and requests the next checklist item. Continue generic development intake through Chief-of-Staff bounded role planning and the existing authorized task graph. Commercial source PR35 remains separate; no live service or business connector activation follows from this source pass.
+
+- [x] ISC-389: An explicitly admitted owner/project can request one bounded Hermes Chief-of-Staff child plan for an existing development root, with seven-role and read-only validation.
+- [x] ISC-390: Plan and children persist atomically and replay without duplicate assignments or a second scheduler.
+- [x] ISC-391: Managed planned children respect root/preceding artifacts and failures, preserve one-slot capacity, and receive role and source provenance.
+- [x] ISC-392: Authorization, malformed plans, races/replay, cancellation/recovery and existing manual graph compatibility pass local tests; private checklist records source versus runtime evidence.
+- [ ] ISC-393: Actual Coding01 Chief-of-Staff event-to-child-to-artifact flow is proven before advertising live automated fan-out.
+- [ ] ISC-394: An admitted Coding01 `artifact_context` project delivers checksum-verified, task/attempt-bound predecessor output to an automatic read-only Sentinel in a live run.
+- [ ] ISC-395: An operator reviews a live authorized Sentinel result against delivered predecessor context and records actual semantic validation before any substantive-verification claim is made.
+- [ ] ISC-396: Live Coding01 board sends one admitted fanout request and refreshes its graph without claiming semantic validation.
+- [x] ISC-397: Anti: worker cleanup discards changed or ignored files, unretained commits, locked checkouts or work added after planning.
+- [x] ISC-398: Any recovery hold and malformed active/pending state prevent cleanup; removal rechecks holds added after planning.
+- [x] ISC-399: Managed Codex jobs disable native multi-agent features; actual isolated role jobs emit no collaboration events.
+- [x] ISC-400: Transient retries require a complete effect-free trace; collaboration, unknown tools and malformed records prevent replay.
+
+## 2026-10-09 — Generic fan-out source verification
+
+ISC-389 through ISC-392: unrestricted local pytest reports 100 passed across fanout, coordinator, manual graph, write-access and execution regressions. Compile and whitespace checks pass. Review-driven tests reject manual additions to planned roots, preserve authorized retry positions and require predecessor artifact task/attempt identity in the exact checksum-verified bytes. Source provenance remains opaque metadata, not substantive Sentinel review. Private FANOUT-SOURCE.json and NEXT-UI-HERMES-FLOW.md record the source/runtime distinction. ISC-393 remains open: no live source activation or actual Hermes fan-out round trip. ISC-394 and ISC-395 are separately pending for opted-in source-context delivery and actual semantic live validation; no test result promotes either runtime criterion.
+
+Follow-through: merged current PR34 source d45518c into the fan-out branch, retaining verification confinement and the separate fleet MCP server. Combined local regressions report 114 passed and 1 optional MCP SDK test skipped (dependency unavailable). No live write/fan-out activation or Gary task authorization follows from this merge.
+
+## Verification — controller source context, 9 October 2026
+
+The default-off `artifact_context` option delivers only bounded predecessor output from checksum-verified, task/attempt-bound bytes to automatic read-only children. Coordinator and worker independently validate the contract, redact their configured tokens and retain opaque artifact references. Source context remains untrusted; graph rollup does not establish semantic review. All 122 focused fleet tests pass with the installed Hermes MCP SDK, including its native `input_schema` contract. The full Python suite reports 947 passed, 276 skipped and 23 subtests passed with existing PyYAML and MCP package paths explicitly available to temporary-HOME subprocesses. The cockpit acceptance suite passes after keeping new criterion wording within its display limit. ISC-393 through ISC-396 remain pending live acceptance.
+
+A disposable confinement probe on this Mac re-runs the original edited-test escape against the repaired worker: verification fails and the outside marker remains unchanged. This is source-level OS sandbox evidence, not a completed live write task. A fresh native default-profile Hermes session (`20261009_172741_58fb93`) discovers the configured fleet MCP server and calls only `fleet_list` successfully, reporting 20 tasks. The SSH hop, teammate account installation, authenticated production graph and physical reboot remain separately unproven. No live service, write, fanout or context configuration was changed by this source pass.
+
+## Verification — controller role-planning clients, 9 October 2026
+
+Integrated serving graph source 4c2d1f2 with bounded fanout and source context, retaining scoped principals, conservative transient retries, pruning and the Vite patch. Fanout now requires submit permission and owner-only mutation before the planner is called. Root detail derives display-only eligibility from that same preflight; the board and sixth MCP tool delegate to the admitted endpoint without granting scope. The proxy forwards authorization and origin with a bounded route/body contract. Planning allows the bridge's 90-second window; stale board requests and duplicate clicks are guarded. A completed root can still cancel open children.
+
+Independent checks: 258 fleet/cockpit Python tests pass with the installed MCP SDK; all 213 frontend tests and the TypeScript/Vite production build pass. Compile and whitespace checks pass. In an actual IAB disposable fixture, one explicit board click traversed the real proxy/coordinator, created exactly two read-only children, refreshed the selected graph, displayed Sentinel's dependency hold and disabled replay. The planner was a synthetic stub and no role model ran, so ISC-393 through ISC-396 remain unchecked. The native Execute worker was intentionally interrupted for review handoff; its source was independently inspected and corrected before these checks. Upstream combo attribution remains unproven. Production services and admission flags were unchanged.
+
+
+## Verification — native worker isolation and actual candidate role flow, 10 October 2026
+
+An actual pinned-Hermes candidate flow on this Coding01 Mac exposed native Codex collaboration inside one claimed root. Two agents were spawned and the root reached its deadline; children remained held. The interrupted attempt and its recovery evidence are preserved, without replay. The earlier effect blacklist also omitted collaboration items.
+
+ISC-399: managed read and write commands now disable both `multi_agent` and `multi_agent_v2` per invocation. Installed Codex 0.160 reports both false with that overlay. The corrected immutable source 912e892 completed three sequential real jobs with zero collaboration events. ISC-400: retries require thread/turn start and a transient terminal failure, accepting only known non-effect text/reasoning/error records; tool, collaboration, unknown, malformed, partial and conflicting traces fail closed. Focused execution/retry/write tests report 62 passed in 18.46s; fleet/cockpit regressions report 301 passed in 30.33s.
+
+The actual candidate coordinator, pinned Hermes revision 93257fd and Codex completed root -> Librarian -> Sentinel with verified artifacts. Owned CLI session prompts were checked directly: Librarian received the exact 1,669-byte root output; Sentinel received that output plus the exact 1,065-byte Librarian output, with matching task/attempt IDs and ordering. Sentinel correctly detected and corrected all five root line-citation offsets against the executed source. Its output was 1,906 bytes, above the requested 1,800 but within the 4,096-byte context contract. Root content is not accepted wholesale.
+
+These jobs used isolated candidate servers and state, not the serving production board. Baseline production and native configuration hashes are unchanged; temporary servers stopped. ISC-393 through ISC-396 remain open for production admission, actual operator semantic acceptance and authenticated board operation. Browser observation after the operator reply still shows Disconnected. Private receipts retain actual capture timestamps of 9 October UTC; this verification entry uses the client's 10 October date.
+
+
+## Verification — explicit Sentinel patch review, 10 October 2026
+
+The controller can submit a default-off, same-owner/project/parent read-only Sentinel verify child using `review_of` for a succeeded CTO write task. Submission freezes the source attempt and artifact digest; claims recheck current permission, project admission, parent/source state and the unchanged binding. Bounded evidence preserves exact patch bytes and checksum while omitting test argv/raw tails. The worker validates evidence before creating a worktree, checks the recorded base exists locally and checks patch applicability without applying it. Automatic fanout admission and its single execution slot remain unchanged.
+
+Independent review corrected Git file-header path mismatch and the artifact read limit. Regular text patch metadata is closed and safe; unsupported rename/copy, binary or special-file changes and credential-like content are held. Final fixture evidence uses the preserved physical 586-byte write artifact, proves admission revocation holds before claim, exact patch/base transport, read-only runtime and result provenance. 425 fleet/cockpit tests pass with one optional MCP SDK skip, existing PyYAML available and ambient host-instance variables removed from fixture subprocesses; catalog, compile and whitespace checks pass.
+
+One actual isolated native Codex candidate received the exact patch, independently inspected recorded source and returned a checksum-bound result with four read commands and zero collaboration events. Its owned native session directly confirms delivered patch bytes. Final referenced files and behavior exist, but one comparison citation needs correction (233 to 236); human content acceptance is pending. The native run precedes the final stricter artifact-read and credential gates, which are verified by final source tests and fixture transport. No production service, flag, credential or native configuration is changed. The original criteria and checked states are retained; ISC393–396 and original device/team, reboot, restore, native-config and capacity gates remain open.
 ## Verification — Coding01 tenant references and private-file dispositions, 10 October 2026
 
 - ISC-355: Physical read-only source audit — 11 canonical tenants, 18 source records and 89 bounded tenant-local files verified on Coding01; zero unexpected holds. The stale HeyZack host-capability reference now points to the installed skill while `ingest: false` is preserved. Capability presence confers no module or runtime authority.
