@@ -103,7 +103,8 @@ class ErpReader:
         table, column = self.binding['table'], self.binding['id_column']
         for start in range(0, len(unique), self.max_rows):
             batch = unique[start:start + self.max_rows]
-            rows = self.query('SELECT %s FROM %s WHERE %s IN (%s)' % (column, table, column, ','.join(str(i) for i in batch)))
+            # identifiers passed IDENT above, so double-quoting is safe and keeps mixed-case names (PostgreSQL folds unquoted ones)
+            rows = self.query('SELECT "%s" FROM "%s" WHERE "%s" IN (%s)' % (column, table, column, ','.join(str(i) for i in batch)))
             found.update(int(r[0]) for r in rows)
         return found
 

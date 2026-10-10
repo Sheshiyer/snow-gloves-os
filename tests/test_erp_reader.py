@@ -88,6 +88,13 @@ def test_existing_ids_uses_only_the_one_read_tool_and_returns_ids():
     assert 'LIMIT' in erp.calls[0][1]['query'] and 'name' not in erp.calls[0][1]['query'].lower()
 
 
+def test_identifiers_are_double_quoted_so_mixed_case_tables_work():
+    erp = FakeErp(existing={7})
+    ErpReader(erp, ADMITTED, dict(BINDING, table='TM_CLI_CLient', id_column='cli_id')).existing_ids([7])
+    query = erp.calls[0][1]['query']
+    assert query.startswith('SELECT "cli_id" FROM "TM_CLI_CLient" WHERE "cli_id" IN (7)') and query.endswith('LIMIT 100')
+
+
 def test_the_reader_never_calls_the_excluded_or_any_other_tool():
     erp = FakeErp()
     r = reader(erp)
