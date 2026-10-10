@@ -547,6 +547,7 @@ def test_worker_receives_delimited_context_and_writes_safe_provenance(tmp_path):
         'id': 'business-task',
         'attempt_id': 'business-attempt',
         'lease_token': 'lease-synthetic',
+        'project': 'snowgloves',
         'runtime': 'codex',
         'access': 'read',
         'category': COMMERCIAL_PREPARATION_CATEGORY,
@@ -564,6 +565,7 @@ def test_worker_receives_delimited_context_and_writes_safe_provenance(tmp_path):
     artifact = json.loads(Path(terminal['artifact']['path']).read_text())
     prompt = prompt_path.read_text()
     assert terminal['type'] == 'succeeded'
+    assert artifact['project'] == 'snowgloves'
     assert '<untrusted-business-task-data>' in prompt
     assert '"erp_access":"unverified"' in prompt
     assert 'Classify requests, documents and appointments' in prompt
