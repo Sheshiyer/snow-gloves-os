@@ -6,6 +6,7 @@ import urllib.request
 
 import pytest
 
+from fleet_worker import Worker
 from lib.fleet_coordinator import Rejected, load_config
 from lib.fleet_coordinator import server as make_server
 from test_fleet_coordinator import claim, fleet, report, submit  # noqa: F401  (fleet is a fixture)
@@ -198,3 +199,54 @@ def test_observer_over_http_reads_but_cannot_write(observed):
     finally:
         http.shutdown()
         http.server_close()
+
+
+def test_remote_fanout_keeps_local_root_mapping_and_verified_context(fleet, tmp_path):
+    """Combining remote artifacts and fanout must not reintroduce coordinator paths."""
+    c, conf, _ = fleet
+    project = conf['projects']['snowgloves']
+    project.update(fanout=True, artifact_context=True)
+    project.pop('root')  # Remote-only projects need no coordinator checkout.
+    owner = conf['principals']['founder']
+    owner['fanout_projects'] = ['snowgloves']
+    remote = conf['workers']['mac-coding-1']
+    remote.update(remote_artifacts=True, node_id='coding02')
+    c._plan_from_hermes = lambda _: {'children': [
+        {'logical_role': 'librarian', 'stage': 'reference', 'title': 'References', 'brief': 'Read.'},
+        {'logical_role': 'sentinel', 'stage': 'verify', 'title': 'Verify', 'brief': 'Verify.'},
+    ]}
+    root = submit(c, conf)
+    plan = c.fanout('founder', owner, root['id'])
+    checkout = tmp_path / 'remote-checkout'
+    checkout.mkdir()
+    worker = Worker({
+        'state_root': str(tmp_path / 'remote-state'), 'node_id': 'coding02',
+        'endpoint': 'http://127.0.0.1:14101', 'token': remote['token'],
+        'gateway_url': 'http://127.0.0.1:20128/v1', 'remote_artifacts': True,
+        'allowed_roots': [str(checkout)], 'project_roots': {'snowgloves': str(checkout)},
+    })
+    outputs = []
+    for expected in [root, *plan['children']]:
+        assigned = claim(c, conf)
+        assert assigned['id'] == expected['id']
+        assert assigned['remote_artifacts'] is True
+        assert 'root' not in assigned and 'artifacts_root' not in assigned
+        assert worker.project_roots[assigned['project']] == checkout
+        assignment = worker._fanout_assignment(assigned)
+        if outputs:
+            assert assignment['source_context_mode'] == 'verified-output'
+            assert [source['output'] for source in assigned['source_outputs']] == outputs
+            prompt = worker._fanout_prompt(assigned, assignment)
+            assert all(output in prompt for output in outputs)
+        else:
+            assert assignment is None
+        output = 'Verified result ' + assigned['id']
+        payload = dict(task_id=assigned['id'], attempt_id=assigned['attempt_id'],
+                       project='snowgloves', node='coding02', runtime='codex', output=output)
+        artifact = Worker.remote_artifact(payload)
+        report(c, conf, assigned, type='succeeded', artifact=artifact)
+        stored = c.detail('founder', owner, assigned['id'])['artifact']
+        assert stored['path'].startswith('remote-')
+        assert c._artifact_payload(stored)[1]
+        outputs.append(output)
+    assert claim(c, conf) is None

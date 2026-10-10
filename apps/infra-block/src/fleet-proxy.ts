@@ -12,9 +12,10 @@ export function fleetProxyAllowed(method: string | undefined, url: string | unde
                                   contentLength: string | string[] | undefined): boolean {
   if (!method || !url || url.includes('?') || url.includes('#') || Array.isArray(contentLength)) return false;
   const task = new RegExp(`^/api/fleet/tasks/${FLEET_ID}`);
-  const get = url === '/api/fleet/tasks'
-    || task.test(url) && new RegExp(`^/api/fleet/tasks/${FLEET_ID}(?:/events)?$`).test(url);
-  const post = url === '/api/fleet/tasks'
+  const get = ['/api/fleet/tasks', '/api/fleet/context', '/api/fleet/capabilities', '/api/fleet/approvals'].includes(url)
+    || task.test(url) && new RegExp(`^/api/fleet/tasks/${FLEET_ID}(?:/(?:events|artifact))?$`).test(url);
+  const post = ['/api/fleet/tasks', '/api/fleet/capabilities/execute', '/api/fleet/approvals'].includes(url)
+    || new RegExp(`^/api/fleet/approvals/${FLEET_ID}/(?:approve|reject)$`).test(url)
     || task.test(url) && new RegExp(`^/api/fleet/tasks/${FLEET_ID}/(?:cancel|fanout)$`).test(url);
   if (method === 'GET') return get && (contentLength === undefined || contentLength === '0');
   if (method !== 'POST' || !post || typeof contentLength !== 'string' || !/^(?:0|[1-9]\d*)$/.test(contentLength)) return false;
@@ -32,7 +33,9 @@ export function fleetProxyOptions(target = 'http://127.0.0.1:4101') {
     // coordinator still receives the browser's bearer/origin headers and
     // independently checks owner, permission, capability and body shape.
     bypass: (request: FleetProxyRequest) =>
-      fleetProxyAllowed(request.method, request.url, request.headers['content-length']) ? undefined : false,
+      request.headers['transfer-encoding'] === undefined
+        && (request.method !== 'POST' || typeof request.headers['content-type'] === 'string' && /^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(request.headers['content-type']))
+        && fleetProxyAllowed(request.method, request.url, request.headers['content-length']) ? undefined : false,
     rewrite: (path: string) => path.replace(/^\/api\/fleet/, '/v1'),
   };
 }

@@ -173,8 +173,13 @@ class H(http.server.BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "task": task, "routing": decision, "audit": rec})
         return self._json(404, {"error": "not found"})
 
+class BusServer(socketserver.TCPServer):
+    """Rebind the bus port straight after a restart (launchd KeepAlive) instead of
+    failing with EADDRINUSE while the previous process's connections sit in TIME_WAIT."""
+    allow_reuse_address = True
+
 def serve():
-    with socketserver.TCPServer((HOST, PORT), H) as httpd:
+    with BusServer((HOST, PORT), H) as httpd:
         import sys as _sys; print(f"[hermes] listening on http://{HOST}:{PORT}  channel={CHANNEL}", file=_sys.stderr, flush=True)
         httpd.serve_forever()
 

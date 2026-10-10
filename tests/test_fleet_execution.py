@@ -33,7 +33,7 @@ def worker(tmp_path):
                     gateway_url='http://127.0.0.1:20128/v1',gateway_key_file=str(key),
                     state_root=str(tmp_path/'state'), codex_path=str(cli),
                     allowed_roots=[str(root)], artifacts_root=str(artifacts)))
-    task = dict(id='task1',attempt_id='attempt1',lease_token='lease-secret',runtime='codex',
+    task = dict(project='snowgloves', id='task1',attempt_id='attempt1',lease_token='lease-secret',runtime='codex',
                 root=str(root),artifacts_root=str(artifacts),brief='Review repository')
     return w, task
 

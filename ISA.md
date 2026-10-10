@@ -3,8 +3,8 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: execute
-progress: 381/407
+phase: verify
+progress: 405/439
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -526,7 +526,42 @@ until the actual mini supplies evidence.
 - [ ] ISC-380: Owned coordinator, Hermes bridge and worker launch agents run with loopback listeners and preserved native configuration.
 - [x] ISC-381: An isolated pilot restore drill recovers coordinator state and verifies accepted artifact hashes.
 - [x] ISC-382: The reviewed pilot package and runbook record scoped runtime capabilities, limitations and rollout evidence.
-- [ ] ISC-383: Anti: write-adapter verification commands can write outside the approved worktree; an edited verification script invoked by an unchanged allowlisted command is denied without an accepted artifact.
+- [x] ISC-383: Anti: write-adapter verification commands can write outside the approved worktree; an edited verification script invoked by an unchanged allowlisted command is denied without an accepted artifact.
+
+### Headless Hermes implementation, 10 October 2026
+
+- [x] ISC-402: Production web server serves the built UI without a desktop-session dependency.
+- [x] ISC-403: Production web proxy rejects unapproved hosts, origins and worker routes.
+- [x] ISC-404: Authenticated context exposes only authorized projects and worker choices.
+- [x] ISC-405: Catalog readiness displays every entry with a concrete admission state.
+- [x] ISC-406: Execution rejects disabled and refused catalog entries server-side.
+- [x] ISC-407: Execution rejects missing adapters and mismatched pinned skill source.
+- [x] ISC-408: Execution validates inputs against the reviewed adapter schema.
+- [x] ISC-409: Capability dispatch rechecks tenant and principal project authority.
+- [x] ISC-410: Approval requests bind tenant, capability and input digest.
+- [x] ISC-411: Approval decisions derive actor from authenticated approve permission.
+- [x] ISC-412: Approved execution consumes authorization without duplicate task creation.
+- [x] ISC-413: Artifact retrieval rejects cross-owner or cross-project access.
+- [x] ISC-414: Artifact retrieval verifies persisted bytes before presenting content.
+- [x] ISC-415: Fleet UI selects authorized projects and eligible workers.
+- [x] ISC-416: Fleet UI exposes capability readiness and gated execution controls.
+- [x] ISC-417: Fleet UI exposes approval decisions only to authorized approvers.
+- [x] ISC-418: Fleet UI displays readable artifact content and safe downloads.
+- [x] ISC-419: Grok Bot MCP tools use a dedicated scoped application principal.
+- [ ] ISC-420: Actual Grok Bot discovers fleet tools through supported plugin registration.
+- [ ] ISC-421: Actual Grok Bot task and result match the web UI.
+- [x] ISC-422: Headless plan binds plist bytes and nonroot identity to a reviewed digest.
+- [x] ISC-423: Headless apply requires quiescence and prevents duplicate registration.
+- [x] ISC-424: Headless rollback preserves drifted files for manual recovery.
+- [ ] ISC-425: Actual Coding01 system services run without desktop login.
+- [ ] ISC-426: Actual Coding02 system services run without desktop login.
+- [ ] ISC-427: Actual Coding02 FileVault is Off before cold-boot acceptance.
+- [ ] ISC-428: Actual India team device reaches company UI and scoped task operations.
+- [ ] ISC-429: Actual India team access remains denied to authoring and gateway administration.
+- [x] ISC-430: Actual Coding02 write-build task returns verified changes and output.
+- [ ] ISC-431: Actual cold boot restores both Coding Macs and completes a fresh fleet task.
+- [ ] ISC-432: Anti: authoring runtime, disk protection and fleet role stay unchanged.
+- [x] ISC-433: Combined remote artifacts and verified role context pass source regression (renumbered from incoming ISC-401, which collides with main).
 
 ## Test Strategy
 
@@ -673,6 +708,8 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 <!-- arch-assets:end -->
 
 ## Decisions
+
+- 2026-10-10: refined: approved implementation and completed preference interview select Coding01 primary, Coding02 worker, Grok Bot task operations, whole catalog with gated execution, unattended cold boot on Coding Macs only, no desktop autologin and separate protected authoring seat. ISC402–433 retain separate source, installed and physical acceptance.
 
 - 2026-10-09: refined: gate write enablement on ISC-383. The worker's verification subprocess executes proposed project code outside the Codex sandbox; an argv allowlist and a worktree cwd do not confine that code. Preserve default-off write configuration while OS-enforced verification confinement is repaired. Routed Observe dispatch is held by unavailable hosted gateway management admission; no worker/model resolution or local fallback is claimed.
 - refined: 2026-10-09 founder declines Cloudflare Zero Trust Access; use private Tailscale transport plus application authorization for the fleet UI. The company hostname remains `fleet.hey-zack.fr`. Founder has on-site recovery help available for the scheduled reboot; no reboot evidence is inferred.
@@ -1668,3 +1705,28 @@ Founder defers the ERP dossier pilot because product connection is unfinished. I
 ### Commercial source completion audit — 9 October 2026
 
 Revalidated the full source-pass objective against current files, the published PR35 revision and private planning/reference evidence. Original commercial suite:103 passed. After incorporating upstream dedd326, combined commercial/coordinator/graph/write/execution/MCP/scoped-principal/transient-retry regressions:140 passed,1 optional MCP SDK test skipped because the dependency is absent. Business preparation remains read-only; the worker retains its delimited business prompt across safe transient retries, and child ownership is checked before context inheritance. Four dated ERP reference source hashes match the private contract. All five source/local criteria383–387 remain accepted; actual ERP read and Coding01 commercial execution criterion388 remains explicitly deferred by founder and outside source-pass completion. Publication is a draft source PR, not merge, deployment or connector activation.
+
+## Verification — headless fleet source integration, 10 October 2026
+
+ISC-433: integration69f7bce preserves remote artifacts and role context;212 focused tests passed. ISC-402/403: production stdlib server serves the built UI through loopback with bounded host/origin/route checks; four transport tests passed and actual disposable IAB reaches the built town. This does not satisfy installed-daemon or physical-boot acceptance. ISC-404–414:100 capability/coordinator/MCP/fanout/scope tests passed with one optional SDK test skipped in the local interpreter. Actual Coding01 installed MCP SDK independently discovered all14 tools through the HTTP adapter at an isolated loopback port. Artifact envelopes now always include project identity;67 worker/transport tests pass with synthetic claims corrected to include their project. The first integrated browser authentication exposed a missing-schema contract mismatch on unavailable catalog entries; UI acceptance stays open pending repair and replay.
+
+
+ISC-422–424:21 stdlib headless-package tests and10 subtests pass, covering digest-bound source/config identity, serialized apply/rollback, quiescence fences, duplicate prevention, explicit nonroot users and refusal to overwrite newer edits. System installation and physical boot remain open. The remote maintenance probe uses a separate fixed-command key; the existing transport key is unchanged.
+
+Operator apply of Coding01 reviewed plan cddb542d stopped during user-service teardown. Live observation shows only its coordinator stopped, all10 system definitions absent, original coordinator plist unchanged, database integrity OK and reviewed task-state digest unchanged with0pending jobs. Root journal recovery remains required; no blind retry or completed cutover is claimed. Installed launchctl documentation on both Macs confirms asynchronous bootout and its supported --wait option. Local correction bounds --wait to25seconds, recognizes actual enabled/disabled output and adds sanitized failure-operation diagnostics;24tests and14subtests pass. These source checks do not establish the exact first-attempt cause or privileged recovery.
+
+
+ISC-415–418:226 frontend tests and production build pass. Actual disposable IAB proves scoped context, observed Codex/read worker selection,163catalog entries with readiness, bounded skill submission, cancellation persisted across reconnect, explicit coordinator task IDs and checksum-verified sanitized artifact display/download with hostile text inert. The unavailable-schema mismatch and enabled-during-refresh race were corrected. Root IAB independently submitted then immediately cancelled final-build task73f23f9fcfd4449a91a635bffebcd3b3; it rendered cancelled and disabled further cancellation. Approver controls are source-tested; no actual approval-required live adapter was invoked. Physical/inference acceptance remains separate.
+
+
+ISC-419: the live dedicated grok-bot principal discovers14tools and completes capability task c42edb960f424cbeac535ccc26cae1f4 on Coding02, with UI/MCP artifact equality and digest409c49e2e7db294ea8a89e1f41575a9df4950d093bdfcce58380708a992f587a. Read/submit/cancel are granted for snowgloves; approval and cross-project execution return403. Actual Grok Bot supported registration and app-initiated calls remain open in420/421. Both isolated device release checkouts run db4fcba under existing user LaunchAgents; no system daemon or unattended-boot acceptance follows. The Hermes-interpreted librarian parent06fd4cca0b304f3882447ba30ce7e63d succeeded on Coding02; explicit CTO write/build child1d458267d59c4eb89c096e7365ba8c6f is queued and must be inspected without replay.
+
+
+ISC-383/430: the integrated macOS write-worker suite passes26tests on Coding02, including the edited-verification-script outside-worktree denial and fail-closed sandbox checks. Actual founder-authorized CTO child1d458267d59c4eb89c096e7365ba8c6f succeeded on Coding02 from base db4fcba, changed only docs/fleet/CODING02-WRITE-CANARY.md in its isolated worktree and returned71passing independent worker verification tests. Persisted artifact SHA2566133d9c3209c84b05f336db5ec0304753a2266923929886b838226b54930a3b9 and533byte patch SHA256aa55a22d67a384b9ab820317bf96e2c17e709e4b648415e0c80aeea7187bc953 were independently checked. No patch was merged into the release.
+
+Actual recovery task c0e9fbdc5ebb49618d870772aa8c452a retained one interrupted attempt after controlled worker loss; restart created recovery-required.json and did not replay. Owned runtime groups were confirmed terminated before the hold was archived. Idle worker/transport restart returned authenticated coordinator access200. An isolated backup restore preserved29task records,3interrupted attempts and owned plist bytes, without replacing the live DB or starting restored services. This is not physical-restore or unattended-boot acceptance.
+
+Subsequent root69517747b1b84dceb3778ab91e4fad70 failed on routed response-stream disconnect; its fanout returned503 with no children. Preserve terminal history and keep ISC393–396 and capacity-soak acceptance open. Final headless plans are reviewed candidates only: Coding01 digest3258243ed92bfaa361daf57a3b61acf42df747119845f816875372a58846bbbd covers10services/116inputs; Coding02 digest0665acfd2889fe3e91dc2d80ffc49c75b186695c5592ab63b97cd358c90c3241 covers2services/64inputs. Both bind zero pending jobs and matching database task-state digest. Protected config and coordinator/gateway storage backups, literal-digest scripts and operator runbook are staged. System apply requires interactive administrator authentication; none has occurred. Coding02 still reports FileVault On.
+
+
+Final maintenance review adds the actual tenant enabled.yaml authority to Coding01 inputs. The current Coding01 plan supersedes its earlier candidate: digest cddb542df78f34174e774c8dfbecd355f57da7b4b42b41fa384910e67e69b9d1,117fingerprinted inputs,10services. Coding02 retains digest0665acfd2889fe3e91dc2d80ffc49c75b186695c5592ab63b97cd358c90c3241. Both plans passed fresh source/account/database checks with0pending jobs. HTTPS application context and163catalog entries return200 for the dedicated app principal; its scope is heyzack/snowgloves with read/submit/cancel. Private Coding01 node profiles now advertise Codex alone; other installed tools remain outside accepted fleet runtime advertisement.

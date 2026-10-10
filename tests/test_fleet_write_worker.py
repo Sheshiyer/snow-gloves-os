@@ -53,7 +53,7 @@ def env(tmp_path):
                   state_root=str(tmp_path / 'state'), codex_path=str(cli),
                   allowed_roots=[str(root)], artifacts_root=str(artifacts),
                   write_roots=[str(root)], test_commands={str(root): [PASS]})
-    task = dict(id='task1', attempt_id='attempt1', lease_token='lease-secret', runtime='codex', access='write',
+    task = dict(project='snowgloves', id='task1', attempt_id='attempt1', lease_token='lease-secret', runtime='codex', access='write',
                 root=str(root), artifacts_root=str(artifacts), brief='WRITE app.txt one\\ntwo')
     return config, task, root, tmp_path
 
