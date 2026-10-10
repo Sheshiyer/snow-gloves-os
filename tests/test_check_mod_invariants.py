@@ -82,3 +82,29 @@ def test_calls_allowlist_reads_via_groups(mods):
 def test_unknown_mod_needs_an_allowlist(mods):
     found = cmi.call_problems(make_mod(mods, "sg-new", GOOD), report("session.start", "nothing"))
     assert found == ["calls sg-new: no allowlist in scripts/check_mod_invariants.py"]
+
+
+def test_only_sg_handoff_may_submit_a_prompt(mods):
+    submit = GOOD + "await $.prompt.submit({ text: 'go' })\n"
+    assert cmi.source_problems(make_mod(mods, "sg-handoff", submit)) == []
+    found = cmi.source_problems(make_mod(mods, "sg-rail", submit))
+    assert any(line.startswith("I3 ") for line in found)
+
+
+@pytest.mark.parametrize("snippet", [
+    "await $.tool.register({ name: 'approve' })\n",
+    "await $.prompt.submit({ text: 'x', asUser: true })\n",
+])
+def test_sg_handoff_still_may_not_register_tools_or_act_as_the_user(mods, snippet):
+    found = cmi.source_problems(make_mod(mods, "sg-handoff", GOOD + snippet))
+    assert any(line.startswith("I3 ") for line in found), snippet
+
+
+def test_every_mod_in_the_marketplace_has_an_allowlist_and_a_card():
+    import json
+    market = json.loads((cmi.MODS / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+    names = {p["name"] for p in market["plugins"]}
+    assert names == {p.name for p in cmi.mod_dirs(cmi.MODS)}
+    assert names <= set(cmi.ALLOWED_CALLS)
+    for name in names:
+        assert (cmi.ROOT / "catalog" / "cards" / f"{name}.md").is_file(), name

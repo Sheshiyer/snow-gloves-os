@@ -124,7 +124,7 @@ Measured on one prompt: 2,450 characters of context before, 1,251 after. The PAI
 
 ## Ten implementation ideas
 
-Ideas 1 to 3 are the shipped mods above. Each of 4 to 10 is specified enough to build: surface, hooks and API, data, behavior, failure modes, tests, and what it depends on. All of them follow rules I1 to I6, add a `sg_mods.py` subcommand when they need platform data, and add their allowlist to `scripts/check_mod_invariants.py`.
+All ten are shipped in `mods/`. The text under each idea is the design they were built from; the notes at the end of this section say where the build differs: surface, hooks and API, data, behavior, failure modes, tests, and what it depends on. All of them follow rules I1 to I6, add a `sg_mods.py` subcommand when they need platform data, and add their allowlist to `scripts/check_mod_invariants.py`.
 
 ### 1. sg-rail: status band (shipped)
 
@@ -138,7 +138,7 @@ Next steps: a `tool.describe` hook that appends "not enabled for <tenant>" to a 
 
 Next steps: a payload preview that `sg_mods.py` redacts through `scripts/lib/redact.py` instead of showing keys only; a reason `Input` on reject; and a graph-hook-diff view for tickets from `graph_upgrade.py` (`kind: graph-hook-diff`), showing the proposed `skill-hooks.yaml` change.
 
-### 4. sg-hermes: event stream, route lens, replay
+### 4. sg-hermes: event stream, route lens, replay (shipped)
 
 - **Surface:** `/hermes` pane with three tabs (buttons with hotkeys `1` `2` `3`), as in the docs' `hello-tabs` pattern.
 - **Live tab:** `$.clock.every(5000)` fetches `GET :4100/events` and keeps the newest 200 in `$.state`. `/events` ignores `?since=` today, so the mod diffs by `ts`; **prerequisite**: implement `since` in `scripts/hermes.py` (a 10-line filter plus a test) and switch to it.
@@ -149,7 +149,7 @@ Next steps: a payload preview that `sg_mods.py` redacts through `scripts/lib/red
 - **Tests:** stub `http.fetch` for `/events` and `/test/e2e`; mount the pane on both surfaces; `mock.clock` for polling; check `turn.complete` posts only with the option on.
 - **Allowlist adds:** `$.http.fetch` (I5: Hermes URL from the snapshot only).
 
-### 5. sg-org: the seven agents as Claude subagent types
+### 5. sg-org: the seven agents as Claude subagent types (shipped)
 
 - **Surface:** subagent types `sg-org:ceo`, `sg-org:cto`, `sg-org:chief-of-staff`, `sg-org:librarian`, `sg-org:interpreter`, `sg-org:dispatcher`, `sg-org:sentinel`, plus an `/org` pane.
 - **Hooks and API:** `session.start` calls `$.agent.register` once per agent. `prompt` is built by a new `sg_mods.py agents` subcommand from `IDENTITY.md`, `SOUL.md`, `TOOLS.md`, and the default skill in `skills/registry.yaml`. `tools` comes from `TOOLS.md`; sentinel and librarian get read-only tools. `agent.offer` withholds roles not in the tenant's `enabled.yaml` `agents:`. `agent.spawn` sets `model` per role from a role → combo map (for example sentinel → `noesis-verify`) only when `ANTHROPIC_BASE_URL` points at OmniRoute.
@@ -157,7 +157,7 @@ Next steps: a payload preview that `sg_mods.py` redacts through `scripts/lib/red
 - **Failure modes:** a missing agent file skips that agent with a log line; `agent.spawn` never refuses, it only picks a model.
 - **Tests:** stub `agent.register` and assert each spec; `agent.offer` withholds an unenabled role; `agent.spawn` leaves the model alone off OmniRoute.
 
-### 6. sg-omniroute: model, cache and budget ledger
+### 6. sg-omniroute: model, cache and budget ledger (shipped)
 
 - **Surface:** a meter in the band (context %, plan limits) and an `/omniroute` pane with a per-request ledger.
 - **Hooks and API:** a `turn.step` async generator does `const result = yield* next(e)` and records `result.usage` (input, output, cache read, cache write) and the model per request, main conversation and subagents (`e.agentId`) separately. `$.session.usage()` feeds the meter. `/combo` fetches `GET :20128/v1/models` and shows the `noesis-*` and `temperance-*` combos; a `Select` sets the role → combo map idea 5 uses.
@@ -165,14 +165,14 @@ Next steps: a payload preview that `sg_mods.py` redacts through `scripts/lib/red
 - **Safety:** read-only toward OmniRoute. It never reads the key (`apiKeyHelper` stays in the Keychain) and never changes the session's own model.
 - **Tests:** a `turn.step` stub that streams and returns usage; check the ledger rows and the cache ratio; `mock.clock` for the meter.
 
-### 7. sg-fleet: fleet cockpit
+### 7. sg-fleet: fleet cockpit (shipped)
 
 - **Surface:** `/fleet` pane. In the terminal, a `Raster` heat map, wings (rows) × doctor checks (columns), green/amber/red; on desktop, a text table (no `Raster` there).
 - **Hooks and API:** every 2 minutes, `$.process.run` on `scripts/fleet/doctor.py --json` (`snowgloves.fleet-doctor.v1`) and `scripts/fleet/gateway_client.py status` (FLEET or NOT-FLEET per surface). A toast when a `critical` check (node-profile, gateway, tenants) turns red. The pane is never opened unasked.
 - **When `feat/hermes-task-graph` lands:** a task board from the fleet coordinator `:4101 /v1/tasks` with the stages plan, reference, review, dispatch, verify, and the infra snapshot from `:18761/api/infra/snapshot`. These are the "fleet map" and "session board" views of `docs/FLEET-CONTROL-PLANE-PLAN.md`, in the terminal first.
 - **Tests:** stub both scripts; mount on both surfaces and check the desktop text fallback; `mock.clock` for the toast on a red critical check.
 
-### 8. sg-handoff: transfer dock and attention inbox
+### 8. sg-handoff: transfer dock and attention inbox (shipped)
 
 - **Surface:** `/handoff <sessionId>` and an `/inbox` pane.
 - **Handoff:** `$.model.fork({ prompt })` asks the session's own model for a handoff (goal, state, open questions, next step) using the cached conversation. After `$.ui.ask` confirms, `sg_mods.py write-handoff` writes `.project/HANDOFF.md` (a CLI, per rule I6) and `$.session.send({ to: { sessionId } })` delivers a pointer to it.
@@ -181,19 +181,29 @@ Next steps: a payload preview that `sg_mods.py` redacts through `scripts/lib/red
 - **Failure modes:** an undelivered send shows its reason in a toast; inbox mode off means every message goes straight to Claude as today.
 - **Tests:** stub `model.fork`, `session.send`, and `ui.ask`; fire `session.receive` with and without inbox mode.
 
-### 9. sg-guard: ERP and PII defense in depth, and mod supply-chain policy
+### 9. sg-guard: ERP and PII defense in depth, and mod supply-chain policy (shipped)
 
 - **ERP second layer:** a `tool.call` hook on the ERP connector's tools that allows only `execute_read_only_query` with a single `SELECT` that returns ids, and refuses everything else with `{ deny }`. When it allows, it **always** ends in `next(e)`, so `erp-read-only.py` still runs after it (rule I2). Two independent guards, one in-process and one a settings hook.
 - **PII redaction:** after `await next(e)` on MCP tools, rewrite the result text with the patterns of `scripts/lib/redact.py`, ported to `lib.ts` with parity tests that run the same fixtures through both.
 - **Mod supply-chain policy:** a `plugin.register` hook that refuses a user-tier mod whose `e.uses.calls` include `process.spawn`, or `http.fetch` without a catalog card, unless its catalog card is `add`. This only takes effect when `sg-guard` is in `prependPlugins`, which is read from managed settings, or from user settings only on a machine with no managed settings and no Team or Enterprise sign-in. Test it with `tier('prepend')` in the test kit.
 - **Failure modes:** every hook has `.catch` that refuses (fail closed) for its own scope.
 
-### 10. sg-catalog: catalog browser and claudemod.com intake
+### 10. sg-catalog: catalog browser and claudemod.com intake (shipped)
 
 - **Surface:** `/sg-catalog` pane with `Select` filters (category, disposition, agent) over `catalog/modules.json`, showing which cards the active tenant has enabled.
 - **Enable:** a button runs `scripts/onboard.py --tenant <t> --enable <id>` after `$.ui.ask`; `hold` and `refuse` cards show the refusal text and no button.
 - **Intake:** `/sg-mod-review <path>` runs `claude plugin validate --json` on a third-party mod folder (for example Secret Redactor or Launch Codes from claudemod.com) and has `sg_mods.py draft-card` write a `hold` card with the hooks, calls, env reads, state, and gating hooks. It flags anything rules I1 to I6 would refuse. The founder reviews the card; nothing installs.
 - **Tests:** stub the catalog and `onboard.py`; check that a `hold` card has no enable button; feed a canned validate report into the intake.
+
+### Where the build differs from the design
+
+- **sg-omniroute** lists combos from OmniRoute's database opened read-only by `sg_mods.py combos`, not from `GET /v1/models`, so it never needs a key and has no `$.http.fetch`. The role to combo map is the `roleCombos` option of sg-org; there is no `Select` that writes it yet.
+- **sg-fleet** draws a coloured list (one line per check and per CLI surface), not a `Raster` heat map, and has no coordinator task board yet.
+- **sg-guard** supply-chain refusal also covers `fs.write`, and reads the `add` cards through `sg_mods.py cards-add`. It reaches other mods only when listed in `prependPlugins`; `/sg-guard` says what it refused. The ERP guard and the redaction run in any case.
+- **sg-handoff** is the one mod allowed `$.prompt.submit` (rule I3), for the "hand to Claude" button only; `scripts/check_mod_invariants.py` names it in `SUBMIT_EXCEPTION`. `/handoff` shows the model's handoff and writes nothing until you confirm.
+- **sg-hermes** route lens posts to `/test/e2e`, which Hermes logs as an `e2e-test` event.
+- **sg-org** treats an empty `agents:` list in a tenant's `enabled.yaml` as no restriction.
+- A test cannot assert a refused load, so the supply-chain decision is tested as a pure function (`supplyProblem`) and the hook through a quiet user mod.
 
 ## Checks
 

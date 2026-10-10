@@ -3295,6 +3295,28 @@
     },
     {
       "agents": [
+        "chief-of-staff",
+        "librarian"
+      ],
+      "approval": "yes",
+      "body": "# Snow Gloves catalog browser\n\nA first-party Claude Code mod at `mods/sg-catalog`. The pane filters `catalog/modules.json` by category and disposition and marks what the tenant has enabled. Enable runs `scripts/onboard.py --tenant T --enable ID` after a confirmation; hold, refuse and pointer cards show why and have no button. `/sg-mod-review <path>` runs `claude plugin validate --json` on a third-party mod and has `sg_mods.py draft-card` write a `hold` card flagging what rules I1 to I6 would refuse. Nothing is installed.\n",
+      "category": "mod",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "sg-catalog",
+      "kind": "claude-mod",
+      "name": "Snow Gloves catalog browser",
+      "repo": "",
+      "risk": "medium",
+      "runtimes": [
+        "claude"
+      ],
+      "source": "snow-gloves-os/mods/sg-catalog",
+      "summary": "/sg-catalog browses the catalog and enables a card; /sg-mod-review drafts a hold card for a third-party mod."
+    },
+    {
+      "agents": [
         "sentinel"
       ],
       "approval": "no",
@@ -3315,6 +3337,136 @@
       ],
       "source": "snow-gloves-os/mods/sg-connector-gate",
       "summary": "skills/connector-gate as code: refuses hold and refuse cards, servers the tenant has not enabled, and high-risk or approval tools without an approved ticket."
+    },
+    {
+      "agents": [
+        "cto",
+        "sentinel"
+      ],
+      "approval": "no",
+      "body": "# Snow Gloves fleet cockpit\n\nA first-party Claude Code mod at `mods/sg-fleet`. Every two minutes it runs `scripts/fleet/doctor.py --json` and `scripts/fleet/gateway_client.py status` (both read-only) and toasts when a critical check turns red. `/fleet` opens a pane of checks and surfaces, or answers in text where nothing draws a pane. A heat map and the coordinator task board are future work.\n",
+      "category": "mod",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "sg-fleet",
+      "kind": "claude-mod",
+      "name": "Snow Gloves fleet cockpit",
+      "repo": "",
+      "risk": "low",
+      "runtimes": [
+        "claude"
+      ],
+      "source": "snow-gloves-os/mods/sg-fleet",
+      "summary": "/fleet: this wing's doctor checks and which CLI surfaces point at the fleet gateway."
+    },
+    {
+      "agents": [
+        "sentinel"
+      ],
+      "approval": "no",
+      "body": "# Snow Gloves guard\n\nA first-party Claude Code mod at `mods/sg-guard`: defense in depth beside `~/.claude/hooks/erp-read-only.py`. The ERP connector may only run `execute_read_only_query`, one bounded ids-only SELECT (a TypeScript port of `validate_query` plus the never-touch tables and personal columns); the guard refuses with `{ deny }` or passes on with `next(e)`, so the settings hook still runs after it. MCP results lose emails, phone numbers, card numbers and secrets (a port of `scripts/lib/redact.py`, tested against the same fixtures from Python). A `plugin.register` hook refuses user-tier mods that spawn, write files or fetch without an `add` card; it only takes effect when `sg-guard` is in `prependPlugins`. Every hook fails closed for its own scope.\n",
+      "category": "mod",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "sg-guard",
+      "kind": "claude-mod",
+      "name": "Snow Gloves guard",
+      "repo": "",
+      "risk": "medium",
+      "runtimes": [
+        "claude"
+      ],
+      "source": "snow-gloves-os/mods/sg-guard",
+      "summary": "ERP read-only guard, MCP result redaction, and a supply-chain check for other mods."
+    },
+    {
+      "agents": [
+        "chief-of-staff"
+      ],
+      "approval": "no",
+      "body": "# Snow Gloves transfer dock\n\nA first-party Claude Code mod at `mods/sg-handoff`. `/handoff [sessionId]` asks the session's own model for a handoff over its cached transcript, asks you to confirm, writes `.project/HANDOFF.md` through `sg_mods.py write-handoff` and sends the other session a pointer. `/inbox on` holds peer messages tagged `[sg]` instead of interrupting a turn. Hand to Claude submits one as a turn from a button a person pressed: the one documented exception to rule I3 (`$.prompt.submit`).\n",
+      "category": "mod",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "sg-handoff",
+      "kind": "claude-mod",
+      "name": "Snow Gloves transfer dock",
+      "repo": "",
+      "risk": "medium",
+      "runtimes": [
+        "claude"
+      ],
+      "source": "snow-gloves-os/mods/sg-handoff",
+      "summary": "/handoff writes .project/HANDOFF.md and tells another session; /inbox holds [sg] peer messages."
+    },
+    {
+      "agents": [
+        "chief-of-staff",
+        "dispatcher"
+      ],
+      "approval": "no",
+      "body": "# Snow Gloves Hermes console\n\nA first-party Claude Code mod at `mods/sg-hermes`. Polls `GET /events?since=` on Hermes, posts a typed task title to `/test/e2e` to show which agent and hook route it, and runs `scripts/replay.py --last 20` to list events whose route would change. With the `publishTurns` option on, a finished turn posts a `claude.turn` event to `/publish` so `sentinel_sweep.py` has traffic to measure; a failed publish is dropped. `$.http.fetch` goes only to the Hermes endpoint.\n",
+      "category": "mod",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "sg-hermes",
+      "kind": "claude-mod",
+      "name": "Snow Gloves Hermes console",
+      "repo": "",
+      "risk": "low",
+      "runtimes": [
+        "claude"
+      ],
+      "source": "snow-gloves-os/mods/sg-hermes",
+      "summary": "/hermes: live event stream, route lens for a task title, replay through today's skill hooks."
+    },
+    {
+      "agents": [
+        "cto",
+        "sentinel"
+      ],
+      "approval": "no",
+      "body": "# Snow Gloves OmniRoute ledger\n\nA first-party Claude Code mod at `mods/sg-omniroute`. A `turn.step` hook records input, output and cache tokens and the model for every request, main conversation and subagents apart, and passes the result through unchanged. A line above the prompt shows context %, rate limits, cache share and cost from `$.session.usage()`. `/combo` lists the gateway's combos from OmniRoute's database opened read-only; the mod never reads its key and never changes the session's model.\n",
+      "category": "mod",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "sg-omniroute",
+      "kind": "claude-mod",
+      "name": "Snow Gloves OmniRoute ledger",
+      "repo": "",
+      "risk": "low",
+      "runtimes": [
+        "claude"
+      ],
+      "source": "snow-gloves-os/mods/sg-omniroute",
+      "summary": "Per-request token, cache and model ledger, a meter above the prompt, /omniroute and /combo."
+    },
+    {
+      "agents": [
+        "ceo",
+        "chief-of-staff"
+      ],
+      "approval": "no",
+      "body": "# Snow Gloves organisation\n\nA first-party Claude Code mod at `mods/sg-org`. `scripts/sg_mods.py agents` builds a spec per agent from `agents/<slug>/` and the skill registry; `session.start` registers each as a subagent type. `agent.offer` withholds a role the tenant's `enabled.yaml` does not list (an empty list means no restriction). `agent.spawn` picks a model per role from the `roleCombos` option only when `ANTHROPIC_BASE_URL` points at OmniRoute, and never refuses. `/org` shows a lane per agent; heartbeats are not implemented in the platform, so lanes say `stale`.\n",
+      "category": "mod",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "sg-org",
+      "kind": "claude-mod",
+      "name": "Snow Gloves organisation",
+      "repo": "",
+      "risk": "low",
+      "runtimes": [
+        "claude"
+      ],
+      "source": "snow-gloves-os/mods/sg-org",
+      "summary": "The seven agents as Claude subagent types sg-org:<slug>, and /org."
     },
     {
       "agents": [
@@ -3684,18 +3836,18 @@
     "by_category": {
       "connector": 1,
       "mcp": 6,
-      "mod": 3,
+      "mod": 10,
       "playbook": 36,
       "plugin": 13,
       "skills": 79
     },
     "by_disposition": {
-      "add": 67,
+      "add": 74,
       "hold": 14,
       "pointer": 45,
       "refuse": 12
     },
-    "total": 138
+    "total": 145
   },
   "schema": "snowgloves.modules.v1",
   "version": "0.2.1"

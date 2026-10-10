@@ -1,0 +1,23 @@
+{
+  "name": "sg-handoff",
+  "version": "0.1.0",
+  "description": "Snow Gloves transfer dock: /handoff writes .project/HANDOFF.md from the session and tells another session, /inbox holds peer messages instead of interrupting a turn",
+  "author": {
+    "name": "Snow Gloves OS"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "platformRoot": {
+      "type": "string",
+      "title": "Platform root",
+      "description": "Path of the snow-gloves-os checkout. Empty: two folders above this mod",
+      "default": ""
+    },
+    "dataRoot": {
+      "type": "string",
+      "title": "Data root",
+      "description": "Path of the private snow-gloves-ops checkout. Empty: SNOWGLOVES_DATA, else the platform's public fixtures",
+      "default": ""
+    }
+  }
+}

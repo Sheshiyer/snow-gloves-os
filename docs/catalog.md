@@ -13,7 +13,7 @@ A card is a **pointer**: front matter plus a short body explaining why the card 
 
 ## Current contents (v0.2.1)
 
-132 cards.
+145 cards.
 
 | Disposition | Count | | Category | Count |
 |---|---:|---|---|---:|

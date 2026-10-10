@@ -316,3 +316,26 @@ def test_cli_new_subcommands_print_json(data, tmp_path, capsys, monkeypatch):
     assert json.loads(capsys.readouterr().out)["disposition"] == "hold"
     monkeypatch.setattr("sys.stdin", io.StringIO("not json"))
     assert sg_mods.main(["draft-card", "--id", "cli-2", "--source", "src", "--cards-dir", str(tmp_path / "cards")]) == 2
+
+
+def test_catalog_table_lists_cards_without_bodies_and_the_tenants_enabled_ids(data):
+    out = sg_mods.catalog_table(str(data), "acme")
+    assert out["schema"] == "snowgloves.mods-catalog.v1"
+    assert out["enabled"] == ["github-mcp", "ms-revops", "xmcp"]
+    assert out["cards"] and all("body" not in card for card in out["cards"])
+    ids = {card["id"] for card in out["cards"]}
+    assert {"sg-approvals", "sg-rail"} <= ids
+
+
+def test_catalog_table_without_a_tenant_enables_nothing(data):
+    assert sg_mods.catalog_table(str(data), None)["enabled"] == []
+
+
+def test_catalog_table_unknown_tenant(data):
+    with pytest.raises(sg_mods.InputError):
+        sg_mods.catalog_table(str(data), "nobody")
+
+
+def test_add_card_ids_lists_only_mod_cards_marked_add():
+    ids = sg_mods.add_card_ids(sg_mods.paths.code_root())
+    assert "sg-approvals" in ids and "agent-reach" not in ids

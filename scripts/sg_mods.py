@@ -44,6 +44,7 @@ SCHEMA_SNAPSHOT = "snowgloves.mods-snapshot.v1"
 SCHEMA_GATE = "snowgloves.mods-gate.v1"
 SCHEMA_AGENTS = "snowgloves.mods-agents.v1"
 SCHEMA_COMBOS = "snowgloves.mods-combos.v1"
+SCHEMA_CATALOG = "snowgloves.mods-catalog.v1"
 SLUG = re.compile(r"^[a-z0-9_][a-z0-9-]*$")
 MANAGED_CATEGORIES = ("mcp", "connector")
 DEFAULT_OMNIROUTE = "http://127.0.0.1:20128"
@@ -347,6 +348,22 @@ def _text(path: Path) -> str:
         return ""
 
 
+def catalog_table(data_root_flag: str | None, tenant: str | None) -> dict:
+    """The catalog without card bodies, and the ids the tenant has enabled, for sg-catalog."""
+    code_root = paths.code_root()
+    data_root, source = resolve_data_root(data_root_flag)
+    enabled: list[str] = []
+    if tenant:
+        check_slug(tenant)
+        if not (data_root / "tenants" / tenant).is_dir():
+            raise InputError(f"unknown tenant {tenant}: no folder under {data_root / 'tenants'}")
+        enabled = sorted(enabled_ids(data_root, tenant))
+    keep = ("id", "name", "category", "kind", "disposition", "risk", "approval", "agents", "summary", "enableable")
+    cards = [{k: c.get(k) for k in keep} for c in catalog_cards(code_root)]
+    return {"schema": SCHEMA_CATALOG, "tenant": tenant, "data_root": str(data_root), "data_root_source": source,
+            "cards": cards, "enabled": enabled}
+
+
 def enabled_agents(data_root: Path, tenant: str) -> list[str]:
     raw = _yaml(data_root / "tenants" / tenant / "enabled.yaml").get("agents") or []
     return [str(a) for a in raw if isinstance(a, (str, int))]
@@ -540,6 +557,9 @@ def main(argv: list[str] | None = None) -> int:
     ag.add_argument("--data-root")
     ag.add_argument("--tenant")
     sub.add_parser("cards-add")
+    cat = sub.add_parser("catalog")
+    cat.add_argument("--data-root")
+    cat.add_argument("--tenant")
     cb = sub.add_parser("combos")
     cb.add_argument("--db")
     ho = sub.add_parser("write-handoff")
@@ -558,6 +578,8 @@ def main(argv: list[str] | None = None) -> int:
             out = gate_table(args.data_root, args.tenant, args.ttl_hours)
         elif args.cmd == "agents":
             out = agents_table(args.data_root, args.tenant)
+        elif args.cmd == "catalog":
+            out = catalog_table(args.data_root, args.tenant)
         elif args.cmd == "cards-add":
             out = add_card_ids(paths.code_root())
         elif args.cmd == "combos":

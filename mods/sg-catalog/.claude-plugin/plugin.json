@@ -1,0 +1,29 @@
+{
+  "name": "sg-catalog",
+  "version": "0.1.0",
+  "description": "Snow Gloves catalog: /sg-catalog browses the module catalog and enables a card for a tenant after you confirm; /sg-mod-review drafts a hold card for a third-party mod",
+  "author": {
+    "name": "Snow Gloves OS"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "tenant": {
+      "type": "string",
+      "title": "Tenant",
+      "description": "Tenant slug. Empty: SNOWGLOVES_TENANT",
+      "default": ""
+    },
+    "platformRoot": {
+      "type": "string",
+      "title": "Platform root",
+      "description": "Path of the snow-gloves-os checkout. Empty: two folders above this mod",
+      "default": ""
+    },
+    "dataRoot": {
+      "type": "string",
+      "title": "Data root",
+      "description": "Path of the private snow-gloves-ops checkout. Empty: SNOWGLOVES_DATA, else the platform's public fixtures",
+      "default": ""
+    }
+  }
+}
