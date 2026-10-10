@@ -90,7 +90,8 @@ resource "aws_security_group" "gw" {
 # ------------------------------------------------------------------ backups (S3)
 
 resource "aws_s3_bucket" "backups" {
-  bucket = local.backup_bucket
+  bucket        = local.backup_bucket
+  force_destroy = var.backups_force_destroy
 }
 
 resource "aws_s3_bucket_public_access_block" "backups" {

@@ -11,7 +11,10 @@
 #   cloud_gateway.sh cloudflare <init|plan|apply|destroy|output> [tofu args]
 #     tofu args may not set variables (-var / -var-file): every variable comes from the guard.
 #     `aws destroy` first applies termination_protection=false to the instance (its own prompt),
-#     then destroys; protection stays on for every other action.
+#     then destroys; protection stays on for every other action. It needs exactly one of:
+#       --keep-backups    destroy everything except the backup bucket and its settings (it stays in
+#                         state, so a later `aws apply` reuses it)
+#       --delete-backups  also set force_destroy on the bucket and delete every backup object/version
 #   cloud_gateway.sh tls-refresh                    instance pulls the origin cert from SSM, reloads caddy
 #   cloud_gateway.sh tailnet-join                   one-shot auth key (Keychain) -> SSM -> instance joins, key deleted
 #   cloud_gateway.sh backup-now                     run the nightly backup immediately
@@ -97,13 +100,39 @@ run_stack() {  # run_stack <aws|cloudflare> <action> [args]
   fi
   if [[ "$stack" == aws && "$action" == destroy ]]; then
     # The instance has API termination protection; lift it (and only it) before destroying.
+    # The versioned backup bucket cannot be deleted while it holds objects, so the operator decides
+    # whether the backups survive.
+    local backups="" approve=() pass=() a
+    for a in "$@"; do
+      case "$a" in
+        --keep-backups|--delete-backups)
+          [[ -z "$backups" || "$backups" == "$a" ]] || die "pass only one of --keep-backups / --delete-backups"
+          backups="$a" ;;
+        *) pass+=("$a"); [[ "$a" == -auto-approve || "$a" == --auto-approve ]] && approve=(-auto-approve) ;;
+      esac
+    done
+    [[ -n "$backups" ]] || die "aws destroy needs --keep-backups (leave the backup bucket and its objects) or --delete-backups (delete every backup object and version)"
     extra+=(-var "termination_protection=false")
-    local approve=() a
-    for a in "$@"; do [[ "$a" == -auto-approve || "$a" == --auto-approve ]] && approve=(-auto-approve); done
+    local pre=(-target=aws_instance.gw) scope=()
+    if [[ "$backups" == --delete-backups ]]; then
+      extra+=(-var "backups_force_destroy=true")
+      pre+=(-target=aws_s3_bucket.backups)
+    else
+      # Destroy every managed resource except the bucket and its settings. Nothing in the bucket
+      # group depends on the rest of the stack, so targeting the others never reaches it.
+      local r
+      while IFS= read -r r; do
+        [[ -z "$r" || "$r" == data.* ]] && continue
+        [[ "$r" =~ ^aws_s3_bucket(_[a-z_]+)?\.backups$ ]] && continue
+        scope+=("-target=$r")
+      done < <(tofu_in aws state list)
+      [[ ${#scope[@]} -gt 0 ]] || die "nothing to destroy besides the backup bucket"
+      log "keeping the backup bucket and its settings; destroying ${#scope[@]} other resources"
+    fi
     log "disabling termination protection on aws_instance.gw before destroy"
-    tofu_in aws apply -input=false -var-file="$vars" "${extra[@]}" -target=aws_instance.gw ${approve[@]+"${approve[@]}"} \
-      || die "could not disable termination protection; nothing was destroyed"
-    tofu_in aws destroy -input=false -var-file="$vars" "${extra[@]}" "$@" \
+    tofu_in aws apply -input=false -var-file="$vars" "${extra[@]}" "${pre[@]}" ${approve[@]+"${approve[@]}"} \
+      || die "could not prepare the stack for destroy; nothing was destroyed"
+    tofu_in aws destroy -input=false -var-file="$vars" "${extra[@]}" ${scope[@]+"${scope[@]}"} ${pass[@]+"${pass[@]}"} \
       || die "destroy failed or was declined; termination protection is now OFF (run 'cloud_gateway.sh aws apply' to restore it)"
     return
   fi

@@ -8,6 +8,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 import uuid
 
 from lib.fleet_business import COMMERCIAL_PREPARATION_CATEGORY
@@ -40,6 +41,16 @@ def main():
     fanout=sub.add_parser('fanout',help='ask the authorized Chief-of-Staff planner for bounded read-only children')
     fanout.add_argument('task_id')
     args=parser.parse_args()
+    # The operator token goes only to the local side of an SSH forward, as in fleet_mcp.FleetApi.
+    try:
+        parts=urlsplit(args.endpoint)
+        loopback=(parts.scheme=='http' and parts.hostname in ('127.0.0.1','localhost') and not parts.username
+                  and not parts.password and parts.path in ('','/') and not parts.query and not parts.fragment
+                  and (parts.port is None or 0<parts.port<65536))
+    except ValueError:
+        loopback=False
+    if not loopback:
+        parser.error('--endpoint must be plain loopback http, e.g. http://127.0.0.1:4101')
     token=Path(args.token_file).read_text().strip() if args.token_file else os.environ.get('SNOWGLOVES_FLEET_TOKEN','')
     if not token:
         parser.error('Set SNOWGLOVES_FLEET_TOKEN or --token-file')

@@ -25,6 +25,10 @@ LOGGING_STUB = """#!/bin/bash
 echo "$(basename "$0") $*" >> "$STUB_LOG"
 case "$(basename "$0") $*" in
   "tofu "*"output -raw instance_id"*) echo i-0123456789abcdef0 ;;
+  "tofu "*"state list"*) printf '%s\\n' data.aws_caller_identity.current aws_eip.gw aws_iam_role.gw \\
+      aws_instance.gw aws_s3_bucket.backups aws_s3_bucket_lifecycle_configuration.backups \\
+      aws_s3_bucket_public_access_block.backups aws_s3_bucket_server_side_encryption_configuration.backups \\
+      aws_s3_bucket_versioning.backups ;;
   "security "*) printf 'tskey-auth-FAKE' ;;
   "aws ssm send-command"*) [ -n "$FAIL_SEND" ] && exit 255; echo cmd-1 ;;
   "aws ssm get-command-invocation"*) echo Success ;;
@@ -77,16 +81,45 @@ def test_other_tofu_args_still_pass_through(env):
     assert "termination_protection" not in plan[0]
 
 
-def test_aws_destroy_lifts_termination_protection_on_the_instance_first(env):
+def tofu_changes(log):
+    return [line for line in log.read_text().splitlines() if line.startswith("tofu ")
+            and (" apply " in line or " destroy " in line or " state " in line)]
+
+
+@pytest.mark.parametrize("choice", [[], ["--keep-backups", "--delete-backups"]])
+def test_aws_destroy_requires_one_backup_choice(env, choice):
     environ, log = env
-    proc = run(environ, "aws", "destroy", "-auto-approve")
+    proc = run(environ, "aws", "destroy", "-auto-approve", *choice)
+    assert proc.returncode == 1 and "backups" in proc.stderr
+    assert tofu_changes(log) == []
+
+
+def test_aws_destroy_keep_backups_never_targets_the_bucket(env):
+    environ, log = env
+    proc = run(environ, "aws", "destroy", "--keep-backups", "-auto-approve")
     assert proc.returncode == 0, proc.stderr
-    calls = [line for line in log.read_text().splitlines() if line.startswith("tofu ")
-             and (" apply " in line or " destroy " in line)]
+    calls = [c for c in tofu_changes(log) if " state list" not in c]
     assert len(calls) == 2
     assert " apply -input=false" in calls[0] and "-var termination_protection=false" in calls[0]
     assert "-target=aws_instance.gw" in calls[0] and "-auto-approve" in calls[0]
-    assert " destroy -input=false" in calls[1] and "-var termination_protection=false" in calls[1]
+    assert "backups_force_destroy" not in log.read_text() and "s3_bucket" not in calls[0]
+    destroy = calls[1]
+    assert " destroy -input=false" in destroy and "-var termination_protection=false" in destroy
+    assert {"-target=aws_eip.gw", "-target=aws_iam_role.gw", "-target=aws_instance.gw"} <= set(destroy.split())
+    assert "backups" not in destroy and "data." not in destroy and "--keep-backups" not in destroy
+    assert "-auto-approve" in destroy
+
+
+def test_aws_destroy_delete_backups_force_destroys_the_bucket_first(env):
+    environ, log = env
+    proc = run(environ, "aws", "destroy", "--delete-backups", "-auto-approve")
+    assert proc.returncode == 0, proc.stderr
+    calls = tofu_changes(log)
+    assert len(calls) == 2 and " state " not in log.read_text()
+    assert " apply -input=false" in calls[0] and "-var backups_force_destroy=true" in calls[0]
+    assert "-target=aws_instance.gw" in calls[0] and "-target=aws_s3_bucket.backups" in calls[0]
+    assert " destroy -input=false" in calls[1] and "-var backups_force_destroy=true" in calls[1]
+    assert "-target=" not in calls[1] and "--delete-backups" not in calls[1]
 
 
 def test_aws_apply_keeps_termination_protection(env):

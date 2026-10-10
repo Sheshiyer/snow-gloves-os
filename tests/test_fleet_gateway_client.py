@@ -324,6 +324,21 @@ def test_fleet_yaml_cloud_url_and_tailnet_fallback(tmp_path, home, capsys):
     assert "gateway: http://cloud-gw:20128" in out
 
 
+@pytest.mark.parametrize("via,key", [("cloud", "gateway.url"), ("tailnet", "gateway.tailnet_url")])
+def test_malformed_fleet_yaml_url_is_refused_not_written(tmp_path, home, capsys, via, key):
+    fleet = tmp_path / "fleet.yaml"
+    fleet.write_text('schema: snowgloves.fleet.v1\ngateway:\n  url: "https://user@gw.example.com"\n'
+                     '  tailnet_url: "http://user@cloud-gw"\n')
+    argv = ["set-url", "--home", str(home), "--fleet", str(fleet), "--key-ref", "env:FAKE_KEY", "--apply"]
+    if via == "tailnet":
+        argv += ["--via", "tailnet"]
+    with pytest.raises(SystemExit) as error:
+        gc.main(argv)
+    assert f"bad fleet.yaml {key}" in str(error.value)
+    assert "None" not in str(error.value)
+    assert not any("None://" in p.read_text(errors="ignore") for p in home.rglob("*") if p.is_file())
+
+
 def test_url_and_host_together_are_rejected(home):
     with pytest.raises(SystemExit):
         gc.main(["status", "--home", str(home), "--url", CLOUD, "--host", HOST])

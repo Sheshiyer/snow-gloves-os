@@ -593,6 +593,9 @@ def resolve_target(args: argparse.Namespace) -> str:
         key = "gateway.tailnet_url" if args.via == "tailnet" else "gateway.url"
         raise SystemExit(f"no --url/--host given and fleet.yaml {key} not readable")
     scheme, host, port = parse_gateway_url(url)
+    if not host:
+        key = "gateway.tailnet_url" if args.via == "tailnet" else "gateway.url"
+        raise SystemExit(f"bad fleet.yaml {key} {url!r}")
     if args.port:
         port = args.port
     elif scheme == "http" and not has_explicit_port(url):

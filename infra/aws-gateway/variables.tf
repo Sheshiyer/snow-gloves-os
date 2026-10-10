@@ -52,6 +52,12 @@ variable "alarm_email" {
   default     = ""
 }
 
+variable "backups_force_destroy" {
+  description = "Let destroy delete the backup bucket with every object and version in it. Keep false; only scripts/fleet/cloud_gateway.sh aws destroy --delete-backups sets it true."
+  type        = bool
+  default     = false
+}
+
 variable "termination_protection" {
   description = "EC2 API termination protection. Keep true; scripts/fleet/cloud_gateway.sh aws destroy sets it false for the instance just before destroying."
   type        = bool
