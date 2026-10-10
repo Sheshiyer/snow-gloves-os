@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: verify
-progress: 375/429
+progress: 377/429
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -526,7 +526,7 @@ until the actual mini supplies evidence.
 - [ ] ISC-380: Owned coordinator, Hermes bridge and worker launch agents run with loopback listeners and preserved native configuration.
 - [x] ISC-381: An isolated pilot restore drill recovers coordinator state and verifies accepted artifact hashes.
 - [x] ISC-382: The reviewed pilot package and runbook record scoped runtime capabilities, limitations and rollout evidence.
-- [ ] ISC-383: Anti: write-adapter verification commands can write outside the approved worktree; an edited verification script invoked by an unchanged allowlisted command is denied without an accepted artifact.
+- [x] ISC-383: Anti: write-adapter verification commands can write outside the approved worktree; an edited verification script invoked by an unchanged allowlisted command is denied without an accepted artifact.
 
 ### Headless Hermes implementation, 10 October 2026
 
@@ -559,7 +559,7 @@ until the actual mini supplies evidence.
 - [ ] ISC-427: Actual Coding02 FileVault is Off before cold-boot acceptance.
 - [ ] ISC-428: Actual India team device reaches company UI and scoped task operations.
 - [ ] ISC-429: Actual India team access remains denied to authoring and gateway administration.
-- [ ] ISC-430: Actual Coding02 write-build task returns verified changes and output.
+- [x] ISC-430: Actual Coding02 write-build task returns verified changes and output.
 - [ ] ISC-431: Actual cold boot restores both Coding Macs and completes a fresh fleet task.
 - [ ] ISC-432: Anti: authoring runtime, disk protection and fleet role stay unchanged.
 
@@ -1633,3 +1633,10 @@ ISC-415–418:226 frontend tests and production build pass. Actual disposable IA
 
 
 ISC-419: the live dedicated grok-bot principal discovers14tools and completes capability task c42edb960f424cbeac535ccc26cae1f4 on Coding02, with UI/MCP artifact equality and digest409c49e2e7db294ea8a89e1f41575a9df4950d093bdfcce58380708a992f587a. Read/submit/cancel are granted for snowgloves; approval and cross-project execution return403. Actual Grok Bot supported registration and app-initiated calls remain open in420/421. Both isolated device release checkouts run db4fcba under existing user LaunchAgents; no system daemon or unattended-boot acceptance follows. The Hermes-interpreted librarian parent06fd4cca0b304f3882447ba30ce7e63d succeeded on Coding02; explicit CTO write/build child1d458267d59c4eb89c096e7365ba8c6f is queued and must be inspected without replay.
+
+
+ISC-383/430: the integrated macOS write-worker suite passes26tests on Coding02, including the edited-verification-script outside-worktree denial and fail-closed sandbox checks. Actual founder-authorized CTO child1d458267d59c4eb89c096e7365ba8c6f succeeded on Coding02 from base db4fcba, changed only docs/fleet/CODING02-WRITE-CANARY.md in its isolated worktree and returned71passing independent worker verification tests. Persisted artifact SHA2566133d9c3209c84b05f336db5ec0304753a2266923929886b838226b54930a3b9 and533byte patch SHA256aa55a22d67a384b9ab820317bf96e2c17e709e4b648415e0c80aeea7187bc953 were independently checked. No patch was merged into the release.
+
+Actual recovery task c0e9fbdc5ebb49618d870772aa8c452a retained one interrupted attempt after controlled worker loss; restart created recovery-required.json and did not replay. Owned runtime groups were confirmed terminated before the hold was archived. Idle worker/transport restart returned authenticated coordinator access200. An isolated backup restore preserved29task records,3interrupted attempts and owned plist bytes, without replacing the live DB or starting restored services. This is not physical-restore or unattended-boot acceptance.
+
+Subsequent root69517747b1b84dceb3778ab91e4fad70 failed on routed response-stream disconnect; its fanout returned503 with no children. Preserve terminal history and keep ISC393–396 and capacity-soak acceptance open. Final headless plans are reviewed candidates only: Coding01 digest3258243ed92bfaa361daf57a3b61acf42df747119845f816875372a58846bbbd covers10services/116inputs; Coding02 digest0665acfd2889fe3e91dc2d80ffc49c75b186695c5592ab63b97cd358c90c3241 covers2services/64inputs. Both bind zero pending jobs and matching database task-state digest. Protected config and coordinator/gateway storage backups, literal-digest scripts and operator runbook are staged. System apply requires interactive administrator authentication; none has occurred. Coding02 still reports FileVault On.
