@@ -30,7 +30,8 @@ from lib.fleet_write_review import MAX_ARTIFACT_BYTES, ReviewEvidenceError, evid
 ROLES = ('ceo','cto','chief-of-staff','librarian','interpreter','dispatcher','sentinel')
 STAGES = ('plan','reference','review','dispatch','verify')
 MAX_CHILDREN = 7
-PERMISSIONS = ('read','submit','cancel')  # a principal without 'permissions' keeps all three
+PERMISSIONS = ('read','submit','cancel')  # legacy defaults never grant approval authority
+VALID_PERMISSIONS = (*PERMISSIONS, 'approve')
 MAX_ATTEMPTS = 3  # original plus two retries per role chain
 NO_NEW_CHILDREN = ('cancelled','cancel_requested','failed','interrupted')
 MAX_HTTP_BODY_BYTES = 64 * 1024
@@ -175,6 +176,11 @@ class Coordinator:
             self.db.execute('ALTER TABLE tasks ADD COLUMN business_context TEXT')
         self.db.execute('CREATE INDEX IF NOT EXISTS tasks_parent ON tasks(parent_id)')
         self.db.execute('CREATE INDEX IF NOT EXISTS fanout_children_task ON fanout_children(task_id)')
+        if 'requested_worker' not in columns:
+            self.db.execute('ALTER TABLE tasks ADD COLUMN requested_worker TEXT')
+        from .fleet_capabilities import Capabilities, install
+        install(self)
+        self.capabilities = Capabilities(self)
         self.db.commit()
 
     @contextmanager
@@ -256,7 +262,7 @@ class Coordinator:
             raise Rejected(exc.status, str(exc)) from None
 
     def _public(self, row):
-        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes','access','review_of')
+        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes','access','review_of','requested_worker')
         result = {k: row[k] for k in keys}
         project = self.config['projects'][row['project']]
         result.update(tenant=project['tenant'],organization=project['organization'],session_id=row['id'])
@@ -805,10 +811,16 @@ class Coordinator:
             raise Rejected(403, 'Business preparation is read-only')
         if business_context is not None and review_of is not None:
             raise Rejected(409, 'Write review is unavailable for business preparation')
+        worker_id = body.get('worker_id')
+        if worker_id is not None:
+            if not isinstance(worker_id, str) or worker_id not in [worker['id'] for worker in self.capabilities.workers(project, runtime, access)]:
+                raise Rejected(403, 'Selected worker unavailable')
         request = {k: body.get(k) for k in ('project','brief','runtime','title','category')}
         if business_context is not None:
             request['category'] = COMMERCIAL_PREPARATION_CATEGORY
             request['business_context'] = business_context
+        if worker_id is not None:
+            request['worker_id'] = worker_id
         if access == 'write':
             request['access'] = access
         if parent_id is not None:
@@ -920,6 +932,8 @@ class Coordinator:
                self.sanitize(COMMERCIAL_PREPARATION_CATEGORY if business_context is not None else body.get('category') or 'development'),
                body['idempotency_key'],digest,'queued',now,now,
                json.dumps(business_context, sort_keys=True, separators=(',', ':')) if business_context is not None else None))
+            if worker_id is not None:
+                self.db.execute('UPDATE tasks SET requested_worker=? WHERE id=?', (worker_id, tid))
             if parent_id is not None:
                 self.db.execute('UPDATE tasks SET parent_id=?,logical_role=?,stage=?,supersedes=?,access=? WHERE id=?',(parent_id,role,stage,supersedes,access,tid))
             if review_of is not None:
@@ -1017,11 +1031,14 @@ class Coordinator:
 
     def claim(self, name, worker):
         with self.transaction():
+            self.db.execute('INSERT INTO worker_presence(worker,last_seen) VALUES(?,?) ON CONFLICT(worker) DO UPDATE SET last_seen=excluded.last_seen', (name, self.clock()))
             self._expire()
             active = self.db.execute("SELECT count(*) FROM tasks WHERE status IN ('running','cancel_requested')").fetchone()[0]
             if active >= min(1, int(self.config.get('capacity',1))):
                 return None
             for row in self.db.execute("SELECT * FROM tasks WHERE status='queued' ORDER BY created"):
+                if row['requested_worker'] is not None and row['requested_worker'] != name:
+                    continue
                 if row['project'] not in worker['projects'] or row['runtime'] not in worker['runtimes']:
                     continue
                 modes = worker.get('access_modes', ['read'] if worker.get('remote_artifacts') is True else ['read', 'write'])
@@ -1107,13 +1124,13 @@ class Coordinator:
     def _redact_artifact_value(self, value, lease_token):
         """Redact every persisted remote-artifact string, including nested values."""
         if isinstance(value, str):
-            return self.sanitize(value).replace(lease_token, '[REDACTED]')
+            return self.sanitize(value).replace(lease_token, '[REDACTED]') if lease_token else self.sanitize(value)
         if isinstance(value, list):
             return [self._redact_artifact_value(item, lease_token) for item in value]
         if isinstance(value, dict):
             result = {}
             for key, item in value.items():
-                safe_key = self.sanitize(key).replace(lease_token, '[REDACTED]')
+                safe_key = self.sanitize(key).replace(lease_token, '[REDACTED]') if lease_token else self.sanitize(key)
                 if safe_key in result:
                     raise Rejected(400, 'Artifact redaction collision')
                 result[safe_key] = self._redact_artifact_value(item, lease_token)
@@ -1200,6 +1217,7 @@ class Coordinator:
             row = self.db.execute('SELECT * FROM tasks WHERE id=?',(body['task_id'],)).fetchone()
             if not row or row['worker'] != name or row['project'] not in worker['projects'] or row['attempt_id'] != body['attempt_id'] or not hmac.compare_digest(row['lease_hash'] or '',hashlib.sha256(body['lease_token'].encode()).hexdigest()):
                 raise Rejected(403,'Assignment unavailable')
+            self.db.execute('INSERT INTO worker_presence(worker,last_seen) VALUES(?,?) ON CONFLICT(worker) DO UPDATE SET last_seen=excluded.last_seen', (name, self.clock()))
             duplicate = self.db.execute('SELECT 1 FROM events WHERE task_id=? AND attempt_id=? AND event_id=?',(row['id'],row['attempt_id'],body['event_id'])).fetchone()
             if duplicate:
                 return {'accepted':True,'duplicate':True,'cancel_requested':row['status']=='cancel_requested'}
@@ -1277,7 +1295,7 @@ def load_config(path):
                     raise ValueError('Invalid fanout project scope')
             if group=='principals':
                 permissions,viewed=entry.get('permissions',list(PERMISSIONS)),entry.get('view_owners',[])
-                if not isinstance(permissions,list) or not set(permissions)<=set(PERMISSIONS):
+                if not isinstance(permissions,list) or not set(permissions)<=set(VALID_PERMISSIONS):
                     raise ValueError('Invalid principal permissions')
                 if not isinstance(viewed,list) or not all(isinstance(name,str) and name in config['principals'] for name in viewed):
                     raise ValueError('Invalid principal view_owners')
@@ -1350,7 +1368,22 @@ def server(coordinator, port=4101):
                         if len(raw) != length:
                             raise Rejected(400,'Incomplete request body')
                         body = _bounded_json_object(raw, MAX_HTTP_BODY_BYTES)
-                if path=='/v1/worker/claim' and self.command=='POST':
+                if not worker_route and path == '/v1/context' and self.command == 'GET':
+                    result = coordinator.capabilities.context(principal)
+                elif not worker_route and path == '/v1/capabilities' and self.command == 'GET':
+                    result = coordinator.capabilities.list(principal)
+                elif not worker_route and path == '/v1/capabilities/execute' and self.command == 'POST':
+                    result = coordinator.capabilities.execute(name, principal, body)
+                elif not worker_route and path == '/v1/approvals' and self.command == 'GET':
+                    result = coordinator.capabilities.approvals(name, principal)
+                elif not worker_route and path == '/v1/approvals' and self.command == 'POST':
+                    result = coordinator.capabilities.request_approval(name, principal, body)
+                elif not worker_route and re.fullmatch(r'/v1/approvals/[a-f0-9]{32}/(?:approve|reject)', path) and self.command == 'POST':
+                    parts = path.split('/')
+                    result = coordinator.capabilities.decide(name, principal, parts[3], 'approved' if parts[4] == 'approve' else 'rejected', body)
+                elif not worker_route and re.fullmatch(r'/v1/tasks/[a-f0-9]{32}/artifact', path) and self.command == 'GET':
+                    result = coordinator.capabilities.artifact(name, principal, path.split('/')[3])
+                elif path=='/v1/worker/claim' and self.command=='POST':
                     result={'task':coordinator.claim(name,principal)}
                 elif path=='/v1/worker/report' and self.command=='POST':
                     result=coordinator.report(name,principal,body)

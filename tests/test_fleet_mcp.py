@@ -112,12 +112,14 @@ def test_wrong_token_is_reported_without_leaking_it(fleet):
         http.server_close()
 
 
-def test_mcp_server_registers_exactly_six_fleet_tools_and_delegates_fanout(api, monkeypatch):
+def test_mcp_server_registers_fleet_tools_and_delegates_fanout(api, monkeypatch):
     pytest.importorskip('mcp.server')
     fleet_api, _, _ = api
     server_ = create_server(fleet_api)
     tools = asyncio.run(server_.list_tools())
-    assert sorted(t.name for t in tools) == ['fleet_cancel', 'fleet_fanout', 'fleet_list', 'fleet_logs', 'fleet_status', 'fleet_submit']
+    assert sorted(t.name for t in tools) == sorted(['fleet_cancel', 'fleet_fanout', 'fleet_list', 'fleet_logs', 'fleet_status', 'fleet_submit',
+        'fleet_context', 'fleet_capabilities', 'fleet_artifact', 'fleet_execute_capability', 'fleet_approvals',
+        'fleet_request_approval', 'fleet_approve', 'fleet_reject'])
     submit = next(t for t in tools if t.name == 'fleet_submit')
     assert {'project', 'brief', 'parent_id', 'logical_role', 'stage', 'supersedes', 'access'} <= set(submit.input_schema['properties'])
     result = asyncio.run(server_.call_tool('fleet_submit', {'project': 'snowgloves', 'brief': 'via mcp'}))
@@ -131,3 +133,37 @@ def test_mcp_server_registers_exactly_six_fleet_tools_and_delegates_fanout(api, 
     result = asyncio.run(server_.call_tool('fleet_fanout', {'task_id': 'a' * 32}))
     assert calls == ['a' * 32]
     assert 'plan_id' in json.dumps(result, default=str)
+
+
+def test_context_capabilities_and_approvals_use_same_authenticated_http_scope(api):
+    fleet_api, _, _ = api
+    context = fleet_api.context()
+    assert [item['id'] for item in context['projects']] == ['snowgloves']
+    assert context['permissions'] == ['read', 'submit', 'cancel']
+    assert fleet_api.capabilities()  # disabled catalog visibility requires no enabled tenant
+    assert fleet_api.approvals() == []
+    with pytest.raises(FleetError, match='409'):
+        fleet_api.execute_capability('snowgloves', 'ms-copywriting', {}, 'request-one')
+    with pytest.raises(FleetError, match='403'):
+        fleet_api.decide_approval('a' * 32, True)
+    with pytest.raises(FleetError, match='404'):
+        fleet_api.artifact('a' * 32)
+
+
+def test_new_tools_only_forward_declared_arguments_and_keep_submission_keys(api, monkeypatch):
+    fleet_api, _, _ = api
+    calls = []
+    monkeypatch.setattr(fleet_api, 'call', lambda method, path, body=None: calls.append((method, path, body)) or {'artifact': {}, 'task': {}, 'approval': {}})
+    fleet_api.execute_capability('snowgloves', 'review', {'focus': 'a'}, 'stable-key', approval_id='a' * 32, worker_id='coding-02')
+    fleet_api.request_approval('snowgloves', 'review', {'focus': 'a'}, 'stable-approval', worker_id='coding-02')
+    fleet_api.decide_approval('a' * 32, False)
+    fleet_api.artifact('b' * 32)
+    assert calls == [
+        ('POST', '/v1/capabilities/execute', {'project': 'snowgloves', 'capability_id': 'review', 'inputs': {'focus': 'a'}, 'idempotency_key': 'stable-key', 'approval_id': 'a' * 32, 'worker_id': 'coding-02'}),
+        ('POST', '/v1/approvals', {'project': 'snowgloves', 'capability_id': 'review', 'inputs': {'focus': 'a'}, 'idempotency_key': 'stable-approval', 'worker_id': 'coding-02'}),
+        ('POST', '/v1/approvals/' + 'a' * 32 + '/reject', {}),
+        ('GET', '/v1/tasks/' + 'b' * 32 + '/artifact', None)]
+    with pytest.raises(ValueError):
+        fleet_api.decide_approval('../bad', True)
+    with pytest.raises(ValueError):
+        fleet_api.artifact('../bad')

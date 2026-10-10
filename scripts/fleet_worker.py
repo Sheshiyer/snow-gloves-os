@@ -752,10 +752,8 @@ class Worker:
                 if not finals or not finals[-1].strip():
                     raise ValueError('Runtime produced no final result')
                 result = redact(finals[-1]).replace(key, '[REDACTED]').replace(self.config['token'], '[REDACTED]')
-                payload = dict(task_id=task['id'], attempt_id=task['attempt_id'], node=self.config['node_id'],
+                payload = dict(task_id=task['id'], attempt_id=task['attempt_id'], project=task['project'], node=self.config['node_id'],
                                runtime='codex', model=self.config.get('model', 'noesis-fast'), output=result)
-                if self.remote_artifacts:
-                    payload['project'] = task['project']
                 if fanout:
                     payload.update(logical_role=task['logical_role'], stage=task['stage'],
                                    parent_id=task['parent_id'],

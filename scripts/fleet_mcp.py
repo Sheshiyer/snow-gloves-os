@@ -72,12 +72,39 @@ class FleetApi:
         return self.call('POST', '/v1/tasks/%s/fanout' % self._id(task_id), {})
 
     def submit(self, project, brief, title=None, category='development', runtime='codex', idempotency_key=None,
-               parent_id=None, logical_role=None, stage=None, supersedes=None, access=None):
+               parent_id=None, logical_role=None, stage=None, supersedes=None, access=None, worker_id=None):
         body = dict(project=project, brief=brief, category=category, runtime=runtime, idempotency_key=idempotency_key or uuid.uuid4().hex)
-        optional = dict(title=title, parent_id=parent_id, logical_role=logical_role, stage=stage, supersedes=supersedes, access=access)
+        optional = dict(title=title, parent_id=parent_id, logical_role=logical_role, stage=stage, supersedes=supersedes, access=access, worker_id=worker_id)
         body.update({key: value for key, value in optional.items() if value is not None})
         result = self.call('POST', '/v1/tasks', body)
         return result.get('task', result)
+
+
+    def context(self):
+        return self.call('GET', '/v1/context')
+
+    def capabilities(self):
+        return self.call('GET', '/v1/capabilities')['capabilities']
+
+    def approvals(self):
+        return self.call('GET', '/v1/approvals')['approvals']
+
+    def artifact(self, task_id):
+        return self.call('GET', '/v1/tasks/%s/artifact' % self._id(task_id))['artifact']
+
+    def execute_capability(self, project, capability_id, inputs, idempotency_key, approval_id=None, worker_id=None):
+        body = dict(project=project, capability_id=capability_id, inputs=inputs, idempotency_key=idempotency_key)
+        body.update({key: value for key, value in dict(approval_id=approval_id, worker_id=worker_id).items() if value is not None})
+        return self.call('POST', '/v1/capabilities/execute', body)
+
+    def request_approval(self, project, capability_id, inputs, idempotency_key, worker_id=None):
+        body = dict(project=project, capability_id=capability_id, inputs=inputs, idempotency_key=idempotency_key)
+        if worker_id is not None:
+            body['worker_id'] = worker_id
+        return self.call('POST', '/v1/approvals', body)
+
+    def decide_approval(self, approval_id, approve):
+        return self.call('POST', '/v1/approvals/%s/%s' % (self._id(approval_id), 'approve' if approve else 'reject'), {})
 
 
 def create_server(api):
@@ -119,13 +146,56 @@ def create_server(api):
     @mcp.tool()
     def fleet_submit(project: str, brief: str, title: str | None = None, parent_id: str | None = None,
                      logical_role: str | None = None, stage: str | None = None, supersedes: str | None = None,
-                     access: str | None = None, idempotency_key: str | None = None) -> str:
+                     access: str | None = None, idempotency_key: str | None = None, worker_id: str | None = None) -> str:
         """Submit a task. For a graph child pass parent_id with logical_role (ceo, cto, chief-of-staff,
         librarian, interpreter, dispatcher, sentinel) and optionally stage (plan, reference, review, dispatch,
         verify). To retry a failed child pass supersedes=<its id> with the same parent, role, stage and access.
         access='write' is only honoured for a CTO child when the coordinator enables it."""
         return text(api.submit(project, brief, title=title, parent_id=parent_id, logical_role=logical_role, stage=stage,
-                               supersedes=supersedes, access=access, idempotency_key=idempotency_key))
+                               supersedes=supersedes, access=access, idempotency_key=idempotency_key, worker_id=worker_id))
+
+    @mcp.tool()
+    def fleet_context() -> str:
+        """Show your authorized projects, configured workers, observed availability and permissions."""
+        return text(api.context())
+
+    @mcp.tool()
+    def fleet_capabilities() -> str:
+        """List catalog readiness for every authorized project. Visibility does not grant execution."""
+        return text(api.capabilities())
+
+    @mcp.tool()
+    def fleet_artifact(task_id: str) -> str:
+        """Retrieve a bounded verified task artifact with source digest and safely redacted JSON."""
+        return text(api.artifact(task_id))
+
+    @mcp.tool()
+    def fleet_execute_capability(project: str, capability_id: str, inputs: dict, idempotency_key: str,
+                                 approval_id: str | None = None, worker_id: str | None = None) -> str:
+        """Execute a reviewed enabled capability. Reuse the same idempotency_key and inputs after a network error.
+        Required approval must already be bound to these exact inputs; this tool cannot grant it."""
+        return text(api.execute_capability(project, capability_id, inputs, idempotency_key, approval_id, worker_id))
+
+    @mcp.tool()
+    def fleet_approvals() -> str:
+        """List approvals in your scope, with reviewed inputs and their binding digests."""
+        return text(api.approvals())
+
+    @mcp.tool()
+    def fleet_request_approval(project: str, capability_id: str, inputs: dict, idempotency_key: str,
+                               worker_id: str | None = None) -> str:
+        """Request approval for an approval-required capability without dispatching it."""
+        return text(api.request_approval(project, capability_id, inputs, idempotency_key, worker_id))
+
+    @mcp.tool()
+    def fleet_approve(approval_id: str) -> str:
+        """Approve a reviewed action. Requires separately granted approve permission; identity comes from authentication."""
+        return text(api.decide_approval(approval_id, True))
+
+    @mcp.tool()
+    def fleet_reject(approval_id: str) -> str:
+        """Reject a pending or unconsumed approved action. Requires separately granted approve permission."""
+        return text(api.decide_approval(approval_id, False))
 
     return mcp
 

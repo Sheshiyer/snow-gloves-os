@@ -69,7 +69,7 @@ def env(tmp_path):
     config = dict(endpoint='http://127.0.0.1:4101', token='worker-secret', node_id='n', gateway_url='http://127.0.0.1:20128/v1',
                   gateway_key_file=str(key), state_root=str(tmp_path / 'state'), codex_path=str(cli),
                   allowed_roots=[str(root)], artifacts_root=str(artifacts), transient_backoff=0)
-    task = dict(id='task1', attempt_id='attempt1', lease_token='lease', runtime='codex', root=str(root), artifacts_root=str(artifacts), brief='Review')
+    task = dict(project='snowgloves', id='task1', attempt_id='attempt1', lease_token='lease', runtime='codex', root=str(root), artifacts_root=str(artifacts), brief='Review')
 
     def run(modes, request=None, **overrides):
         (tmp_path / 'modes.json').write_text(json.dumps({'modes': modes, 'calls': 0}))
