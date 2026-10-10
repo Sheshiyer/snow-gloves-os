@@ -36,7 +36,8 @@ SCHEMA = {
         CREATE INDEX IF NOT EXISTS contacts_segment ON contacts(tenant, segment);
         CREATE TABLE IF NOT EXISTS suppression (email TEXT PRIMARY KEY, reason TEXT, imported_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS erp_account_facts (tenant TEXT NOT NULL, erp_ref TEXT NOT NULL, company TEXT, status TEXT, revenue_tier TEXT,
-            erp_invoices INTEGER, erp_quotes INTEGER, client_since TEXT, snapshot TEXT, source TEXT, PRIMARY KEY (tenant, erp_ref));''',
+            erp_invoices INTEGER, erp_quotes INTEGER, client_since TEXT, snapshot TEXT, source TEXT, PRIMARY KEY (tenant, erp_ref));
+        CREATE TABLE IF NOT EXISTS erp_link_checks (tenant TEXT NOT NULL, erp_ref TEXT NOT NULL, exists_in_erp INTEGER NOT NULL, checked_at REAL NOT NULL, PRIMARY KEY (tenant, erp_ref));''',
 }
 AUDIT = 'CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, ts REAL NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, target TEXT, detail TEXT);'
 
@@ -262,6 +263,18 @@ class Vault:
         result = {'linked_accounts': len(confirmed), 'linked_contacts': linked_contacts, 'unlinked_contacts': unlinked, 'mail_only_accounts': mail_only}
         self._audit('system', 'link_erp', tenant, '%d accounts, %d contacts linked, %d unlinked; snapshot %s' % (len(confirmed), linked_contacts, unlinked, snapshot or 'unspecified'))
         return result
+
+    def erp_refs(self, tenant):
+        self._need('marketing')
+        return [r[0] for r in self.db.execute('SELECT DISTINCT erp_ref FROM contacts WHERE tenant=? AND erp_ref IS NOT NULL ORDER BY erp_ref', (tenant,))]
+
+    def record_erp_checks(self, tenant, results, actor):
+        self._need('marketing')
+        now = time.time()
+        for ref, found in results.items():
+            self.db.execute('INSERT OR REPLACE INTO erp_link_checks(tenant, erp_ref, exists_in_erp, checked_at) VALUES(?,?,?,?)', (tenant, ref, 1 if found else 0, now))
+        self.db.commit()
+        self._audit(actor, 'verify_erp_links', tenant, '%d checked, %d confirmed' % (len(results), sum(1 for v in results.values() if v)))
 
     def erp_link_status(self, tenant=None):
         self._need('marketing')

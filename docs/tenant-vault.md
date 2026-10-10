@@ -33,5 +33,12 @@ The key is created on first use. **Losing it makes the IBANs unrecoverable**; ke
 ## Importing a tenant branch
 `scripts/tenant_import_plan.py` is a read-only planner: it classifies a source ref's changed tenant files into T0 restricted, T1 internal, T2 knowledge by path and by content (valid IBANs, credentials, contact exports), compares them with the destination and trial-merges. Import only the include list as a plain commit (not a merge of the source history), and load T0 files into the vaults.
 
-## ERP (last step)
-Rows reserve a nullable `erp_ref`. Linking is read-only first: match `contacts.account_id` and `entities.siren` to the existing ERP through its reviewed read contract, behind `connector-gate`, then fill `erp_ref`. No ERP write and no bank or billing action is part of this.
+## ERP link
+
+Two layers, so the part that is evidenced works today and the live part stays behind the founder's contract.
+
+**1. Offline link (done on Coding 01).** `tenant_vault.py link-erp` reads the ERP-derived account export and links contacts to confirmed ERP client references (`erp_axtech:client:<id>`). Only numeric account ids whose export basis is `erp_invoices` count as ERP ids; mail-derived keys (`domain:name@...`) and ids the export never confirmed stay unlinked, and nothing is ever unlinked. The marketing vault keeps coarse non-monetary facts only (invoice and quote counts, status, tier); money is not copied into it. Agents see `marketing_erp_link_status` and an `erp_linked` flag on masked samples. On the axtech data: 5,867 of 9,127 contacts linked, covering 784 ERP clients, with every contact in an ERP-sourced segment linked and none of the mail-derived ones.
+
+**2. Live verification (built, blocked by design).** `lib/erp_reader.py` enforces `specs/ai-commercial-organization/erp-reference-contract.json` in code: the contract must be `admitted` with mutation tools disabled; one read tool only (never `record_count`); a single bounded SELECT (no comments, no second statement, no write or locking keyword, LIMIT at most 100, truncated answers refused); identifiers come from a binding that names a verified schema revision; ids only, no customer fields. `erp_verify_links.py --status` prints what is still unmet; running needs a named transport (`module:function`) that talks to the `erp_axtech` endpoint with the per-brand credential, which is not part of this repository. Results go to `erp_link_checks` and the audit log; contacts are never changed by a check.
+
+Not implemented on purpose: any ERP write, any customer-record read, any finance-side client revenue copy (decide whether the finance agent needs it first).

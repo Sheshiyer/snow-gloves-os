@@ -21,7 +21,7 @@ mcp:
 
 # Snow Gloves Vault: marketing
 
-First-party MCP server over the tenant's local marketing vault (`scripts/lib/tenant_vault.py`). Tools: `marketing_segments`, `marketing_sample` (masked, capped at 25), `marketing_is_suppressed`. There is no export tool: a person runs `tenant_vault.py export`, which refuses to overwrite and writes an audit entry.
+First-party MCP server over the tenant's local marketing vault (`scripts/lib/tenant_vault.py`). Tools: `marketing_segments`, `marketing_sample` (masked, capped at 25, with an `erp_linked` flag), `marketing_erp_link_status`, `marketing_is_suppressed`. There is no export tool: a person runs `tenant_vault.py export`, which refuses to overwrite and writes an audit entry.
 
 The contact data is **not** in the knowledge base and is not embedded. Suppression always wins. Sending anything stays behind the tenant's own approval rule; this server cannot send.
 
