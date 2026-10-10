@@ -241,7 +241,7 @@ function parseCatalogCard(card: unknown, index: number): CurrentCatalogCard {
   if (!isRecord(card)) {
     throw new OpsClientError(`Catalog card [${index}] must be an object`, 'invalid-response');
   }
-  const validCategories = new Set(['skills', 'mcp', 'connector', 'plugin', 'playbook']);
+  const validCategories = new Set(['skills', 'mcp', 'connector', 'plugin', 'playbook', 'mod']);
   const validDispositions = new Set(['add', 'pointer', 'hold', 'refuse']);
   const validRisks = new Set(['low', 'medium', 'high']);
   const validApprovals = new Set(['yes', 'no']);

@@ -17,7 +17,7 @@ export interface SafeActivityRecord {
 export interface CurrentCatalogCard {
   id: string;
   name: string;
-  category: 'skills' | 'mcp' | 'connector' | 'plugin' | 'playbook';
+  category: 'skills' | 'mcp' | 'connector' | 'plugin' | 'playbook' | 'mod';
   kind: string;
   disposition: 'add' | 'pointer' | 'hold' | 'refuse';
   repo: string;
