@@ -10,6 +10,8 @@ import urllib.error
 import urllib.request
 import uuid
 
+from lib.fleet_business import COMMERCIAL_PREPARATION_CATEGORY
+
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -20,11 +22,13 @@ def main():
     submit.add_argument('--project',required=True)
     submit.add_argument('--brief',required=True)
     submit.add_argument('--title')
-    submit.add_argument('--category',default='development')
+    submit.add_argument('--category')
     submit.add_argument('--runtime',default='codex')
     submit.add_argument('--idempotency-key',default=None)
     submit.add_argument('--parent',help='parent task id; makes this a child task')
     submit.add_argument('--role',help='logical role for a child task (ceo, cto, chief-of-staff, librarian, interpreter, dispatcher, sentinel)')
+    submit.add_argument('--domain-role',help='business template id; stored only in --context-file')
+    submit.add_argument('--context-file',help='JSON business context file (snowgloves.business-context.v1)')
     submit.add_argument('--supersedes',help='id of a failed child of --parent to retry (same role and stage)')
     submit.add_argument('--access',choices=('read','write'),help='write needs a CTO child under --parent and explicit server-side enablement')
     submit.add_argument('--stage',help='child stage: plan, reference, review, dispatch or verify')
@@ -42,7 +46,29 @@ def main():
     path='/v1/tasks'
     body=None
     if args.command=='submit':
-        body={key:getattr(args,key) for key in ('project','brief','category','runtime')}
+        business_context = None
+        if args.context_file:
+            try:
+                business_context = json.loads(Path(args.context_file).read_text())
+            except (OSError, ValueError):
+                parser.error('--context-file must name a readable JSON file')
+            if not isinstance(business_context,dict):
+                parser.error('--context-file must contain a JSON object')
+            if args.domain_role:
+                existing = business_context.get('domain_role')
+                if existing is not None and (
+                        not isinstance(existing,str) or existing.strip() != args.domain_role.strip()):
+                    parser.error('--domain-role conflicts with context-file domain_role')
+                business_context['domain_role'] = args.domain_role
+        elif args.domain_role:
+            parser.error('--domain-role requires --context-file')
+        if business_context is not None and args.category not in (None, COMMERCIAL_PREPARATION_CATEGORY):
+            parser.error('business context requires --category commercial-preparation')
+        body={key:getattr(args,key) for key in ('project','brief','runtime')}
+        if args.category or business_context is not None or not args.parent:
+            body['category'] = args.category or (COMMERCIAL_PREPARATION_CATEGORY if business_context is not None else 'development')
+        if business_context is not None:
+            body['business_context'] = business_context
         if args.title:
             body['title']=args.title
         if args.parent:

@@ -17,6 +17,13 @@ import urllib.request
 from urllib.parse import urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from lib.fleet_business import (
+    COMMERCIAL_PREPARATION_CATEGORY,
+    BusinessContextError,
+    inherit_business_context,
+    normalize_business_context,
+    validated_business_metadata,
+)
 from lib.fleet_write_review import MAX_ARTIFACT_BYTES, ReviewEvidenceError, evidence_from_artifact
 
 
@@ -137,7 +144,8 @@ class Coordinator:
           category TEXT NOT NULL, idem TEXT NOT NULL, request_hash TEXT NOT NULL,
           status TEXT NOT NULL, created REAL NOT NULL, updated REAL NOT NULL,
           worker TEXT, attempt_id TEXT, lease_hash TEXT, deadline REAL,
-          artifact TEXT, logical_role TEXT NOT NULL DEFAULT 'cto', UNIQUE(owner, idem));
+          artifact TEXT, logical_role TEXT NOT NULL DEFAULT 'cto',
+          business_context TEXT, UNIQUE(owner, idem));
         CREATE TABLE IF NOT EXISTS events (
           seq INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
           attempt_id TEXT NOT NULL, event_id TEXT NOT NULL, type TEXT NOT NULL,
@@ -163,6 +171,8 @@ class Coordinator:
         for column in ('review_of', 'review_binding'):
             if column not in columns:
                 self.db.execute('ALTER TABLE tasks ADD COLUMN %s TEXT' % column)
+        if 'business_context' not in columns:
+            self.db.execute('ALTER TABLE tasks ADD COLUMN business_context TEXT')
         self.db.execute('CREATE INDEX IF NOT EXISTS tasks_parent ON tasks(parent_id)')
         self.db.execute('CREATE INDEX IF NOT EXISTS fanout_children_task ON fanout_children(task_id)')
         self.db.commit()
@@ -205,12 +215,60 @@ class Coordinator:
             self.db.execute("UPDATE tasks SET status='interrupted',updated=? WHERE id=?", (now, row['id']))
             self.db.execute('INSERT OR IGNORE INTO events(task_id,attempt_id,event_id,type,message,created) VALUES(?,?,?,?,?,?)', (row['id'],row['attempt_id'],'lease-expired','interrupted','Worker heartbeat expired; manual reconciliation required',now))
 
+    def _context_from_row(self, row):
+        raw = row['business_context']
+        if raw is None:
+            return None
+        try:
+            value = json.loads(raw)
+        except (TypeError, ValueError):
+            raise Rejected(500, 'Stored business context is invalid') from None
+        if not isinstance(value, dict):
+            raise Rejected(500, 'Stored business context is invalid')
+        try:
+            context = normalize_business_context(value)
+            self._safe_business_data(context)
+            return context
+        except BusinessContextError:
+            raise Rejected(500, 'Stored business context is invalid') from None
+
+    def _safe_business_data(self, value):
+        encoded = json.dumps(value, sort_keys=True)
+        if self.sanitize(encoded) != encoded:
+            raise Rejected(400, 'Business references must not contain credentials')
+
+    def _business_metadata(self, project, context, require_catalog_ready=True):
+        try:
+            result = validated_business_metadata(
+                self.config['projects'][project], context,
+                require_catalog_ready=require_catalog_ready,
+            )
+            self._safe_business_data(result[0])
+            self._safe_business_data(result[2])
+            return result
+        except BusinessContextError as exc:
+            raise Rejected(exc.status, str(exc)) from None
+
+    def _inherit_context(self, parent_context, requested_context):
+        try:
+            return inherit_business_context(parent_context, requested_context)
+        except BusinessContextError as exc:
+            raise Rejected(exc.status, str(exc)) from None
+
     def _public(self, row):
         keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes','access','review_of')
         result = {k: row[k] for k in keys}
         project = self.config['projects'][row['project']]
         result.update(tenant=project['tenant'],organization=project['organization'],session_id=row['id'])
         result['artifact'] = json.loads(row['artifact']) if row['artifact'] else None
+        context = self._context_from_row(row)
+        if context is not None:
+            result['business_context'] = context
+            try:
+                self._business_metadata(row['project'], context)
+                result['business_gate'] = {'dispatch_ready': True, 'erp_access': 'unverified'}
+            except Rejected as exc:
+                result['business_gate'] = {'dispatch_ready': False, 'erp_access': 'unverified', 'reason': str(exc.message)}
         return result
 
     @staticmethod
@@ -681,6 +739,8 @@ class Coordinator:
         for field in ('title', 'category'):
             if field in body and (not isinstance(body[field],str) or len(body[field]) > 200):
                 raise Rejected(400, 'Invalid '+field)
+        if 'domain_role' in body:
+            raise Rejected(400, 'domain_role must be supplied in business_context')
         parent_id, role, stage, supersedes = body.get('parent_id'), body.get('logical_role'), body.get('stage'), body.get('supersedes')
         if parent_id is None:
             if role is not None or stage is not None or supersedes is not None:
@@ -713,7 +773,42 @@ class Coordinator:
                 raise Rejected(403, 'Only the CTO role may write')
             if not self.config['projects'][project].get('write') or project not in principal.get('write_projects',[]):
                 raise Rejected(403, 'Write access unavailable')
+        marker = object()
+        requested_context = body.get('business_context', marker)
+        business_context, template, readiness = None, None, None
+        parent_context = None
+        if parent_id is not None:
+            with self.lock:
+                parent = self._owned(owner, principal, parent_id, mutate=True)
+                if parent['project'] != project:
+                    raise Rejected(409, 'Parent belongs to another project')
+                parent_context = self._context_from_row(parent)
+        if parent_id is None:
+            if requested_context is not marker:
+                if body.get('category') not in (None, '', COMMERCIAL_PREPARATION_CATEGORY):
+                    raise Rejected(400, 'Business context requires commercial-preparation category')
+                business_context, template, readiness = self._business_metadata(project, requested_context)
+            elif body.get('category') == COMMERCIAL_PREPARATION_CATEGORY:
+                raise Rejected(400, 'Commercial-preparation requires business context')
+        elif parent_context is None:
+            if requested_context is not marker or body.get('category') == COMMERCIAL_PREPARATION_CATEGORY:
+                raise Rejected(409, 'Business context must originate with the parent task')
+        else:
+            if body.get('category') not in (None, '', COMMERCIAL_PREPARATION_CATEGORY):
+                raise Rejected(409, 'Child business context must retain commercial-preparation category')
+            business_context = self._inherit_context(
+                parent_context,
+                None if requested_context is marker else requested_context,
+            )
+            business_context, template, readiness = self._business_metadata(project, business_context)
+        if business_context is not None and access != 'read':
+            raise Rejected(403, 'Business preparation is read-only')
+        if business_context is not None and review_of is not None:
+            raise Rejected(409, 'Write review is unavailable for business preparation')
         request = {k: body.get(k) for k in ('project','brief','runtime','title','category')}
+        if business_context is not None:
+            request['category'] = COMMERCIAL_PREPARATION_CATEGORY
+            request['business_context'] = business_context
         if access == 'write':
             request['access'] = access
         if parent_id is not None:
@@ -738,7 +833,9 @@ class Coordinator:
                 raise Rejected(503,'Hermes bridge configuration unavailable')
             request_body = {key: body.get(key) for key in ('title','brief','project','category')}
             request_body['title'] = body.get('title') or 'Fleet task'
-            request_body['category'] = body.get('category') or 'development'
+            request_body['category'] = COMMERCIAL_PREPARATION_CATEGORY if business_context is not None else body.get('category') or 'development'
+            if business_context is not None:
+                request_body['business_context'] = business_context
             request = urllib.request.Request(url+'/interpret',data=json.dumps(request_body).encode(),headers={'Authorization':'Bearer '+bridge['token'],'Content-Type':'application/json'})
             try:
                 with urllib.request.urlopen(request,timeout=min(90,float(bridge.get('timeout',90)))) as response:
@@ -753,6 +850,10 @@ class Coordinator:
                         raise ValueError('Invalid interpretation')
                 if not interpretation.get('summary') or not interpretation.get('hermes_revision'):
                     raise ValueError('Missing interpretation proof')
+                if business_context is not None and (
+                        interpretation.get('category') != COMMERCIAL_PREPARATION_CATEGORY
+                        or interpretation.get('business_context') != business_context):
+                    raise ValueError('Business scope changed')
             except (ValueError,TypeError,KeyError,urllib.error.URLError,TimeoutError,OSError):
                 raise Rejected(503,'Hermes interpretation unavailable; task was not dispatched') from None
         with self.transaction():
@@ -775,10 +876,23 @@ class Coordinator:
                 ).fetchone()
                 if plan and supersedes is None:
                     raise Rejected(409, 'Automatic fanout plans accept retries only')
+                current_parent_context = self._context_from_row(parent)
+                if current_parent_context is None and business_context is not None:
+                    raise Rejected(409, 'Business context must originate with the parent task')
+                if current_parent_context is not None:
+                    business_context = self._inherit_context(
+                        current_parent_context,
+                        None if requested_context is marker else requested_context,
+                    )
+                    business_context, template, readiness = self._business_metadata(project, business_context)
+                    if access != 'read':
+                        raise Rejected(403, 'Business preparation is read-only')
                 if supersedes is not None:
                     old = self._owned(owner,principal,supersedes,mutate=True)
                     if old['parent_id'] != parent_id or old['logical_role'] != role or old['stage'] != stage or old['access'] != access:
                         raise Rejected(409, 'A retry must match the parent, role, stage and access of the failed task')
+                    if self._context_from_row(old) != business_context:
+                        raise Rejected(409, 'A retry must preserve the business template and context')
                     if old['status'] != 'failed':
                         raise Rejected(409, 'Only failed tasks can be retried; interrupted tasks need manual reconciliation')
                     old_binding = json.loads(old['review_binding']) if old['review_binding'] else None
@@ -801,8 +915,11 @@ class Coordinator:
                 elif self.db.execute('SELECT count(*) FROM tasks WHERE parent_id=? AND id NOT IN (SELECT supersedes FROM tasks WHERE supersedes IS NOT NULL)',(parent_id,)).fetchone()[0] >= MAX_CHILDREN:
                     raise Rejected(409, 'Parent already has the maximum number of children')
             tid, now = uuid.uuid4().hex, self.clock()
-            self.db.execute('INSERT INTO tasks(id,owner,project,title,brief,runtime,category,idem,request_hash,status,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-              (tid,owner,project,self.sanitize(body.get('title') or 'Fleet task'),self.sanitize(body['brief']),runtime,self.sanitize(body.get('category') or 'development'),body['idempotency_key'],digest,'queued',now,now))
+            self.db.execute('INSERT INTO tasks(id,owner,project,title,brief,runtime,category,idem,request_hash,status,created,updated,business_context) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+              (tid,owner,project,self.sanitize(body.get('title') or 'Fleet task'),self.sanitize(body['brief']),runtime,
+               self.sanitize(COMMERCIAL_PREPARATION_CATEGORY if business_context is not None else body.get('category') or 'development'),
+               body['idempotency_key'],digest,'queued',now,now,
+               json.dumps(business_context, sort_keys=True, separators=(',', ':')) if business_context is not None else None))
             if parent_id is not None:
                 self.db.execute('UPDATE tasks SET parent_id=?,logical_role=?,stage=?,supersedes=?,access=? WHERE id=?',(parent_id,role,stage,supersedes,access,tid))
             if review_of is not None:
@@ -815,7 +932,7 @@ class Coordinator:
                 self.db.execute('UPDATE tasks SET title=?,brief=?,category=?,logical_role=? WHERE id=?',(
                     self.sanitize(interpretation.get('title') or body.get('title') or 'Fleet task')[:200],
                     self.sanitize(interpretation.get('brief') or body['brief']),
-                    self.sanitize(interpretation.get('category') or body.get('category') or 'development')[:200],
+                    self.sanitize(COMMERCIAL_PREPARATION_CATEGORY if business_context is not None else interpretation.get('category') or body.get('category') or 'development')[:200],
                     interpretation.get('logical_role','cto'),tid))
                 self.db.execute('INSERT INTO events(task_id,attempt_id,event_id,type,message,created) VALUES(?,?,?,?,?,?)',
                     (tid,'','hermes-interpreted','hermes_interpreted',self.sanitize(json.dumps({'summary':interpretation['summary'],'hermes_revision':interpretation['hermes_revision']})),now))
@@ -856,7 +973,8 @@ class Coordinator:
         children = []
         for kid in kids:
             child = dict({k: v for k, v in self._public(kid).items()
-                          if k in ('id','logical_role','stage','status','artifact','supersedes','review_of')},
+                          if k in ('id','logical_role','stage','status','artifact','supersedes','review_of',
+                                  'business_context','business_gate')},
                          superseded_by=replaced.get(kid['id']))
             context = self._fanout_context(kid)
             if context:
@@ -879,7 +997,11 @@ class Coordinator:
             status = 'verified'  # derived artifact rollup, not a semantic validation claim
         else:
             status = 'incomplete'
-        return {'children': children, 'status': status}
+        result = {'children': children, 'status': status}
+        context = self._context_from_row(parent)
+        if context is not None:
+            result['business_context'] = context
+        return result
 
     def cancel(self, owner, principal, tid):
         self._need(principal, 'cancel')
@@ -913,6 +1035,19 @@ class Coordinator:
                     review_evidence, review_hold = self._review_context(row)
                     if review_hold:
                         continue
+                business_context = self._context_from_row(row)
+                template = readiness = None
+                if business_context is not None:
+                    if context or review_evidence is not None:
+                        # Business preparation never travels with fanout or
+                        # write-review metadata; refuse an inconsistent row.
+                        continue
+                    try:
+                        business_context, template, readiness = self._business_metadata(row['project'], business_context)
+                    except Rejected:
+                        # A changed server snapshot must never turn an already-queued
+                        # price-dependent preparation into an execution permission.
+                        continue
                 attempt, token = uuid.uuid4().hex, uuid.uuid4().hex + uuid.uuid4().hex
                 now = self.clock()
                 self.db.execute("UPDATE tasks SET status='running',worker=?,attempt_id=?,lease_hash=?,deadline=?,updated=? WHERE id=?",(name,attempt,hashlib.sha256(token.encode()).hexdigest(),now+self.config.get('lease_seconds',90),now,row['id']))
@@ -933,6 +1068,12 @@ class Coordinator:
                         result['source_outputs'] = context['source_outputs']
                 if review_evidence is not None:
                     result['review_evidence'] = review_evidence
+                if business_context is not None:
+                    result.update(
+                        business_context=business_context,
+                        business_template=template,
+                        business_readiness=readiness,
+                    )
                 return result
             return None
 
