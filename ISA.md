@@ -4,10 +4,10 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 381/407
+progress: 391/421
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 ## Problem
@@ -508,8 +508,8 @@ until the actual mini supplies evidence.
 - [ ] ISC-363: Coding 01 remote desktop passes monitor-disconnected testing with lock and recovery limitations recorded.
 - [ ] ISC-364: Representative build and agent measurements establish a documented safe Coding 01 concurrency limit.
 - [x] ISC-365: Coding 02 passes device enrollment, remote access and a node-attributed job test.
-- [ ] ISC-366: Creative passes device enrollment, remote access and a node-attributed job test on its intended network.
-- [ ] ISC-367: Marketing passes device enrollment, remote access and a node-attributed job test on its intended network.
+- [x] ISC-366: Creative passes device enrollment, remote access and a node-attributed job test on its intended network.
+- [x] ISC-367: Marketing passes device enrollment, remote access and a node-attributed job test on its intended network.
 - [x] ISC-368: The private fleet rollout checklist records founder actions, evidence-linked tests, owners, dependencies and next planning step without promoting historical host proof.
 
 - [x] ISC-369: The pilot coordinator persists authorized tasks, assignments and redacted events in one private local SQLite authority.
@@ -1710,3 +1710,13 @@ ISC-410/415: integrated focused suite now82 passed,1 skipped after expanded HTTP
 ### 2026-10-10 — Operations GitHub starter
 
 ISC-416/420/421: private PILOT.json pins Sheshiyer/snow-gloves-ops commit52884ad6d2d44bf1c25a8e20d96f85f0db1b1e13, README.md Git blob3db12a22b07650976c19a6b1c1e2a86d3c2c635e,size1702 from actual authenticated controller API. Source read target, model execution, failed authentication and unproven automation are separately recorded; no universal tenant binding or permission change. Actual Coding01 Hermes session20261010_231433_fac8c4 uses existing custom loopback route, exits0 and accurately reports GitHub401/404 without values. ISC-417–419 remain open; process success is not repository-read acceptance. Grok message remains unsent pending UI confirmation.
+
+### 2026-10-11 — Creative managed headless worker enrollment
+
+- ISC-366: Physical device and managed task verification — founder applied digest-bound system transport/worker plan; both reviewed plists match, no duplicate user services. Actual task `42476a64a1ad4ac1937e3b373d1cf88e` succeeded on `mac-creative`; coordinator-owned artifact SHA256 `0a493580f4ee7ead88e0494d530c275b8f8031f5f4033a6570d1a8870a4bbdd5` matches actual bytes and correctly identifies seven roles/private ops boundary. Owned Codex session confirms OmniRoute adapter and noesis-execute route; resolved upstream provider unverified. Capacity remains1. Desktop currently logged in; no-login/cold-boot/power-loss acceptance remains unproven. Receipts: private docs/fleet/onboarding/2026-10-11-wing-enrollment/CREATIVE-INSTALLED.json and dated wing-workers enrollment continuation.
+
+- ISC-367: Physical device and managed task verification — founder completed reviewed toolchain bootstrap and digest-bound two-service system apply. Actual task `c9b0881c74a943499dc88f800000548d` succeeded on `mac-marketing`; coordinator-owned artifact SHA256 `e4888ce0b0dbd4e432b7d84f3ecb5d39c8397b141e9d237c176e5682bd34cbe0` matches actual bytes and source-grounded role/private-data response. Gateway unauthenticated401/authenticated200; scoped worker cannot list/submit tasks401; no duplicate user services. Capacity1, pending0 after both canaries. Console currently logged in; no-login/cold-boot/power-loss remain unproven. Private evidence: docs/fleet/onboarding/2026-10-11-wing-enrollment/MANAGED-ARTIFACT-VERIFICATION.json and wing-workers/marketing-enrollment-20261011/LIVE-RUNTIME-VERIFICATION.json.
+
+### 2026-10-11 — Read-only fleet startup and dependency audit
+
+Founder supersedes disconnect/reboot proposal: leave every device connected and running; verify live state only. All four physical office Macs pass SSH, system tailscaled running, coordinator/gateway loopback reachability, sleep0/autorestart1 and FileVaultOff. Coding01 owned continuous pilot services run as system daemons; scheduled TLS renewal is idle by design. Coding02/Creative/Marketing system worker and transport daemons have RunAtLoad/KeepAlive, use local runtime roots and connect directly to Coding01 100.117.187.123. Examined service arguments contain no authoring-mini route. All four console users are logged in. Configuration supports authoring-independent operation; physical disconnection, logout, reboot, cold boot, power loss and outside-office network acceptance remain untested in this audit. No runtime or power setting changed. Private receipt: docs/fleet/onboarding/2026-10-11-wing-enrollment/LIVE-STARTUP-AUDIT.json.
