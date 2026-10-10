@@ -36,7 +36,8 @@ Events reach the Chief of Staff through **Hermes** (`scripts/hermes.py`, port 41
 
 - Agents pick up third-party modules only through a tenant's `tenants/<slug>/enabled.yaml`. Options come from `catalog/modules.json` (built from `catalog/cards/` by `scripts/build_catalog.py`); `hold` and `refuse` cards are never enabled. Load `skills/connector-gate` before any external tool call.
 - The runtime is the founder's choice. `adapters/<runtime>/adapter.yaml` says where that runtime keeps skills, MCP config, and rules; `scripts/onboard.py --render-adapter` writes them. Onboarding is the plan-mode interview in `skills/sg-onboard/`.
-- Docs: `docs/catalog.md`, `docs/adapters.md`, `docs/onboarding.md`.
+- Claude Code mods live in `mods/` (the `snowgloves-mods` directory marketplace: `sg-rail`, `sg-connector-gate`, `sg-approvals`). They read the platform through `scripts/sg_mods.py`, follow rules I1-I6 in `docs/mods.md`, and pass `make mods-check`. Third-party mods enter as `hold` cards (category `mod`).
+- Docs: `docs/catalog.md`, `docs/adapters.md`, `docs/onboarding.md`, `docs/mods.md`.
 
 ## Private data
 

@@ -40,7 +40,7 @@ from lib import paths  # noqa: E402
 
 CODE_ROOT = Path(__file__).resolve().parents[1]
 ENABLEABLE = ("add", "pointer")
-CATEGORIES = ("skills", "mcp", "connector", "plugin", "playbook")
+CATEGORIES = ("skills", "mcp", "connector", "plugin", "playbook", "mod")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 CONTEXT_SECTIONS = ("owner", "company", "customer", "offer", "voice", "proof")
 CONTEXT_LINKS = ("voice", "offer", "customer", "company")  # linked from the wing rules block when they hold real text
@@ -208,6 +208,7 @@ def option_lines(catalog: Catalog) -> str:
         ("Skills", ("skills", "playbook")),
         ("Connectors", ("mcp", "connector")),
         ("Plugins", ("plugin",)),
+        ("Mods", ("mod",)),
     )
     for title, cats in groups:
         rows = [c for c in offered if c.get("category") in cats]
@@ -566,15 +567,19 @@ def render(
         else:
             items.append(card)
     if out:
-        roots = {"home": out / "home", "project": out / "project", "tenant": out / "tenant"}
+        roots = {"home": out / "home", "project": out / "project", "tenant": out / "tenant", "platform": CODE_ROOT}
     else:
-        roots = {"home": Path.home(), "project": project_for(tdir, project, node, slug), "tenant": tdir}
+        roots = {
+            "home": Path.home(), "project": project_for(tdir, project, node, slug), "tenant": tdir, "platform": CODE_ROOT,
+        }
+    data_root = catalog.tenants.parent
     plan = ad.render_plan(
         adapter, items, agents, slug, roots,
         card_bodies={c["id"]: catalog.card_body(c["id"]) for c in items},
         in_sandbox=out is not None,
         node=node,
         context_links=context_links,
+        data_root=None if data_root.resolve() == CODE_ROOT.resolve() else data_root,
     )
     mode = "write" if write else "dry run"
     scope = f"; wing {wing}" if wing else ""

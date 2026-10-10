@@ -1,0 +1,27 @@
+{
+  "name": "sg-rail",
+  "version": "0.1.0",
+  "description": "Snow Gloves status band above the prompt (tenant, data root, Hermes, OmniRoute, approvals, graph walk, ISA, Temperance rail) and a /sg command",
+  "author": { "name": "Snow Gloves OS" },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "tenant": {
+      "type": "string",
+      "title": "Tenant",
+      "description": "Tenant slug. Empty: SNOWGLOVES_TENANT, else the registered tenant whose runtime.yaml project holds the working directory",
+      "default": ""
+    },
+    "dataRoot": {
+      "type": "string",
+      "title": "Data root",
+      "description": "Path of the private snow-gloves-ops checkout. Empty: SNOWGLOVES_DATA, else the platform's public fixtures",
+      "default": ""
+    },
+    "platformRoot": {
+      "type": "string",
+      "title": "Platform root",
+      "description": "Path of the snow-gloves-os checkout. Empty: two folders above this mod",
+      "default": ""
+    }
+  }
+}

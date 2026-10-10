@@ -27,15 +27,23 @@ def check(tenant: str, connector: str, capability_id: str, payload: dict | None 
         return _queue_approval(tenant, connector, cap, payload or {})
     return {"ok": True, "capability": cap}
 
-def _queue_approval(tenant: str, connector: str, cap: dict, payload: dict) -> dict:
-    qdir = ROOT / "tenants" / tenant / "approvals"
+def queue_ticket(tenant: str, connector: str, capability_id: str, risk: str | None,
+                 payload: dict, root: Path | None = None, kind: str | None = None) -> dict:
+    """Append a pending ticket to <root>/tenants/<t>/approvals/pending.jsonl and return it."""
+    qdir = (root or ROOT) / "tenants" / tenant / "approvals"
     qdir.mkdir(parents=True, exist_ok=True)
     ticket = {
         "id": f"APR-{int(time.time())}-{secrets.token_hex(3)}",
         "tenant": tenant, "connector": connector,
-        "capability": cap["id"], "risk": cap.get("risk"),
+        "capability": capability_id, "risk": risk,
         "created_at": int(time.time()), "status": "pending",
         "payload": payload,
     }
-    (qdir / "pending.jsonl").open("a").write(json.dumps(ticket) + "\n")
-    raise ApprovalRequired(ticket)
+    if kind:
+        ticket["kind"] = kind
+    with (qdir / "pending.jsonl").open("a") as f:
+        f.write(json.dumps(ticket) + "\n")
+    return ticket
+
+def _queue_approval(tenant: str, connector: str, cap: dict, payload: dict) -> dict:
+    raise ApprovalRequired(queue_ticket(tenant, connector, cap["id"], cap.get("risk"), payload))

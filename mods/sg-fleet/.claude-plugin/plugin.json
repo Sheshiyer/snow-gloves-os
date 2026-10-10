@@ -1,0 +1,23 @@
+{
+  "name": "sg-fleet",
+  "version": "0.1.0",
+  "description": "Snow Gloves fleet cockpit: /fleet shows this wing's doctor checks and which CLI surfaces point at the fleet gateway, and a toast says when a critical check turns red",
+  "author": {
+    "name": "Snow Gloves OS"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "platformRoot": {
+      "type": "string",
+      "title": "Platform root",
+      "description": "Path of the snow-gloves-os checkout. Empty: two folders above this mod",
+      "default": ""
+    },
+    "dataRoot": {
+      "type": "string",
+      "title": "Data root",
+      "description": "Path of the private snow-gloves-ops checkout. Empty: SNOWGLOVES_DATA, else the platform's public fixtures",
+      "default": ""
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "description": "sg-handoff hooks module",
+  "modules": [
+    "./register.tsx"
+  ]
+}

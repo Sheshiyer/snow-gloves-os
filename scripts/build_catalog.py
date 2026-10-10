@@ -23,7 +23,7 @@ import yaml
 SCHEMA = "snowgloves.modules.v1"
 ROOT = Path(__file__).resolve().parents[1]
 
-CATEGORIES = ("skills", "mcp", "connector", "plugin", "playbook")
+CATEGORIES = ("skills", "mcp", "connector", "plugin", "playbook", "mod")
 DISPOSITIONS = ("add", "hold", "refuse", "pointer")
 ENABLEABLE = ("add", "pointer")
 RISKS = ("low", "medium", "high")

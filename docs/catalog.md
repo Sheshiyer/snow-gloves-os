@@ -13,14 +13,15 @@ A card is a **pointer**: front matter plus a short body explaining why the card 
 
 ## Current contents (v0.2.1)
 
-137 cards.
+147 cards.
 
 | Disposition | Count | | Category | Count |
 |---|---:|---|---|---:|
-| `add` | 66 | | `skills` | 79 |
+| `add` | 76 | | `skills` | 79 |
 | `pointer` | 45 | | `playbook` | 36 |
 | `hold` | 14 | | `plugin` | 13 |
-| `refuse` | 12 | | `mcp` | 8 |
+| `refuse` | 12 | | `mod` | 10 |
+| | | | `mcp` | 8 |
 | | | | `connector` | 1 |
 
 Sources: the X bookmark harvest, Field Theory taste packs (design, 2026-09-25, tutor), the Instagram saved harvest, founders-kit (one `fk-` pointer card per category), and [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) (50 `ms-` cards). The reasoning behind each disposition, and the founder pick list, are in [research/2026-09-29-ecosystem-review.md](./research/2026-09-29-ecosystem-review.md).

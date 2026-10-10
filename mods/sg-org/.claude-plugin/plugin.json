@@ -1,0 +1,35 @@
+{
+  "name": "sg-org",
+  "version": "0.1.0",
+  "description": "Snow Gloves organisation: the seven agents (CEO, CTO, chief of staff, librarian, interpreter, dispatcher, sentinel) as Claude subagent types, and an /org pane",
+  "author": {
+    "name": "Snow Gloves OS"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "tenant": {
+      "type": "string",
+      "title": "Tenant",
+      "description": "Tenant slug. Empty: SNOWGLOVES_TENANT",
+      "default": ""
+    },
+    "roleCombos": {
+      "type": "string",
+      "title": "Role to combo map",
+      "description": "role=combo pairs, comma separated, for example sentinel=noesis-verify. Applied only when ANTHROPIC_BASE_URL points at OmniRoute",
+      "default": ""
+    },
+    "platformRoot": {
+      "type": "string",
+      "title": "Platform root",
+      "description": "Path of the snow-gloves-os checkout. Empty: two folders above this mod",
+      "default": ""
+    },
+    "dataRoot": {
+      "type": "string",
+      "title": "Data root",
+      "description": "Path of the private snow-gloves-ops checkout. Empty: SNOWGLOVES_DATA, else the platform's public fixtures",
+      "default": ""
+    }
+  }
+}
