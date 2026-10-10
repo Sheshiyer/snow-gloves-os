@@ -7,7 +7,7 @@ phase: execute
 progress: 350/395
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 ## Problem
@@ -1006,6 +1006,11 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
   learned: artifact existence does not cover later files or detached history, and a global worker hold must also hold cleanup.
   criterion now: ISC-397 and ISC-398 require preservation and fail-closed holds, including a final removal recheck.
 
+- 2026-10-10 | conjectured: one coordinator claim guarantees one native Codex job, and known tool items exhaust possible effects.
+  refuted by: the actual isolated root spawned two native Codex agents; a collaboration-only failure was omitted from the retry blacklist.
+  learned: disable both native multi-agent features per invocation and require a complete positive effect-free trace before retry.
+  criterion now: ISC-399 and ISC-400 cover invocation isolation and conservative retry proof; production and human role-flow acceptance remain open.
+
 ## Verification
 
 Baseline before new implementation: `python3 -m pytest -q` returned **138 passed in 5.85s**.
@@ -1544,6 +1549,8 @@ Founder defers ERP product/dossier integration and requests the next checklist i
 - [ ] ISC-396: Live Coding01 board sends one admitted fanout request and refreshes its graph without claiming semantic validation.
 - [x] ISC-397: Anti: worker cleanup discards changed or ignored files, unretained commits, locked checkouts or work added after planning.
 - [x] ISC-398: Any recovery hold and malformed active/pending state prevent cleanup; removal rechecks holds added after planning.
+- [x] ISC-399: Managed Codex jobs disable native multi-agent features; actual isolated role jobs emit no collaboration events.
+- [x] ISC-400: Transient retries require a complete effect-free trace; collaboration, unknown tools and malformed records prevent replay.
 
 ## 2026-10-09 — Generic fan-out source verification
 
@@ -1562,3 +1569,14 @@ A disposable confinement probe on this Mac re-runs the original edited-test esca
 Integrated serving graph source 4c2d1f2 with bounded fanout and source context, retaining scoped principals, conservative transient retries, pruning and the Vite patch. Fanout now requires submit permission and owner-only mutation before the planner is called. Root detail derives display-only eligibility from that same preflight; the board and sixth MCP tool delegate to the admitted endpoint without granting scope. The proxy forwards authorization and origin with a bounded route/body contract. Planning allows the bridge's 90-second window; stale board requests and duplicate clicks are guarded. A completed root can still cancel open children.
 
 Independent checks: 258 fleet/cockpit Python tests pass with the installed MCP SDK; all 213 frontend tests and the TypeScript/Vite production build pass. Compile and whitespace checks pass. In an actual IAB disposable fixture, one explicit board click traversed the real proxy/coordinator, created exactly two read-only children, refreshed the selected graph, displayed Sentinel's dependency hold and disabled replay. The planner was a synthetic stub and no role model ran, so ISC-393 through ISC-396 remain unchecked. The native Execute worker was intentionally interrupted for review handoff; its source was independently inspected and corrected before these checks. Upstream combo attribution remains unproven. Production services and admission flags were unchanged.
+
+
+## Verification — native worker isolation and actual candidate role flow, 10 October 2026
+
+An actual pinned-Hermes candidate flow on this Coding01 Mac exposed native Codex collaboration inside one claimed root. Two agents were spawned and the root reached its deadline; children remained held. The interrupted attempt and its recovery evidence are preserved, without replay. The earlier effect blacklist also omitted collaboration items.
+
+ISC-399: managed read and write commands now disable both `multi_agent` and `multi_agent_v2` per invocation. Installed Codex 0.160 reports both false with that overlay. The corrected immutable source 912e892 completed three sequential real jobs with zero collaboration events. ISC-400: retries require thread/turn start and a transient terminal failure, accepting only known non-effect text/reasoning/error records; tool, collaboration, unknown, malformed, partial and conflicting traces fail closed. Focused execution/retry/write tests report 62 passed in 18.46s; fleet/cockpit regressions report 301 passed in 30.33s.
+
+The actual candidate coordinator, pinned Hermes revision 93257fd and Codex completed root -> Librarian -> Sentinel with verified artifacts. Owned CLI session prompts were checked directly: Librarian received the exact 1,669-byte root output; Sentinel received that output plus the exact 1,065-byte Librarian output, with matching task/attempt IDs and ordering. Sentinel correctly detected and corrected all five root line-citation offsets against the executed source. Its output was 1,906 bytes, above the requested 1,800 but within the 4,096-byte context contract. Root content is not accepted wholesale.
+
+These jobs used isolated candidate servers and state, not the serving production board. Baseline production and native configuration hashes are unchanged; temporary servers stopped. ISC-393 through ISC-396 remain open for production admission, actual operator semantic acceptance and authenticated board operation. Browser observation after the operator reply still shows Disconnected. Private receipts retain actual capture timestamps of 9 October UTC; this verification entry uses the client's 10 October date.

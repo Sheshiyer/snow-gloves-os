@@ -43,7 +43,7 @@ FANOUT_PREAMBLE = (
     'capability. Return only a read-only analysis.\n\n')
 
 
-EFFECT_ITEMS = ('command_execution', 'file_change', 'mcp_tool_call', 'web_search')
+NO_EFFECT_ITEMS = ('agent_message', 'reasoning', 'error')
 TRANSIENT = re.compile(r'\b429\b|Too Many Requests|stream (?:closed|disconnected)', re.I)
 
 
@@ -150,7 +150,9 @@ class Worker:
 
     def command(self, worktree, write=False):
         c = self.config
-        return [c['codex_path'], 'exec', '--ignore-user-config', '--json', '--sandbox', 'workspace-write' if write else 'read-only',
+        return [c['codex_path'], 'exec', '--ignore-user-config', '--json',
+                '--disable', 'multi_agent', '--disable', 'multi_agent_v2',
+                '--sandbox', 'workspace-write' if write else 'read-only',
                 '--skip-git-repo-check', '-C', str(worktree), '-m', c.get('model', 'noesis-fast'),
                 *(['-c', 'sandbox_workspace_write.network_access=false'] if write else []),
                 '-c', 'model_provider="omniroute"', '-c', 'model_providers.omniroute.name="OmniRoute"',
@@ -161,18 +163,39 @@ class Worker:
     def transient_before_effects(self, log):
         """True only when a failed run hit a transient provider error and provably did nothing yet:
         no command, edit, tool or web call started, so replaying cannot repeat a side effect."""
-        transient = False
+        started, turn_started, failed = False, False, False
         for line in Path(log).read_text(errors='replace').splitlines():
+            if not line.strip():
+                continue
             try:
                 row = json.loads(line)
             except ValueError:
-                continue
-            if (row.get('item') or {}).get('type') in EFFECT_ITEMS:
+                return False  # incomplete or mixed output cannot prove no effects
+            if not isinstance(row, dict):
                 return False
-            message = row.get('message') or (row.get('error') or {}).get('message') or ''
-            if row.get('type') in ('error', 'turn.failed') and TRANSIENT.search(str(message)):
-                transient = True
-        return transient
+            kind = row.get('type')
+            if failed or kind not in ('thread.started', 'turn.started', 'item.started', 'item.completed', 'error', 'turn.failed'):
+                return False
+            if kind == 'thread.started':
+                started = True
+            elif kind == 'turn.started':
+                turn_started = True
+            elif kind in ('item.started', 'item.completed'):
+                item = row.get('item')
+                # Deny every non-text item, including collaboration and future
+                # tool types, instead of relying on a partial effect blacklist.
+                if not isinstance(item, dict) or item.get('type') not in NO_EFFECT_ITEMS:
+                    return False
+            elif kind in ('error', 'turn.failed'):
+                error = row.get('error', {})
+                if not isinstance(error, dict):
+                    return False
+                message = row.get('message') or error.get('message') or ''
+                if not isinstance(message, str) or not TRANSIENT.search(message):
+                    return False
+                if kind == 'turn.failed':
+                    failed = True
+        return started and turn_started and failed
 
     def monitor(self, task, start, done, process=None):
         """Heartbeat, honour cancellation, the time budget and shutdown until done(). Returns (kind, message)

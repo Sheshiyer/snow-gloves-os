@@ -229,3 +229,14 @@ The worker now retries a failed Codex run only when the failure is a transient p
 Any `recovery-required.json` file holds all cleanup, matching the worker's dispatch hold. Malformed or unreadable active/pending records also hold all cleanup. A valid active/pending record protects its specific attempt. `--include-failed` relaxes only the result-artifact requirement, never these preservation gates.
 
 Removal rechecks assignment holds and checkout state, then uses normal Git worktree removal so dirty or locked checkouts are refused. A refusal stops the apply operation for review; it does not retry with `--force`. Source tests use real disposable Git repositories to cover these boundaries. This change does not archive or remove any live worktree.
+
+## One worker job also means no internal subagents
+
+An isolated real Coding01 run exposed a capacity gap: one admitted Codex invocation used its native collaboration tools to create additional agent threads. The candidate worker now disables both `multi_agent` and `multi_agent_v2` per invocation, for read and write jobs. The installed CLI recognizes both switches; they do not change the user's native configuration. Role assignments remain explicit coordinator tasks.
+
+Automatic transient retry requires a complete structured attempt trace with thread start, turn start and a transient failed turn. Only reasoning, message and error items count as evidence without effects. Collaboration calls, any other tool item, future unknown item types, malformed records, missing boundaries and conflicting failures prevent replay. Unknown outcomes retain their original task and attempt for reconciliation.
+
+The first isolated real-flow probe interpreted and planned through pinned Hermes, but its root hit the time limit after collaboration activity; its queued children did not run. Preserve that interrupted attempt. It does not prove predecessor delivery, semantic validation or production acceptance.
+
+
+Actual corrected candidate flow on Coding01 completed root → Librarian → Sentinel with the pinned Hermes bridge and three sequential Codex jobs, all with zero collaboration events. Exact predecessor output was verified in the owned CLI session prompts, rather than inferred from artifact references. Sentinel corrected five root citation offsets against the real checkout. This isolated run leaves production admission and human semantic acceptance pending; the serving board remains unchanged. The first interrupted candidate and all recovery evidence are preserved without replay.
