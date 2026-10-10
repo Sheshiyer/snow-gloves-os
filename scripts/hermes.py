@@ -15,7 +15,7 @@ Run:
   python3 scripts/hermes.py --test     # one-shot end-to-end smoke
 """
 from __future__ import annotations
-import json, os, sys, time, threading, http.server, socketserver, urllib.request
+import json, os, sys, time, threading, http.server, socketserver, urllib.parse, urllib.request
 sys_path_added = True
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent))
 from lib.redact import redact
@@ -118,6 +118,23 @@ def append(event):
         f.write(json.dumps(rec) + "\n")
     return rec
 
+def _when(stamp):
+    """An ISO-8601 timestamp as an aware datetime; a bare one is read as UTC. Raises ValueError."""
+    moment = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+def events_since(events, since):
+    """Events strictly newer than `since`. Rows without a readable ts are left out."""
+    cutoff = _when(since)
+    newer = []
+    for ev in events:
+        try:
+            if _when(ev.get("ts", "")) > cutoff:
+                newer.append(ev)
+        except ValueError:
+            continue
+    return newer
+
 class H(http.server.BaseHTTPRequestHandler):
     def _json(self, code, body):
         b = json.dumps(body).encode()
@@ -130,6 +147,12 @@ class H(http.server.BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "channel": CHANNEL, "port": PORT})
         if self.path.startswith("/events"):
             evs = [json.loads(l) for l in LOG.read_text().splitlines()] if LOG.exists() else []
+            since = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("since", [None])[0]
+            if since is not None:
+                try:
+                    evs = events_since(evs, since)
+                except ValueError:
+                    return self._json(400, {"error": "since must be an ISO-8601 timestamp"})
             return self._json(200, {"count": len(evs), "events": evs[-100:]})
         return self._json(404, {"error": "not found"})
 

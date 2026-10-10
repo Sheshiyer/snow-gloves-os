@@ -139,3 +139,180 @@ def test_cli_prints_json_and_exit_codes(data, tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["tenant"] == "acme"
     assert sg_mods.main(["gate-table", "--data-root", str(data), "--tenant", "missing"]) == 2
     assert "unknown tenant" in json.loads(capsys.readouterr().out)["error"]
+
+
+# ---------------------------------------------------------------- agents (sg-org)
+
+
+def test_agents_table_builds_the_seven_subagent_specs(data):
+    out = sg_mods.agents_table(str(data), "acme")
+    assert out["schema"] == sg_mods.SCHEMA_AGENTS
+    slugs = [a["slug"] for a in out["agents"]]
+    assert slugs == sorted(["ceo", "cto", "chief-of-staff", "librarian", "interpreter", "dispatcher", "sentinel"])
+    cto = next(a for a in out["agents"] if a["slug"] == "cto")
+    assert "Chief Technology Agent" in cto["prompt"] and "Escalate to ceo" in cto["prompt"]
+    assert cto["escalates_to"] == "ceo" and cto["tools"] == ["Read", "Grep", "Glob", "Bash"] and not cto["readonly"]
+    assert "Needs a person's approval for: finance.write" in cto["prompt"]
+    assert len(cto["prompt"]) <= sg_mods.MAX_PROMPT
+
+
+def test_advisory_and_auditing_roles_get_read_only_tools(data):
+    by = {a["slug"]: a for a in sg_mods.agents_table(str(data), None)["agents"]}
+    for slug in ("sentinel", "librarian", "interpreter", "ceo"):
+        assert by[slug]["readonly"] and by[slug]["tools"] == ["Read", "Grep", "Glob"]
+        assert "read-only tools" in by[slug]["prompt"]
+    assert by["dispatcher"]["tools"][-1] == "Bash" and by["sentinel"]["escalates_to"] == "chief-of-staff"
+
+
+def test_the_default_skills_and_hooks_come_from_the_registry_and_routing(data):
+    by = {a["slug"]: a for a in sg_mods.agents_table(str(data), None)["agents"]}
+    assert "snowgloves:connector-gate" in by["sentinel"]["default_skills"]
+    assert any(h["id"] == "architecture-and-execution" for h in by["cto"]["hooks"])
+
+
+def test_an_empty_agents_list_offers_every_role(data):
+    out = sg_mods.agents_table(str(data), "acme")
+    assert out["restricted"] is False and all(a["enabled"] for a in out["agents"])
+
+
+def test_a_tenant_that_lists_agents_withholds_the_rest(data):
+    (data / "tenants" / "acme" / "enabled.yaml").write_text("agents: [cto, sentinel]\nmodules: []\n", encoding="utf-8")
+    out = sg_mods.agents_table(str(data), "acme")
+    assert out["restricted"] is True and out["enabled_agents"] == ["cto", "sentinel"]
+    assert {a["slug"] for a in out["agents"] if a["enabled"]} == {"cto", "sentinel"}
+
+
+def test_agents_table_rejects_an_unknown_tenant(data):
+    with pytest.raises(sg_mods.InputError):
+        sg_mods.agents_table(str(data), "missing")
+
+
+# ---------------------------------------------------------------- combos (sg-omniroute)
+
+
+def make_db(path, rows):
+    import sqlite3
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE combos (id TEXT, name TEXT, data TEXT)")
+    con.execute("CREATE TABLE api_keys (id TEXT, key TEXT)")
+    con.execute("INSERT INTO api_keys VALUES ('k', 'sk-secret-should-never-appear')")
+    for name, data in rows:
+        con.execute("INSERT INTO combos VALUES (?, ?, ?)", (name, name, data if isinstance(data, str) else json.dumps(data)))
+    con.commit()
+    con.close()
+
+
+def test_combos_lists_names_strategy_and_members_and_never_a_key(tmp_path):
+    db = tmp_path / "storage.sqlite"
+    make_db(db, [("noesis-fast", {"strategy": "least-used", "models": [{"model": "a/x"}, {"model": "b/y"}]}),
+                 ("noesis-bare", {"models": ["c/z"]}), ("noesis-broken", "{not json")])
+    out = sg_mods.combos_table(str(db))
+    assert out["schema"] == sg_mods.SCHEMA_COMBOS and out["warnings"] == []
+    by = {c["name"]: c for c in out["combos"]}
+    assert by["noesis-fast"] == {"name": "noesis-fast", "strategy": "least-used", "members": ["a/x", "b/y"]}
+    assert by["noesis-bare"]["members"] == ["c/z"] and by["noesis-broken"]["members"] == []
+    assert "sk-secret" not in json.dumps(out)
+
+
+def test_combos_is_read_only_and_survives_a_missing_database(tmp_path):
+    db = tmp_path / "storage.sqlite"
+    make_db(db, [("noesis-fast", {"models": []})])
+    before = db.read_bytes()
+    sg_mods.combos_table(str(db))
+    assert db.read_bytes() == before
+    gone = sg_mods.combos_table(str(tmp_path / "nope.sqlite"))
+    assert gone["combos"] == [] and "no OmniRoute database" in gone["warnings"][0]
+
+
+# ---------------------------------------------------------------- handoff (sg-handoff)
+
+
+def test_write_handoff_writes_atomically_and_keeps_a_backup(tmp_path):
+    first = sg_mods.write_handoff(str(tmp_path), "Goal: ship\nNext: merge", "s-1")
+    target = tmp_path / ".project" / "HANDOFF.md"
+    assert first["path"] == str(target) and first["backup"] is None
+    text = target.read_text(encoding="utf-8")
+    assert "from session s-1" in text and "Goal: ship" in text
+    second = sg_mods.write_handoff(str(tmp_path), "Goal: v2")
+    assert second["backup"] and "Goal: ship" in open(second["backup"], encoding="utf-8").read()
+    assert "Goal: v2" in target.read_text(encoding="utf-8")
+    assert not [p for p in (tmp_path / ".project").iterdir() if p.name.startswith(".handoff-")]
+
+
+@pytest.mark.parametrize("text", ["", "   \n  "])
+def test_write_handoff_refuses_empty_text(tmp_path, text):
+    with pytest.raises(sg_mods.InputError):
+        sg_mods.write_handoff(str(tmp_path), text)
+
+
+def test_write_handoff_refuses_a_missing_directory_and_huge_text(tmp_path):
+    with pytest.raises(sg_mods.InputError):
+        sg_mods.write_handoff(str(tmp_path / "nope"), "x")
+    with pytest.raises(sg_mods.InputError):
+        sg_mods.write_handoff(str(tmp_path), "x" * (sg_mods.MAX_HANDOFF + 1))
+    assert not (tmp_path / ".project").exists()
+
+
+# ---------------------------------------------------------------- intake (sg-catalog)
+
+
+def report(hooks, calls, env_reads=None):
+    notes = [f"./register.ts hooks: {', '.join(hooks)}", f"./register.ts calls: {', '.join(calls)}"]
+    if env_reads:
+        notes.append(f"./register.ts env reads: {', '.join(env_reads)}")
+    return {"success": True, "contents": [{"notes": notes, "errors": []}]}
+
+
+def test_draft_card_writes_a_hold_card_and_flags_rule_breakers(tmp_path):
+    rep = report(["tool.check", "session.start"], ["$.process.spawn", "$.http.fetch", "$.ui.toast"], ["HOME"])
+    out = sg_mods.draft_card("acme-redactor", "claudemod.com/secret-redactor", rep, "Secret Redactor", tmp_path)
+    assert out["disposition"] == "hold" and out["flags"] == ["I1", "I5", "I6"]
+    card = (tmp_path / "acme-redactor.md").read_text(encoding="utf-8")
+    assert "disposition: hold" in card and "category: mod" in card and "risk: high" in card and "approval: yes" in card
+    assert "- I1:" in card and "- I6:" in card and "- env reads: HOME" in card and "$.process.spawn" in card
+
+
+def test_draft_card_for_a_clean_mod_flags_nothing_but_stays_on_hold(tmp_path):
+    out = sg_mods.draft_card("tidy", "claudemod.com/tidy", report(["session.start"], ["$.ui.toast"]), None, tmp_path)
+    assert out["flags"] == [] and "disposition: hold" in (tmp_path / "tidy.md").read_text(encoding="utf-8")
+    assert "- none flagged" in (tmp_path / "tidy.md").read_text(encoding="utf-8")
+
+
+def test_draft_card_refuses_bad_ids_overwrites_and_non_reports(tmp_path):
+    rep = report(["session.start"], ["$.ui.toast"])
+    for bad in ("", "Bad Id", "../x", "x"):
+        with pytest.raises(sg_mods.InputError):
+            sg_mods.draft_card(bad, "src", rep, None, tmp_path)
+    sg_mods.draft_card("once", "src", rep, None, tmp_path)
+    with pytest.raises(sg_mods.InputError):
+        sg_mods.draft_card("once", "src", rep, None, tmp_path)
+    with pytest.raises(sg_mods.InputError):
+        sg_mods.draft_card("other", "src", {"nope": 1}, None, tmp_path)
+
+
+def test_a_drafted_card_is_a_hold_card_the_catalog_builder_accepts(tmp_path):
+    import build_catalog
+    sg_mods.draft_card("probe-mod", "claudemod.com/probe", report(["session.start"], ["$.ui.toast"]), "Probe", tmp_path)
+    meta = build_catalog.parse_card(tmp_path / "probe-mod.md") if hasattr(build_catalog, "parse_card") else None
+    text = (tmp_path / "probe-mod.md").read_text(encoding="utf-8")
+    assert text.startswith("---\nid: probe-mod\n") and "disposition: hold" in text
+    assert meta is None or meta["disposition"] == "hold"
+
+
+def test_cli_new_subcommands_print_json(data, tmp_path, capsys, monkeypatch):
+    assert sg_mods.main(["agents", "--data-root", str(data), "--tenant", "acme"]) == 0
+    assert len(json.loads(capsys.readouterr().out)["agents"]) == 7
+    assert sg_mods.main(["combos", "--db", str(tmp_path / "none.sqlite")]) == 0
+    assert json.loads(capsys.readouterr().out)["combos"] == []
+    import io
+    monkeypatch.setattr("sys.stdin", io.StringIO("Goal: x"))
+    assert sg_mods.main(["write-handoff", "--cwd", str(tmp_path), "--session", "s"]) == 0
+    assert json.loads(capsys.readouterr().out)["path"].endswith(".project/HANDOFF.md")
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    assert sg_mods.main(["write-handoff", "--cwd", str(tmp_path)]) == 2
+    assert "empty" in json.loads(capsys.readouterr().out)["error"]
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(report(["session.start"], ["$.ui.toast"]))))
+    assert sg_mods.main(["draft-card", "--id", "cli-card", "--source", "src", "--cards-dir", str(tmp_path / "cards")]) == 0
+    assert json.loads(capsys.readouterr().out)["disposition"] == "hold"
+    monkeypatch.setattr("sys.stdin", io.StringIO("not json"))
+    assert sg_mods.main(["draft-card", "--id", "cli-2", "--source", "src", "--cards-dir", str(tmp_path / "cards")]) == 2
