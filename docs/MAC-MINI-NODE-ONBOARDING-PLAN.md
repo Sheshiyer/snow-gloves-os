@@ -1,7 +1,11 @@
 # Fresh Mac mini node — CLI onboarding plan
 
-Status: planning candidate, 2026-09-30. No bootstrap CLI or installation is
-implemented by this document. Extends the remote workspace draft kept in the
+Status: broader onboarding plan, 2026-09-30; local foundation implemented and
+verified in an isolated installation on 2026-10-10. The
+[local mini pilot](LOCAL-MINI-PILOT.md) provides inventory, reviewed local metadata
+planning, apply/resume, diagnostics and rollback. Runtime installation, vault,
+organization enrollment and physical fleet acceptance below remain separate
+work. Extends the remote workspace draft kept in the
 private ops repo (`snow-gloves-ops/docs/AXTECH-REMOTE-WORKSPACE-DRAFT.md`).
 
 Detailed bootstrap, doctor, debug, RBAC, and handoff contracts:
@@ -150,7 +154,9 @@ synthetic task through every configured CLI without paid generation or outreach.
 
 ## CLI contract to implement
 
-Proposed commands; none exist by virtue of this plan:
+Broader proposed commands follow. The local mini pilot implements only its
+documented `local-pilot` contract; it does not implement the coordinator-role,
+capabilities, synthetic runtime, or checkpoint-selection commands below:
 
 ```text
 snowgloves node inspect

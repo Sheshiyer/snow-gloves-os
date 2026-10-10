@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 355/397
+progress: 374/397
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -125,25 +125,25 @@ until the actual mini supplies evidence.
 
 ## Criteria
 
-- [ ] ISC-1: Inspect emits structured hardware and tool-presence evidence.
-- [ ] ISC-2: Repeated plan generation produces the same digest for the same inputs.
-- [ ] ISC-3: Invalid CLI invocation exits 3.
-- [ ] ISC-4: Anti: inspect and default doctor create no files.
-- [ ] ISC-5: Apply rejects a mismatched reviewed digest.
-- [ ] ISC-6: Apply rejects a changed source digest.
-- [ ] ISC-7: Concurrent mutation is rejected by a node lock.
-- [ ] ISC-8: Stage journal writes use atomic replacement.
-- [ ] ISC-9: Second apply produces no duplicate effects.
-- [ ] ISC-10: Resume rechecks bytes of completed stages.
-- [ ] ISC-11: Interrupted write can be reconciled safely from the journal.
-- [ ] ISC-12: Rollback removes only installer-owned files with matching bytes.
-- [ ] ISC-13: Drifted files keep rollback in manual recovery.
-- [ ] ISC-14: Anti: path traversal and symlink targets cannot escape the pilot directory.
-- [ ] ISC-15: Doctor reports unresolved live requirements as held.
-- [ ] ISC-16: Debug collection uses an allowlist that excludes environment secrets.
-- [ ] ISC-17: Local installer supports a dry-run that creates no files.
-- [ ] ISC-18: An isolated temporary installation executes the CLI lifecycle.
-- [ ] ISC-19: The distributable bundle passes its checksum verifier.
+- [x] ISC-1: Inspect emits structured hardware and tool-presence evidence.
+- [x] ISC-2: Repeated plan generation produces the same digest for the same inputs.
+- [x] ISC-3: Invalid CLI invocation exits 3.
+- [x] ISC-4: Anti: inspect and default doctor create no files.
+- [x] ISC-5: Apply rejects a mismatched reviewed digest.
+- [x] ISC-6: Apply rejects a changed source digest.
+- [x] ISC-7: Concurrent mutation is rejected by a node lock.
+- [x] ISC-8: Stage journal writes use atomic replacement.
+- [x] ISC-9: Second apply produces no duplicate effects.
+- [x] ISC-10: Resume rechecks bytes of completed stages.
+- [x] ISC-11: Interrupted write can be reconciled safely from the journal.
+- [x] ISC-12: Rollback removes only installer-owned files with matching bytes.
+- [x] ISC-13: Drifted files keep rollback in manual recovery.
+- [x] ISC-14: Anti: path traversal and symlink targets cannot escape the pilot directory.
+- [x] ISC-15: Doctor reports unresolved live requirements as held.
+- [x] ISC-16: Debug collection uses an allowlist that excludes environment secrets.
+- [x] ISC-17: Local installer supports a dry-run that creates no files.
+- [x] ISC-18: An isolated temporary installation executes the CLI lifecycle.
+- [x] ISC-19: The distributable bundle passes its checksum verifier.
 - [x] ISC-20: Existing tests and catalog consistency checks pass after integration.
 
 - [x] ISC-21: axio has a verified ingestion plan containing its existing tenant context.
@@ -1597,3 +1597,37 @@ One actual isolated native Codex candidate received the exact patch, independent
 - ISC-356: Physical byte-bound dispositions — each of the four original scanner-held private receipts has an individual `held-private` record, SHA256 and explicit no-transfer/no-ingestion disposition. Original archive checksum and exclusion membership match the migration manifest; actual admitted files exclude them. Current candidate preflight refuses all four and regression tests reject copies, hardlinks and symlinks. Historical scanner reports are redacted; no false-positive clearance or credential-rotation claim is made. Private Git already contains these receipts; history is preserved and the preflight does not block arbitrary user copies or authorize a general export. Future transfer tooling must use the bound preflight before export.
 
 Original full onboarding criteria remain intact. Controller tooling is in an isolated candidate checkout; only the reviewed private reference and exclusion-policy metadata changed on the serving data checkout. Services, native settings and unrelated approval/module edits are preserved. Full team/RBAC/vault, remaining devices, physical recovery, source integration and capacity gates stay open.
+
+
+## Verification — local bootstrap foundation, 10 October 2026
+
+ISC-1–19 accepted at source and isolated local installation boundaries. The
+foundation and adjacent contract suites pass 113 tests; catalog generation is
+current. The independent installed probe builds and verifies the explicit
+package, extracts its actual archive, installs a private prefix and passes 20
+checks through the installed launcher. These include no-effect inspection and
+default doctor, deterministic planning, reviewed/source digest refusal before
+mutation, repeat apply/resume, actual flock exclusion, held diagnostics, secret
+exclusion and drift-preserving rollback. Journal tests cover atomic publication,
+preexisting-file ownership, forged ownership receipts, traversal/symlink refusal,
+no-clobber races and interrupted rollback. Independent real process kills before
+file link, after link before receipt and after rollback capture reconcile safely.
+
+Private acceptance and review: snow-gloves-ops/docs/fleet/onboarding/
+2026-10-10-controller-bootstrap/. Runbook: docs/LOCAL-MINI-PILOT.md.
+Configuration remains local metadata with profile_ready=false. These results do
+not accept physical enrollment, power-loss/reboot recovery, live runtime/vault
+activation, organization access, four-device execution, production role fanout,
+restore or measured capacity. All existing open criteria remain open.
+
+Published-head review subsequently reproduced three safety gaps: rollback could
+overwrite a raced recovery capture, failed package cleanup could delete a raced
+archive, and an extra `.git` member bypassed installer membership validation.
+The follow-up uses atomic exclusive rollback capture, retains partial package
+output and requires the exact shipped bundle. Fresh independent filesystem and
+installer probes verify preservation and refusal before prefix-parent creation.
+The same focused suites now pass 117 tests, the actual installed launcher passes
+20 checks, and all three process-kill probes pass against the repaired source.
+The original draft requires this correction before acceptance or activation;
+repository review/prepare wrappers are unavailable, so merge readiness remains
+unconfirmed. No broader fleet criterion changes in this source review.
