@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: verify
-progress: 374/429
+progress: 375/429
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -548,7 +548,7 @@ until the actual mini supplies evidence.
 - [x] ISC-416: Fleet UI exposes capability readiness and gated execution controls.
 - [x] ISC-417: Fleet UI exposes approval decisions only to authorized approvers.
 - [x] ISC-418: Fleet UI displays readable artifact content and safe downloads.
-- [ ] ISC-419: Grok Bot MCP tools use a dedicated scoped application principal.
+- [x] ISC-419: Grok Bot MCP tools use a dedicated scoped application principal.
 - [ ] ISC-420: Actual Grok Bot discovers fleet tools through supported plugin registration.
 - [ ] ISC-421: Actual Grok Bot task and result match the web UI.
 - [x] ISC-422: Headless plan binds plist bytes and nonroot identity to a reviewed digest.
@@ -1630,3 +1630,6 @@ ISC-422–424:21 stdlib headless-package tests and10 subtests pass, covering dig
 
 
 ISC-415–418:226 frontend tests and production build pass. Actual disposable IAB proves scoped context, observed Codex/read worker selection,163catalog entries with readiness, bounded skill submission, cancellation persisted across reconnect, explicit coordinator task IDs and checksum-verified sanitized artifact display/download with hostile text inert. The unavailable-schema mismatch and enabled-during-refresh race were corrected. Root IAB independently submitted then immediately cancelled final-build task73f23f9fcfd4449a91a635bffebcd3b3; it rendered cancelled and disabled further cancellation. Approver controls are source-tested; no actual approval-required live adapter was invoked. Physical/inference acceptance remains separate.
+
+
+ISC-419: the live dedicated grok-bot principal discovers14tools and completes capability task c42edb960f424cbeac535ccc26cae1f4 on Coding02, with UI/MCP artifact equality and digest409c49e2e7db294ea8a89e1f41575a9df4950d093bdfcce58380708a992f587a. Read/submit/cancel are granted for snowgloves; approval and cross-project execution return403. Actual Grok Bot supported registration and app-initiated calls remain open in420/421. Both isolated device release checkouts run db4fcba under existing user LaunchAgents; no system daemon or unattended-boot acceptance follows. The Hermes-interpreted librarian parent06fd4cca0b304f3882447ba30ce7e63d succeeded on Coding02; explicit CTO write/build child1d458267d59c4eb89c096e7365ba8c6f is queued and must be inspected without replay.
