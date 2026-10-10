@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 345/384
+progress: 345/382
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -496,8 +496,8 @@ until the actual mini supplies evidence.
 - [x] ISC-352: AXIO Hermes passes an actual scoped event-to-artifact round trip.
 - [x] ISC-353: Owned persistent startup survives an actual AXIO reboot.
 - [ ] ISC-354: AXIO restore drill recovers the reviewed configuration and owned artifacts.
-- [ ] ISC-355: Migrated tenant source references resolve or are explicitly held on AXIO.
-- [ ] ISC-356: Scanner-flagged private files receive individual disposition before any further transfer.
+- [x] ISC-355: Migrated tenant source references resolve or are explicitly held on AXIO.
+- [x] ISC-356: Scanner-flagged private files receive individual disposition before any further transfer.
 
 - [ ] ISC-357: The company gateway passes valid HTTPS, authenticated private access and unauthorized-access rejection from another network.
 - [x] ISC-358: The persistent fleet UI and API enforce company identity and application scope through the external access route.
@@ -1515,3 +1515,11 @@ ISC-353 accepted after the founder-confirmed second physical AXIO reboot. After 
 Reviewed source is published on feat/cloud-gateway and PR31 is updated for the accumulated fleet UI/Hermes pilot. Current upstream Actions retirement is incorporated. Clean Coding01 Git checkouts live at /Users/axio/Projects/snow-gloves-os and /Users/axio/Projects/snow-gloves-ops; the UI, API, coordinator, bridge and worker now use the canonical source checkout. Own dependency install and production build pass; HTTPS UI/snapshot/bridge health return200 after supervised restart. Live SQLite/credentials/artifacts retain the prior private runtime location. The accepted physical reboot receipt predates this path cutover; no further reboot is inferred.
 
 Real task79e51fe012b64787a22e4f6e6753a744 selects CTO and succeeds at transport/execution on the new checkout, with checksum-verified artifact. Source review rejects its nonexistent TSX component references. This is not accepted UI analysis or seven-agent fan-out. Private UI-REVIEW.json and NEXT-UI-HERMES-FLOW.md record the failure and next source-grounding/role-graph requirements. Native config drift ISC-380, other nodes, teammate scope and remaining fleet gates stay open.
+
+
+## Verification — Coding01 tenant references and private-file dispositions, 10 October 2026
+
+- ISC-355: Physical read-only source audit — 11 canonical tenants, 18 source records and 89 bounded tenant-local files verified on Coding01; zero unexpected holds. The stale HeyZack host-capability reference now points to the installed skill while `ingest: false` is preserved. Capability presence confers no module or runtime authority.
+- ISC-356: Physical byte-bound dispositions — each of the four original scanner-held private receipts has an individual `held-private` record, SHA256 and explicit no-transfer/no-ingestion disposition. Original archive checksum and exclusion membership match the migration manifest; actual admitted files exclude them. Current candidate preflight refuses all four and regression tests reject copies, hardlinks and symlinks. Historical scanner reports are redacted; no false-positive clearance or credential-rotation claim is made. Private Git already contains these receipts; history is preserved and the preflight does not block arbitrary user copies or authorize a general export. Future transfer tooling must use the bound preflight before export.
+
+Original full onboarding criteria remain intact. Controller tooling is in an isolated candidate checkout; only the reviewed private reference and exclusion-policy metadata changed on the serving data checkout. Services, native settings and unrelated approval/module edits are preserved. Full team/RBAC/vault, remaining devices, physical recovery, source integration and capacity gates stay open.
