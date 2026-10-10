@@ -37,6 +37,7 @@ ALLOWED_CALLS = {
     "sg-rail": COMMON | {"$.env.set", "$.http.fetch"},
     "sg-connector-gate": COMMON,
     "sg-approvals": COMMON,
+    "sg-guard": COMMON,
 }
 FORBIDDEN_HOOKS = {"tool.check"}
 SOURCE_RULES = [

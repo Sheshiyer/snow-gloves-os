@@ -244,6 +244,11 @@ def catalog_cards(code_root: Path) -> list[dict]:
     return [c for c in data.get("cards") or [] if isinstance(c, dict) and c.get("id")]
 
 
+def add_card_ids(code_root: Path) -> list[str]:
+    """Ids of the catalog's mod cards whose disposition is add: the mods sg-guard lets spawn or fetch."""
+    return sorted(str(c["id"]) for c in catalog_cards(code_root) if c.get("category") == "mod" and c.get("disposition") == "add")
+
+
 def enabled_ids(data_root: Path, tenant: str) -> set[str]:
     modules = _yaml(data_root / "tenants" / tenant / "enabled.yaml").get("modules") or []
     return {str(m["id"]) for m in modules if isinstance(m, dict) and m.get("id")}
@@ -534,6 +539,7 @@ def main(argv: list[str] | None = None) -> int:
     ag = sub.add_parser("agents")
     ag.add_argument("--data-root")
     ag.add_argument("--tenant")
+    sub.add_parser("cards-add")
     cb = sub.add_parser("combos")
     cb.add_argument("--db")
     ho = sub.add_parser("write-handoff")
@@ -552,6 +558,8 @@ def main(argv: list[str] | None = None) -> int:
             out = gate_table(args.data_root, args.tenant, args.ttl_hours)
         elif args.cmd == "agents":
             out = agents_table(args.data_root, args.tenant)
+        elif args.cmd == "cards-add":
+            out = add_card_ids(paths.code_root())
         elif args.cmd == "combos":
             out = combos_table(args.db)
         elif args.cmd == "write-handoff":

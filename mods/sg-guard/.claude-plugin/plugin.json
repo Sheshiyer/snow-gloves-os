@@ -1,0 +1,33 @@
+{
+  "name": "sg-guard",
+  "version": "0.1.0",
+  "description": "Snow Gloves guard: keeps the ERP connector read-only and ids-only, redacts personal data from MCP results, and refuses user-installed mods that spawn processes or fetch without a catalog card",
+  "author": { "name": "Snow Gloves OS" },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "erpServerId": {
+      "type": "string",
+      "title": "ERP server id",
+      "description": "Id of the ERP MCP connector (the part of mcp__<id>__ tool names). Changes if the connector is re-created",
+      "default": "6e66be5a-d0cb-4df1-8fd4-bbfaf77c8604"
+    },
+    "redactResults": {
+      "type": "boolean",
+      "title": "Redact MCP results",
+      "description": "Replace emails, phone numbers, card numbers and secrets in MCP tool results with placeholders",
+      "default": true
+    },
+    "supplyChain": {
+      "type": "boolean",
+      "title": "Supply-chain check",
+      "description": "Refuse user-tier mods that spawn processes, or fetch, without an add card. Only effective when this mod is in prependPlugins",
+      "default": true
+    },
+    "platformRoot": {
+      "type": "string",
+      "title": "Platform root",
+      "description": "Path of the snow-gloves-os checkout. Empty: two folders above this mod",
+      "default": ""
+    }
+  }
+}
