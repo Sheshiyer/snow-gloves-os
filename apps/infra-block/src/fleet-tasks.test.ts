@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {createFleetBoard, displayValue, FleetClient, FLEET_STATES, validateTask} from './fleet-tasks';
+import {createFleetBoard, displayValue, FleetClient, FLEET_STATES, graphLines, orderTasks, validateTask} from './fleet-tasks';
 
 const task = {id: 'task-1', status: 'running', title: '<img src=x onerror=alert(1)>', project: 'snowgloves', category: 'development', node_id: 'mac-coding-1', runtime: 'codex'};
 const signal = () => new AbortController().signal;
@@ -120,5 +120,40 @@ describe('Hermes board lifecycle', () => {
     expect(el.all().some(child => child.textContent.includes(task.title))).toBe(false);
     expect(el.all().some(child => child.textContent.includes('No current task data'))).toBe(true);
     expect(el.find('button', 'Submit to Coding 01').disabled).toBe(true); board.pause(true);
+  });
+});
+
+describe('Task graph rendering', () => {
+  const parent = {id: 'p', status: 'succeeded', title: 'Root', created: 1, logical_role: 'cto', parent_id: null};
+  const kidB = {id: 'b', status: 'queued', title: 'Second', created: 3, logical_role: 'sentinel', stage: 'verify', parent_id: 'p'};
+  const kidA = {id: 'a', status: 'succeeded', title: 'First', created: 2, logical_role: 'librarian', stage: 'reference', parent_id: 'p'};
+  const other = {id: 'o', status: 'queued', title: 'Other root', created: 4, parent_id: null};
+  it('places children under their parent, oldest first, and keeps orphans as roots', () => {
+    const orphan = {...kidA, id: 'x', parent_id: 'missing'};
+    const order = orderTasks([other, kidB, parent, kidA, orphan] as never);
+    expect(order.map(row => [row.task.id, row.child])).toEqual([['o', false], ['p', false], ['a', true], ['b', true], ['x', false]]);
+  });
+  it('summarises the coordinator graph and stays silent without children', () => {
+    expect(graphLines(parent as never)).toEqual([]);
+    expect(graphLines({...parent, graph: {children: [], status: 'none'}} as never)).toEqual([]);
+    expect(graphLines({...parent, graph: {status: 'incomplete', children: [{logical_role: 'librarian', stage: 'reference', status: 'succeeded', artifact: {path: 'a', sha256: 'x'}}, {logical_role: 'sentinel', stage: null, status: 'queued', artifact: null}]}} as never))
+      .toEqual(['Task graph · incomplete', 'librarian · reference · succeeded · artifact attached', 'sentinel · — · queued · no artifact']);
+    expect(graphLines({...parent, graph: {status: 'incomplete', children: [{logical_role: 'sentinel', stage: 'verify', status: 'failed', artifact: null, superseded_by: 'n'}]}} as never)[1]).toBe('sentinel · verify · failed · no artifact · retried');
+  });
+  it('shows role and stage on labels and renders the graph panel as text', async () => {
+    vi.stubGlobal('document', {createElement: (tag: string) => new ElementHarness(tag)});
+    const detail = {...parent, title: '<b>Root</b>', graph: {status: 'verified', children: [{logical_role: '<i>sentinel</i>', stage: 'verify', status: 'succeeded', artifact: {path: 'p', sha256: 's'}}]}};
+    vi.stubGlobal('fetch', vi.fn(async (path: string) => path.endsWith('/events') ? json({events: []}) : path === '/api/fleet/tasks' ? json({tasks: [parent, kidA]}) : json({task: detail})));
+    const board = createFleetBoard(); const el = board.element as unknown as ElementHarness; board.activate();
+    el.find('input').value = 'secret-token'; await el.find('form').onsubmit?.(submitEvent); await flush();
+    const buttons = el.all().filter(child => child.tagName === 'button' && child.className.includes('fleet-task'));
+    expect(buttons.map(button => button.className.includes('fleet-task-child'))).toEqual([false, true]);
+    expect(buttons[1].textContent).toContain('librarian · reference');
+    await buttons[0].onclick?.(); await flush();
+    const text = el.all().map(child => child.textContent);
+    expect(text).toContain('Task graph · verified');
+    expect(text).toContain('<i>sentinel</i> · verify · succeeded · artifact attached');
+    expect(el.find('button', 'Cancel task and open children').disabled).toBe(true);
+    board.pause(true);
   });
 });

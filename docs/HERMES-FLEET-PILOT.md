@@ -140,3 +140,73 @@ The task client exposes `submit`, `list`, `status`, `logs` and `cancel`.
 Use `python3 scripts/fleet_tasks.py --token-file /private/founder.token COMMAND`.
 Submission allows 100 seconds for Hermes interpretation; all other operations
 use 30 seconds. A rejected interpretation does not create a queued task.
+
+## Parent/child task graph (step 2, source-tested only)
+
+A task may be a child: `submit --parent <id> --role <role> --stage <plan|reference|review|dispatch|verify>` (API: `parent_id`, `logical_role`, `stage`). The coordinator remains the only state owner; there is no scheduler.
+
+- One level deep, same project, at most 7 children per parent. A parent that is cancelled, cancel-requested, failed or interrupted takes no new children; a succeeded parent does.
+- Roles are assigned by the caller (the Chief of Staff step), so children skip the Hermes bridge. Roots still go through interpretation.
+- Cancelling a parent cancels queued children and requests cancellation of a running one.
+- Parent detail carries `graph: {children, status}`. Status is derived on read: `verified` only when the parent and every child succeeded and a Sentinel child has a verified artifact; `failed` and `cancelled` take precedence; otherwise `incomplete` (or `none`).
+- Execution is unchanged: one worker slot, FIFO claim, so children queue.
+
+Evidence: `tests/test_fleet_task_graph.py` (14 tests) and the schema migration run against a copy of the live pilot database (columns added, 10 existing rows stay roots). Not yet deployed to the Coding 01 services, and the board does not render the graph yet.
+
+## Retry and the write adapter (steps 2–3, source-tested; **disabled by default**)
+
+**Retry.** `submit --parent P --role R --stage S --supersedes <failed child>`. Only a `failed` child can be retried (an `interrupted` one needs manual reconciliation because its outcome is uncertain); the retry must match parent, role, stage and access; at most 3 attempts per role. Superseded attempts stay visible (`superseded_by`, shown as "retried" on the board) but no longer count toward graph status or the 7-child limit.
+
+**Write adapter.** A task may ask for `access: write`. It is refused unless **all** hold: the project sets `"write": true` in coordinator config; the principal lists the project in `"write_projects"`; the task is a graph child (`--parent`) with role `cto`; and the worker config enables it (`"write_roots": [<root>]` plus non-empty `"test_commands": {<root>: [{"argv": [...], "cwd": "rel", "timeout": 600}]}`; optional `"max_patch_bytes"`, default 1 MiB).
+
+On a write task the worker runs Codex with `--sandbox workspace-write` and network off in a fresh detached worktree, then **computes the diff itself** and gates it:
+
+- must be non-empty and valid UTF-8 text, at most `max_patch_bytes`;
+- rejects denied paths (`.git`, `.github`, `_runtime`, `.env*`, `*.pem`, `*.key`, `id_rsa*`, `credentials*`, …), symlinks and submodules;
+- rejects credential-like content (key prefixes, bearer tokens, private-key headers, the gateway key, the worker token);
+- runs the allowlisted test commands (no shell); every one must exit 0 and none may change the tree.
+
+On success the artifact carries `base`, `files`, the `patch` text with its sha256, and the test results. **Nothing is applied, committed or pushed**; a person reviews the diff and applies it (`git apply`). When tests fail or change the tree, the task fails and the patch is kept privately at `state/patches/<attempt>.patch`; gate failures keep no patch. Sentinel must still verify the graph before it counts as `verified`.
+
+Evidence (source): `tests/test_fleet_write_access.py` (9), `tests/test_fleet_write_worker.py` (19, each gate mutation-checked), retry tests in `tests/test_fleet_task_graph.py`. Local: real Codex accepts the flags through the gateway; network and `git commit` blocked; writes outside the worktree blocked when the worktree is not under `/tmp`. Codex always treats `/tmp` and `$TMPDIR` as writable, so keep the worker state root outside them. Real Codex's `apply_patch` tool is unavailable through this gateway, so the preamble tells it to edit via shell. **Not deployed, not enabled, not run on the mini.**
+
+### Verification confinement (ISC-383) — fix, source/local only
+
+Finding (recorded in the platform ISA by an independent audit): the write adapter ran its allowlisted test command directly. Because the agent can edit a test or script that command executes, an argv allowlist and a worktree `cwd` do not confine the code. The audit probe wrote outside the worktree and the task was still accepted.
+
+Fix: every verification command now runs under macOS Seatbelt (`sandbox-exec`) with a generated profile: writes only in the worktree and a private scratch dir (also its `HOME` and `TMPDIR`); no reads under `$HOME` (override `verify_deny_read`); no network except loopback; no signals outside its own sandbox. It fails closed when `sandbox-exec` is missing or cannot apply the profile (`sandbox_exec_path` to override the path). Interpreter libraries living under `$HOME` must be listed read-only in `verify_python_paths` (also added to `PYTHONPATH`), e.g. the user site-packages that holds pytest.
+
+Allowlist guidance: do **not** put `tests/test_fleet_write_worker.py` in `test_commands`; its tests start their own sandboxes and macOS cannot nest them. Any test file that does not itself call `sandbox-exec` works: `test_fleet_coordinator.py`, `test_fleet_task_graph.py`, `test_fleet_write_access.py`, `test_fleet_execution.py` and `test_fleet_scoped_principals.py` pass 69/69 inside the sandbox in about 6 s. Pytest living in the user site-packages needs `verify_python_paths`.
+
+Limits: macOS only. A script that swallows the denied write and exits 0 is not detected as a violation, only prevented from changing anything. Reads outside `$HOME` (system files) remain possible. Write stays disabled on the mini until this is deployed and re-probed there.
+
+## Connecting other Hermes clients (fleet MCP over SSH)
+
+`scripts/fleet_mcp.py` is a stdio MCP server that wraps the coordinator: `fleet_list`, `fleet_status`, `fleet_logs`, `fleet_cancel`, `fleet_submit` (with `parent_id`, `logical_role`, `stage`, `supersedes`, `access`). It is a thin loopback client; authentication, project scope, the task graph and the write gates all stay in the coordinator, and the operator token is read on Coding 01 and never leaves it.
+
+On Coding 01 a wrapper (not in Git, like `snowgloves-fleet`) runs it with the Hermes Python that has `mcp`:
+
+```sh
+~/.local/bin/snowgloves-fleet-mcp      # exec <hermes venv python> scripts/fleet_mcp.py --token-file <founder.token>
+```
+
+From another Hermes install on the tailnet that has the `coding-01-tailnet` SSH alias:
+
+```sh
+hermes mcp add snowgloves-fleet --command ssh --args coding-01-tailnet /Users/axio/.local/bin/snowgloves-fleet-mcp
+hermes mcp test snowgloves-fleet
+```
+
+Limits: whoever can SSH to the account gets the founder's coordinator authority (per-person principals are checklist row F04). Write stays off at the coordinator, so `access=write` returns 403. The SSH hop itself was not exercised from the authoring Mac; the wrapper was exercised over stdio with a real MCP client against the live coordinator.
+
+## Scoped principals (read-only observers)
+
+A coordinator principal may carry `"permissions"` (any of `read`, `submit`, `cancel`; absent means all three, so existing principals are unchanged) and `"view_owners"` (names of other principals whose tasks it may read). Viewing never grants mutation: cancelling, submitting and attaching children stay with the task owner. Config load rejects unknown permissions and unknown owners.
+
+Example observer: `{"token": "...", "projects": ["snowgloves"], "permissions": ["read"], "view_owners": ["founder"]}`. It can list, read detail and events (including a parent's graph); submit, cancel and write return 403. Source: `tests/test_fleet_scoped_principals.py` (13 tests, the owner-only rule mutation-checked, plus an HTTP round trip).
+
+## Transient provider errors (bounded safe retry)
+
+Live write and review attempts intermittently failed with `429 Too Many Requests` from the gateway: `noesis-execute` is a priority combo whose first member is a free-tier model that keeps going into cooldown (OmniRoute app log, `command-code/poolside/laguna-s-2.1-free`). Host routing is not changed from this repo.
+
+The worker now retries a failed Codex run only when the failure is a transient provider error (429, "Too Many Requests", dropped stream) **and the run provably did nothing**: no command, file change, tool or web call started. Up to `transient_retries` (default 2) fresh runs, waiting `transient_backoff` seconds (default 20) times the attempt number, with heartbeats, cancellation, shutdown and the overall `job_timeout` still honoured during the wait. Each run keeps its own log (`<attempt>.retryN.jsonl`). Anything that ran, any other failure, and any uncertain outcome are never replayed. Tests: `tests/test_fleet_transient_retry.py` (10, both safety conditions mutation-checked).

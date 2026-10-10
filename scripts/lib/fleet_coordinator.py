@@ -16,6 +16,14 @@ from urllib.parse import urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
+ROLES = ('ceo','cto','chief-of-staff','librarian','interpreter','dispatcher','sentinel')
+STAGES = ('plan','reference','review','dispatch','verify')
+MAX_CHILDREN = 7
+PERMISSIONS = ('read','submit','cancel')  # a principal without 'permissions' keeps all three
+MAX_ATTEMPTS = 3  # original plus two retries per role chain
+NO_NEW_CHILDREN = ('cancelled','cancel_requested','failed','interrupted')
+
+
 class Rejected(Exception):
     def __init__(self, status, message):
         self.status, self.message = status, message
@@ -55,9 +63,16 @@ class Coordinator:
           message TEXT NOT NULL, created REAL NOT NULL,
           UNIQUE(task_id, attempt_id, event_id));
         ''')
-        if 'logical_role' not in {r[1] for r in self.db.execute('PRAGMA table_info(tasks)')}:
+        columns = {r[1] for r in self.db.execute('PRAGMA table_info(tasks)')}
+        if 'logical_role' not in columns:
             self.db.execute("ALTER TABLE tasks ADD COLUMN logical_role TEXT NOT NULL DEFAULT 'cto'")
-            self.db.commit()
+        for column in ('parent_id', 'stage', 'supersedes'):
+            if column not in columns:
+                self.db.execute('ALTER TABLE tasks ADD COLUMN %s TEXT' % column)
+        if 'access' not in columns:
+            self.db.execute("ALTER TABLE tasks ADD COLUMN access TEXT NOT NULL DEFAULT 'read'")
+        self.db.execute('CREATE INDEX IF NOT EXISTS tasks_parent ON tasks(parent_id)')
+        self.db.commit()
 
     @contextmanager
     def transaction(self):
@@ -98,20 +113,28 @@ class Coordinator:
             self.db.execute('INSERT OR IGNORE INTO events(task_id,attempt_id,event_id,type,message,created) VALUES(?,?,?,?,?,?)', (row['id'],row['attempt_id'],'lease-expired','interrupted','Worker heartbeat expired; manual reconciliation required',now))
 
     def _public(self, row):
-        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role')
+        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes','access')
         result = {k: row[k] for k in keys}
         project = self.config['projects'][row['project']]
         result.update(tenant=project['tenant'],organization=project['organization'],session_id=row['id'])
         result['artifact'] = json.loads(row['artifact']) if row['artifact'] else None
         return result
 
-    def _owned(self, owner, principal, task_id):
+    @staticmethod
+    def _need(principal, permission):
+        if permission not in principal.get('permissions', PERMISSIONS):
+            raise Rejected(403, permission.capitalize() + ' unavailable')
+
+    def _owned(self, owner, principal, task_id, mutate=False):
+        """Fetch a task the principal may see; mutations stay with the owner, viewing may be granted via view_owners."""
         row = self.db.execute('SELECT * FROM tasks WHERE id=?', (task_id,)).fetchone()
-        if not row or row['owner'] != owner or row['project'] not in principal['projects']:
+        owners = {owner} if mutate else {owner, *principal.get('view_owners', [])}
+        if not row or row['owner'] not in owners or row['project'] not in principal['projects']:
             raise Rejected(404, 'Task not found')
         return row
 
     def submit(self, owner, principal, body):
+        self._need(principal, 'submit')
         project = body.get('project')
         if project not in principal['projects'] or project not in self.config['projects']:
             raise Rejected(403, 'Project unavailable')
@@ -124,7 +147,33 @@ class Coordinator:
         for field in ('title', 'category'):
             if field in body and (not isinstance(body[field],str) or len(body[field]) > 200):
                 raise Rejected(400, 'Invalid '+field)
+        parent_id, role, stage, supersedes = body.get('parent_id'), body.get('logical_role'), body.get('stage'), body.get('supersedes')
+        if parent_id is None:
+            if role is not None or stage is not None or supersedes is not None:
+                raise Rejected(400, 'Role, stage and supersedes require a parent task')
+        elif not isinstance(parent_id,str) or not re.fullmatch(r'[a-f0-9]{32}',parent_id):
+            raise Rejected(400, 'Invalid parent_id')
+        elif role not in ROLES or (stage is not None and stage not in STAGES):
+            raise Rejected(400, 'Invalid logical_role or stage')
+        elif supersedes is not None and (not isinstance(supersedes,str) or not re.fullmatch(r'[a-f0-9]{32}',supersedes)):
+            raise Rejected(400, 'Invalid supersedes')
+        access = body.get('access', 'read')
+        if not isinstance(access,str) or access not in ('read','write'):
+            raise Rejected(400, 'Invalid access')
+        if access == 'write':
+            if parent_id is None:
+                raise Rejected(400, 'Write tasks must be children in a task graph')
+            if role != 'cto':
+                raise Rejected(403, 'Only the CTO role may write')
+            if not self.config['projects'][project].get('write') or project not in principal.get('write_projects',[]):
+                raise Rejected(403, 'Write access unavailable')
         request = {k: body.get(k) for k in ('project','brief','runtime','title','category')}
+        if access == 'write':
+            request['access'] = access
+        if parent_id is not None:
+            request.update(parent_id=parent_id,logical_role=role,stage=stage)
+            if supersedes is not None:
+                request['supersedes'] = supersedes
         digest = hashlib.sha256(json.dumps(request,sort_keys=True).encode()).hexdigest()
         with self.lock:
             prior = self.db.execute('SELECT * FROM tasks WHERE owner=? AND idem=?',(owner,body['idempotency_key'])).fetchone()
@@ -133,7 +182,7 @@ class Coordinator:
                     raise Rejected(409, 'Idempotency key conflicts with prior request')
                 return self._public(prior)
         interpretation = None
-        bridge = self.config.get('hermes_bridge')
+        bridge = self.config.get('hermes_bridge') if parent_id is None else None  # a parent assigns child roles; no model call
         if bridge:
             url = bridge['url'].rstrip('/')
             parsed = urlsplit(url)
@@ -149,8 +198,7 @@ class Coordinator:
                     if len(raw)>32768:
                         raise ValueError('Oversized response')
                     interpretation=json.loads(raw)
-                roles=('ceo','cto','chief-of-staff','librarian','interpreter','dispatcher','sentinel')
-                if not isinstance(interpretation,dict) or interpretation.get('logical_role','cto') not in roles:
+                if not isinstance(interpretation,dict) or interpretation.get('logical_role','cto') not in ROLES:
                     raise ValueError('Invalid role')
                 for key in ('title','brief','category','summary','hermes_revision'):
                     if key in interpretation and (not isinstance(interpretation[key],str) or len(interpretation[key])>16000):
@@ -166,9 +214,34 @@ class Coordinator:
                 if prior['request_hash'] != digest:
                     raise Rejected(409, 'Idempotency key conflicts with prior request')
                 return self._public(prior)
+            if parent_id is not None:
+                parent = self._owned(owner,principal,parent_id,mutate=True)
+                if parent['project'] != project:
+                    raise Rejected(409, 'Parent belongs to another project')
+                if parent['parent_id'] is not None:
+                    raise Rejected(409, 'Task graphs are one level deep')
+                if parent['status'] in NO_NEW_CHILDREN:
+                    raise Rejected(409, 'Parent no longer accepts children')
+                if supersedes is not None:
+                    old = self._owned(owner,principal,supersedes,mutate=True)
+                    if old['parent_id'] != parent_id or old['logical_role'] != role or old['stage'] != stage or old['access'] != access:
+                        raise Rejected(409, 'A retry must match the parent, role, stage and access of the failed task')
+                    if old['status'] != 'failed':
+                        raise Rejected(409, 'Only failed tasks can be retried; interrupted tasks need manual reconciliation')
+                    if self.db.execute('SELECT 1 FROM tasks WHERE supersedes=?',(supersedes,)).fetchone():
+                        raise Rejected(409, 'Task was already retried')
+                    attempts, cursor = 1, old
+                    while cursor['supersedes']:
+                        attempts, cursor = attempts + 1, self.db.execute('SELECT * FROM tasks WHERE id=?',(cursor['supersedes'],)).fetchone()
+                    if attempts >= MAX_ATTEMPTS:
+                        raise Rejected(409, 'Retry limit reached for this role')
+                elif self.db.execute('SELECT count(*) FROM tasks WHERE parent_id=? AND id NOT IN (SELECT supersedes FROM tasks WHERE supersedes IS NOT NULL)',(parent_id,)).fetchone()[0] >= MAX_CHILDREN:
+                    raise Rejected(409, 'Parent already has the maximum number of children')
             tid, now = uuid.uuid4().hex, self.clock()
             self.db.execute('INSERT INTO tasks(id,owner,project,title,brief,runtime,category,idem,request_hash,status,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
               (tid,owner,project,self.sanitize(body.get('title') or 'Fleet task'),self.sanitize(body['brief']),runtime,self.sanitize(body.get('category') or 'development'),body['idempotency_key'],digest,'queued',now,now))
+            if parent_id is not None:
+                self.db.execute('UPDATE tasks SET parent_id=?,logical_role=?,stage=?,supersedes=?,access=? WHERE id=?',(parent_id,role,stage,supersedes,access,tid))
             if interpretation:
                 self.db.execute('UPDATE tasks SET title=?,brief=?,category=?,logical_role=? WHERE id=?',(
                     self.sanitize(interpretation.get('title') or body.get('title') or 'Fleet task')[:200],
@@ -180,25 +253,53 @@ class Coordinator:
             return self._public(self.db.execute('SELECT * FROM tasks WHERE id=?',(tid,)).fetchone())
 
     def list_tasks(self, owner, principal):
+        self._need(principal, 'read')
+        owners = [owner, *principal.get('view_owners', [])]
         with self.transaction():
             self._expire()
-            return [self._public(r) for r in self.db.execute('SELECT * FROM tasks WHERE owner=? ORDER BY created DESC LIMIT 200',(owner,)) if r['project'] in principal['projects']]
+            return [self._public(r) for r in self.db.execute('SELECT * FROM tasks WHERE owner IN (%s) ORDER BY created DESC LIMIT 200' % ','.join('?' * len(owners)),owners) if r['project'] in principal['projects']]
 
     def detail(self, owner, principal, tid, events=False):
+        self._need(principal, 'read')
         with self.transaction():
             self._expire()
             row = self._owned(owner,principal,tid)
             if events:
                 return [dict(r) for r in self.db.execute('SELECT seq,attempt_id,event_id,type,message,created FROM events WHERE task_id=? ORDER BY seq LIMIT 1000',(tid,))]
-            return self._public(row)
+            result = self._public(row)
+            if row['parent_id'] is None:
+                result['graph'] = self._graph(row)
+            return result
+
+    def _graph(self, parent):
+        kids = self.db.execute('SELECT * FROM tasks WHERE parent_id=? ORDER BY created',(parent['id'],)).fetchall()
+        replaced = {kid['supersedes']: kid['id'] for kid in kids if kid['supersedes']}
+        children = [dict({k: v for k, v in self._public(kid).items() if k in ('id','logical_role','stage','status','artifact','supersedes')}, superseded_by=replaced.get(kid['id'])) for kid in kids]
+        kids = [kid for kid in kids if kid['id'] not in replaced]  # a retried attempt no longer counts
+        statuses = {kid['status'] for kid in kids}
+        if not kids:
+            status = 'none'
+        elif statuses & {'failed','interrupted'}:
+            status = 'failed'
+        elif 'cancelled' in statuses or 'cancel_requested' in statuses:
+            status = 'cancelled'
+        elif statuses == {'succeeded'} and parent['status'] == 'succeeded' and any(kid['logical_role'] == 'sentinel' and kid['artifact'] for kid in kids):
+            status = 'verified'  # derived on read: no scheduler owns this state
+        else:
+            status = 'incomplete'
+        return {'children': children, 'status': status}
 
     def cancel(self, owner, principal, tid):
+        self._need(principal, 'cancel')
         with self.transaction():
             self._expire()
-            row = self._owned(owner,principal,tid)
+            row = self._owned(owner,principal,tid,mutate=True)
             status = {'queued':'cancelled','running':'cancel_requested'}.get(row['status'],row['status'])
-            self.db.execute('UPDATE tasks SET status=?,updated=? WHERE id=?',(status,self.clock(),tid))
-            return self._public(self._owned(owner,principal,tid))
+            now = self.clock()
+            self.db.execute('UPDATE tasks SET status=?,updated=? WHERE id=?',(status,now,tid))
+            for kid in self.db.execute("SELECT id,status FROM tasks WHERE parent_id=? AND status IN ('queued','running')",(tid,)).fetchall():
+                self.db.execute('UPDATE tasks SET status=?,updated=? WHERE id=?',({'queued':'cancelled','running':'cancel_requested'}[kid['status']],now,kid['id']))
+            return self._public(self._owned(owner,principal,tid,mutate=True))
 
     def claim(self, name, worker):
         with self.transaction():
@@ -286,6 +387,12 @@ def load_config(path):
                 raise ValueError('Invalid credential project scope')
             if group=='workers' and not isinstance(entry.get('runtimes'),list):
                 raise ValueError('Invalid worker runtime scope')
+            if group=='principals':
+                permissions,viewed=entry.get('permissions',list(PERMISSIONS)),entry.get('view_owners',[])
+                if not isinstance(permissions,list) or not set(permissions)<=set(PERMISSIONS):
+                    raise ValueError('Invalid principal permissions')
+                if not isinstance(viewed,list) or not all(isinstance(name,str) and name in config['principals'] for name in viewed):
+                    raise ValueError('Invalid principal view_owners')
     config['capacity']=1
     return config
 
