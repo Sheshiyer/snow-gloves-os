@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Controller tooling.** Add checksum-bound tool/version inspection and deterministic uv/npm/Homebrew review plans; retain application and fresh-machine gates. Remove the inherited frontend dependency symlink for reproducible setup.
+
 - **Controller data audit.** Read-only tenant-reference verification and checksum-bound private-file holds, with a candidate transfer preflight that rejects declared paths and copied held bytes. Capability presence grants no runtime authority.
 
 - **Cloud gateway.** OmniRoute can run on EC2 behind Cloudflare instead of the Coding Mac: `infra/aws-gateway` (Elastic IP, Cloudflare-only security group, SSM, S3 backups, DLM snapshots, alarms, budget) and `infra/cloudflare-gateway` (proxied DNS, Origin CA cert via SSM, WAF office allowlist on `/v1`, Access on the dashboard), driven by `scripts/fleet/cloud_gateway.sh`. `scripts/fleet/cloud_guard.py` and the doctor's `fleet-boundary` check refuse any account, zone or domain outside the `cloud_gateway` block. `gateway_client.py` takes `--url https://…` and `--via tailnet`. Docs: `docs/fleet/08-CLOUD-GATEWAY.md`.

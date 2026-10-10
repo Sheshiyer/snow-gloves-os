@@ -44,3 +44,4 @@ crash.log
 
 # Local Workers development cache and ephemeral runtime state.
 .wrangler/
+apps/infra-block/node_modules
