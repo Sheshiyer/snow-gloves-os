@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: verify
-progress: 367/429
+progress: 370/429
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -551,9 +551,9 @@ until the actual mini supplies evidence.
 - [ ] ISC-419: Grok Bot MCP tools use a dedicated scoped application principal.
 - [ ] ISC-420: Actual Grok Bot discovers fleet tools through supported plugin registration.
 - [ ] ISC-421: Actual Grok Bot task and result match the web UI.
-- [ ] ISC-422: Headless plan binds plist bytes and nonroot identity to a reviewed digest.
-- [ ] ISC-423: Headless apply requires quiescence and prevents duplicate registration.
-- [ ] ISC-424: Headless rollback preserves drifted files for manual recovery.
+- [x] ISC-422: Headless plan binds plist bytes and nonroot identity to a reviewed digest.
+- [x] ISC-423: Headless apply requires quiescence and prevents duplicate registration.
+- [x] ISC-424: Headless rollback preserves drifted files for manual recovery.
 - [ ] ISC-425: Actual Coding01 system services run without desktop login.
 - [ ] ISC-426: Actual Coding02 system services run without desktop login.
 - [ ] ISC-427: Actual Coding02 FileVault is Off before cold-boot acceptance.
@@ -1624,3 +1624,6 @@ These jobs used isolated candidate servers and state, not the serving production
 ## Verification — headless fleet source integration, 10 October 2026
 
 ISC-401: integration69f7bce preserves remote artifacts and role context;212 focused tests passed. ISC-402/403: production stdlib server serves the built UI through loopback with bounded host/origin/route checks; four transport tests passed and actual disposable IAB reaches the built town. This does not satisfy installed-daemon or physical-boot acceptance. ISC-404–414:100 capability/coordinator/MCP/fanout/scope tests passed with one optional SDK test skipped in the local interpreter. Actual Coding01 installed MCP SDK independently discovered all14 tools through the HTTP adapter at an isolated loopback port. Artifact envelopes now always include project identity;67 worker/transport tests pass with synthetic claims corrected to include their project. The first integrated browser authentication exposed a missing-schema contract mismatch on unavailable catalog entries; UI acceptance stays open pending repair and replay.
+
+
+ISC-422–424:21 stdlib headless-package tests and10 subtests pass, covering digest-bound source/config identity, serialized apply/rollback, quiescence fences, duplicate prevention, explicit nonroot users and refusal to overwrite newer edits. System installation and physical boot remain open. The remote maintenance probe uses a separate fixed-command key; the existing transport key is unchanged.
