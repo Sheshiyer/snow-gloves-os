@@ -7,6 +7,7 @@ remote_access.sh must be a pure dry-run without --apply: exit 0 on this machine 
 print every command it would run, and create no files. connect.sh --print must resolve the
 operator user and overlay name from the inventory.
 """
+import functools
 import os
 import subprocess
 from pathlib import Path
@@ -31,8 +32,25 @@ def _prepare(tmp_path: Path):
     return _snapshot(tmp_path)
 
 
+@functools.cache
+def _python_user_base() -> str | None:
+    """Where the scripts' python3 looks for `pip install --user` packages (pyyaml), read with the real HOME."""
+    try:
+        res = subprocess.run(
+            ["python3", "-c", "import site; print(site.getuserbase())"], capture_output=True, text=True, timeout=30,
+        )
+    except OSError:
+        return None
+    return res.stdout.strip() or None
+
+
 def _run(args, cwd, extra_env=None):
     env = {k: v for k, v in os.environ.items() if k not in ("SNOWGLOVES_FLEET", "SNOWGLOVES_DATA")}
+    # The scratch HOME would also move python3's user site-packages, where pip --user puts pyyaml.
+    # Pin the user base first, so only writes are redirected and package lookup stays put.
+    user_base = _python_user_base()
+    if user_base and "PYTHONUSERBASE" not in env:
+        env["PYTHONUSERBASE"] = user_base
     # Point HOME at a scratch dir so an accidental write would show up in the snapshot.
     env["HOME"] = str(Path(cwd) / "home")
     if extra_env:
