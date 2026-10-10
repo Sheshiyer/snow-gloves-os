@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import hashlib
 import hmac
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -22,11 +23,72 @@ MAX_CHILDREN = 7
 PERMISSIONS = ('read','submit','cancel')  # a principal without 'permissions' keeps all three
 MAX_ATTEMPTS = 3  # original plus two retries per role chain
 NO_NEW_CHILDREN = ('cancelled','cancel_requested','failed','interrupted')
+MAX_HTTP_BODY_BYTES = 64 * 1024
+MAX_REMOTE_ARTIFACT_BYTES = 24 * 1024
+MAX_JSON_DEPTH = 32
+MAX_JSON_ITEMS = 4096
+NODE_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,99}\Z')
 
 
 class Rejected(Exception):
     def __init__(self, status, message):
         self.status, self.message = status, message
+
+
+def _unique_pairs(items):
+    result = {}
+    for key, value in items:
+        if key in result:
+            raise Rejected(400, 'Duplicate JSON key')
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value):
+    raise ValueError('Invalid JSON constant: ' + value)
+
+
+def _validate_json(value, depth=0, count=None):
+    """Reject pathological or non-UTF-8 JSON before it reaches durable state."""
+    count = [0] if count is None else count
+    if depth > MAX_JSON_DEPTH:
+        raise ValueError('JSON is too deeply nested')
+    count[0] += 1
+    if count[0] > MAX_JSON_ITEMS:
+        raise ValueError('JSON has too many values')
+    if isinstance(value, str):
+        value.encode('utf-8')
+    elif isinstance(value, float) and not math.isfinite(value):
+        raise ValueError('JSON number is not finite')
+    elif isinstance(value, list):
+        for item in value:
+            _validate_json(item, depth + 1, count)
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            key.encode('utf-8')
+            _validate_json(item, depth + 1, count)
+
+
+def _bounded_json_object(raw, limit, size_message='Invalid body size'):
+    """Decode one small JSON object with duplicate, depth, and UTF-8 checks."""
+    if not isinstance(raw, (bytes, bytearray)) or not 0 < len(raw) <= limit:
+        raise Rejected(413, size_message)
+    try:
+        value = json.loads(bytes(raw).decode('utf-8'), object_pairs_hook=_unique_pairs,
+                           parse_constant=_reject_json_constant)
+        _validate_json(value)
+    except Rejected:
+        raise
+    except (UnicodeDecodeError, ValueError, TypeError, RecursionError):
+        raise Rejected(400, 'Invalid JSON') from None
+    if not isinstance(value, dict):
+        raise Rejected(400, 'Object required')
+    return value
+
+
+def _canonical_json(value):
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False,
+                      allow_nan=False).encode('utf-8')
 
 
 def redact(value):
@@ -310,12 +372,22 @@ class Coordinator:
             for row in self.db.execute("SELECT * FROM tasks WHERE status='queued' ORDER BY created"):
                 if row['project'] not in worker['projects'] or row['runtime'] not in worker['runtimes']:
                     continue
+                modes = worker.get('access_modes', ['read'] if worker.get('remote_artifacts') is True else ['read', 'write'])
+                if row['access'] not in modes:
+                    continue
                 attempt, token = uuid.uuid4().hex, uuid.uuid4().hex + uuid.uuid4().hex
                 now = self.clock()
                 self.db.execute("UPDATE tasks SET status='running',worker=?,attempt_id=?,lease_hash=?,deadline=?,updated=? WHERE id=?",(name,attempt,hashlib.sha256(token.encode()).hexdigest(),now+self.config.get('lease_seconds',90),now,row['id']))
                 project = self.config['projects'][row['project']]
                 result = self._public(self.db.execute('SELECT * FROM tasks WHERE id=?',(row['id'],)).fetchone())
-                result.update(root=str(Path(project['root']).resolve()),tenant=project['tenant'],organization=project['organization'],lease_token=token,artifacts_root=str(self.artifacts))
+                result.update(tenant=project['tenant'],organization=project['organization'],lease_token=token)
+                if worker.get('remote_artifacts') is True:
+                    # A remote worker receives a project identity, not a coordinator
+                    # filesystem path. It resolves that identity through its own
+                    # project_roots allowlist after an SSH loopback forward.
+                    result['remote_artifacts'] = True
+                else:
+                    result.update(root=str(Path(project['root']).resolve()),artifacts_root=str(self.artifacts))
                 return result
             return None
 
@@ -334,6 +406,90 @@ class Coordinator:
         if not hmac.compare_digest(digest,artifact['sha256']):
             raise Rejected(400,'Artifact hash mismatch')
         return {'path':str(resolved.relative_to(self.artifacts)), 'sha256':digest}
+
+    def _redact_artifact_value(self, value, lease_token):
+        """Redact every persisted remote-artifact string, including nested values."""
+        if isinstance(value, str):
+            return self.sanitize(value).replace(lease_token, '[REDACTED]')
+        if isinstance(value, list):
+            return [self._redact_artifact_value(item, lease_token) for item in value]
+        if isinstance(value, dict):
+            result = {}
+            for key, item in value.items():
+                safe_key = self.sanitize(key).replace(lease_token, '[REDACTED]')
+                if safe_key in result:
+                    raise Rejected(400, 'Artifact redaction collision')
+                result[safe_key] = self._redact_artifact_value(item, lease_token)
+            return result
+        return value
+
+    def _write_remote_artifact(self, task, attempt, content):
+        """Write a coordinator-generated artifact name without ever following worker paths."""
+        filename = 'remote-%s-%s-%s.json' % (task, attempt, uuid.uuid4().hex)
+        target = self.artifacts / filename
+        temporary = self.artifacts / ('.%s.%s.tmp' % (filename, uuid.uuid4().hex))
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        if hasattr(os, 'O_NOFOLLOW'):
+            flags |= os.O_NOFOLLOW
+        try:
+            fd = os.open(temporary, flags, 0o600)
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, target)
+        except BaseException:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
+            raise
+        return {'path': filename, 'sha256': hashlib.sha256(content).hexdigest()}
+
+    def _remote_artifact(self, worker, row, artifact, lease_token):
+        """Validate an inline remote artifact, redact it, then atomically persist it."""
+        if (not isinstance(artifact, dict) or set(artifact) != {'content', 'sha256'} or
+                not isinstance(artifact['content'], str) or
+                not isinstance(artifact['sha256'], str) or
+                not re.fullmatch(r'[a-f0-9]{64}', artifact['sha256'])):
+            raise Rejected(400, 'Invalid remote artifact')
+        content = artifact['content']
+        # Check characters before encoding so a direct Coordinator caller cannot
+        # force an unbounded allocation outside the HTTP boundary.
+        if not 0 < len(content) <= MAX_REMOTE_ARTIFACT_BYTES:
+            raise Rejected(413, 'Remote artifact is too large')
+        try:
+            raw = content.encode('utf-8')
+        except UnicodeEncodeError:
+            raise Rejected(400, 'Invalid remote artifact') from None
+        if len(raw) > MAX_REMOTE_ARTIFACT_BYTES:
+            raise Rejected(413, 'Remote artifact is too large')
+        digest = hashlib.sha256(raw).hexdigest()
+        if not hmac.compare_digest(digest, artifact['sha256']):
+            raise Rejected(400, 'Remote artifact hash mismatch')
+        envelope = _bounded_json_object(raw, MAX_REMOTE_ARTIFACT_BYTES,
+                                        'Remote artifact is too large')
+        node_id = worker.get('node_id')
+        if not isinstance(node_id, str) or not NODE_ID.fullmatch(node_id):
+            raise Rejected(403, 'Remote worker enrollment unavailable')
+        expected = {
+            'task_id': row['id'],
+            'attempt_id': row['attempt_id'],
+            'project': row['project'],
+            'node': node_id,
+            'runtime': row['runtime'],
+        }
+        if any(envelope.get(key) != value for key, value in expected.items()):
+            raise Rejected(400, 'Remote artifact envelope mismatch')
+        if not isinstance(envelope.get('output'), str):
+            raise Rejected(400, 'Remote artifact output unavailable')
+        try:
+            stored = _canonical_json(self._redact_artifact_value(envelope, lease_token))
+        except (TypeError, ValueError, UnicodeEncodeError):
+            raise Rejected(400, 'Invalid remote artifact') from None
+        if len(stored) > MAX_REMOTE_ARTIFACT_BYTES:
+            raise Rejected(413, 'Remote artifact is too large')
+        return self._write_remote_artifact(row['id'], row['attempt_id'], stored)
 
     def report(self, name, worker, body):
         for key in ('task_id','attempt_id','lease_token','event_id','type'):
@@ -354,7 +510,12 @@ class Coordinator:
                 raise Rejected(409,'Assignment is no longer active')
             if kind == 'succeeded' and row['status'] == 'cancel_requested':
                 raise Rejected(409,'Cancellation must be reconciled')
-            artifact = self._artifact(body.get('artifact')) if kind == 'succeeded' else None
+            if kind == 'succeeded':
+                artifact = (self._remote_artifact(worker, row, body.get('artifact'), body['lease_token'])
+                            if worker.get('remote_artifacts') is True
+                            else self._artifact(body.get('artifact')))
+            else:
+                artifact = None
             message = self.sanitize(body.get('message','')).replace(body['lease_token'],'[REDACTED]')
             now = self.clock()
             self.db.execute('INSERT INTO events(task_id,attempt_id,event_id,type,message,created) VALUES(?,?,?,?,?,?)',(row['id'],row['attempt_id'],body['event_id'],kind,message,now))
@@ -370,12 +531,24 @@ def load_config(path):
     config=json.loads(path.read_text())
     if not Path(config['data_root']).is_absolute():
         raise ValueError('Coordinator data root must be absolute')
-    for project in config['projects'].values():
-        root=Path(project['root'])
-        if not root.is_absolute() or not root.is_dir() or not (root/'.git').exists():
-            raise ValueError('Project roots must name existing Git repositories')
+    remote_projects, local_projects = set(), set()
+    for entry in config['workers'].values():
+        remote = entry.get('remote_artifacts', False)
+        if not isinstance(remote, bool):
+            raise ValueError('Invalid remote artifact enrollment')
+        projects = entry.get('projects')
+        if isinstance(projects, list) and all(isinstance(project, str) for project in projects):
+            (remote_projects if remote else local_projects).update(projects)
+    for project_id, project in config['projects'].items():
         if not all(isinstance(project.get(key),str) and project[key] for key in ('tenant','organization')) or not isinstance(project.get('runtimes'),list):
             raise ValueError('Invalid project configuration')
+        # A project served only by explicitly enrolled remote workers has no
+        # coordinator filesystem dependency. Legacy/local workers retain the
+        # existing checked-out Git root requirement.
+        if project_id not in remote_projects or project_id in local_projects:
+            root=Path(project.get('root',''))
+            if not root.is_absolute() or not root.is_dir() or not (root/'.git').exists():
+                raise ValueError('Project roots must name existing Git repositories')
     tokens=set()
     for group in ('principals','workers'):
         for entry in config[group].values():
@@ -385,8 +558,16 @@ def load_config(path):
             tokens.add(token)
             if not isinstance(entry.get('projects'),list) or any(project not in config['projects'] for project in entry['projects']):
                 raise ValueError('Invalid credential project scope')
-            if group=='workers' and not isinstance(entry.get('runtimes'),list):
-                raise ValueError('Invalid worker runtime scope')
+            if group=='workers':
+                if not isinstance(entry.get('runtimes'),list):
+                    raise ValueError('Invalid worker runtime scope')
+                modes = entry.get('access_modes', ['read'] if entry.get('remote_artifacts') is True else ['read', 'write'])
+                if not isinstance(modes, list) or not modes or any(mode not in ('read', 'write') for mode in modes):
+                    raise ValueError('Invalid worker access modes')
+                if entry.get('remote_artifacts') is True:
+                    node_id=entry.get('node_id')
+                    if not isinstance(node_id,str) or not NODE_ID.fullmatch(node_id):
+                        raise ValueError('Remote workers require a valid node_id')
             if group=='principals':
                 permissions,viewed=entry.get('permissions',list(PERMISSIONS)),entry.get('view_owners',[])
                 if not isinstance(permissions,list) or not set(permissions)<=set(PERMISSIONS):
@@ -446,19 +627,16 @@ def server(coordinator, port=4101):
                 if self.command == 'POST':
                     if self.headers.get('Content-Type','').split(';')[0] != 'application/json':
                         raise Rejected(415,'JSON required')
-                    length = int(self.headers.get('Content-Length','0'))
-                    if not 0 < length <= 32768:
+                    length_header = self.headers.get('Content-Length','')
+                    if not re.fullmatch(r'[0-9]{1,8}', length_header):
                         raise Rejected(413,'Invalid body size')
-                    def pairs(items):
-                        result = {}
-                        for key,value in items:
-                            if key in result:
-                                raise Rejected(400,'Duplicate JSON key')
-                            result[key]=value
-                        return result
-                    body = json.loads(self.rfile.read(length),object_pairs_hook=pairs)
-                    if not isinstance(body,dict):
-                        raise Rejected(400,'Object required')
+                    length = int(length_header)
+                    if not 0 < length <= MAX_HTTP_BODY_BYTES:
+                        raise Rejected(413,'Invalid body size')
+                    raw = self.rfile.read(length)
+                    if len(raw) != length:
+                        raise Rejected(400,'Incomplete request body')
+                    body = _bounded_json_object(raw, MAX_HTTP_BODY_BYTES)
                 if path=='/v1/worker/claim' and self.command=='POST':
                     result={'task':coordinator.claim(name,principal)}
                 elif path=='/v1/worker/report' and self.command=='POST':
