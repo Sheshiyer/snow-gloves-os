@@ -3,9 +3,9 @@
 schema: snowgloves.modules.v1
 version: 0.2.1
 counts:
-  total: 137
+  total: 147
   by_disposition:
-    add: 66
+    add: 76
     hold: 14
     refuse: 12
     pointer: 45
@@ -15,6 +15,7 @@ counts:
     connector: 1
     plugin: 13
     playbook: 36
+    mod: 10
 cards:
 - id: agent-reach
   name: Agent-Reach
@@ -2204,6 +2205,173 @@ cards:
   - codex
   summary: Claude/Codex skill for scroll-scrubbed 3D landing scenes. Repo URL not in the harvest.
   enableable: false
+- id: sg-approvals
+  name: Snow Gloves approvals desk
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-approvals
+  risk: medium
+  approval: 'no'
+  agents:
+  - chief-of-staff
+  - sentinel
+  hooks: []
+  runtimes:
+  - claude
+  summary: /approvals opens a pane of pending approval tickets across tenants, with approve and reject buttons only a person can press.
+  enableable: true
+- id: sg-catalog
+  name: Snow Gloves catalog browser
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-catalog
+  risk: medium
+  approval: 'yes'
+  agents:
+  - chief-of-staff
+  - librarian
+  hooks: []
+  runtimes:
+  - claude
+  summary: /sg-catalog browses the catalog and enables a card; /sg-mod-review drafts a hold card for a third-party mod.
+  enableable: true
+- id: sg-connector-gate
+  name: Snow Gloves connector gate
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-connector-gate
+  risk: medium
+  approval: 'no'
+  agents:
+  - sentinel
+  hooks:
+  - sentinel.connector-gate
+  runtimes:
+  - claude
+  summary: 'skills/connector-gate as code: refuses hold and refuse cards, servers the tenant has not enabled, and high-risk or approval tools without an approved ticket.'
+  enableable: true
+- id: sg-fleet
+  name: Snow Gloves fleet cockpit
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-fleet
+  risk: low
+  approval: 'no'
+  agents:
+  - cto
+  - sentinel
+  hooks: []
+  runtimes:
+  - claude
+  summary: '/fleet: this wing''s doctor checks and which CLI surfaces point at the fleet gateway.'
+  enableable: true
+- id: sg-guard
+  name: Snow Gloves guard
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-guard
+  risk: medium
+  approval: 'no'
+  agents:
+  - sentinel
+  hooks: []
+  runtimes:
+  - claude
+  summary: ERP read-only guard, MCP result redaction, and a supply-chain check for other mods.
+  enableable: true
+- id: sg-handoff
+  name: Snow Gloves transfer dock
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-handoff
+  risk: medium
+  approval: 'no'
+  agents:
+  - chief-of-staff
+  hooks: []
+  runtimes:
+  - claude
+  summary: /handoff writes .project/HANDOFF.md and tells another session; /inbox holds [sg] peer messages.
+  enableable: true
+- id: sg-hermes
+  name: Snow Gloves Hermes console
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-hermes
+  risk: low
+  approval: 'no'
+  agents:
+  - chief-of-staff
+  - dispatcher
+  hooks: []
+  runtimes:
+  - claude
+  summary: '/hermes: live event stream, route lens for a task title, replay through today''s skill hooks.'
+  enableable: true
+- id: sg-omniroute
+  name: Snow Gloves OmniRoute ledger
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-omniroute
+  risk: low
+  approval: 'no'
+  agents:
+  - cto
+  - sentinel
+  hooks: []
+  runtimes:
+  - claude
+  summary: Per-request token, cache and model ledger, a meter above the prompt, /omniroute and /combo.
+  enableable: true
+- id: sg-org
+  name: Snow Gloves organisation
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-org
+  risk: low
+  approval: 'no'
+  agents:
+  - ceo
+  - chief-of-staff
+  hooks: []
+  runtimes:
+  - claude
+  summary: The seven agents as Claude subagent types sg-org:<slug>, and /org.
+  enableable: true
+- id: sg-rail
+  name: Snow Gloves rail (status band)
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-rail
+  risk: low
+  approval: 'no'
+  agents:
+  - chief-of-staff
+  hooks: []
+  runtimes:
+  - claude
+  summary: 'Band above the Claude Code prompt: tenant, data root, Hermes and OmniRoute health, pending approvals, graph walk, ISA progress, and the Temperance rail. Adds /sg.'
+  enableable: true
 - id: snowgloves-vault-finance
   name: 'Snow Gloves Vault: finance'
   category: mcp

@@ -5,6 +5,7 @@ export const FALLBACK_QUESTION_TOOL = "numbered-list";
 export const SKILL_CATEGORIES = ["skills", "playbook"];
 export const CONNECTOR_CATEGORIES = ["mcp", "connector"];
 export const PLUGIN_CATEGORIES = ["plugin"];
+export const MOD_CATEGORIES = ["mod"];
 
 export const REFUSAL = {
   hold: "is on hold: it is listed in the catalog but waits on a founder pick and a review before it can be enabled",
@@ -72,6 +73,7 @@ function optionLines(modules) {
     ["Skills", SKILL_CATEGORIES],
     ["Connectors", CONNECTOR_CATEGORIES],
     ["Plugins", PLUGIN_CATEGORIES],
+    ["Mods", MOD_CATEGORIES],
   ];
   const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   for (const [title, cats] of groups) {

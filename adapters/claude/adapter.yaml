@@ -9,11 +9,13 @@ paths:
   mcp: "{project}/.mcp.json"               # project-scoped MCP servers; user scope lives in ~/.claude.json
   rules: "{project}/CLAUDE.md"             # Snow Gloves writes a marked block, never the whole file
   plugins: "{home}/.claude/plugins"
+  mods: "{platform}/mods"                  # directory marketplace of Snow Gloves mods (category: mod), loaded in place
 formats:
   skill: skill-md
   mcp: json
   mcp_key: mcpServers
   rules: markdown-block
+  mods: claude-plugin-settings             # render writes tenants/<t>/runtime/claude/mods.settings.json to merge into settings
 install:
   - "claude mcp add --scope project <id> -- <command> [args...]"
   - "/plugin marketplace add <owner/repo>   # inside a Claude Code session"

@@ -1,0 +1,59 @@
+{
+  "name": "snowgloves-mods",
+  "description": "Snow Gloves OS mods for Claude Code: status band, connector gate, approvals desk, guard, Hermes, org, OmniRoute, fleet, handoff, catalog",
+  "owner": {
+    "name": "Snow Gloves OS"
+  },
+  "plugins": [
+    {
+      "name": "sg-rail",
+      "source": "./sg-rail",
+      "description": "Status band above the prompt: tenant, data root, Hermes, OmniRoute, approvals, graph walk, ISA, Temperance rail"
+    },
+    {
+      "name": "sg-connector-gate",
+      "source": "./sg-connector-gate",
+      "description": "Enforces connector-gate on catalog-managed MCP servers"
+    },
+    {
+      "name": "sg-approvals",
+      "source": "./sg-approvals",
+      "description": "Review desk pane for approval tickets, decided only by a person"
+    },
+    {
+      "name": "sg-guard",
+      "source": "./sg-guard",
+      "description": "ERP read-only guard, MCP result redaction, mod supply-chain check"
+    },
+    {
+      "name": "sg-hermes",
+      "source": "./sg-hermes",
+      "description": "Hermes event stream, route lens and replay"
+    },
+    {
+      "name": "sg-org",
+      "source": "./sg-org",
+      "description": "The seven agents as subagent types, and /org"
+    },
+    {
+      "name": "sg-omniroute",
+      "source": "./sg-omniroute",
+      "description": "Token, cache and model ledger and combo list"
+    },
+    {
+      "name": "sg-fleet",
+      "source": "./sg-fleet",
+      "description": "Fleet doctor and gateway cockpit"
+    },
+    {
+      "name": "sg-handoff",
+      "source": "./sg-handoff",
+      "description": "Handoff writer and attention inbox"
+    },
+    {
+      "name": "sg-catalog",
+      "source": "./sg-catalog",
+      "description": "Catalog browser and third-party mod intake"
+    }
+  ]
+}

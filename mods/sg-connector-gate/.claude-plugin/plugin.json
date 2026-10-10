@@ -1,0 +1,40 @@
+{
+  "name": "sg-connector-gate",
+  "version": "0.1.0",
+  "description": "Enforces Snow Gloves connector-gate on catalog-managed MCP servers: hold and refuse cards never run, a server must be enabled for the tenant, and high-risk or approval cards need an approved ticket",
+  "author": { "name": "Snow Gloves OS" },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "tenant": {
+      "type": "string",
+      "title": "Tenant",
+      "description": "Tenant slug. Empty: SNOWGLOVES_TENANT, else the gate only observes",
+      "default": ""
+    },
+    "dataRoot": {
+      "type": "string",
+      "title": "Data root",
+      "description": "Path of the private snow-gloves-ops checkout. Empty: SNOWGLOVES_DATA, else the platform's public fixtures",
+      "default": ""
+    },
+    "platformRoot": {
+      "type": "string",
+      "title": "Platform root",
+      "description": "Path of the snow-gloves-os checkout. Empty: two folders above this mod",
+      "default": ""
+    },
+    "gateMode": {
+      "type": "string",
+      "title": "Gate mode",
+      "description": "enforce refuses calls the catalog does not allow; observe only logs what it would refuse",
+      "options": ["enforce", "observe"],
+      "default": "enforce"
+    },
+    "ttlHours": {
+      "type": "number",
+      "title": "Approval lifetime (hours)",
+      "description": "How long an approved ticket lets the same tool through",
+      "default": 24
+    }
+  }
+}

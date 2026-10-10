@@ -36,6 +36,8 @@ help:
 	@echo "  make test-runtime-files    # Linux Node 24+ owned-file backup checks"
 	@echo "  make test-cloud-transport  # Node 24+ transport boundary tests"
 	@echo "  make cloud-transport-check # generated types + strict compilation; npm ci first"
+	@echo "  make mods-check            # validate + test every Claude Code mod in mods/, then the mod rules"
+	@echo "  make mods-dev [T=<tenant>] # start claude with every mod in mods/ loaded from its folder"
 	@echo "  make kill-hermes           # free port $(HERMES_PORT)"
 	@echo "  make app-install           # npm install for the Tauri onboarding app"
 	@echo "  make app-dev               # tauri dev (GUI; do not leave running in agents)"
@@ -133,6 +135,20 @@ replay:
 
 test:
 	$(PYTHON) -m pytest -q tests/
+
+# ---- Claude Code mods (mods/; see docs/mods.md) ----
+.PHONY: mods-check mods-dev
+MOD_DIRS := $(sort $(dir $(wildcard mods/*/.claude-plugin/plugin.json)))
+
+mods-check:
+	@command -v claude >/dev/null || { echo "mods-check needs the claude CLI (v2.1.287+)"; exit 2; }
+	claude plugin validate --strict mods
+	@set -e; for d in $(MOD_DIRS); do d=$${d%/.claude-plugin/}; \
+	  echo "== $$d"; claude plugin validate --strict $$d; (cd $$d && claude plugin test); done
+	$(PYTHON) scripts/check_mod_invariants.py --require-claude
+
+mods-dev:
+	$(if $(T),SNOWGLOVES_TENANT=$(T)) claude $(foreach d,$(MOD_DIRS),--plugin-dir $(patsubst %/.claude-plugin/,%,$(d)))
 
 clean:
 	rm -f .hermes.pid .e2e.json
