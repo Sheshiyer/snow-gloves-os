@@ -565,7 +565,7 @@ describe('catalog parity and cancellation isolation', () => {
     const fs = await import(fsModule);
     const catalog = JSON.parse(fs.readFileSync(new URL('../../../catalog/modules.json', import.meta.url), 'utf8'));
     const snapshot = validateSnapshot({ ...VALID_SNAPSHOT_FIXTURE, catalog });
-    expect(snapshot.catalog.cards).toHaveLength(135);
+    expect(snapshot.catalog.cards).toHaveLength(137);
     expect(snapshot.catalog.agents).toHaveLength(7);
     expect(snapshot.catalog.adapters).toHaveLength(9);
     expect(snapshot.catalog.connectors).toHaveLength(8);
