@@ -1,0 +1,35 @@
+{
+  "name": "sg-hermes",
+  "version": "0.1.0",
+  "description": "Snow Gloves Hermes console: /hermes shows the live event stream, tests how a task title routes, and replays recent events through the current skill hooks; can publish a turn.complete heartbeat",
+  "author": {
+    "name": "Snow Gloves OS"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "hermesUrl": {
+      "type": "string",
+      "title": "Hermes URL",
+      "description": "Empty: the endpoint the platform snapshot reports, else http://127.0.0.1:4100",
+      "default": ""
+    },
+    "publishTurns": {
+      "type": "boolean",
+      "title": "Publish turns",
+      "description": "Post a claude.turn event to Hermes /publish when a turn completes",
+      "default": false
+    },
+    "platformRoot": {
+      "type": "string",
+      "title": "Platform root",
+      "description": "Path of the snow-gloves-os checkout. Empty: two folders above this mod",
+      "default": ""
+    },
+    "dataRoot": {
+      "type": "string",
+      "title": "Data root",
+      "description": "Path of the private snow-gloves-ops checkout. Empty: SNOWGLOVES_DATA, else the platform's public fixtures",
+      "default": ""
+    }
+  }
+}

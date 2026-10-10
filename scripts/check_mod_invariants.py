@@ -38,6 +38,9 @@ ALLOWED_CALLS = {
     "sg-connector-gate": COMMON,
     "sg-approvals": COMMON,
     "sg-guard": COMMON,
+    "sg-fleet": COMMON,
+    "sg-hermes": COMMON | {"$.http.fetch"},
+    "sg-omniroute": COMMON | {"$.session.usage"},
 }
 FORBIDDEN_HOOKS = {"tool.check"}
 SOURCE_RULES = [

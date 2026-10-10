@@ -1,0 +1,29 @@
+{
+  "name": "sg-omniroute",
+  "version": "0.1.0",
+  "description": "Snow Gloves OmniRoute ledger: records tokens, cache use and model per request, draws a meter above the prompt, and /omniroute and /combo show the ledger and the gateway's combos",
+  "author": {
+    "name": "Snow Gloves OS"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "platformRoot": {
+      "type": "string",
+      "title": "Platform root",
+      "description": "Path of the snow-gloves-os checkout. Empty: two folders above this mod",
+      "default": ""
+    },
+    "dataRoot": {
+      "type": "string",
+      "title": "Data root",
+      "description": "Path of the private snow-gloves-ops checkout. Empty: SNOWGLOVES_DATA, else the platform's public fixtures",
+      "default": ""
+    },
+    "combosDb": {
+      "type": "string",
+      "title": "OmniRoute database",
+      "description": "Path of OmniRoute's storage.sqlite, opened read-only for the combo list. Empty: ~/.omniroute/storage.sqlite",
+      "default": ""
+    }
+  }
+}
