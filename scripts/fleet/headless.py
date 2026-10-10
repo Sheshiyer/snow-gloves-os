@@ -161,8 +161,21 @@ def validate_policy(policy):
     return {'schema': POLICY_SCHEMA, 'users': normalized}
 
 
-def read_policy(value, owners=None):
-    """Read a private policy file (never at root time for planned changes)."""
+def policy_digest(policy):
+    """SHA-256 of the canonical validated policy; the value an operator pins at apply."""
+    return digest(canonical(validate_policy(policy)))
+
+
+def hex_digest(value):
+    return isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value) is not None
+
+
+def read_policy(value, owners=None, *, unsafe_mode=0o077):
+    """Read a private policy file (never at root time for planned changes).
+
+    policy-digest relaxes only the mode rule (unsafe_mode=0o022): a reviewed
+    copy may be readable, but never writable by anyone but its owner.
+    """
     p = path_checked(value)
     try:
         fd = os.open(p, os.O_RDONLY | os.O_NOFOLLOW)
@@ -171,8 +184,11 @@ def read_policy(value, owners=None):
     with os.fdopen(fd, 'rb') as stream:
         s = os.fstat(stream.fileno())
         require(stat.S_ISREG(s.st_mode) and s.st_size <= 1_000_000, 'Headless policy must be a small regular file')
-        require(s.st_uid in (owners or {0, os.geteuid()}) and stat.S_IMODE(s.st_mode) & 0o077 == 0,
-                'Headless policy must be private and owned by the service user or root')
+        require(s.st_uid in (owners or {0, os.geteuid()}),
+                'Headless policy must be owned by the service user or root')
+        require(stat.S_IMODE(s.st_mode) & unsafe_mode == 0,
+                'Headless policy must be private' if unsafe_mode & 0o044 else
+                'Headless policy must not be group- or other-writable')
         data = stream.read(1_000_001)
     return validate_policy(strict_json(data)), {'path': str(p), 'sha256': digest(data), 'uid': s.st_uid,
                                                 'gid': s.st_gid, 'mode': stat.S_IMODE(s.st_mode)}
@@ -192,14 +208,24 @@ def user_policy(policy, info):
     return entry
 
 
-def working_directory(value, info):
-    home = Path(info['home'])
-    p = path_checked(value)
-    require(p == home or p.is_relative_to(home), 'Working directory is outside the service home')
-    require(p.is_dir(), 'Working directory must already exist')
-    s = p.stat()
-    require(s.st_uid == info['uid'] and stat.S_IMODE(s.st_mode) & 0o077 == 0,
-            'Working directory must be private and owned by the service user')
+def working_directory(value, info, label):
+    """A policy working-directory override for label (named in any refusal).
+
+    Unlike log directories it need not be private: a normal 0755 checkout or a
+    0750 home is accepted. It must be real (no symlink components), inside the
+    service home, owned by the service user or root and not group/other-writable.
+    """
+    where = ' (policy working directory for ' + label + ')'
+    try:
+        home = Path(info['home'])
+        p = path_checked(value)
+        require(p == home or p.is_relative_to(home), 'Working directory is outside the service home')
+        require(p.is_dir(), 'Working directory must already exist')
+        s = p.stat()
+        require(s.st_uid in (info['uid'], 0), 'Working directory must be owned by the service user or root')
+        require(stat.S_IMODE(s.st_mode) & 0o022 == 0, 'Working directory must not be group- or other-writable')
+    except Refused as exc:
+        raise Refused(str(exc) + where) from None
     return p
 
 
@@ -331,7 +357,7 @@ def render(source, info, policy):
         require(str(p) == component and any(p.resolve().is_relative_to(Path(r)) for r in
                 ('/opt/homebrew', '/usr', '/bin', '/sbin', info['home'])), 'Unreviewed PATH root')
     if label in policy['working_directory']:
-        wd = working_directory(policy['working_directory'][label], info)
+        wd = working_directory(policy['working_directory'][label], info, label)
     else:
         wd = path_checked(raw.get('WorkingDirectory', info['home']))
         require(wd.is_dir() and (wd == home or wd.is_relative_to(home)), 'Working directory is outside the service home')
@@ -487,8 +513,10 @@ def make_plan(user, labels, db, ssh_host=None, critical_files=(), identity_file=
             'Local coordinator migration must include its coordinator to fence submissions')
     require(quiescence['requires_ssh_probe'] == bool(ssh_host),
             'Quiescence SSH probe selection does not match the headless policy')
-    for value in entry['working_directory'].values():
-        working_directory(value, info)
+    # Every override for this user must be valid (the policy is wholly valid or
+    # refused), not only those of the selected services.
+    for label, value in sorted(entry['working_directory'].items()):
+        working_directory(value, info, label)
     spec = {'db': str(path_checked(db, Path(quiescence['db_root']))), 'ssh_host': ssh_host, 'identity_file': identity_file}
     state = database_state(spec, info, quiescence)
     services, files = [], {}
@@ -515,34 +543,52 @@ def make_plan(user, labels, db, ssh_host=None, critical_files=(), identity_file=
         private_file(p, info['uid'])
         files[str(p)] = fingerprint(p)
     # The canonical policy is embedded (and digest-bound); root operations use
-    # only this copy. policy_source records review provenance and is never
-    # reopened by apply/rollback/status.
+    # only this copy. Whoever writes the plan could also rewrite that copy, so
+    # apply additionally requires the operator's independently computed
+    # policy_sha256 (policy-digest). policy_source is review provenance only and
+    # is never reopened or trusted by apply/rollback/status.
     body = {'schema': SCHEMA, 'host': platform.node(), 'user': info, 'created': int(time.time()),
-            'policy': policy, 'policy_source': policy_source,
+            'policy': policy, 'policy_sha256': policy_digest(policy), 'policy_source': policy_source,
             'quiescence': spec, 'database': state, 'filevault': filevault(),
             'services': services, 'files': files}
     return dict(body, sha256=digest(canonical(body)))
 
 
-def validate_plan(plan, expected, legacy_policy=None):
+def validate_plan(plan, expected, legacy_policy=None, *, expected_policy=None, policy_required=False):
     """Validate a reviewed plan against its embedded policy; never reads a policy file.
 
     legacy_policy is an already validated policy, accepted only for plans written
     before policies were embedded (rollback/status of the old helper's plans).
+
+    The plan digest only proves the plan is unchanged since whoever wrote it; it
+    cannot prove the embedded policy is the reviewed one. expected_policy is the
+    operator's independent policy-digest of the trusted policy file: apply
+    passes policy_required=True so it must be supplied and match; rollback and
+    status enforce it only when given.
     """
     require(isinstance(plan, dict) and plan.get('schema') in (SCHEMA, LEGACY_SCHEMA), 'Invalid plan schema')
     body = {k: v for k, v in plan.items() if k != 'sha256'}
-    require(re.fullmatch('[0-9a-f]{64}', expected or '') and plan.get('sha256') == expected == digest(canonical(body)),
+    require(hex_digest(expected) and plan.get('sha256') == expected == digest(canonical(body)),
             'Reviewed plan digest does not match')
     if plan['schema'] == SCHEMA:
         require(legacy_policy is None, 'A legacy policy applies only to plans without an embedded policy')
         policy = validate_policy(plan.get('policy'))
         require(policy == plan['policy'], 'Embedded headless policy is not canonical')
+        actual = policy_digest(policy)
+        # Plans from the pre-hardening v2 helper lack the field; only the
+        # recovery paths (rollback/status) may still read them.
+        if policy_required or 'policy_sha256' in plan:
+            require(plan.get('policy_sha256') == actual, 'Embedded headless policy digest does not match')
     else:
         require('policy' not in plan, 'Invalid legacy plan')
         require(legacy_policy is not None,
                 'Plan has no embedded policy; only rollback or status with --legacy-policy PATH may use it')
         policy = validate_policy(legacy_policy)
+        actual = policy_digest(policy)
+    if policy_required or expected_policy is not None:
+        require(hex_digest(expected_policy),
+                'Pass --expect-policy-sha256 with the policy-digest of the reviewed policy file')
+        require(expected_policy == actual, 'Plan policy does not match the operator-reviewed policy digest')
     require(plan.get('host') == platform.node(), 'Plan belongs to another host')
     info = user_info(plan['user']['name'], policy)
     require(info == plan['user'], 'Service account changed since review')
@@ -647,8 +693,8 @@ def save_journal(backup, journal):
     write_private(backup / 'journal.json', canonical(journal))
 
 
-def _apply(plan, expected):
-    info, entry = validate_plan(plan, expected)
+def _apply(plan, expected, expected_policy):
+    info, entry = validate_plan(plan, expected, expected_policy=expected_policy, policy_required=True)
     quiescence = entry['quiescence']
     check_sources(plan, info, entry)
     require(database_state(plan['quiescence'], info, quiescence, require_stopped=True) == plan['database'], 'Coordinator state changed since review')
@@ -696,11 +742,11 @@ def _apply(plan, expected):
         raise Refused('Cutover stopped at ' + operation + ' for ' + service +
                       '; use the digest-bound backup to roll back before retrying') from None
     return {'ok': True, 'backup': str(backup), 'installed': len(plan['services']),
-            'cold_boot_verified': False, 'filevault': filevault()}
+            'policy_sha256': expected_policy, 'cold_boot_verified': False, 'filevault': filevault()}
 
 
-def _rollback(plan, expected, legacy_policy=None):
-    info, entry = validate_plan(plan, expected, legacy_policy)
+def _rollback(plan, expected, legacy_policy=None, expected_policy=None):
+    info, entry = validate_plan(plan, expected, legacy_policy, expected_policy=expected_policy)
     quiescence = entry['quiescence']
     backup = path_checked(str(BACKUPS / expected))
     root_private_directory(backup)
@@ -753,21 +799,30 @@ def _rollback(plan, expected, legacy_policy=None):
                 run(['/bin/launchctl', 'bootstrap', d['domain'], s['source']])
     journal['phase'] = 'rolled-back'
     save_journal(backup, journal)
-    return {'ok': True, 'rolled_back': len(journal['stopped']), 'database_restored': False}
+    return {'ok': True, 'rolled_back': len(journal['stopped']), 'database_restored': False,
+            'policy_sha256': plan_policy_sha256(plan, legacy_policy)}
 
 
-def apply(plan, expected):
+def plan_policy_sha256(plan, legacy_policy=None):
+    """Digest of the policy a validated plan runs under, for operator comparison."""
+    return policy_digest(plan['policy'] if plan['schema'] == SCHEMA else legacy_policy)
+
+
+def apply(plan, expected, *, expected_policy=None):
+    """Both digests are operator-supplied: the plan's and the reviewed policy's."""
     require_root()
-    validate_plan(plan, expected)
+    # Refuses a missing or mismatched policy digest before any lock or launchctl call.
+    validate_plan(plan, expected, expected_policy=expected_policy, policy_required=True)
     with migration_lock():
-        return _apply(plan, expected)
+        return _apply(plan, expected, expected_policy)
 
 
-def rollback(plan, expected, legacy_policy=None):
+def rollback(plan, expected, legacy_policy=None, *, expected_policy=None):
+    """Recovery path: the policy digest is enforced only when the operator gives one."""
     require_root()
-    validate_plan(plan, expected, legacy_policy)
+    validate_plan(plan, expected, legacy_policy, expected_policy=expected_policy)
     with migration_lock():
-        return _rollback(plan, expected, legacy_policy)
+        return _rollback(plan, expected, legacy_policy, expected_policy)
 
 
 def probe(db, policy=None):
@@ -794,8 +849,8 @@ def probe(db, policy=None):
     return result
 
 
-def status(plan, expected, legacy_policy=None):
-    validate_plan(plan, expected, legacy_policy)
+def status(plan, expected, legacy_policy=None, *, expected_policy=None):
+    validate_plan(plan, expected, legacy_policy, expected_policy=expected_policy)
     services = []
     for s in plan['services']:
         p = path_checked(s['destination'])
@@ -805,6 +860,7 @@ def status(plan, expected, legacy_policy=None):
                          'user_loaded': any(loaded(d['domain'], s['label']) for d in s['domains'])})
     fv = filevault()
     return {'services': services, 'filevault': fv, 'cold_boot_verified': False,
+            'policy_sha256': plan_policy_sha256(plan, legacy_policy),
             'startup_candidate': fv == 'off' and all(s['system_loaded'] and not s['system_disabled'] and s['plist_matches'] and not s['user_loaded'] for s in services)}
 
 
@@ -847,8 +903,13 @@ def main(argv=None):
         p = commands.add_parser(name)
         p.add_argument('--plan', required=True)
         p.add_argument('--expect-sha256', required=True, help='Digest from independent plan review')
+        p.add_argument('--expect-policy-sha256',
+                       help='policy-digest of the reviewed policy file; required for apply, '
+                            'enforced for rollback/status when given')
         if name != 'apply':
             p.add_argument('--legacy-policy', help='Policy for a plan written without an embedded policy')
+    p = commands.add_parser('policy-digest', help='Validate a policy file and print its canonical digest (no root)')
+    p.add_argument('--policy', required=True)
     p = commands.add_parser('probe', help='Read-only fixed-command maintenance key target')
     p.add_argument('--quiescence-db', required=True)
     p.add_argument('--policy', help='Optional private policy; default database root is the user home')
@@ -862,12 +923,18 @@ def main(argv=None):
                 private_parent(p, result['user'])
                 require(not p.exists(), 'Refusing to overwrite an existing review plan')
                 write_private(p, canonical(result), uid=result['user']['uid'], gid=result['user']['gid'])
-            output = {'ok': True, 'sha256': result['sha256'], 'services': [s['label'] for s in result['services']],
+            output = {'ok': True, 'sha256': result['sha256'], 'policy_sha256': result['policy_sha256'],
+                      'services': [s['label'] for s in result['services']],
                       'filevault': result['filevault'], 'cold_boot_verified': False}
         elif args.command == 'probe':
             output = probe(args.quiescence_db, args.policy)
+        elif args.command == 'policy-digest':
+            # Operator convenience: a relative path is made absolute (lexically);
+            # symlink components are still refused by read_policy.
+            policy, _source = read_policy(os.path.abspath(args.policy), unsafe_mode=0o022)
+            output = {'ok': True, 'policy_sha256': policy_digest(policy)}
         elif args.command == 'apply':
-            output = apply(load_review(args.plan), args.expect_sha256)
+            output = apply(load_review(args.plan), args.expect_sha256, expected_policy=args.expect_policy_sha256)
         else:
             plan = load_review(args.plan)
             legacy = None
@@ -875,7 +942,8 @@ def main(argv=None):
                 require(isinstance(plan, dict) and plan.get('schema') == LEGACY_SCHEMA,
                         'A legacy policy applies only to plans without an embedded policy')
                 legacy, _source = read_policy(args.legacy_policy, plan_owners(plan))
-            output = {'status': status, 'rollback': rollback}[args.command](plan, args.expect_sha256, legacy)
+            output = {'status': status, 'rollback': rollback}[args.command](
+                plan, args.expect_sha256, legacy, expected_policy=args.expect_policy_sha256)
         print(json.dumps(output, sort_keys=True))
         return 0
     except Refused as exc:

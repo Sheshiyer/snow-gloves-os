@@ -44,8 +44,12 @@ the service user (or root) with mode `0600`.
   Source plists with `Interactive`/`Adaptive` stay refused; a source that itself
   says `Standard` is accepted only when the policy says `Standard` for that label.
 - A `working_directory` override must be an absolute normalized path that
-  already exists inside the user's home, with no symlink components, owned by
-  the service user and private (no group/other permission bits).
+  already exists as a directory inside the user's home, with no symlink
+  components, owned by the service user (or root) and **not group- or
+  other-writable** (`mode & 022 == 0`). Normal checkouts (`0755`) and homes
+  (`0750`) qualify; `0775`/`0777` directories do not. Every override listed for
+  the user is checked at plan time, selected or not, and a refusal names the
+  label. Log directories keep the stricter private (`0700`-style) rule.
 - `quiescence.requires_ssh_probe: false` marks the host that owns the
   authoritative coordinator DB: `db_root` must be inside the user's home,
   `ssh_hosts` must be empty, `--quiescence-ssh-host` is refused and the selection
@@ -53,10 +57,36 @@ the service user (or root) with mode `0600`.
   non-empty `ssh_hosts` list (`user@host`) and one of them as
   `--quiescence-ssh-host`; `db_root` then names the remote DB root.
 - `plan` embeds the validated canonical policy in the plan, so it is covered by
-  the plan SHA-256, and records the policy file's path, hash, owner and mode as
-  `policy_source`. `apply`, `rollback` and `status` run as root against the
-  embedded copy only and never open a policy file; changing the policy means a
-  new plan and a new digest.
+  the plan SHA-256, records its canonical digest as `policy_sha256`, and records
+  the policy file's path, hash, owner and mode as `policy_source`. `apply`,
+  `rollback` and `status` run as root against the embedded copy only and never
+  open a policy file; changing the policy means a new plan and new digests.
+
+### Pin the reviewed policy digest
+
+The plan SHA-256 proves only that the plan is unchanged since whoever wrote it.
+The plan is written by the service user, so a compromised service account could
+widen the embedded policy (add a label, switch quiescence), copy the real
+`policy_source`, and re-sign the plan. `policy_source` is provenance only and is
+never verified. Root therefore does not trust the embedded policy on its own:
+`apply` **requires** `--expect-policy-sha256`, and it must equal the canonical
+digest of the embedded policy. Without it, or on any mismatch, `apply` refuses
+before taking the lock or calling `launchctl`.
+
+Compute that value yourself from the policy file you reviewed and trust (for
+example the copy in the private operations checkout). This is not a root command:
+
+```sh
+python3 -B scripts/fleet/headless.py policy-digest --policy FILE
+# {"ok": true, "policy_sha256": "<64 hex>"}
+```
+
+`policy-digest` validates the file exactly as `plan` does and hashes the
+canonical form, so key order, whitespace and omitted empty `process_type` /
+`working_directory` maps do not change it. The file must be a regular,
+non-symlinked file owned by you or root and not group- or other-writable (a
+`0644` checkout copy is fine). `plan`/`inspect` also print `policy_sha256`. Treat
+that as a hint to compare against, never as the value to pin.
 
 ## Preconditions and review contract
 
@@ -148,6 +178,8 @@ binds, logs, schedules and DB path. Review in place with
 `python3 -m json.tool "$HOME/headless-review/coding01.json"`; never paste private
 plans, raw launchctl output or configs into shared task logs. Record the printed
 SHA-256 independently; it binds the exact reviewed plan and is not a signature.
+Record the `policy-digest` of the trusted policy file separately as well (see
+above); apply needs both.
 
 ## Coding 02 maintenance probe contract
 
@@ -199,15 +231,22 @@ python3 -B scripts/fleet/headless.py plan --policy "$POLICY" --user "$USER" \
 
 ## Apply, verify and roll back
 
-Apply Coding 01 first during an empty maintenance window. Keep the recorded
-digest literal in the root command; do not dynamically trust a hash read from an
-unreviewed edited file. Use the same reviewed Python/source revision throughout.
+Apply Coding 01 first during an empty maintenance window. Keep both recorded
+digests literal in the root command; do not dynamically trust a hash read from an
+unreviewed edited file or from the plan itself. Use the same reviewed
+Python/source revision throughout.
 
 ```sh
 sudo /absolute/reviewed/python3 /absolute/reviewed/snow-gloves-os/scripts/fleet/headless.py \
   apply --plan /Users/<coordinator-user>/headless-review/coding01.json \
-  --expect-sha256 RECORDED_64_CHARACTER_CODING01_DIGEST
+  --expect-sha256 RECORDED_64_CHARACTER_CODING01_DIGEST \
+  --expect-policy-sha256 RECORDED_64_CHARACTER_POLICY_DIGEST
 ```
+
+`--expect-sha256` is the plan digest printed by `plan`; `--expect-policy-sha256`
+is the `policy-digest` of the policy file you reviewed. Plans written by the
+pre-hardening `snowgloves.headless.v2` helper (no `policy_sha256` field) are
+never applied: re-plan with this revision.
 
 The helper serializes mutations with a root-owned lock, revalidates the plan,
 and writes original selected plist bytes, plan provenance, a SQLite online
@@ -248,8 +287,13 @@ Run this status pattern on each machine with its own plan/digest:
 ```sh
 python3 -B scripts/fleet/headless.py status \
   --plan "$HOME/headless-review/coding01.json" \
-  --expect-sha256 RECORDED_64_CHARACTER_CODING01_DIGEST
+  --expect-sha256 RECORDED_64_CHARACTER_CODING01_DIGEST \
+  --expect-policy-sha256 RECORDED_64_CHARACTER_POLICY_DIGEST
 ```
+
+`status` and `rollback` accept `--expect-policy-sha256` optionally and enforce
+it when given. Both always print the plan's `policy_sha256` so it can be
+compared with the recorded value.
 
 `startup_candidate` requires FileVault confirmed **Off**, matching system
 definitions, loaded system jobs and no selected user-domain duplicates. It does
@@ -265,19 +309,22 @@ Never enable automatic desktop login. Record lock-screen, SSH-disconnect,
 monitor-disconnect, restart-before-login and controlled power-restoration tests
 as distinct receipts, including a fresh authenticated job after each boot.
 
-Rollback uses the original reviewed plan and digest:
+Rollback uses the original reviewed plan and digests. It is a recovery path,
+so the policy digest is optional, but pass it when you have it:
 
 ```sh
 sudo /absolute/reviewed/python3 /absolute/reviewed/snow-gloves-os/scripts/fleet/headless.py \
   rollback --plan /Users/<coordinator-user>/headless-review/coding01.json \
-  --expect-sha256 RECORDED_64_CHARACTER_CODING01_DIGEST
+  --expect-sha256 RECORDED_64_CHARACTER_CODING01_DIGEST \
+  --expect-policy-sha256 RECORDED_64_CHARACTER_POLICY_DIGEST
 ```
 
 Plans written before policies existed (schema `snowgloves.headless.v1`, no
 embedded policy) are refused by default. `rollback` and `status` alone accept
 them with an explicit `--legacy-policy PATH` describing the allowlists that
 were in force; the file must be private and owned by root or the plan's service
-user. `apply` never accepts a legacy plan: re-plan with `--policy`. Prefer
+user. An optional `--expect-policy-sha256` then refers to that legacy policy.
+`apply` never accepts a legacy plan: re-plan with `--policy`. Prefer
 rolling back a legacy plan with the same staged helper revision that applied it.
 
 Keep the fleet quiescent for rollback; Coding 02 also needs the Coding 01
@@ -298,8 +345,11 @@ python3 -B -m unittest discover -s tests -p test_fleet_headless.py -v
 
 Tests simulate launchctl and root-only locations inside a temporary directory.
 They cover policy validation and refusals, per-service process type and
-working-directory overrides, embedded-policy digest binding and allowlists,
-root operations that never open a policy file, legacy-plan handling,
+working-directory overrides (relaxed `0755` checkouts accepted; writable,
+foreign-owned and symlinked directories refused), embedded-policy digest binding
+and allowlists, forged-but-re-signed embedded policies refused before any
+`launchctl` call, the required `--expect-policy-sha256`, stable `policy-digest`
+output, root operations that never open a policy file, legacy-plan handling,
 backup-before-stop, non-root generation, failure journaling, full
 rollback, digest/account/host/domain tampering, source/config drift, newer
 operator changes, GUI/Keychain/inline-secret exclusion, private path bounds,

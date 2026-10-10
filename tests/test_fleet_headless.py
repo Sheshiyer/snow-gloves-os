@@ -289,7 +289,7 @@ class Headless(unittest.TestCase):
             plan = self.plan()
             path.write_bytes(original + b'\n')
             with self.assertRaisesRegex(h.Refused, 'drifted'):
-                h.apply(plan, plan['sha256'])
+                h.apply(plan, plan['sha256'], expected_policy=plan['policy_sha256'])
             self.assertFalse(self.commands)
             self.assertFalse((h.BACKUPS / plan['sha256']).exists())
             path.write_bytes(original)
@@ -299,7 +299,7 @@ class Headless(unittest.TestCase):
         plan['services'][0]['plist']['UserName'] = 'root'
         plan['sha256'] = h.digest(h.canonical({k: v for k, v in plan.items() if k != 'sha256'}))
         with self.assertRaisesRegex(h.Refused, 'differs'):
-            h.apply(plan, plan['sha256'])
+            h.apply(plan, plan['sha256'], expected_policy=plan['policy_sha256'])
         self.assertFalse(self.commands)
 
     def test_duplicate_domains_existing_daemon_and_missing_coordinator_refused(self):
@@ -325,7 +325,7 @@ class Headless(unittest.TestCase):
             self.assertEqual(json.loads((backup / 'plan.json').read_bytes()), plan)
             return normal_run(command, **kw)
         with patch.object(h, 'run', asserted_run):
-            result = h.apply(plan, plan['sha256'])
+            result = h.apply(plan, plan['sha256'], expected_policy=plan['policy_sha256'])
         self.assertFalse(result['cold_boot_verified'])
         self.assertFalse(self.source.exists())
         self.assertIn(('system', self.label), self.live)
@@ -341,7 +341,7 @@ class Headless(unittest.TestCase):
         plan = self.plan()
         self.bootstrap_error = True
         with self.assertRaisesRegex(h.Refused, 'roll back'):
-            h.apply(plan, plan['sha256'])
+            h.apply(plan, plan['sha256'], expected_policy=plan['policy_sha256'])
         journal = json.loads((h.BACKUPS / plan['sha256'] / 'journal.json').read_bytes())
         self.assertEqual(journal['phase'], 'rollback-required')
         self.assertEqual(journal['installed'], [self.label])
@@ -376,7 +376,7 @@ class Headless(unittest.TestCase):
 
     def test_rollback_preserves_newer_operator_edits(self):
         plan = self.plan()
-        h.apply(plan, plan['sha256'])
+        h.apply(plan, plan['sha256'], expected_policy=plan['policy_sha256'])
         target = self.daemons / (self.label + '.plist')
         target.write_bytes(b'NEW_OPERATOR_CHANGE')
         before = len(self.commands)
@@ -389,7 +389,7 @@ class Headless(unittest.TestCase):
         plan = self.plan()
         self.probe['state_sha256'] = 'b' * 64
         with self.assertRaisesRegex(h.Refused, 'state changed'):
-            h.apply(plan, plan['sha256'])
+            h.apply(plan, plan['sha256'], expected_policy=plan['policy_sha256'])
         self.assertFalse(self.commands)
 
     def test_real_sqlite_probe_refuses_queued_and_running_and_cancel_requested(self):
@@ -430,7 +430,7 @@ class Headless(unittest.TestCase):
 
     def test_filevault_on_never_reports_startup_candidate_or_physical_proof(self):
         plan = self.plan()
-        h.apply(plan, plan['sha256'])
+        h.apply(plan, plan['sha256'], expected_policy=plan['policy_sha256'])
         with patch.object(h, 'filevault', lambda: 'on-or-unknown'):
             result = h.status(plan, plan['sha256'])
         self.assertFalse(result['startup_candidate'])
@@ -597,7 +597,7 @@ class Headless(unittest.TestCase):
                 with self.assertRaisesRegex(h.Refused, 'GUI process type'):
                     self.render(worker)
 
-    def test_working_directory_override_valid_outside_symlink_missing_and_shared(self):
+    def test_working_directory_override_valid_outside_symlink_missing_and_writable(self):
         checkout = self.home / 'checkout'
         checkout.mkdir(mode=0o700)
         worker = self.make_agent(self.worker, WorkingDirectory=str(self.home))
@@ -605,24 +605,58 @@ class Headless(unittest.TestCase):
         entry['working_directory'] = {self.worker: str(checkout)}
         generated, _ = self.render(worker, entry)
         self.assertEqual(generated['WorkingDirectory'], str(checkout))
+        # Normal checkouts (0755) and home-like directories (0750) are accepted.
+        for mode in (0o755, 0o750, 0o700, 0o555):
+            with self.subTest(accepted=oct(mode)):
+                checkout.chmod(mode)
+                self.assertEqual(self.render(worker, entry)[0]['WorkingDirectory'], str(checkout))
+        checkout.chmod(0o755)
         outside = self.root / 'outside'
         outside.mkdir(mode=0o700)
         alias = self.home / 'alias'
         alias.symlink_to(outside, target_is_directory=True)
-        shared = self.home / 'shared'
-        shared.mkdir()
-        shared.chmod(0o755)
+        inner_alias = self.home / 'inner-alias'
+        inner_alias.symlink_to(checkout, target_is_directory=True)
+        group_writable = self.home / 'group-writable'
+        group_writable.mkdir()
+        group_writable.chmod(0o775)
+        world_writable = self.home / 'world-writable'
+        world_writable.mkdir()
+        world_writable.chmod(0o777)
+        sticky_world = self.home / 'sticky-world'
+        sticky_world.mkdir()
+        sticky_world.chmod(0o1777)
         for value, pattern in ((str(outside), 'outside the service home'), (str(alias), 'Symlink'),
-                               (str(alias / 'nested'), 'Symlink'),
-                               (str(self.home / 'missing'), 'already exist'), (str(shared), 'private')):
-            with self.subTest(value=value):
+                               (str(alias / 'nested'), 'Symlink'), (str(inner_alias), 'Symlink'),
+                               (str(self.home / 'missing'), 'already exist'),
+                               (str(group_writable), 'group- or other-writable'),
+                               (str(world_writable), 'group- or other-writable'),
+                               (str(sticky_world), 'group- or other-writable'),
+                               ('relative/dir', 'absolute')):
+            with self.subTest(refused=value):
                 entry['working_directory'] = {self.worker: value}
-                with self.assertRaisesRegex(h.Refused, pattern):
+                with self.assertRaisesRegex(h.Refused, pattern) as caught:
                     self.render(worker, entry)
+                self.assertIn('policy working directory for ' + self.worker, str(caught.exception))
+        entry['working_directory'] = {self.worker: str(checkout)}
+        stranger = os.getuid() + 1
+        with ExitStack() as stack:
+            self.owned_as(stack, os.getuid(), {checkout: stranger})
+            with self.assertRaisesRegex(h.Refused, 'owned by the service user or root'):
+                self.render(worker, entry)
+        with ExitStack() as stack:
+            self.owned_as(stack, os.getuid(), {checkout: 0})
+            self.assertEqual(self.render(worker, entry)[0]['WorkingDirectory'], str(checkout))
         doc = copy.deepcopy(self.policy_doc)
-        doc['users'][USER]['working_directory'] = {self.worker: str(self.home / 'missing')}
-        with self.assertRaisesRegex(h.Refused, 'already exist'):
+        renew = 'com.snowgloves.hermes-pilot.tls-renew'
+        doc['users'][USER]['working_directory'] = {renew: str(self.home / 'missing')}
+        # Overrides are validated for every label of the user, selected or not,
+        # and the refusal names the label.
+        with self.assertRaisesRegex(h.Refused, 'already exist.*policy working directory for ' + renew):
             self.plan(policy=self.write_policy(doc, 'missing-wd.json'))
+        doc['users'][USER]['working_directory'] = {renew: str(group_writable)}
+        with self.assertRaisesRegex(h.Refused, 'group- or other-writable.*' + renew):
+            self.plan(policy=self.write_policy(doc, 'writable-wd.json'))
         doc['users'][USER]['working_directory'] = {self.worker: str(checkout)}
         self.make_agent(self.worker)
         plan = self.plan(self.label, self.worker, policy=self.write_policy(doc, 'wd.json'))
@@ -630,6 +664,14 @@ class Headless(unittest.TestCase):
         self.assertEqual(planned[self.worker]['WorkingDirectory'], str(checkout))
         self.assertEqual(planned[self.worker]['ProcessType'], 'Standard')
         self.assertEqual(planned[self.label]['ProcessType'], 'Background')
+
+    def test_log_directories_stay_private_while_working_directories_relax(self):
+        self.logs.chmod(0o755)
+        with self.assertRaisesRegex(h.Refused, 'private'):
+            self.render()
+        self.logs.chmod(0o750)
+        with self.assertRaisesRegex(h.Refused, 'private'):
+            self.render()
 
     def test_policy_is_embedded_fingerprinted_and_digest_bound(self):
         with patch.object(h.time, 'time', lambda: 1_700_000_000):
@@ -649,6 +691,9 @@ class Headless(unittest.TestCase):
             h.validate_plan(tampered, first['sha256'])
 
     def resign(self, plan):
+        """Forge as the plan's writer could: recompute both embedded digests."""
+        if 'policy' in plan and 'policy_sha256' in plan:
+            plan['policy_sha256'] = h.digest(h.canonical(plan['policy']))
         plan['sha256'] = h.digest(h.canonical({k: v for k, v in plan.items() if k != 'sha256'}))
         return plan
 
@@ -682,7 +727,7 @@ class Headless(unittest.TestCase):
         downgraded = copy.deepcopy(plan)
         downgraded['policy']['users'][USER]['process_type'] = {}
         with self.assertRaisesRegex(h.Refused, 'differs'):
-            h.apply(self.resign(downgraded), downgraded['sha256'])
+            h.apply(self.resign(downgraded), downgraded['sha256'], expected_policy=downgraded['policy_sha256'])
         self.assertFalse(self.commands)
         with self.assertRaisesRegex(h.Refused, 'coordinator'):
             self.plan(self.worker)
@@ -710,12 +755,200 @@ class Headless(unittest.TestCase):
             for name in ('open', 'read_bytes', 'read_text'):
                 stack.enter_context(patch.object(Path, name, spy(getattr(Path, name))))
             h.validate_plan(plan, plan['sha256'])
-            h.apply(plan, plan['sha256'])
+            h.apply(plan, plan['sha256'], expected_policy=plan['policy_sha256'])
             self.assertTrue(h.status(plan, plan['sha256'])['startup_candidate'])
             h.rollback(plan, plan['sha256'])
         self.assertTrue(calls)
         self.assertEqual(seen, [])
         self.assertTrue(self.source.exists())
+
+    # --- operator-pinned policy digest ------------------------------------
+
+    def record_launchctl(self, stack):
+        """Record every launchctl touch, including read-only print/print-disabled probes."""
+        calls = []
+        live, off = self.live, self.disabled
+        stack.enter_context(patch.object(h, 'loaded', lambda d, l: calls.append(('print', d, l)) or (d, l) in live))
+        stack.enter_context(patch.object(h, 'disabled', lambda d, l: calls.append(('print-disabled', d, l)) or (d, l) in off))
+        stack.enter_context(patch.object(h, 'run', lambda command, **kw: calls.append(tuple(command)) or self.fake_run(command, **kw)))
+        return calls
+
+    def remote_plan(self):
+        doc = copy.deepcopy(self.policy_doc)
+        doc['users'][USER]['labels'] = [self.worker]
+        doc['users'][USER]['quiescence'] = {'db_root': str(self.home), 'ssh_hosts': [REMOTE], 'requires_ssh_probe': True}
+        self.make_agent(self.worker)
+        return h.make_plan(USER, [self.worker], str(self.db), REMOTE, identity_file=str(self.config),
+                           policy=str(self.write_policy(doc, 'remote.json')))
+
+    def test_forged_embedded_policy_refused_before_any_launchctl_call(self):
+        local, remote = self.plan(), self.remote_plan()
+        def interactive(p):
+            p['users'][USER]['process_type'][self.worker] = 'Interactive'
+        def root_user(p):
+            p['users']['root'] = p['users'].pop(USER)
+        def apple_label(p):
+            p['users'][USER]['labels'].append('com.apple.foo')
+        def local_quiescence(p):
+            p['users'][USER]['quiescence'] = {'db_root': str(self.home), 'ssh_hosts': [], 'requires_ssh_probe': False}
+        cases = (('interactive', local, interactive), ('root user', local, root_user),
+                 ('apple label', local, apple_label), ('ssh user switched to local db', remote, local_quiescence))
+        for name, plan, change in cases:
+            forged = copy.deepcopy(plan)
+            change(forged['policy'])
+            self.resign(forged)
+            self.assertEqual(forged['policy_sha256'], h.digest(h.canonical(forged['policy'])))
+            self.assertEqual(h.canonical(json.loads(h.canonical(forged))), h.canonical(forged))
+            # Neither the operator's real digest nor the forger's own digest gets through.
+            for expected_policy in (plan['policy_sha256'], forged['policy_sha256']):
+                with self.subTest(name, expected_policy=expected_policy[:8]), ExitStack() as stack:
+                    calls = self.record_launchctl(stack)
+                    with self.assertRaises(h.Refused):
+                        h.apply(forged, forged['sha256'], expected_policy=expected_policy)
+                    self.assertEqual(calls, [])
+                    self.assertFalse(h.BACKUPS.exists())
+        # A well-formed policy swap (extra label, copied policy_source) is caught only
+        # by the operator's digest: the forger can re-sign everything else.
+        widened = copy.deepcopy(local)
+        widened['policy']['users'][USER]['labels'].append('com.example.extra')
+        self.resign(widened)
+        self.assertEqual(widened['policy_source'], local['policy_source'])
+        h.validate_plan(widened, widened['sha256'])
+        with ExitStack() as stack:
+            calls = self.record_launchctl(stack)
+            with self.assertRaisesRegex(h.Refused, 'operator-reviewed policy digest'):
+                h.apply(widened, widened['sha256'], expected_policy=local['policy_sha256'])
+            self.assertEqual(calls, [])
+
+    def test_apply_requires_matching_expect_policy_sha256(self):
+        plan = self.plan()
+        self.assertEqual(plan['policy_sha256'], h.policy_digest(self.policy_doc))
+        with ExitStack() as stack:
+            calls = self.record_launchctl(stack)
+            for value, pattern in ((None, '--expect-policy-sha256'), ('', '--expect-policy-sha256'),
+                                   (plan['policy_sha256'].upper(), '--expect-policy-sha256'),
+                                   (plan['policy_sha256'][:63], '--expect-policy-sha256'),
+                                   ('b' * 64, 'operator-reviewed policy digest'),
+                                   (plan['sha256'], 'operator-reviewed policy digest')):
+                with self.subTest(value=value):
+                    with self.assertRaisesRegex(h.Refused, pattern):
+                        h.apply(plan, plan['sha256'], expected_policy=value)
+            with self.assertRaisesRegex(h.Refused, '--expect-policy-sha256'):
+                h.apply(plan, plan['sha256'])
+            stored = copy.deepcopy(plan)
+            stored['policy_sha256'] = 'c' * 64
+            stored['sha256'] = h.digest(h.canonical({k: v for k, v in stored.items() if k != 'sha256'}))
+            for operation in (h.apply, h.status, h.rollback):
+                with self.subTest(operation=operation.__name__):
+                    with self.assertRaisesRegex(h.Refused, 'Embedded headless policy digest'):
+                        operation(stored, stored['sha256'], expected_policy=plan['policy_sha256'])
+            # Plans from the pre-hardening helper have no recorded digest: never applied.
+            unrecorded = {k: v for k, v in plan.items() if k != 'policy_sha256'}
+            self.resign(unrecorded)
+            with self.assertRaisesRegex(h.Refused, 'Embedded headless policy digest'):
+                h.apply(unrecorded, unrecorded['sha256'], expected_policy=plan['policy_sha256'])
+            self.assertEqual(calls, [])
+        self.assertFalse(h.BACKUPS.exists())
+        self.assertEqual(h.status(unrecorded, unrecorded['sha256'])['policy_sha256'], plan['policy_sha256'])
+        result = h.apply(plan, plan['sha256'], expected_policy=plan['policy_sha256'])
+        self.assertEqual(result['policy_sha256'], plan['policy_sha256'])
+        self.assertEqual(h.status(plan, plan['sha256'])['policy_sha256'], plan['policy_sha256'])
+        self.assertTrue(h.status(plan, plan['sha256'], expected_policy=plan['policy_sha256'])['startup_candidate'])
+        with self.assertRaisesRegex(h.Refused, 'operator-reviewed'):
+            h.status(plan, plan['sha256'], expected_policy='b' * 64)
+        before = len(self.commands)
+        with self.assertRaisesRegex(h.Refused, 'operator-reviewed'):
+            h.rollback(plan, plan['sha256'], expected_policy='b' * 64)
+        self.assertEqual(len(self.commands), before)
+        # Rollback is a recovery path: the policy digest is optional there, and printed.
+        self.assertEqual(h.rollback(plan, plan['sha256'])['policy_sha256'], plan['policy_sha256'])
+
+    def test_cli_apply_requires_policy_digest_flag_and_reports_digests(self):
+        plan = self.plan()
+        def cli(*args):
+            output, errors = io.StringIO(), io.StringIO()
+            with patch.object(h, 'load_review', lambda path: copy.deepcopy(plan)), \
+                    patch('sys.stdout', output), patch('sys.stderr', errors):
+                code = h.main(list(args))
+            return code, output.getvalue(), errors.getvalue()
+        code, _out, err = cli('apply', '--plan', '/unused', '--expect-sha256', plan['sha256'])
+        self.assertEqual(code, 2)
+        self.assertIn('--expect-policy-sha256', json.loads(err)['reason'])
+        code, _out, err = cli('apply', '--plan', '/unused', '--expect-sha256', plan['sha256'],
+                              '--expect-policy-sha256', 'b' * 64)
+        self.assertEqual(code, 2)
+        self.assertIn('operator-reviewed', json.loads(err)['reason'])
+        self.assertFalse(self.commands)
+        code, out, _err = cli('apply', '--plan', '/unused', '--expect-sha256', plan['sha256'],
+                              '--expect-policy-sha256', plan['policy_sha256'])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)['policy_sha256'], plan['policy_sha256'])
+        code, out, _err = cli('status', '--plan', '/unused', '--expect-sha256', plan['sha256'])
+        self.assertEqual((code, json.loads(out)['policy_sha256']), (0, plan['policy_sha256']))
+        code, _out, err = cli('rollback', '--plan', '/unused', '--expect-sha256', plan['sha256'],
+                              '--expect-policy-sha256', 'b' * 64)
+        self.assertEqual(code, 2)
+        code, out, _err = cli('rollback', '--plan', '/unused', '--expect-sha256', plan['sha256'],
+                              '--expect-policy-sha256', plan['policy_sha256'])
+        self.assertEqual((code, json.loads(out)['policy_sha256']), (0, plan['policy_sha256']))
+
+    def policy_digest_cli(self, path):
+        output, errors = io.StringIO(), io.StringIO()
+        with patch('sys.stdout', output), patch('sys.stderr', errors):
+            code = h.main(['policy-digest', '--policy', str(path)])
+        return code, (json.loads(output.getvalue()) if code == 0 else json.loads(errors.getvalue()))
+
+    def test_policy_digest_output_is_stable_canonical_and_matches_plans(self):
+        pinned = {'schema': h.POLICY_SCHEMA, 'users': {'operator': {'labels': ['com.example.a'], 'quiescence': {
+            'db_root': '/Users/operator', 'ssh_hosts': [], 'requires_ssh_probe': False}}}}
+        canonical = (b'{"schema":"snowgloves.headless-policy.v1","users":{"operator":{"labels":["com.example.a"],'
+                     b'"process_type":{},"quiescence":{"db_root":"/Users/operator","requires_ssh_probe":false,'
+                     b'"ssh_hosts":[]},"working_directory":{}}}}')
+        expected = '4026d9b4b588d5b0b690dd0aa4273369a8ded5dd3307781feffffc9ff159ac7c'
+        self.assertEqual(h.canonical(h.validate_policy(pinned)), canonical)
+        self.assertEqual(h.digest(canonical), expected)
+        self.assertEqual(h.policy_digest(pinned), expected)
+        self.assertEqual(self.policy_digest_cli(self.write_policy(pinned, 'pinned.json')), (0, {'ok': True, 'policy_sha256': expected}))
+        # Formatting, key order and explicit empty optional maps do not change the digest.
+        variant = self.root / 'variant.json'
+        variant.write_text('{\n  "users": {"operator": {"working_directory": {}, "quiescence": {"requires_ssh_probe": false,'
+                           ' "ssh_hosts": [], "db_root": "/Users/operator"}, "process_type": {},'
+                           ' "labels": ["com.example.a"]}},\n  "schema": "snowgloves.headless-policy.v1"\n}\n')
+        variant.chmod(0o644)
+        self.assertEqual(self.policy_digest_cli(variant), (0, {'ok': True, 'policy_sha256': expected}))
+        # Any semantic change (label, label order, quiescence) changes it.
+        for change in (lambda e: e['labels'].append('com.example.b'),
+                       lambda e: e.update(labels=['com.example.b']),
+                       lambda e: e['quiescence'].update(db_root='/Users/operator/data')):
+            doc = copy.deepcopy(pinned)
+            change(doc['users']['operator'])
+            self.assertNotEqual(h.policy_digest(doc), expected)
+        # It equals the digest a plan embeds for the same file.
+        code, result = self.policy_digest_cli(self.policy)
+        self.assertEqual(code, 0)
+        self.assertEqual(result['policy_sha256'], self.plan()['policy_sha256'])
+        self.assertEqual(self.policy_digest_cli(EXAMPLE_POLICY)[0], 0)
+        cwd = os.getcwd()
+        os.chdir(self.root)
+        try:
+            self.assertEqual(self.policy_digest_cli('pinned.json'), (0, {'ok': True, 'policy_sha256': expected}))
+        finally:
+            os.chdir(cwd)
+        # The reviewed copy may be readable but never writable by others, a symlink or invalid.
+        for mode in (0o664, 0o646, 0o666):
+            with self.subTest(mode=oct(mode)):
+                variant.chmod(mode)
+                code, result = self.policy_digest_cli(variant)
+                self.assertEqual(code, 2)
+                self.assertIn('writable', result['reason'])
+        alias = self.root / 'alias-policy.json'
+        alias.symlink_to(self.policy)
+        self.assertIn('Symlink', self.policy_digest_cli(alias)[1]['reason'])
+        bad = copy.deepcopy(pinned)
+        bad['users']['operator']['process_type'] = {'com.example.a': 'Interactive'}
+        code, result = self.policy_digest_cli(self.write_policy(bad, 'bad.json'))
+        self.assertEqual(code, 2)
+        self.assertNotIn('policy_sha256', result)
 
     def legacy(self):
         plan = self.plan()
@@ -731,6 +964,10 @@ class Headless(unittest.TestCase):
                 with self.assertRaisesRegex(h.Refused, '--legacy-policy'):
                     operation(legacy, legacy['sha256'])
         self.assertFalse(h.status(legacy, legacy['sha256'], policy)['startup_candidate'])
+        self.assertEqual(h.status(legacy, legacy['sha256'], policy, expected_policy=h.policy_digest(policy))['policy_sha256'],
+                         h.policy_digest(policy))
+        with self.assertRaisesRegex(h.Refused, 'operator-reviewed'):
+            h.status(legacy, legacy['sha256'], policy, expected_policy='b' * 64)
         backup = h.backup_directory(legacy)
         h.save_journal(backup, {'schema': h.LEGACY_SCHEMA, 'phase': 'prepared', 'stopped': [], 'installed': []})
         self.assertTrue(h.rollback(legacy, legacy['sha256'], policy)['ok'])
