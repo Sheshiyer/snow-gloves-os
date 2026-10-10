@@ -26,18 +26,21 @@ import sys
 import tempfile
 import time
 
-SCHEMA = 'snowgloves.headless.v1'
+SCHEMA = 'snowgloves.headless.v2'
+# Plans written before policies existed; only rollback/status with --legacy-policy.
+LEGACY_SCHEMA = 'snowgloves.headless.v1'
+POLICY_SCHEMA = 'snowgloves.headless-policy.v1'
 DAEMONS = Path('/Library/LaunchDaemons')
 BACKUPS = Path('/private/var/db/snowgloves-headless')
-USERS = {'axio', 'maccoding2'}
-SERVICES = {
-    'axio': {'com.snowgloves.hermes-pilot.' + s for s in
-             ('coordinator', 'bridge', 'worker', 'ui', 'api', 'tls', 'tls-renew', 'mcp-http')} |
-            {'com.temperance.engine.omniroute', 'com.snowgloves.hermes'},
-    'maccoding2': {'fr.heyzack.snowgloves.coding02-worker',
-                   'fr.heyzack.snowgloves.coding02-transport'},
-}
-SSH_HOSTS = {'axio@coding-mac.tail32e298.ts.net', 'axio@100.117.187.123'}
+# Service users, labels, process types, working directories and quiescence
+# destinations are fleet identities: they come only from a private policy file.
+COORDINATOR = 'com.snowgloves.hermes-pilot.coordinator'
+PROCESS_TYPES = ('Background', 'Standard')
+POLICY_USER_KEYS = {'labels', 'process_type', 'working_directory', 'quiescence'}
+POLICY_QUIESCENCE_KEYS = {'db_root', 'ssh_hosts', 'requires_ssh_probe'}
+USER_NAME = re.compile(r'[a-z_][a-z0-9_-]{0,31}')
+LABEL = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,200}')
+SSH_DESTINATION = re.compile(r'[a-z_][a-z0-9_-]{0,31}@[A-Za-z0-9][A-Za-z0-9.-]{0,252}')
 KEYS = {'Label', 'Program', 'ProgramArguments', 'EnvironmentVariables',
         'WorkingDirectory', 'StandardOutPath', 'StandardErrorPath', 'RunAtLoad',
         'KeepAlive', 'ThrottleInterval', 'StartInterval', 'StartCalendarInterval',
@@ -92,12 +95,155 @@ def fingerprint(path):
             'uid': s.st_uid, 'gid': s.st_gid, 'mode': stat.S_IMODE(s.st_mode)}
 
 
-def user_info(user):
-    require(user in USERS, 'Only the reviewed Coding Mac service users are supported')
-    entry = pwd.getpwnam(user)
+def strict_json(data):
+    def pairs(items):
+        require(len({k for k, _ in items}) == len(items), 'Duplicate headless policy key refused')
+        return dict(items)
+    def constant(_value):
+        raise Refused('Non-finite headless policy number refused')
+    try:
+        return json.loads(data.decode('utf-8'), object_pairs_hook=pairs, parse_constant=constant)
+    except Refused:
+        raise
+    except Exception:
+        raise Refused('Headless policy is not valid JSON') from None
+
+
+def absolute_text(value, reason):
+    """String-only canonical absolute path check; never touches the filesystem."""
+    require(isinstance(value, str) and value.startswith('/') and value != '/' and '\x00' not in value, reason)
+    p = Path(value)
+    require(str(p) == value and '..' not in p.parts and '.' not in p.parts, reason)
+    return p
+
+
+def validate_policy(policy):
+    """Return the canonical form of a headless policy; pure, no filesystem access."""
+    require(isinstance(policy, dict) and set(policy) == {'schema', 'users'} and
+            policy['schema'] == POLICY_SCHEMA, 'Invalid headless policy schema')
+    users = policy['users']
+    require(isinstance(users, dict) and users, 'Headless policy must name at least one service user')
+    normalized = {}
+    for user, entry in users.items():
+        require(isinstance(user, str) and USER_NAME.fullmatch(user) and user != 'root',
+                'Invalid headless policy service user')
+        require(isinstance(entry, dict) and set(entry) <= POLICY_USER_KEYS and
+                {'labels', 'quiescence'} <= set(entry), 'Unknown or missing headless policy user keys')
+        labels = entry['labels']
+        require(isinstance(labels, list) and labels and len(labels) == len(set(map(str, labels))) and
+                all(isinstance(x, str) and LABEL.fullmatch(x) and not x.startswith('com.apple.') for x in labels),
+                'Headless policy labels must be unique launchd labels')
+        process = entry.get('process_type', {})
+        require(isinstance(process, dict) and set(process) <= set(labels),
+                'Headless policy process type names an unlisted label')
+        require(all(isinstance(v, str) and v in PROCESS_TYPES for v in process.values()),
+                'Headless policy process type must be Background or Standard')
+        directories = entry.get('working_directory', {})
+        require(isinstance(directories, dict) and set(directories) <= set(labels),
+                'Headless policy working directory names an unlisted label')
+        for value in directories.values():
+            absolute_text(value, 'Headless policy working directory must be an absolute normalized path')
+        quiescence = entry['quiescence']
+        require(isinstance(quiescence, dict) and set(quiescence) == POLICY_QUIESCENCE_KEYS,
+                'Unknown or missing headless policy quiescence keys')
+        absolute_text(quiescence['db_root'], 'Headless policy database root must be an absolute normalized path')
+        require(type(quiescence['requires_ssh_probe']) is bool, 'Headless policy SSH probe flag must be boolean')
+        hosts = quiescence['ssh_hosts']
+        require(isinstance(hosts, list) and len(hosts) == len(set(map(str, hosts))) and
+                all(isinstance(x, str) and SSH_DESTINATION.fullmatch(x) for x in hosts),
+                'Invalid headless policy SSH destination')
+        require(bool(hosts) == quiescence['requires_ssh_probe'],
+                'Headless policy lists SSH destinations exactly when the SSH probe is required')
+        normalized[user] = {'labels': list(labels), 'process_type': dict(process),
+                            'working_directory': dict(directories),
+                            'quiescence': {'db_root': quiescence['db_root'], 'ssh_hosts': list(hosts),
+                                           'requires_ssh_probe': quiescence['requires_ssh_probe']}}
+    return {'schema': POLICY_SCHEMA, 'users': normalized}
+
+
+def policy_digest(policy):
+    """SHA-256 of the canonical validated policy; the value an operator pins at apply."""
+    return digest(canonical(validate_policy(policy)))
+
+
+def hex_digest(value):
+    return isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value) is not None
+
+
+def read_policy(value, owners=None, *, unsafe_mode=0o077):
+    """Read a private policy file (never at root time for planned changes).
+
+    policy-digest relaxes only the mode rule (unsafe_mode=0o022): a reviewed
+    copy may be readable, but never writable by anyone but its owner.
+    """
+    p = path_checked(value)
+    try:
+        fd = os.open(p, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError:
+        raise Refused('Headless policy is missing or unreadable') from None
+    with os.fdopen(fd, 'rb') as stream:
+        s = os.fstat(stream.fileno())
+        require(stat.S_ISREG(s.st_mode) and s.st_size <= 1_000_000, 'Headless policy must be a small regular file')
+        require(s.st_uid in (owners or {0, os.geteuid()}),
+                'Headless policy must be owned by the service user or root')
+        require(stat.S_IMODE(s.st_mode) & unsafe_mode == 0,
+                'Headless policy must be private' if unsafe_mode & 0o044 else
+                'Headless policy must not be group- or other-writable')
+        data = stream.read(1_000_001)
+    return validate_policy(strict_json(data)), {'path': str(p), 'sha256': digest(data), 'uid': s.st_uid,
+                                                'gid': s.st_gid, 'mode': stat.S_IMODE(s.st_mode)}
+
+
+def user_policy(policy, info):
+    """Select one user's policy and apply home-relative string checks; no filesystem access."""
+    require(info['name'] in policy['users'], 'Service user is not in the headless policy')
+    entry = policy['users'][info['name']]
+    home = Path(info['home'])
+    for value in entry['working_directory'].values():
+        p = Path(value)
+        require(p == home or p.is_relative_to(home), 'Policy working directory is outside the service home')
+    root = Path(entry['quiescence']['db_root'])
+    require(entry['quiescence']['requires_ssh_probe'] or root == home or root.is_relative_to(home),
+            'Local quiescence database root must be inside the service home')
+    return entry
+
+
+def working_directory(value, info, label):
+    """A policy working-directory override for label (named in any refusal).
+
+    Unlike log directories it need not be private: a normal 0755 checkout or a
+    0750 home is accepted. It must be real (no symlink components), inside the
+    service home, owned by the service user or root and not group/other-writable.
+    """
+    where = ' (policy working directory for ' + label + ')'
+    try:
+        home = Path(info['home'])
+        p = path_checked(value)
+        require(p == home or p.is_relative_to(home), 'Working directory is outside the service home')
+        require(p.is_dir(), 'Working directory must already exist')
+        s = p.stat()
+        require(s.st_uid in (info['uid'], 0), 'Working directory must be owned by the service user or root')
+        require(stat.S_IMODE(s.st_mode) & 0o022 == 0, 'Working directory must not be group- or other-writable')
+    except Refused as exc:
+        raise Refused(str(exc) + where) from None
+    return p
+
+
+def account(user):
+    require(isinstance(user, str) and USER_NAME.fullmatch(user) is not None and user != 'root',
+            'Service user must be a valid non-root account name')
+    try:
+        entry = pwd.getpwnam(user)
+    except KeyError:
+        raise Refused('Service user account does not exist') from None
     require(entry.pw_uid > 0 and entry.pw_dir == '/Users/' + user,
             'Service user must be non-root with its expected home')
     return {'name': user, 'uid': entry.pw_uid, 'gid': entry.pw_gid, 'home': entry.pw_dir}
+
+
+def user_info(user, policy):
+    require(isinstance(user, str) and user in policy['users'], 'Service user is not in the headless policy')
+    return account(user)
 
 
 def safe_text(value):
@@ -131,8 +277,11 @@ def executable_path(value, home):
     return path_checked(value)
 
 
-def render(source, info):
-    """Return generated plist and fingerprints; config content is never exposed."""
+def render(source, info, policy):
+    """Return generated plist and fingerprints; config content is never exposed.
+
+    policy is the selected user's validated policy entry (see user_policy).
+    """
     home = Path(info['home'])
     source = path_checked(str(source), home)
     require(source.parent == home / 'Library/LaunchAgents', 'Source is not a user LaunchAgent')
@@ -143,7 +292,7 @@ def render(source, info):
         raise Refused('Invalid source plist') from None
     require(isinstance(raw, dict), 'Invalid source plist dictionary')
     label = raw.get('Label')
-    require(label in SERVICES[info['name']] and source.name == label + '.plist',
+    require(label in policy['labels'] and source.name == label + '.plist',
             'Service label is outside the reviewed allowlist')
     require(set(raw) <= KEYS, 'Unreviewed or GUI-only launchd property refused')
     args = raw.get('ProgramArguments')
@@ -207,15 +356,21 @@ def render(source, info):
         p = Path(component)
         require(str(p) == component and any(p.resolve().is_relative_to(Path(r)) for r in
                 ('/opt/homebrew', '/usr', '/bin', '/sbin', info['home'])), 'Unreviewed PATH root')
-    wd = path_checked(raw.get('WorkingDirectory', info['home']))
-    require(wd.is_dir() and (wd == home or wd.is_relative_to(home)), 'Working directory is outside the service home')
+    if label in policy['working_directory']:
+        wd = working_directory(policy['working_directory'][label], info, label)
+    else:
+        wd = path_checked(raw.get('WorkingDirectory', info['home']))
+        require(wd.is_dir() and (wd == home or wd.is_relative_to(home)), 'Working directory is outside the service home')
     require('StandardOutPath' in raw and 'StandardErrorPath' in raw, 'Private stdout and stderr paths are required')
     for k in ('StandardOutPath', 'StandardErrorPath'):
         safe_text(raw[k])
         private_parent(path_checked(raw[k], home), info)
     for k in ('RunAtLoad', 'KeepAlive'):
         require(k not in raw or isinstance(raw[k], bool), 'Complex launch conditions need separate review')
-    require('ProcessType' not in raw or raw['ProcessType'] == 'Background', 'GUI process type refused')
+    process_type = policy['process_type'].get(label, 'Background')
+    require(raw.get('ProcessType', 'Background') in PROCESS_TYPES, 'GUI process type refused')
+    require(raw.get('ProcessType', 'Background') == 'Background' or process_type == 'Standard',
+            'Standard source process type requires a Standard policy entry')
     for k in ('StartInterval', 'ThrottleInterval', 'ExitTimeOut'):
         require(k not in raw or type(raw[k]) is int and raw[k] > 0, 'Invalid launchd interval')
     if 'StartCalendarInterval' in raw:
@@ -241,7 +396,7 @@ def render(source, info):
     if 'Program' in generated:
         generated['Program'] = generated['ProgramArguments'][0]
     generated.update(UserName=info['name'], GroupName=grp.getgrgid(info['gid']).gr_name,
-                     EnvironmentVariables=env, WorkingDirectory=str(wd), ProcessType='Background', Umask=0o077)
+                     EnvironmentVariables=env, WorkingDirectory=str(wd), ProcessType=process_type, Umask=0o077)
     generated['ThrottleInterval'] = max(30, min(300, raw.get('ThrottleInterval', 30)))
     generated.setdefault('RunAtLoad', not scheduled)
     if not scheduled:
@@ -298,10 +453,11 @@ print(json.dumps({'ok':s=='ok','pending':sum(x[1] in ('queued','running','cancel
 """
 
 
-def database_state(spec, info, *, require_stopped=False):
-    db = path_checked(spec['db'], Path('/Users/axio'))
+def database_state(spec, info, quiescence, *, require_stopped=False):
+    db = path_checked(spec['db'], Path(quiescence['db_root']))
     if spec.get('ssh_host'):
-        require(spec['ssh_host'] in SSH_HOSTS, 'Unreviewed coordinator SSH destination')
+        require(quiescence['requires_ssh_probe'] and spec['ssh_host'] in quiescence['ssh_hosts'],
+                'Unreviewed coordinator SSH destination')
         identity = path_checked(spec.get('identity_file'), Path(info['home']))
         private_file(identity, info['uid'])
         command = ['/usr/bin/ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10',
@@ -314,10 +470,10 @@ def database_state(spec, info, *, require_stopped=False):
         except Exception:
             raise Refused('Coordinator quiescence probe returned invalid data') from None
         require(not require_stopped or state.get('scheduler_loaded') is False,
-                'Stop the coordinator before the Coding02 cutover or rollback')
+                'Stop the coordinator before a remote-probe cutover or rollback')
         state.pop('scheduler_loaded', None)
     else:
-        require(info['name'] == 'axio', 'Coding02 requires the coordinator SSH quiescence probe')
+        require(not quiescence['requires_ssh_probe'], 'This service user requires the coordinator SSH quiescence probe')
         private_file(db, info['uid'])
         try:
             with closing(sqlite3.connect(db.as_uri() + '?mode=ro', uri=True, timeout=5)) as conn:
@@ -338,20 +494,35 @@ def filevault():
     return 'off' if result.returncode == 0 and result.stdout.strip() == b'FileVault is Off.' else 'on-or-unknown'
 
 
-def make_plan(user, labels, db, ssh_host=None, critical_files=(), identity_file=None):
+def make_plan(user, labels, db, ssh_host=None, critical_files=(), identity_file=None, *, policy=None):
+    require(policy, 'A private headless policy is required; pass --policy PATH')
     require(platform.system() == 'Darwin', 'This command requires the target macOS host')
-    info = user_info(user)
-    require(os.geteuid() in (0, info['uid']), 'Run inspect/plan as the selected service user or root')
-    require(labels and len(labels) == len(set(labels)) and set(labels) <= SERVICES[user], 'Select unique reviewed labels explicitly')
-    require(user != 'axio' or 'com.snowgloves.hermes-pilot.coordinator' in labels,
-            'Coding01 migration must include its coordinator to fence submissions')
-    require(user != 'axio' or not ssh_host, 'Coding01 must inspect its local authoritative database')
-    spec = {'db': str(path_checked(db, Path('/Users/axio'))), 'ssh_host': ssh_host, 'identity_file': identity_file}
-    state = database_state(spec, info)
+    # Resolve the selected account before opening the policy so a root-run
+    # plan accepts a policy owned by that service user; nobody else's file is.
+    service = account(user)
+    require(os.geteuid() in (0, service['uid']), 'Run inspect/plan as the selected service user or root')
+    policy, policy_source = read_policy(policy, {0, os.geteuid(), service['uid']})
+    info = user_info(user, policy)
+    require(info['uid'] == service['uid'], 'Service user changed while reading the headless policy')
+    require(policy_source['uid'] in (0, info['uid']), 'Headless policy must be owned by the service user or root')
+    entry = user_policy(policy, info)
+    quiescence = entry['quiescence']
+    require(labels and len(labels) == len(set(labels)) and set(labels) <= set(entry['labels']),
+            'Select unique reviewed labels explicitly')
+    require(quiescence['requires_ssh_probe'] or COORDINATOR in labels,
+            'Local coordinator migration must include its coordinator to fence submissions')
+    require(quiescence['requires_ssh_probe'] == bool(ssh_host),
+            'Quiescence SSH probe selection does not match the headless policy')
+    # Every override for this user must be valid (the policy is wholly valid or
+    # refused), not only those of the selected services.
+    for label, value in sorted(entry['working_directory'].items()):
+        working_directory(value, info, label)
+    spec = {'db': str(path_checked(db, Path(quiescence['db_root']))), 'ssh_host': ssh_host, 'identity_file': identity_file}
+    state = database_state(spec, info, quiescence)
     services, files = [], {}
     for label in labels:
         source = Path(info['home']) / 'Library/LaunchAgents' / (label + '.plist')
-        generated, fingerprints = render(source, info)
+        generated, fingerprints = render(source, info, entry)
         destination = DAEMONS / (label + '.plist')
         path_checked(str(destination))
         require(not destination.exists(), 'Destination already exists; migration refuses replacement')
@@ -371,29 +542,66 @@ def make_plan(user, labels, db, ssh_host=None, critical_files=(), identity_file=
         p = path_checked(identity_file, Path(info['home']))
         private_file(p, info['uid'])
         files[str(p)] = fingerprint(p)
+    # The canonical policy is embedded (and digest-bound); root operations use
+    # only this copy. Whoever writes the plan could also rewrite that copy, so
+    # apply additionally requires the operator's independently computed
+    # policy_sha256 (policy-digest). policy_source is review provenance only and
+    # is never reopened or trusted by apply/rollback/status.
     body = {'schema': SCHEMA, 'host': platform.node(), 'user': info, 'created': int(time.time()),
+            'policy': policy, 'policy_sha256': policy_digest(policy), 'policy_source': policy_source,
             'quiescence': spec, 'database': state, 'filevault': filevault(),
             'services': services, 'files': files}
     return dict(body, sha256=digest(canonical(body)))
 
 
-def validate_plan(plan, expected):
-    require(isinstance(plan, dict) and plan.get('schema') == SCHEMA, 'Invalid plan schema')
+def validate_plan(plan, expected, legacy_policy=None, *, expected_policy=None, policy_required=False):
+    """Validate a reviewed plan against its embedded policy; never reads a policy file.
+
+    legacy_policy is an already validated policy, accepted only for plans written
+    before policies were embedded (rollback/status of the old helper's plans).
+
+    The plan digest only proves the plan is unchanged since whoever wrote it; it
+    cannot prove the embedded policy is the reviewed one. expected_policy is the
+    operator's independent policy-digest of the trusted policy file: apply
+    passes policy_required=True so it must be supplied and match; rollback and
+    status enforce it only when given.
+    """
+    require(isinstance(plan, dict) and plan.get('schema') in (SCHEMA, LEGACY_SCHEMA), 'Invalid plan schema')
     body = {k: v for k, v in plan.items() if k != 'sha256'}
-    require(re.fullmatch('[0-9a-f]{64}', expected or '') and plan.get('sha256') == expected == digest(canonical(body)),
+    require(hex_digest(expected) and plan.get('sha256') == expected == digest(canonical(body)),
             'Reviewed plan digest does not match')
+    if plan['schema'] == SCHEMA:
+        require(legacy_policy is None, 'A legacy policy applies only to plans without an embedded policy')
+        policy = validate_policy(plan.get('policy'))
+        require(policy == plan['policy'], 'Embedded headless policy is not canonical')
+        actual = policy_digest(policy)
+        # Plans from the pre-hardening v2 helper lack the field; only the
+        # recovery paths (rollback/status) may still read them.
+        if policy_required or 'policy_sha256' in plan:
+            require(plan.get('policy_sha256') == actual, 'Embedded headless policy digest does not match')
+    else:
+        require('policy' not in plan, 'Invalid legacy plan')
+        require(legacy_policy is not None,
+                'Plan has no embedded policy; only rollback or status with --legacy-policy PATH may use it')
+        policy = validate_policy(legacy_policy)
+        actual = policy_digest(policy)
+    if policy_required or expected_policy is not None:
+        require(hex_digest(expected_policy),
+                'Pass --expect-policy-sha256 with the policy-digest of the reviewed policy file')
+        require(expected_policy == actual, 'Plan policy does not match the operator-reviewed policy digest')
     require(plan.get('host') == platform.node(), 'Plan belongs to another host')
-    info = user_info(plan['user']['name'])
+    info = user_info(plan['user']['name'], policy)
     require(info == plan['user'], 'Service account changed since review')
+    entry = user_policy(policy, info)
     labels = [s['label'] for s in plan['services']]
-    require(labels and len(labels) == len(set(labels)) and set(labels) <= SERVICES[info['name']], 'Invalid selected services')
-    require(info['name'] != 'axio' or 'com.snowgloves.hermes-pilot.coordinator' in labels,
-            'Coding01 migration must include its coordinator')
+    require(labels and len(labels) == len(set(labels)) and set(labels) <= set(entry['labels']), 'Invalid selected services')
+    require(entry['quiescence']['requires_ssh_probe'] or COORDINATOR in labels,
+            'Local coordinator migration must include its coordinator')
     for s in plan['services']:
         require(s['source'] == str(Path(info['home']) / 'Library/LaunchAgents' / (s['label'] + '.plist')) and
                 s['destination'] == str(DAEMONS / (s['label'] + '.plist')), 'Invalid migration paths')
         require([d['domain'] for d in s['domains']] == ['gui/' + str(info['uid']), 'user/' + str(info['uid'])], 'Invalid launchd domain')
-    return info
+    return info, entry
 
 
 def write_private(path, data, *, mode=0o600, uid=0, gid=0):
@@ -448,12 +656,12 @@ def migration_lock():
         os.close(fd)
 
 
-def check_sources(plan, info):
+def check_sources(plan, info, policy):
     for f in plan['files'].values():
         p = path_checked(f['path'])
         require(p.is_file() and fingerprint(p) == f, 'Reviewed source or critical input drifted')
     for s in plan['services']:
-        generated, _ = render(Path(s['source']), info)
+        generated, _ = render(Path(s['source']), info, policy)
         require(generated == s['plist'], 'Generated daemon differs from reviewed source')
         require(not Path(s['destination']).exists() and not loaded('system', s['label']), 'Destination is no longer empty')
         require(not disabled('system', s['label']), 'System service disable state changed since review')
@@ -485,10 +693,11 @@ def save_journal(backup, journal):
     write_private(backup / 'journal.json', canonical(journal))
 
 
-def _apply(plan, expected):
-    info = validate_plan(plan, expected)
-    check_sources(plan, info)
-    require(database_state(plan['quiescence'], info, require_stopped=True) == plan['database'], 'Coordinator state changed since review')
+def _apply(plan, expected, expected_policy):
+    info, entry = validate_plan(plan, expected, expected_policy=expected_policy, policy_required=True)
+    quiescence = entry['quiescence']
+    check_sources(plan, info, entry)
+    require(database_state(plan['quiescence'], info, quiescence, require_stopped=True) == plan['database'], 'Coordinator state changed since review')
     backup = backup_directory(plan)
     journal = {'schema': SCHEMA, 'phase': 'prepared', 'stopped': [], 'installed': []}
     save_journal(backup, journal)
@@ -512,7 +721,7 @@ def _apply(plan, expected):
             require(fingerprint(Path(s['source'])) == plan['files'][s['source']], 'LaunchAgent changed while stopping')
             Path(s['source']).unlink()
         operation = 'verify-quiescence'
-        require(database_state(plan['quiescence'], info, require_stopped=True) == plan['database'], 'Coordinator changed during cutover; rollback required')
+        require(database_state(plan['quiescence'], info, quiescence, require_stopped=True) == plan['database'], 'Coordinator changed during cutover; rollback required')
         for s in ordered:
             service = s['label']
             operation = 'install-system-service'
@@ -533,11 +742,12 @@ def _apply(plan, expected):
         raise Refused('Cutover stopped at ' + operation + ' for ' + service +
                       '; use the digest-bound backup to roll back before retrying') from None
     return {'ok': True, 'backup': str(backup), 'installed': len(plan['services']),
-            'cold_boot_verified': False, 'filevault': filevault()}
+            'policy_sha256': expected_policy, 'cold_boot_verified': False, 'filevault': filevault()}
 
 
-def _rollback(plan, expected):
-    info = validate_plan(plan, expected)
+def _rollback(plan, expected, legacy_policy=None, expected_policy=None):
+    info, entry = validate_plan(plan, expected, legacy_policy, expected_policy=expected_policy)
+    quiescence = entry['quiescence']
     backup = path_checked(str(BACKUPS / expected))
     root_private_directory(backup)
     provenance = backup / 'plan.json'
@@ -564,14 +774,14 @@ def _rollback(plan, expected):
         if f['path'] not in source_paths:
             p = path_checked(f['path'])
             require(p.is_file() and fingerprint(p) == f, 'Critical runtime input drifted; manual reconciliation required')
-    require(database_state(plan['quiescence'], info, require_stopped=True)['pending'] == 0, 'Rollback requires quiescence')
+    require(database_state(plan['quiescence'], info, quiescence, require_stopped=True)['pending'] == 0, 'Rollback requires quiescence')
     ordered = sorted(plan['services'], key=lambda s: (not s['label'].endswith('.coordinator'), s['label']))
     for s in ordered:
         if s['label'] in journal['installed']:
             if loaded('system', s['label']):
                 stop_service('system', s['label'])
             if s['label'].endswith('.coordinator'):
-                database_state(plan['quiescence'], info, require_stopped=True)
+                database_state(plan['quiescence'], info, quiescence, require_stopped=True)
             target = Path(s['destination'])
             if target.exists():
                 target.unlink()
@@ -589,36 +799,58 @@ def _rollback(plan, expected):
                 run(['/bin/launchctl', 'bootstrap', d['domain'], s['source']])
     journal['phase'] = 'rolled-back'
     save_journal(backup, journal)
-    return {'ok': True, 'rolled_back': len(journal['stopped']), 'database_restored': False}
+    return {'ok': True, 'rolled_back': len(journal['stopped']), 'database_restored': False,
+            'policy_sha256': plan_policy_sha256(plan, legacy_policy)}
 
 
-def apply(plan, expected):
+def plan_policy_sha256(plan, legacy_policy=None):
+    """Digest of the policy a validated plan runs under, for operator comparison."""
+    return policy_digest(plan['policy'] if plan['schema'] == SCHEMA else legacy_policy)
+
+
+def apply(plan, expected, *, expected_policy=None):
+    """Both digests are operator-supplied: the plan's and the reviewed policy's."""
     require_root()
-    validate_plan(plan, expected)
+    # Refuses a missing or mismatched policy digest before any lock or launchctl call.
+    validate_plan(plan, expected, expected_policy=expected_policy, policy_required=True)
     with migration_lock():
-        return _apply(plan, expected)
+        return _apply(plan, expected, expected_policy)
 
 
-def rollback(plan, expected):
+def rollback(plan, expected, legacy_policy=None, *, expected_policy=None):
+    """Recovery path: the policy digest is enforced only when the operator gives one."""
     require_root()
-    validate_plan(plan, expected)
+    validate_plan(plan, expected, legacy_policy, expected_policy=expected_policy)
     with migration_lock():
-        return _rollback(plan, expected)
+        return _rollback(plan, expected, legacy_policy, expected_policy)
 
 
-def probe(db):
-    """Forced-command maintenance key target: counts/digests only, no task text."""
+def probe(db, policy=None):
+    """Forced-command maintenance key target: counts/digests only, no task text.
+
+    Runs as the invoking non-root coordinator user. Without a policy the
+    database must be inside that user's home; with one, its local quiescence
+    root applies.
+    """
     require(platform.system() == 'Darwin', 'Probe requires the coordinator macOS host')
-    info = user_info('axio')
+    require(os.geteuid() != 0, 'Probe must run as the coordinator service user')
+    name = pwd.getpwuid(os.geteuid()).pw_name
+    if policy:
+        policy, _source = read_policy(policy)
+        info = user_info(name, policy)
+        quiescence = user_policy(policy, info)['quiescence']
+    else:
+        info = account(name)
+        quiescence = {'db_root': info['home'], 'ssh_hosts': [], 'requires_ssh_probe': False}
     require(os.geteuid() == info['uid'], 'Probe must run as the coordinator service user')
-    result = database_state({'db': db}, info)
-    result['scheduler_loaded'] = any(loaded(d, 'com.snowgloves.hermes-pilot.coordinator') for d in
+    result = database_state({'db': db}, info, quiescence)
+    result['scheduler_loaded'] = any(loaded(d, COORDINATOR) for d in
                                      ('system', 'gui/' + str(info['uid']), 'user/' + str(info['uid'])))
     return result
 
 
-def status(plan, expected):
-    validate_plan(plan, expected)
+def status(plan, expected, legacy_policy=None, *, expected_policy=None):
+    validate_plan(plan, expected, legacy_policy, expected_policy=expected_policy)
     services = []
     for s in plan['services']:
         p = path_checked(s['destination'])
@@ -628,21 +860,29 @@ def status(plan, expected):
                          'user_loaded': any(loaded(d['domain'], s['label']) for d in s['domains'])})
     fv = filevault()
     return {'services': services, 'filevault': fv, 'cold_boot_verified': False,
+            'policy_sha256': plan_policy_sha256(plan, legacy_policy),
             'startup_candidate': fv == 'off' and all(s['system_loaded'] and not s['system_disabled'] and s['plist_matches'] and not s['user_loaded'] for s in services)}
+
+
+def plan_owners(plan):
+    """Root, plus the plan's own service user when that account exists."""
+    owners = {0}
+    name = plan.get('user', {}).get('name') if isinstance(plan, dict) and isinstance(plan.get('user'), dict) else None
+    if isinstance(name, str) and USER_NAME.fullmatch(name):
+        try:
+            owners.add(pwd.getpwnam(name).pw_uid)
+        except KeyError:
+            pass
+    return owners
 
 
 def load_review(path):
     p = path_checked(path)
     require(p.is_file() and p.stat().st_size <= 2_000_000, 'Plan is missing or too large')
-    owners = {0}
-    for user in USERS:
-        try:
-            owners.add(pwd.getpwnam(user).pw_uid)
-        except KeyError:
-            pass
-    require(p.stat().st_uid in owners and stat.S_IMODE(p.stat().st_mode) & 0o077 == 0,
-            'Plan must be private and owned by a service user or root')
-    return json.loads(p.read_bytes())
+    plan = json.loads(p.read_bytes())
+    require(p.stat().st_uid in plan_owners(plan) and stat.S_IMODE(p.stat().st_mode) & 0o077 == 0,
+            'Plan must be private and owned by its service user or root')
+    return plan
 
 
 def main(argv=None):
@@ -650,10 +890,11 @@ def main(argv=None):
     commands = ap.add_subparsers(dest='command', required=True)
     for name in ('inspect', 'plan'):
         p = commands.add_parser(name)
-        p.add_argument('--user', choices=sorted(USERS), required=True)
-        p.add_argument('--service', action='append', required=True, help='Exact allowlisted label; repeat explicitly')
+        p.add_argument('--policy', help='Private headless policy JSON (snowgloves.headless-policy.v1); required')
+        p.add_argument('--user', required=True, help='Service user named in the policy')
+        p.add_argument('--service', action='append', required=True, help='Exact policy-listed label; repeat explicitly')
         p.add_argument('--quiescence-db', required=True)
-        p.add_argument('--quiescence-ssh-host', choices=sorted(SSH_HOSTS))
+        p.add_argument('--quiescence-ssh-host', help='SSH destination listed in the policy for this user')
         p.add_argument('--quiescence-identity-file', help='Separate restricted maintenance identity; never transport key')
         p.add_argument('--critical-file', action='append', default=[])
         if name == 'plan':
@@ -662,24 +903,47 @@ def main(argv=None):
         p = commands.add_parser(name)
         p.add_argument('--plan', required=True)
         p.add_argument('--expect-sha256', required=True, help='Digest from independent plan review')
+        p.add_argument('--expect-policy-sha256',
+                       help='policy-digest of the reviewed policy file; required for apply, '
+                            'enforced for rollback/status when given')
+        if name != 'apply':
+            p.add_argument('--legacy-policy', help='Policy for a plan written without an embedded policy')
+    p = commands.add_parser('policy-digest', help='Validate a policy file and print its canonical digest (no root)')
+    p.add_argument('--policy', required=True)
     p = commands.add_parser('probe', help='Read-only fixed-command maintenance key target')
     p.add_argument('--quiescence-db', required=True)
+    p.add_argument('--policy', help='Optional private policy; default database root is the user home')
     args = ap.parse_args(argv)
     try:
         if args.command in ('inspect', 'plan'):
-            result = make_plan(args.user, args.service, args.quiescence_db, args.quiescence_ssh_host, args.critical_file, args.quiescence_identity_file)
+            result = make_plan(args.user, args.service, args.quiescence_db, args.quiescence_ssh_host,
+                               args.critical_file, args.quiescence_identity_file, policy=args.policy)
             if args.command == 'plan':
                 p = path_checked(args.output, Path(result['user']['home']))
                 private_parent(p, result['user'])
                 require(not p.exists(), 'Refusing to overwrite an existing review plan')
                 write_private(p, canonical(result), uid=result['user']['uid'], gid=result['user']['gid'])
-            output = {'ok': True, 'sha256': result['sha256'], 'services': [s['label'] for s in result['services']],
+            output = {'ok': True, 'sha256': result['sha256'], 'policy_sha256': result['policy_sha256'],
+                      'services': [s['label'] for s in result['services']],
                       'filevault': result['filevault'], 'cold_boot_verified': False}
         elif args.command == 'probe':
-            output = probe(args.quiescence_db)
+            output = probe(args.quiescence_db, args.policy)
+        elif args.command == 'policy-digest':
+            # Operator convenience: a relative path is made absolute (lexically);
+            # symlink components are still refused by read_policy.
+            policy, _source = read_policy(os.path.abspath(args.policy), unsafe_mode=0o022)
+            output = {'ok': True, 'policy_sha256': policy_digest(policy)}
+        elif args.command == 'apply':
+            output = apply(load_review(args.plan), args.expect_sha256, expected_policy=args.expect_policy_sha256)
         else:
             plan = load_review(args.plan)
-            output = globals()[args.command](plan, args.expect_sha256)
+            legacy = None
+            if args.legacy_policy:
+                require(isinstance(plan, dict) and plan.get('schema') == LEGACY_SCHEMA,
+                        'A legacy policy applies only to plans without an embedded policy')
+                legacy, _source = read_policy(args.legacy_policy, plan_owners(plan))
+            output = {'status': status, 'rollback': rollback}[args.command](
+                plan, args.expect_sha256, legacy, expected_policy=args.expect_policy_sha256)
         print(json.dumps(output, sort_keys=True))
         return 0
     except Refused as exc:

@@ -1,0 +1,48 @@
+{
+  "schema": "snowgloves.headless-policy.v1",
+  "users": {
+    "operator": {
+      "labels": [
+        "com.snowgloves.hermes-pilot.coordinator",
+        "com.snowgloves.hermes-pilot.bridge",
+        "com.snowgloves.hermes-pilot.worker",
+        "com.snowgloves.hermes-pilot.ui",
+        "com.snowgloves.hermes-pilot.api",
+        "com.snowgloves.hermes-pilot.tls",
+        "com.snowgloves.hermes-pilot.tls-renew",
+        "com.snowgloves.hermes-pilot.mcp-http",
+        "com.snowgloves.hermes",
+        "com.temperance.engine.omniroute"
+      ],
+      "process_type": {
+        "com.snowgloves.hermes-pilot.worker": "Standard",
+        "com.temperance.engine.omniroute": "Standard"
+      },
+      "working_directory": {
+        "com.snowgloves.hermes-pilot.worker": "/Users/operator/snow-gloves-os"
+      },
+      "quiescence": {
+        "db_root": "/Users/operator",
+        "ssh_hosts": [],
+        "requires_ssh_probe": false
+      }
+    },
+    "operator2": {
+      "labels": [
+        "com.example.snowgloves.remote-worker",
+        "com.example.snowgloves.remote-transport"
+      ],
+      "process_type": {
+        "com.example.snowgloves.remote-worker": "Standard"
+      },
+      "quiescence": {
+        "db_root": "/Users/operator",
+        "ssh_hosts": [
+          "operator@coordinator.example.ts.net",
+          "operator@100.64.0.10"
+        ],
+        "requires_ssh_probe": true
+      }
+    }
+  }
+}
