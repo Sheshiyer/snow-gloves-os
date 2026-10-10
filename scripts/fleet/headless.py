@@ -44,7 +44,7 @@ KEYS = {'Label', 'Program', 'ProgramArguments', 'EnvironmentVariables',
         'ProcessType', 'ExitTimeOut', 'Nice', 'Umask'}
 SECRET_KEY = re.compile(r'(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|AUTH)', re.I)
 SECRET_VALUE = re.compile(r'BEGIN [A-Z ]*PRIVATE' + r' KEY|\bsk-[A-Za-z0-9_-]{12,}|\beyJ[A-Za-z0-9_-]{12,}\.', re.I)
-GUI = re.compile(r'\.app(?:/|\b)|osascript|(?:^|\n)\s*(?:exec\s+)?(?:/usr/bin/)?open(?:\s|$)|find-generic-password|find-internet-password|SSH_AUTH_SOCK', re.I)
+GUI = re.compile(r"""(?:^|/|["'])[^\n"']*\.app(?:/|["']|$)|osascript|(?:^|\n)\s*(?:exec\s+)?(?:/usr/bin/)?open(?:\s|$)|find-generic-password|find-internet-password|SSH_AUTH_SOCK""", re.I)
 
 
 class Refused(ValueError):

@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: verify
-progress: 370/429
+progress: 374/429
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -544,10 +544,10 @@ until the actual mini supplies evidence.
 - [x] ISC-412: Approved execution consumes authorization without duplicate task creation.
 - [x] ISC-413: Artifact retrieval rejects cross-owner or cross-project access.
 - [x] ISC-414: Artifact retrieval verifies persisted bytes before presenting content.
-- [ ] ISC-415: Fleet UI selects authorized projects and eligible workers.
-- [ ] ISC-416: Fleet UI exposes capability readiness and gated execution controls.
-- [ ] ISC-417: Fleet UI exposes approval decisions only to authorized approvers.
-- [ ] ISC-418: Fleet UI displays readable artifact content and safe downloads.
+- [x] ISC-415: Fleet UI selects authorized projects and eligible workers.
+- [x] ISC-416: Fleet UI exposes capability readiness and gated execution controls.
+- [x] ISC-417: Fleet UI exposes approval decisions only to authorized approvers.
+- [x] ISC-418: Fleet UI displays readable artifact content and safe downloads.
 - [ ] ISC-419: Grok Bot MCP tools use a dedicated scoped application principal.
 - [ ] ISC-420: Actual Grok Bot discovers fleet tools through supported plugin registration.
 - [ ] ISC-421: Actual Grok Bot task and result match the web UI.
@@ -1627,3 +1627,6 @@ ISC-401: integration69f7bce preserves remote artifacts and role context;212 focu
 
 
 ISC-422–424:21 stdlib headless-package tests and10 subtests pass, covering digest-bound source/config identity, serialized apply/rollback, quiescence fences, duplicate prevention, explicit nonroot users and refusal to overwrite newer edits. System installation and physical boot remain open. The remote maintenance probe uses a separate fixed-command key; the existing transport key is unchanged.
+
+
+ISC-415–418:226 frontend tests and production build pass. Actual disposable IAB proves scoped context, observed Codex/read worker selection,163catalog entries with readiness, bounded skill submission, cancellation persisted across reconnect, explicit coordinator task IDs and checksum-verified sanitized artifact display/download with hostile text inert. The unavailable-schema mismatch and enabled-during-refresh race were corrected. Root IAB independently submitted then immediately cancelled final-build task73f23f9fcfd4449a91a635bffebcd3b3; it rendered cancelled and disabled further cancellation. Approver controls are source-tested; no actual approval-required live adapter was invoked. Physical/inference acceptance remains separate.

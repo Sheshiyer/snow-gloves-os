@@ -369,3 +369,9 @@ class Headless(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_gui_guard_distinguishes_python_app_property_from_bundle_path():
+    assert not h.GUI.search("self.app, self.token = app, token\nreturn self.app(scope)")
+    assert h.GUI.search("/Applications/Grok Bot.app/Contents/MacOS/Grok Bot")
+    assert h.GUI.search('exec "/Applications/Grok Bot.app"')
