@@ -46,6 +46,55 @@ def test_observer_cannot_submit_cancel_or_write(observed):
     assert c.detail('founder', founder, task['id'])['status'] == 'queued'
 
 
+def test_fanout_requires_submit_and_owner_before_the_planner_runs(fleet):
+    c, conf, _ = fleet
+    conf['projects']['snowgloves']['fanout'] = True
+    reader = {
+        'token': 'reader-token-0123456789',
+        'projects': ['snowgloves'],
+        'permissions': ['read', 'submit'],
+        'fanout_projects': ['snowgloves'],
+    }
+    observer = {
+        'token': 'observer-fanout-token-0123456789',
+        'projects': ['snowgloves'],
+        'permissions': ['read'],
+        'view_owners': ['reader'],
+        # An accidental capability grant must not turn viewing into mutation.
+        'fanout_projects': ['snowgloves'],
+    }
+    conf['principals'].update(reader=reader, observer=observer)
+    root = c.submit('reader', reader, {
+        'project': 'snowgloves', 'brief': 'Read only root', 'runtime': 'codex',
+        'idempotency_key': 'reader-root',
+    })
+    calls = []
+    c._plan_from_hermes = lambda value: calls.append(value) or {'children': [
+        {'logical_role': 'librarian', 'stage': 'reference', 'title': 'References', 'brief': 'Read.'},
+        {'logical_role': 'sentinel', 'stage': 'verify', 'title': 'Verify', 'brief': 'Verify.'},
+    ]}
+
+    reader['permissions'] = ['read']  # Own task, but read-only principals cannot plan.
+    with pytest.raises(Rejected) as exc:
+        c.fanout('reader', reader, root['id'])
+    assert exc.value.status == 403
+    with pytest.raises(Rejected) as exc:
+        c.fanout('observer', observer, root['id'])
+    assert exc.value.status == 403
+    assert calls == []
+
+    observer['permissions'] = ['read', 'submit']
+    with pytest.raises(Rejected) as exc:
+        c.fanout('observer', observer, root['id'])
+    assert exc.value.status == 404  # view_owners never supplies owner mutation.
+    assert calls == []
+
+    reader['permissions'] = ['read', 'submit']
+    accepted = c.fanout('reader', reader, root['id'])
+    assert len(accepted['children']) == 2
+    assert len(calls) == 1
+
+
 def test_viewing_never_grants_mutation_even_with_all_permissions(observed):
     c, conf, founder, gary = observed
     gary['permissions'] = ['read', 'submit', 'cancel']
@@ -125,6 +174,8 @@ def test_config_accepts_the_observer_shape(tmp_path):
 def test_observer_over_http_reads_but_cannot_write(observed):
     c, conf, founder, gary = observed
     task = submit(c, conf)
+    conf['projects']['snowgloves']['fanout'] = True
+    gary['fanout_projects'] = ['snowgloves']
     http = make_server(c, 0)
     threading.Thread(target=http.serve_forever, daemon=True).start()
     base = 'http://127.0.0.1:%d' % http.server_port
@@ -142,6 +193,7 @@ def test_observer_over_http_reads_but_cannot_write(observed):
         assert call('GET', '/v1/tasks/' + task['id'])[0] == 200
         assert call('POST', '/v1/tasks', {'project': 'snowgloves', 'brief': 'x', 'idempotency_key': 'h1'})[0] == 403
         assert call('POST', '/v1/tasks/%s/cancel' % task['id'], {})[0] == 403
+        assert call('POST', '/v1/tasks/%s/fanout' % task['id'], {})[0] == 403
         assert call('GET', '/v1/tasks', token='wrong-token-0123456789')[0] == 401
     finally:
         http.shutdown()

@@ -124,10 +124,14 @@ arguments; the coordinator has a separate exact `allowed_origins` list.
 Never disable Host validation or introduce wildcard Origins for remote access.
 
 The browser uses same-origin `/api/fleet` for authorized coordinator operations
-and `/api/infra` for the scoped projection. A tailnet connection does not replace
-the coordinator bearer credential or project authorization. Tailscale Serve's
-HTTPS hostname belongs to the tailnet domain; an organization-owned hostname
-requires separately verified DNS, a certificate and a private TLS proxy.
+and `/api/infra` for the scoped projection. The fleet proxy permits only task
+list/detail/events GETs and bounded task-submit, cancel, and read-only fanout
+POSTs; `/fanout` accepts only its existing empty object body. It keeps the
+browser bearer and Origin headers for the coordinator to validate, and uses
+bounded request/upstream timeouts. A tailnet connection does not replace the
+coordinator bearer credential or project authorization. Tailscale Serve's HTTPS
+hostname belongs to the tailnet domain; an organization-owned hostname requires
+separately verified DNS, a certificate and a private TLS proxy.
 A DNS CNAME alone does not supply the organization hostname's certificate.
 
 The verified installed Hermes revision uses `CUSTOM_BASE_URL` to choose a custom
@@ -159,6 +163,12 @@ Evidence: `tests/test_fleet_task_graph.py` (14 tests) and the schema migration r
 
 **Write adapter.** A task may ask for `access: write`. It is refused unless **all** hold: the project sets `"write": true` in coordinator config; the principal lists the project in `"write_projects"`; the task is a graph child (`--parent`) with role `cto`; and the worker config enables it (`"write_roots": [<root>]` plus non-empty `"test_commands": {<root>: [{"argv": [...], "cwd": "rel", "timeout": 600}]}`; optional `"max_patch_bytes"`, default 1 MiB).
 
+**Manual Sentinel write review (source-tested, default-off).** After a CTO write child succeeds, its owner may submit a separate read-only Sentinel verification child with `--review-of <write-task-id>`, under the same parent and project. The project must explicitly set `"write_review_context": true`; the submitting principal must currently have both `read` and `submit` permissions. The coordinator freezes the source attempt and artifact SHA at submission, then checks the binding, current permissions, source state, parent state and project flag again at claim. Changed or unavailable evidence leaves the review queued with a generic hold reason. The claim contains only bounded, checksum-verified patch evidence and sanitized test status; task details, graph views and events do not expose patch bytes. The worker checks that the base commit is available locally and runs `git apply --check` before starting its read-only review runtime. It frames the exact patch as untrusted input and records the source binding in its result. It never applies the patch or grants write, merge or deployment authority. Automatic fanout remains read-only and cannot be widened by manually adding a review child.
+
+The review envelope is capped at 1,000,000 bytes, the exact UTF-8 patch at 64 KiB, and delivered evidence at 96 KiB. Up to 100 sorted unique safe file paths and 16 successful test results are accepted. Test argv and raw tails are omitted. Unsupported rename/copy, binary, symlink/submodule, unsafe file-header and credential-like content is held rather than truncated or silently redacted. Read-only source inspection may examine the recorded base; it must not execute proposed code or tests. The native read-only sandbox is not a claim of repository-only filesystem read confinement.
+
+Evidence: `tests/test_fleet_write_review.py`, plus 425 fleet/cockpit tests passing (one optional MCP SDK skip). An actual isolated native Codex candidate on Coding01 received the exact preserved 586-byte CTO patch at its recorded base, inspected source with four read commands, emitted no collaboration events and returned a checksum-bound Sentinel result. Direct inspection of its owned native session confirms the exact delivered patch and source binding. Its final referenced files exist; one comparison line citation needs correction from 233 to 236, so content is retained as a draft for human review. Final source additionally tightens artifact reads and credential rejection; the final fixture probe covers that stricter source. This feature is not deployed or enabled in the serving coordinator; production flags, services and human acceptance remain unchanged.
+
 On a write task the worker runs Codex with `--sandbox workspace-write` and network off in a fresh detached worktree, then **computes the diff itself** and gates it:
 
 - must be non-empty and valid UTF-8 text, at most `max_patch_bytes`;
@@ -182,7 +192,14 @@ Limits: macOS only. A script that swallows the denied write and exits 0 is not d
 
 ## Connecting other Hermes clients (fleet MCP over SSH)
 
-`scripts/fleet_mcp.py` is a stdio MCP server that wraps the coordinator: `fleet_list`, `fleet_status`, `fleet_logs`, `fleet_cancel`, `fleet_submit` (with `parent_id`, `logical_role`, `stage`, `supersedes`, `access`). It is a thin loopback client; authentication, project scope, the task graph and the write gates all stay in the coordinator, and the operator token is read on Coding 01 and never leaves it.
+`scripts/fleet_mcp.py` is a stdio MCP server that wraps the coordinator's six
+tools: `fleet_list`, `fleet_status`, `fleet_logs`, `fleet_cancel`,
+`fleet_fanout`, and `fleet_submit` (with `parent_id`, `logical_role`, `stage`,
+`supersedes`, `access`). `fleet_fanout(task_id)` sends only `{}` to the
+existing validated task route; it has no role, scope, option, credential-export
+or scheduler override. It is a thin loopback client; authentication, project
+scope, fanout admission, the task graph and the write gates all stay in the
+coordinator, and the operator token is read on Coding 01 and never leaves it.
 
 On Coding 01 a wrapper (not in Git, like `snowgloves-fleet`) runs it with the Hermes Python that has `mcp`:
 
@@ -201,7 +218,7 @@ Limits: whoever can SSH to the account gets the founder's coordinator authority 
 
 ## Scoped principals (read-only observers)
 
-A coordinator principal may carry `"permissions"` (any of `read`, `submit`, `cancel`; absent means all three, so existing principals are unchanged) and `"view_owners"` (names of other principals whose tasks it may read). Viewing never grants mutation: cancelling, submitting and attaching children stay with the task owner. Config load rejects unknown permissions and unknown owners.
+A coordinator principal may carry `"permissions"` (any of `read`, `submit`, `cancel`; absent means all three, so existing principals are unchanged) and `"view_owners"` (names of other principals whose tasks it may read). Viewing never grants mutation: cancelling, submitting, attaching children and fanout stay with the task owner. Fanout additionally requires current `submit` permission and the default-off project/principal fanout admission. Config load rejects unknown permissions and unknown owners.
 
 Example observer: `{"token": "...", "projects": ["snowgloves"], "permissions": ["read"], "view_owners": ["founder"]}`. It can list, read detail and events (including a parent's graph); submit, cancel and write return 403. Source: `tests/test_fleet_scoped_principals.py` (13 tests, the owner-only rule mutation-checked, plus an HTTP round trip).
 
@@ -210,3 +227,22 @@ Example observer: `{"token": "...", "projects": ["snowgloves"], "permissions": [
 Live write and review attempts intermittently failed with `429 Too Many Requests` from the gateway: `noesis-execute` is a priority combo whose first member is a free-tier model that keeps going into cooldown (OmniRoute app log, `command-code/poolside/laguna-s-2.1-free`). Host routing is not changed from this repo.
 
 The worker now retries a failed Codex run only when the failure is a transient provider error (429, "Too Many Requests", dropped stream) **and the run provably did nothing**: no command, file change, tool or web call started. Up to `transient_retries` (default 2) fresh runs, waiting `transient_backoff` seconds (default 20) times the attempt number, with heartbeats, cancellation, shutdown and the overall `job_timeout` still honoured during the wait. Each run keeps its own log (`<attempt>.retryN.jsonl`). Anything that ran, any other failure, and any uncertain outcome are never replayed. Tests: `tests/test_fleet_transient_retry.py` (10, both safety conditions mutation-checked).
+
+## Preserving worker worktrees during cleanup
+
+`scripts/fleet_worker_gc.py` defaults to a dry run. An old result artifact does not prove that all work in its checkout has been preserved. Cleanup keeps tracked edits, staged edits, untracked and ignored files, unknown Git state and detached commits that no branch or tag retains. Preserve that work in a reviewed recovery archive before considering removal; a retained branch only saves committed history.
+
+Any `recovery-required.json` file holds all cleanup, matching the worker's dispatch hold. Malformed or unreadable active/pending records also hold all cleanup. A valid active/pending record protects its specific attempt. `--include-failed` relaxes only the result-artifact requirement, never these preservation gates.
+
+Removal rechecks assignment holds and checkout state, then uses normal Git worktree removal so dirty or locked checkouts are refused. A refusal stops the apply operation for review; it does not retry with `--force`. Source tests use real disposable Git repositories to cover these boundaries. This change does not archive or remove any live worktree.
+
+## One worker job also means no internal subagents
+
+An isolated real Coding01 run exposed a capacity gap: one admitted Codex invocation used its native collaboration tools to create additional agent threads. The candidate worker now disables both `multi_agent` and `multi_agent_v2` per invocation, for read and write jobs. The installed CLI recognizes both switches; they do not change the user's native configuration. Role assignments remain explicit coordinator tasks.
+
+Automatic transient retry requires a complete structured attempt trace with thread start, turn start and a transient failed turn. Only reasoning, message and error items count as evidence without effects. Collaboration calls, any other tool item, future unknown item types, malformed records, missing boundaries and conflicting failures prevent replay. Unknown outcomes retain their original task and attempt for reconciliation.
+
+The first isolated real-flow probe interpreted and planned through pinned Hermes, but its root hit the time limit after collaboration activity; its queued children did not run. Preserve that interrupted attempt. It does not prove predecessor delivery, semantic validation or production acceptance.
+
+
+Actual corrected candidate flow on Coding01 completed root → Librarian → Sentinel with the pinned Hermes bridge and three sequential Codex jobs, all with zero collaboration events. Exact predecessor output was verified in the owned CLI session prompts, rather than inferred from artifact references. Sentinel corrected five root citation offsets against the real checkout. This isolated run leaves production admission and human semantic acceptance pending; the serving board remains unchanged. The first interrupted candidate and all recovery evidence are preserved without replay.

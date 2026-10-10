@@ -68,6 +68,9 @@ class FleetApi:
     def cancel(self, task_id):
         return self.call('POST', '/v1/tasks/%s/cancel' % self._id(task_id), {})
 
+    def fanout(self, task_id):
+        return self.call('POST', '/v1/tasks/%s/fanout' % self._id(task_id), {})
+
     def submit(self, project, brief, title=None, category='development', runtime='codex', idempotency_key=None,
                parent_id=None, logical_role=None, stage=None, supersedes=None, access=None):
         body = dict(project=project, brief=brief, category=category, runtime=runtime, idempotency_key=idempotency_key or uuid.uuid4().hex)
@@ -106,6 +109,12 @@ def create_server(api):
     def fleet_cancel(task_id: str) -> str:
         """Cancel a task; cancelling a graph parent also cancels its open children."""
         return text(api.cancel(task_id))
+
+    @mcp.tool()
+    def fleet_fanout(task_id: str) -> str:
+        """Ask the coordinator to plan one authorized set of read-only roles for a development root.
+        The coordinator alone checks the current owner, submit permission and default-off admission."""
+        return text(api.fanout(task_id))
 
     @mcp.tool()
     def fleet_submit(project: str, brief: str, title: str | None = None, parent_id: str | None = None,

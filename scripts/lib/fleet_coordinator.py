@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import stat
 import threading
 import time
 import uuid
@@ -15,6 +16,8 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from lib.fleet_write_review import MAX_ARTIFACT_BYTES, ReviewEvidenceError, evidence_from_artifact
 
 
 ROLES = ('ceo','cto','chief-of-staff','librarian','interpreter','dispatcher','sentinel')
@@ -28,6 +31,22 @@ MAX_REMOTE_ARTIFACT_BYTES = 24 * 1024
 MAX_JSON_DEPTH = 32
 MAX_JSON_ITEMS = 4096
 NODE_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,99}\Z')
+NO_FANOUT_ROOTS = ('cancelled','cancel_requested','failed','interrupted')
+MAX_FANOUT_TITLE = 200
+MAX_FANOUT_BRIEF = 4000
+# A source result is task data, not an artifact transfer.  Keep each delivered
+# output small enough for a bounded read-only prompt; the fanout count already
+# bounds the aggregate to seven such values.
+MAX_SOURCE_OUTPUT_BYTES = 4096
+FANOUT_ACTION_REASONS = {
+    'Submit unavailable': 'Read-only role planning is not permitted for this account.',
+    'Task not found': 'Read-only role planning is unavailable for this task.',
+    'Fanout unavailable': 'Read-only role planning is not enabled for this task.',
+    'Only root tasks can be fanned out': 'Only root tasks can plan read-only roles.',
+    'Only development tasks can be fanned out': 'Only development tasks can plan read-only roles.',
+    'Root no longer accepts automatic children': 'This task no longer accepts read-only role planning.',
+    'Manual children prevent automatic fanout': 'Manual children already exist, so read-only roles cannot be planned.',
+}
 
 
 class Rejected(Exception):
@@ -124,6 +143,14 @@ class Coordinator:
           attempt_id TEXT NOT NULL, event_id TEXT NOT NULL, type TEXT NOT NULL,
           message TEXT NOT NULL, created REAL NOT NULL,
           UNIQUE(task_id, attempt_id, event_id));
+        CREATE TABLE IF NOT EXISTS fanout_plans (
+          id TEXT PRIMARY KEY, root_id TEXT NOT NULL UNIQUE,
+          owner TEXT NOT NULL, project TEXT NOT NULL, plan_json TEXT NOT NULL,
+          created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS fanout_children (
+          plan_id TEXT NOT NULL, task_id TEXT NOT NULL UNIQUE,
+          ordinal INTEGER NOT NULL, logical_role TEXT NOT NULL, stage TEXT NOT NULL,
+          PRIMARY KEY(plan_id, ordinal), UNIQUE(plan_id, logical_role));
         ''')
         columns = {r[1] for r in self.db.execute('PRAGMA table_info(tasks)')}
         if 'logical_role' not in columns:
@@ -133,7 +160,11 @@ class Coordinator:
                 self.db.execute('ALTER TABLE tasks ADD COLUMN %s TEXT' % column)
         if 'access' not in columns:
             self.db.execute("ALTER TABLE tasks ADD COLUMN access TEXT NOT NULL DEFAULT 'read'")
+        for column in ('review_of', 'review_binding'):
+            if column not in columns:
+                self.db.execute('ALTER TABLE tasks ADD COLUMN %s TEXT' % column)
         self.db.execute('CREATE INDEX IF NOT EXISTS tasks_parent ON tasks(parent_id)')
+        self.db.execute('CREATE INDEX IF NOT EXISTS fanout_children_task ON fanout_children(task_id)')
         self.db.commit()
 
     @contextmanager
@@ -175,7 +206,7 @@ class Coordinator:
             self.db.execute('INSERT OR IGNORE INTO events(task_id,attempt_id,event_id,type,message,created) VALUES(?,?,?,?,?,?)', (row['id'],row['attempt_id'],'lease-expired','interrupted','Worker heartbeat expired; manual reconciliation required',now))
 
     def _public(self, row):
-        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes','access')
+        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes','access','review_of')
         result = {k: row[k] for k in keys}
         project = self.config['projects'][row['project']]
         result.update(tenant=project['tenant'],organization=project['organization'],session_id=row['id'])
@@ -194,6 +225,447 @@ class Coordinator:
         if not row or row['owner'] not in owners or row['project'] not in principal['projects']:
             raise Rejected(404, 'Task not found')
         return row
+
+    def _fanout_allowed(self, principal, project):
+        grants = principal.get('fanout_projects', [])
+        if (self.config['projects'][project].get('fanout') is not True
+                or not isinstance(grants, list) or project not in grants):
+            raise Rejected(403, 'Fanout unavailable')
+
+    def _fanout_preflight(self, owner, principal, root_id):
+        # Planning creates children. It must therefore use the same submit
+        # permission and owner-only mutation boundary as task submission,
+        # rather than the broader read/view_owners boundary used for detail.
+        self._need(principal, 'submit')
+        root = self._owned(owner, principal, root_id, mutate=True)
+        self._fanout_allowed(principal, root['project'])
+        plan = self.db.execute('SELECT * FROM fanout_plans WHERE root_id=?', (root_id,)).fetchone()
+        if plan:
+            return root, plan
+        if root['parent_id'] is not None:
+            raise Rejected(409, 'Only root tasks can be fanned out')
+        if root['category'] != 'development':
+            raise Rejected(409, 'Only development tasks can be fanned out')
+        if root['status'] in NO_FANOUT_ROOTS:
+            raise Rejected(409, 'Root no longer accepts automatic children')
+        if self.db.execute('SELECT 1 FROM tasks WHERE parent_id=? LIMIT 1', (root_id,)).fetchone():
+            raise Rejected(409, 'Manual children prevent automatic fanout')
+        return root, None
+
+    def _fanout_action(self, owner, principal, root):
+        """Derive a display-only admission contract from the same preflight as POST.
+
+        This never accepts authority from the browser.  A caller can see that a
+        durable plan exists even when a current grant no longer allows replay,
+        but `available` stays false unless the exact POST preflight passes.
+        """
+        planned = bool(self.db.execute(
+            'SELECT 1 FROM fanout_plans WHERE root_id=?', (root['id'],)
+        ).fetchone())
+        try:
+            _, plan = self._fanout_preflight(owner, principal, root['id'])
+        except Rejected as error:
+            return {
+                'available': False,
+                'planned': planned,
+                'reason': FANOUT_ACTION_REASONS.get(
+                    error.message, 'Read-only role planning is unavailable for this task.'
+                ),
+            }
+        if plan:
+            return {
+                'available': False,
+                'planned': True,
+                'reason': 'Read-only roles are already planned for this task.',
+            }
+        return {
+            'available': True,
+            'planned': False,
+            'reason': 'Read-only roles can be planned for this task.',
+        }
+
+    def _validate_fanout_plan(self, value):
+        if not isinstance(value, dict) or set(value) != {'children'} or not isinstance(value['children'], list):
+            raise ValueError('Invalid plan shape')
+        children = value['children']
+        if not 2 <= len(children) <= MAX_CHILDREN:
+            raise ValueError('Invalid child count')
+        roles = set()
+        normalized = []
+        for child in children:
+            if not isinstance(child, dict) or set(child) != {'logical_role', 'stage', 'title', 'brief'}:
+                raise ValueError('Invalid child shape')
+            role, stage = child['logical_role'], child['stage']
+            title, brief = child['title'], child['brief']
+            if role not in ROLES or role in roles or stage not in STAGES:
+                raise ValueError('Invalid child assignment')
+            if (not isinstance(title, str) or not title.strip() or len(title) > MAX_FANOUT_TITLE
+                    or not isinstance(brief, str) or not brief.strip() or len(brief) > MAX_FANOUT_BRIEF):
+                raise ValueError('Invalid child content')
+            roles.add(role)
+            normalized.append(dict(logical_role=role, stage=stage, title=title, brief=brief))
+        if 'sentinel' not in roles or children[-1]['logical_role'] != 'sentinel' or children[-1]['stage'] != 'verify':
+            raise ValueError('Sentinel must be the final verify child')
+        return normalized
+
+    def _plan_from_hermes(self, root):
+        bridge = self.config.get('hermes_bridge')
+        if not isinstance(bridge, dict):
+            raise Rejected(503, 'Hermes plan unavailable; no children created')
+        raw_url = bridge.get('url')
+        if not isinstance(raw_url, str):
+            raise Rejected(503, 'Hermes bridge configuration unavailable')
+        url = raw_url.rstrip('/')
+        parsed = urlsplit(url)
+        if (parsed.scheme != 'http' or parsed.hostname not in ('127.0.0.1', 'localhost')
+                or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path
+                or not isinstance(bridge.get('token'), str) or not bridge['token']):
+            raise Rejected(503, 'Hermes bridge configuration unavailable')
+        body = {'brief': self.sanitize(root['brief']), 'roles': list(ROLES), 'stages': list(STAGES)}
+        request = urllib.request.Request(url + '/plan', data=json.dumps(body).encode(),
+                                         headers={'Authorization': 'Bearer ' + bridge['token'],
+                                                  'Content-Type': 'application/json'})
+        try:
+            with urllib.request.urlopen(request, timeout=min(90, float(bridge.get('timeout', 90)))) as response:
+                raw = response.read(32769)
+                if len(raw) > 32768:
+                    raise ValueError('Oversized response')
+                def pairs(items):
+                    result = {}
+                    for key, value in items:
+                        if key in result:
+                            raise ValueError('Duplicate JSON key')
+                        result[key] = value
+                    return result
+                return json.loads(raw, object_pairs_hook=pairs)
+        except (ValueError, TypeError, KeyError, urllib.error.URLError, TimeoutError, OSError):
+            raise Rejected(503, 'Hermes plan unavailable; no children created') from None
+
+    def _fanout_response(self, plan):
+        rows = self.db.execute('''
+          SELECT tasks.*, fanout_children.ordinal
+          FROM fanout_children JOIN tasks ON tasks.id=fanout_children.task_id
+          WHERE fanout_children.plan_id=?
+          ORDER BY fanout_children.ordinal
+        ''', (plan['id'],)).fetchall()
+        children = []
+        for row in rows:
+            children.append({
+                'id': row['id'], 'parent_id': row['parent_id'], 'owner': row['owner'],
+                'project': row['project'], 'runtime': row['runtime'], 'category': row['category'],
+                'title': row['title'], 'brief': row['brief'], 'logical_role': row['logical_role'],
+                'stage': row['stage'], 'access': row['access'], 'status': row['status'],
+                'order': row['ordinal'] + 1,
+            })
+        return {'plan_id': plan['id'], 'root_id': plan['root_id'], 'children': children}
+
+    def fanout(self, owner, principal, root_id, body=None):
+        if body not in (None, {}):
+            raise Rejected(400, 'Fanout accepts no options')
+        if not isinstance(root_id, str) or not re.fullmatch(r'[a-f0-9]{32}', root_id):
+            raise Rejected(400, 'Invalid task id')
+        # Finish every authorization and scope gate before Hermes is ever contacted.
+        with self.transaction():
+            self._expire()
+            root, existing = self._fanout_preflight(owner, principal, root_id)
+            if existing:
+                return self._fanout_response(existing)
+            authorized_brief = self.sanitize(root['brief'])
+        try:
+            children = self._validate_fanout_plan(self._plan_from_hermes(
+                {'brief': authorized_brief}))
+        except ValueError:
+            raise Rejected(503, 'Hermes plan unavailable or invalid; no children created') from None
+        normalized = [
+            dict(logical_role=child['logical_role'], stage=child['stage'],
+                 title=self.sanitize(child['title'])[:MAX_FANOUT_TITLE],
+                 brief=self.sanitize(child['brief'])[:MAX_FANOUT_BRIEF])
+            for child in children
+        ]
+        plan_id = uuid.uuid4().hex
+        with self.transaction():
+            self._expire()
+            root, existing = self._fanout_preflight(owner, principal, root_id)
+            if existing:
+                return self._fanout_response(existing)
+            now = self.clock()
+            plan = {'children': normalized}
+            self.db.execute('INSERT INTO fanout_plans(id,root_id,owner,project,plan_json,created) VALUES(?,?,?,?,?,?)',
+                            (plan_id, root['id'], root['owner'], root['project'],
+                             json.dumps(plan, sort_keys=True, separators=(',', ':')), now))
+            assignments = []
+            for ordinal, child in enumerate(normalized):
+                task_id = uuid.uuid4().hex
+                request = {
+                    'parent_id': root['id'], 'logical_role': child['logical_role'], 'stage': child['stage'],
+                    'project': root['project'], 'runtime': root['runtime'], 'title': child['title'],
+                    'brief': child['brief'], 'category': 'development', 'access': 'read',
+                }
+                self.db.execute('''
+                  INSERT INTO tasks(
+                    id,owner,project,title,brief,runtime,category,idem,request_hash,status,created,updated,
+                    logical_role,parent_id,stage,access
+                  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ''', (task_id, root['owner'], root['project'], child['title'], child['brief'], root['runtime'],
+                      'development', 'fanout:%s:%d' % (plan_id, ordinal),
+                      hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest(),
+                      'queued', now, now, child['logical_role'], root['id'], child['stage'], 'read'))
+                self.db.execute('INSERT INTO fanout_children(plan_id,task_id,ordinal,logical_role,stage) VALUES(?,?,?,?,?)',
+                                (plan_id, task_id, ordinal, child['logical_role'], child['stage']))
+                assignments.append({'id': task_id, 'logical_role': child['logical_role'], 'stage': child['stage']})
+            audit = {'root_id': root['id'], 'plan_id': plan_id, 'children': assignments}
+            self.db.execute('INSERT INTO events(task_id,attempt_id,event_id,type,message,created) VALUES(?,?,?,?,?,?)',
+                            (root['id'], '', 'chief-of-staff-plan:' + plan_id,
+                             'chief_of_staff_plan_accepted',
+                             self.sanitize(json.dumps(audit, separators=(',', ':'))), now))
+            plan_row = self.db.execute('SELECT * FROM fanout_plans WHERE id=?', (plan_id,)).fetchone()
+            return self._fanout_response(plan_row)
+
+    def _fanout_membership(self, row):
+        """Return the immutable plan membership for an initial child or its retry."""
+        base, seen = row, set()
+        while base['supersedes']:
+            if base['id'] in seen:
+                return None
+            seen.add(base['id'])
+            base = self.db.execute('SELECT * FROM tasks WHERE id=?', (base['supersedes'],)).fetchone()
+            if not base:
+                return None
+        member = self.db.execute('SELECT * FROM fanout_children WHERE task_id=?', (base['id'],)).fetchone()
+        if not member:
+            return None
+        plan = self.db.execute('SELECT * FROM fanout_plans WHERE id=?', (member['plan_id'],)).fetchone()
+        if not plan:
+            return None
+        return plan, member
+
+    def _latest_attempt(self, row):
+        """A planned child may retain the existing bounded retry semantics."""
+        current, seen = row, set()
+        while True:
+            if current['id'] in seen:
+                return None
+            seen.add(current['id'])
+            successor = self.db.execute('SELECT * FROM tasks WHERE supersedes=?', (current['id'],)).fetchone()
+            if not successor:
+                return current
+            current = successor
+
+    def _source_reference(self, row, owner, project, include_output=False):
+        """Recheck a completed source and optionally extract its bounded output.
+
+        The returned output is derived from the exact bytes whose digest was
+        rechecked here.  It is never an artifact envelope or a path the worker
+        should resolve.  The final value class lets fanout expose a safe,
+        actionable dependency hold without disclosing artifact contents.
+        """
+        if (not row or row['owner'] != owner or row['project'] != project
+                or not isinstance(row['id'], str) or not re.fullmatch(r'[a-f0-9]{32}', row['id'])
+                or not isinstance(row['attempt_id'], str)
+                or not re.fullmatch(r'[a-f0-9]{32}', row['attempt_id'])):
+            return None, None, 'artifact'
+        try:
+            artifact = json.loads(row['artifact']) if row['artifact'] else None
+            verified, payload = self._artifact_payload(artifact)
+
+            def unique_pairs(items):
+                envelope = {}
+                for key, value in items:
+                    if key in envelope:
+                        raise ValueError('Duplicate artifact envelope key')
+                    envelope[key] = value
+                return envelope
+
+            def invalid_constant(_value):
+                raise ValueError('Invalid artifact envelope constant')
+
+            envelope = json.loads(payload, object_pairs_hook=unique_pairs,
+                                  parse_constant=invalid_constant)
+            if (not isinstance(envelope, dict)
+                    or envelope.get('task_id') != row['id']
+                    or envelope.get('attempt_id') != row['attempt_id']):
+                return None, None, 'artifact'
+            source_output = None
+            if include_output:
+                output = envelope.get('output')
+                if not isinstance(output, str) or not output.strip():
+                    return None, None, 'output'
+                try:
+                    if len(output.encode('utf-8')) > MAX_SOURCE_OUTPUT_BYTES:
+                        return None, None, 'output'
+                except UnicodeError:
+                    return None, None, 'output'
+                # Coordinator credentials never cross from a predecessor
+                # artifact into a child claim.  This is intentionally done
+                # after validation so redaction cannot make malformed content
+                # look valid.
+                output = self.sanitize(output)
+                try:
+                    if not output.strip() or len(output.encode('utf-8')) > MAX_SOURCE_OUTPUT_BYTES:
+                        return None, None, 'output'
+                except UnicodeError:
+                    return None, None, 'output'
+                source_output = {
+                    'task_id': row['id'],
+                    'attempt_id': row['attempt_id'],
+                    'output': output,
+                }
+        except (OSError, Rejected, TypeError, ValueError, RecursionError, UnicodeError):
+            return None, None, 'artifact'
+        return {'task_id': row['id'], 'artifact': verified}, source_output, None
+
+    def _review_secrets(self):
+        values = []
+        for group in ('principals', 'workers'):
+            values.extend(entry.get('token') for entry in self.config.get(group, {}).values())
+        bridge = self.config.get('hermes_bridge', {})
+        values.append(bridge.get('token') if isinstance(bridge, dict) else None)
+        return tuple(value for value in values if isinstance(value, str) and value)
+
+    def _review_binding_for_submission(self, owner, project, parent_id, source_id):
+        """Freeze one succeeded CTO write attempt and its verified artifact digest."""
+        if self.config['projects'][project].get('write_review_context') is not True:
+            raise Rejected(403, 'Write review context unavailable')
+        source = self.db.execute('SELECT * FROM tasks WHERE id=?', (source_id,)).fetchone()
+        root = self.db.execute('SELECT * FROM tasks WHERE id=?', (parent_id,)).fetchone()
+        if (not source or not root or source['owner'] != owner or root['owner'] != owner
+                or source['project'] != project or root['project'] != project
+                or source['parent_id'] != parent_id or root['parent_id'] is not None
+                or source['status'] != 'succeeded' or source['logical_role'] != 'cto'
+                or source['access'] != 'write' or source['category'] != 'development'
+                or source['runtime'] != 'codex' or not isinstance(source['attempt_id'], str)
+                or not re.fullmatch(r'[a-f0-9]{32}', source['attempt_id'])
+                or self.db.execute('SELECT 1 FROM tasks WHERE supersedes=? LIMIT 1', (source_id,)).fetchone()):
+            raise Rejected(409, 'Write review source unavailable')
+        try:
+            artifact, payload = self._artifact_payload(json.loads(source['artifact']) if source['artifact'] else None,
+                                                       max_bytes=MAX_ARTIFACT_BYTES)
+            evidence_from_artifact(payload, source['id'], source['attempt_id'], artifact['sha256'],
+                                   self._review_secrets())
+        except (Rejected, TypeError, ValueError, OSError, RecursionError, ReviewEvidenceError):
+            raise Rejected(409, 'Write review source unavailable') from None
+        return {'task_id': source['id'], 'attempt_id': source['attempt_id'],
+                'artifact_sha256': artifact['sha256']}
+
+    def _review_context(self, row):
+        """Revalidate frozen review provenance at claim and return safe evidence or a generic hold."""
+        if row['review_of'] is None:
+            if row['review_binding'] is not None:
+                return None, 'Review held: source or authorization checks require reconciliation.'
+            return None, None
+        hold = 'Review held: source or authorization checks require reconciliation.'
+        owner = row['owner']
+        principal = self.config.get('principals', {}).get(owner)
+        project = self.config.get('projects', {}).get(row['project'])
+        if (not principal or 'read' not in principal.get('permissions', PERMISSIONS)
+                or row['project'] not in principal.get('projects', []) or not project
+                or project.get('write_review_context') is not True):
+            return None, hold
+        if (row['access'] != 'read' or row['logical_role'] != 'sentinel' or row['stage'] != 'verify'
+                or row['runtime'] != 'codex' or row['category'] != 'development'
+                or not isinstance(row['parent_id'], str)):
+            return None, hold
+        try:
+            if not isinstance(row['review_binding'], str) or len(row['review_binding']) > 4096:
+                return None, hold
+            def unique_pairs(items):
+                out = {}
+                for key, value in items:
+                    if key in out:
+                        raise ValueError('duplicate binding key')
+                    out[key] = value
+                return out
+            binding = json.loads(row['review_binding'], object_pairs_hook=unique_pairs,
+                                 parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+            if (not isinstance(binding, dict) or set(binding) != {'task_id', 'attempt_id', 'artifact_sha256'}
+                    or binding['task_id'] != row['review_of']
+                    or not isinstance(binding['attempt_id'], str)
+                    or not re.fullmatch(r'[a-f0-9]{32}', binding['attempt_id'])
+                    or not isinstance(binding['artifact_sha256'], str)
+                    or not re.fullmatch(r'[a-f0-9]{64}', binding['artifact_sha256'])):
+                return None, hold
+            source = self.db.execute('SELECT * FROM tasks WHERE id=?', (row['review_of'],)).fetchone()
+            root = self.db.execute('SELECT * FROM tasks WHERE id=?', (row['parent_id'],)).fetchone()
+            if (not source or not root or source['owner'] != owner or root['owner'] != owner
+                    or source['project'] != row['project'] or root['project'] != row['project']
+                    or source['parent_id'] != row['parent_id'] or root['parent_id'] is not None
+                    or root['status'] in NO_NEW_CHILDREN
+                    or source['status'] != 'succeeded' or source['logical_role'] != 'cto'
+                    or source['access'] != 'write' or source['category'] != 'development'
+                    or source['runtime'] != 'codex' or source['attempt_id'] != binding['attempt_id']
+                    or self.db.execute('SELECT 1 FROM tasks WHERE supersedes=? LIMIT 1', (source['id'],)).fetchone()):
+                return None, hold
+            artifact, payload = self._artifact_payload(json.loads(source['artifact']) if source['artifact'] else None,
+                                                       max_bytes=MAX_ARTIFACT_BYTES)
+            if artifact['sha256'] != binding['artifact_sha256']:
+                return None, hold
+            evidence = evidence_from_artifact(payload, source['id'], source['attempt_id'],
+                                              artifact['sha256'], self._review_secrets())
+            return evidence, None
+        except (Rejected, TypeError, ValueError, OSError, RecursionError, ReviewEvidenceError):
+            return None, hold
+
+    def _review_hold(self, row):
+        if row['review_of'] is None:
+            return None
+        return self._review_context(row)[1]
+
+    def _fanout_context(self, row):
+        """Derive a planned child's dependency hold and safe immutable inputs."""
+        membership = self._fanout_membership(row)
+        if not membership:
+            return None
+        plan, member = membership
+        root = self.db.execute('SELECT * FROM tasks WHERE id=?', (plan['root_id'],)).fetchone()
+        base = {'plan_id': plan['id'], 'order': member['ordinal'] + 1}
+        include_outputs = self.config['projects'][row['project']].get('artifact_context') is True
+        if (not root or root['owner'] != row['owner'] or root['project'] != row['project']
+                or root['parent_id'] is not None):
+            return dict(base, hold_reason='Blocked: automatic plan context is unavailable')
+        if include_outputs and row['access'] != 'read':
+            return dict(base, hold_reason='Blocked: source context requires automatic read-only access')
+        if root['status'] != 'succeeded':
+            state = root['status']
+            if state in NO_FANOUT_ROOTS:
+                return dict(base, hold_reason='Blocked: parent %s is %s' % (root['id'], state))
+            return dict(base, hold_reason='Waiting: parent %s must succeed' % root['id'])
+        root_source, root_output, root_failure = self._source_reference(
+            root, row['owner'], row['project'], include_outputs)
+        if not root_source:
+            suffix = 'artifact output context check failed' if root_failure == 'output' else 'artifact integrity check failed'
+            return dict(base, hold_reason='Blocked: parent %s' % suffix)
+        sources = [root_source]
+        outputs = [root_output] if include_outputs else []
+        predecessors = self.db.execute('''
+          SELECT tasks.*
+          FROM fanout_children JOIN tasks ON tasks.id=fanout_children.task_id
+          WHERE fanout_children.plan_id=? AND fanout_children.ordinal<?
+          ORDER BY fanout_children.ordinal
+        ''', (plan['id'], member['ordinal'])).fetchall()
+        for predecessor in predecessors:
+            effective = self._latest_attempt(predecessor)
+            if not effective:
+                return dict(base, hold_reason='Blocked: planned predecessor is unavailable')
+            if effective['status'] != 'succeeded':
+                state = effective['status']
+                label = '%s (%s)' % (effective['id'], predecessor['logical_role'])
+                if state in NO_NEW_CHILDREN:
+                    return dict(base, hold_reason='Blocked: planned predecessor %s is %s' % (label, state))
+                return dict(base, hold_reason='Waiting: planned predecessor %s must succeed' % label)
+            if include_outputs and effective['access'] != 'read':
+                return dict(base, hold_reason='Blocked: predecessor source context requires read-only access')
+            source, source_output, failure = self._source_reference(
+                effective, row['owner'], row['project'], include_outputs)
+            if not source:
+                suffix = 'artifact output context check failed' if failure == 'output' else 'artifact integrity check failed'
+                return dict(base, hold_reason='Blocked: predecessor %s' % suffix)
+            sources.append(source)
+            if include_outputs:
+                outputs.append(source_output)
+        result = dict(base, source_artifacts=sources)
+        if include_outputs:
+            result['source_outputs'] = outputs
+        return result
 
     def submit(self, owner, principal, body):
         self._need(principal, 'submit')
@@ -222,6 +694,18 @@ class Coordinator:
         access = body.get('access', 'read')
         if not isinstance(access,str) or access not in ('read','write'):
             raise Rejected(400, 'Invalid access')
+        review_of = body.get('review_of')
+        review_binding = None
+        if review_of is not None:
+            if not isinstance(review_of, str) or not re.fullmatch(r'[a-f0-9]{32}', review_of):
+                raise Rejected(400, 'Invalid review_of')
+            self._need(principal, 'read')
+            if (parent_id is None or role != 'sentinel' or stage != 'verify' or access != 'read'
+                    or runtime != 'codex' or body.get('category', 'development') != 'development'):
+                raise Rejected(400, 'Write review requires a read-only Sentinel verify child')
+            review_binding = self._review_binding_for_submission(owner, project, parent_id, review_of)
+        elif 'review_of' in body:
+            raise Rejected(400, 'Invalid review_of')
         if access == 'write':
             if parent_id is None:
                 raise Rejected(400, 'Write tasks must be children in a task graph')
@@ -236,6 +720,8 @@ class Coordinator:
             request.update(parent_id=parent_id,logical_role=role,stage=stage)
             if supersedes is not None:
                 request['supersedes'] = supersedes
+        if review_of is not None:
+            request.update(review_of=review_of, review_binding=review_binding)
         digest = hashlib.sha256(json.dumps(request,sort_keys=True).encode()).hexdigest()
         with self.lock:
             prior = self.db.execute('SELECT * FROM tasks WHERE owner=? AND idem=?',(owner,body['idempotency_key'])).fetchone()
@@ -284,12 +770,20 @@ class Coordinator:
                     raise Rejected(409, 'Task graphs are one level deep')
                 if parent['status'] in NO_NEW_CHILDREN:
                     raise Rejected(409, 'Parent no longer accepts children')
+                plan = self.db.execute(
+                    'SELECT * FROM fanout_plans WHERE root_id=?', (parent_id,)
+                ).fetchone()
+                if plan and supersedes is None:
+                    raise Rejected(409, 'Automatic fanout plans accept retries only')
                 if supersedes is not None:
                     old = self._owned(owner,principal,supersedes,mutate=True)
                     if old['parent_id'] != parent_id or old['logical_role'] != role or old['stage'] != stage or old['access'] != access:
                         raise Rejected(409, 'A retry must match the parent, role, stage and access of the failed task')
                     if old['status'] != 'failed':
                         raise Rejected(409, 'Only failed tasks can be retried; interrupted tasks need manual reconciliation')
+                    old_binding = json.loads(old['review_binding']) if old['review_binding'] else None
+                    if old['review_of'] != review_of or old_binding != review_binding:
+                        raise Rejected(409, 'A retry must preserve the original review source binding')
                     if self.db.execute('SELECT 1 FROM tasks WHERE supersedes=?',(supersedes,)).fetchone():
                         raise Rejected(409, 'Task was already retried')
                     attempts, cursor = 1, old
@@ -297,6 +791,13 @@ class Coordinator:
                         attempts, cursor = attempts + 1, self.db.execute('SELECT * FROM tasks WHERE id=?',(cursor['supersedes'],)).fetchone()
                     if attempts >= MAX_ATTEMPTS:
                         raise Rejected(409, 'Retry limit reached for this role')
+                    if plan:
+                        membership = self._fanout_membership(old)
+                        if (not membership or membership[0]['id'] != plan['id']
+                                or membership[1]['logical_role'] != role
+                                or membership[1]['stage'] != stage
+                                or access != 'read'):
+                            raise Rejected(409, 'Automatic fanout plans accept planned-member retries only')
                 elif self.db.execute('SELECT count(*) FROM tasks WHERE parent_id=? AND id NOT IN (SELECT supersedes FROM tasks WHERE supersedes IS NOT NULL)',(parent_id,)).fetchone()[0] >= MAX_CHILDREN:
                     raise Rejected(409, 'Parent already has the maximum number of children')
             tid, now = uuid.uuid4().hex, self.clock()
@@ -304,6 +805,12 @@ class Coordinator:
               (tid,owner,project,self.sanitize(body.get('title') or 'Fleet task'),self.sanitize(body['brief']),runtime,self.sanitize(body.get('category') or 'development'),body['idempotency_key'],digest,'queued',now,now))
             if parent_id is not None:
                 self.db.execute('UPDATE tasks SET parent_id=?,logical_role=?,stage=?,supersedes=?,access=? WHERE id=?',(parent_id,role,stage,supersedes,access,tid))
+            if review_of is not None:
+                current_binding = self._review_binding_for_submission(owner, project, parent_id, review_of)
+                if current_binding != review_binding:
+                    raise Rejected(409, 'Write review source changed during submission')
+                self.db.execute('UPDATE tasks SET review_of=?,review_binding=? WHERE id=?',
+                                (review_of, json.dumps(review_binding, sort_keys=True, separators=(',', ':')), tid))
             if interpretation:
                 self.db.execute('UPDATE tasks SET title=?,brief=?,category=?,logical_role=? WHERE id=?',(
                     self.sanitize(interpretation.get('title') or body.get('title') or 'Fleet task')[:200],
@@ -331,12 +838,35 @@ class Coordinator:
             result = self._public(row)
             if row['parent_id'] is None:
                 result['graph'] = self._graph(row)
+                result['fanout_action'] = self._fanout_action(owner, principal, row)
+            else:
+                context = self._fanout_context(row)
+                if context:
+                    result['fanout'] = {'plan_id': context['plan_id'], 'order': context['order']}
+                    if context.get('hold_reason'):
+                        result['hold_reason'] = context['hold_reason']
+                review_hold = self._review_hold(row)
+                if review_hold:
+                    result['hold_reason'] = review_hold
             return result
 
     def _graph(self, parent):
         kids = self.db.execute('SELECT * FROM tasks WHERE parent_id=? ORDER BY created',(parent['id'],)).fetchall()
         replaced = {kid['supersedes']: kid['id'] for kid in kids if kid['supersedes']}
-        children = [dict({k: v for k, v in self._public(kid).items() if k in ('id','logical_role','stage','status','artifact','supersedes')}, superseded_by=replaced.get(kid['id'])) for kid in kids]
+        children = []
+        for kid in kids:
+            child = dict({k: v for k, v in self._public(kid).items()
+                          if k in ('id','logical_role','stage','status','artifact','supersedes','review_of')},
+                         superseded_by=replaced.get(kid['id']))
+            context = self._fanout_context(kid)
+            if context:
+                child['fanout'] = {'plan_id': context['plan_id'], 'order': context['order']}
+                if context.get('hold_reason'):
+                    child['hold_reason'] = context['hold_reason']
+            review_hold = self._review_hold(kid)
+            if review_hold:
+                child['hold_reason'] = review_hold
+            children.append(child)
         kids = [kid for kid in kids if kid['id'] not in replaced]  # a retried attempt no longer counts
         statuses = {kid['status'] for kid in kids}
         if not kids:
@@ -346,7 +876,7 @@ class Coordinator:
         elif 'cancelled' in statuses or 'cancel_requested' in statuses:
             status = 'cancelled'
         elif statuses == {'succeeded'} and parent['status'] == 'succeeded' and any(kid['logical_role'] == 'sentinel' and kid['artifact'] for kid in kids):
-            status = 'verified'  # derived on read: no scheduler owns this state
+            status = 'verified'  # derived artifact rollup, not a semantic validation claim
         else:
             status = 'incomplete'
         return {'children': children, 'status': status}
@@ -375,6 +905,14 @@ class Coordinator:
                 modes = worker.get('access_modes', ['read'] if worker.get('remote_artifacts') is True else ['read', 'write'])
                 if row['access'] not in modes:
                     continue
+                context = self._fanout_context(row)
+                if context and context.get('hold_reason'):
+                    continue
+                review_evidence = None
+                if row['review_of'] is not None or row['review_binding'] is not None:
+                    review_evidence, review_hold = self._review_context(row)
+                    if review_hold:
+                        continue
                 attempt, token = uuid.uuid4().hex, uuid.uuid4().hex + uuid.uuid4().hex
                 now = self.clock()
                 self.db.execute("UPDATE tasks SET status='running',worker=?,attempt_id=?,lease_hash=?,deadline=?,updated=? WHERE id=?",(name,attempt,hashlib.sha256(token.encode()).hexdigest(),now+self.config.get('lease_seconds',90),now,row['id']))
@@ -388,10 +926,17 @@ class Coordinator:
                     result['remote_artifacts'] = True
                 else:
                     result.update(root=str(Path(project['root']).resolve()),artifacts_root=str(self.artifacts))
+                if context:
+                    result['fanout'] = {'plan_id': context['plan_id'], 'order': context['order']}
+                    result['source_artifacts'] = context['source_artifacts']
+                    if 'source_outputs' in context:
+                        result['source_outputs'] = context['source_outputs']
+                if review_evidence is not None:
+                    result['review_evidence'] = review_evidence
                 return result
             return None
 
-    def _artifact(self, artifact):
+    def _artifact_payload(self, artifact, max_bytes=16*1024*1024):
         if not isinstance(artifact,dict) or not isinstance(artifact.get('path'),str) or not isinstance(artifact.get('sha256'),str):
             raise Rejected(400,'Invalid artifact')
         path = Path(artifact['path'])
@@ -400,12 +945,23 @@ class Coordinator:
         resolved = path.resolve()
         if not resolved.is_relative_to(self.artifacts.resolve()) or path.is_symlink() or not resolved.is_file():
             raise Rejected(400,'Artifact outside allowed root or missing')
-        if resolved.stat().st_size > 16*1024*1024:
-            raise Rejected(400,'Artifact too large')
-        digest = hashlib.sha256(resolved.read_bytes()).hexdigest()
+        fd = os.open(resolved, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as source:
+            before = os.fstat(source.fileno())
+            if not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes:
+                raise Rejected(400,'Artifact too large or not a regular file')
+            payload = source.read(max_bytes + 1)
+            after = os.fstat(source.fileno())
+        identity = lambda info: (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        if len(payload) > max_bytes or identity(before) != identity(after):
+            raise Rejected(400,'Artifact changed or too large')
+        digest = hashlib.sha256(payload).hexdigest()
         if not hmac.compare_digest(digest,artifact['sha256']):
             raise Rejected(400,'Artifact hash mismatch')
-        return {'path':str(resolved.relative_to(self.artifacts)), 'sha256':digest}
+        return {'path':str(resolved.relative_to(self.artifacts)), 'sha256':digest}, payload
+
+    def _artifact(self, artifact):
+        return self._artifact_payload(artifact)[0]
 
     def _redact_artifact_value(self, value, lease_token):
         """Redact every persisted remote-artifact string, including nested values."""
@@ -549,6 +1105,12 @@ def load_config(path):
             root=Path(project.get('root',''))
             if not root.is_absolute() or not root.is_dir() or not (root/'.git').exists():
                 raise ValueError('Project roots must name existing Git repositories')
+        if 'fanout' in project and not isinstance(project['fanout'], bool):
+            raise ValueError('Invalid project fanout configuration')
+        if 'artifact_context' in project and not isinstance(project['artifact_context'], bool):
+            raise ValueError('Invalid project artifact context configuration')
+        if 'write_review_context' in project and not isinstance(project['write_review_context'], bool):
+            raise ValueError('Invalid project write review context configuration')
     tokens=set()
     for group in ('principals','workers'):
         for entry in config[group].values():
@@ -568,6 +1130,10 @@ def load_config(path):
                     node_id=entry.get('node_id')
                     if not isinstance(node_id,str) or not NODE_ID.fullmatch(node_id):
                         raise ValueError('Remote workers require a valid node_id')
+            if group == 'principals' and 'fanout_projects' in entry:
+                if (not isinstance(entry['fanout_projects'], list)
+                        or any(project not in config['projects'] for project in entry['fanout_projects'])):
+                    raise ValueError('Invalid fanout project scope')
             if group=='principals':
                 permissions,viewed=entry.get('permissions',list(PERMISSIONS)),entry.get('view_owners',[])
                 if not isinstance(permissions,list) or not set(permissions)<=set(PERMISSIONS):
@@ -631,12 +1197,18 @@ def server(coordinator, port=4101):
                     if not re.fullmatch(r'[0-9]{1,8}', length_header):
                         raise Rejected(413,'Invalid body size')
                     length = int(length_header)
-                    if not 0 < length <= MAX_HTTP_BODY_BYTES:
+                    # Only the fanout action may carry an empty body; every
+                    # other POST keeps the bounded, non-empty JSON contract.
+                    empty_fanout = bool(re.fullmatch(r'/v1/tasks/[a-f0-9]{32}/fanout', path))
+                    if not 0 <= length <= MAX_HTTP_BODY_BYTES or (length == 0 and not empty_fanout):
                         raise Rejected(413,'Invalid body size')
-                    raw = self.rfile.read(length)
-                    if len(raw) != length:
-                        raise Rejected(400,'Incomplete request body')
-                    body = _bounded_json_object(raw, MAX_HTTP_BODY_BYTES)
+                    if length == 0:
+                        body = {}
+                    else:
+                        raw = self.rfile.read(length)
+                        if len(raw) != length:
+                            raise Rejected(400,'Incomplete request body')
+                        body = _bounded_json_object(raw, MAX_HTTP_BODY_BYTES)
                 if path=='/v1/worker/claim' and self.command=='POST':
                     result={'task':coordinator.claim(name,principal)}
                 elif path=='/v1/worker/report' and self.command=='POST':
@@ -645,10 +1217,12 @@ def server(coordinator, port=4101):
                     result={'tasks':coordinator.list_tasks(name,principal)}
                 elif path=='/v1/tasks' and self.command=='POST':
                     result=coordinator.submit(name,principal,body)
-                elif not worker_route and re.fullmatch(r'/v1/tasks/[a-f0-9]{32}(?:/(?:events|cancel))?',path):
+                elif not worker_route and re.fullmatch(r'/v1/tasks/[a-f0-9]{32}(?:/(?:events|cancel|fanout))?',path):
                     parts=path.split('/')
                     if self.command=='POST' and len(parts)==5 and parts[4]=='cancel':
                         result=coordinator.cancel(name,principal,parts[3])
+                    elif self.command=='POST' and len(parts)==5 and parts[4]=='fanout':
+                        result=coordinator.fanout(name,principal,parts[3],body)
                     elif self.command=='GET' and (len(parts)==4 or parts[4]=='events'):
                         result=coordinator.detail(name,principal,parts[3],events=len(parts)==5)
                         if len(parts)==5:
