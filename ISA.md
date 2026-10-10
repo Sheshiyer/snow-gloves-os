@@ -3,8 +3,8 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: execute
-progress: 353/397
+phase: build
+progress: 353/429
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -528,6 +528,41 @@ until the actual mini supplies evidence.
 - [x] ISC-382: The reviewed pilot package and runbook record scoped runtime capabilities, limitations and rollout evidence.
 - [ ] ISC-383: Anti: write-adapter verification commands can write outside the approved worktree; an edited verification script invoked by an unchanged allowlisted command is denied without an accepted artifact.
 
+### Headless Hermes implementation, 10 October 2026
+
+- [ ] ISC-401: Combined remote artifacts and verified role context pass source regression.
+- [ ] ISC-402: Production web server serves the built UI without a desktop-session dependency.
+- [ ] ISC-403: Production web proxy rejects unapproved hosts, origins and worker routes.
+- [ ] ISC-404: Authenticated context exposes only authorized projects and worker choices.
+- [ ] ISC-405: Catalog readiness displays every entry with a concrete admission state.
+- [ ] ISC-406: Execution rejects disabled and refused catalog entries server-side.
+- [ ] ISC-407: Execution rejects missing adapters and mismatched pinned skill source.
+- [ ] ISC-408: Execution validates inputs against the reviewed adapter schema.
+- [ ] ISC-409: Capability dispatch rechecks tenant and principal project authority.
+- [ ] ISC-410: Approval requests bind tenant, capability and input digest.
+- [ ] ISC-411: Approval decisions derive actor from authenticated approve permission.
+- [ ] ISC-412: Approved execution consumes authorization without duplicate task creation.
+- [ ] ISC-413: Artifact retrieval rejects cross-owner or cross-project access.
+- [ ] ISC-414: Artifact retrieval verifies persisted bytes before presenting content.
+- [ ] ISC-415: Fleet UI selects authorized projects and eligible workers.
+- [ ] ISC-416: Fleet UI exposes capability readiness and gated execution controls.
+- [ ] ISC-417: Fleet UI exposes approval decisions only to authorized approvers.
+- [ ] ISC-418: Fleet UI displays readable artifact content and safe downloads.
+- [ ] ISC-419: Grok Bot MCP tools use a dedicated scoped application principal.
+- [ ] ISC-420: Actual Grok Bot discovers fleet tools through supported plugin registration.
+- [ ] ISC-421: Actual Grok Bot task and result match the web UI.
+- [ ] ISC-422: Headless plan binds plist bytes and nonroot identity to a reviewed digest.
+- [ ] ISC-423: Headless apply requires quiescence and prevents duplicate registration.
+- [ ] ISC-424: Headless rollback preserves drifted files for manual recovery.
+- [ ] ISC-425: Actual Coding01 system services run without desktop login.
+- [ ] ISC-426: Actual Coding02 system services run without desktop login.
+- [ ] ISC-427: Actual Coding02 FileVault is Off before cold-boot acceptance.
+- [ ] ISC-428: Actual India team device reaches company UI and scoped task operations.
+- [ ] ISC-429: Actual India team access remains denied to authoring and gateway administration.
+- [ ] ISC-430: Actual Coding02 write-build task returns verified changes and output.
+- [ ] ISC-431: Actual cold boot restores both Coding Macs and completes a fresh fleet task.
+- [ ] ISC-432: Anti: authoring runtime, disk protection and fleet role stay unchanged.
+
 ## Test Strategy
 
 - ISC-383 | verification confinement | edited verification script attempts an outside-worktree marker write through the allowlisted test command | outside bytes unchanged; violation denied; sandbox unavailable fails closed | disposable worker regression + OS sandbox probe
@@ -673,6 +708,8 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 <!-- arch-assets:end -->
 
 ## Decisions
+
+- 2026-10-10: refined: approved implementation and completed preference interview select Coding01 primary, Coding02 worker, Grok Bot task operations, whole catalog with gated execution, unattended cold boot on Coding Macs only, no desktop autologin and separate protected authoring seat. ISC401–432 retain separate source, installed and physical acceptance.
 
 - 2026-10-09: refined: gate write enablement on ISC-383. The worker's verification subprocess executes proposed project code outside the Codex sandbox; an argv allowlist and a worktree cwd do not confine that code. Preserve default-off write configuration while OS-enforced verification confinement is repaired. Routed Observe dispatch is held by unavailable hosted gateway management admission; no worker/model resolution or local fallback is claimed.
 - refined: 2026-10-09 founder declines Cloudflare Zero Trust Access; use private Tailscale transport plus application authorization for the fleet UI. The company hostname remains `fleet.hey-zack.fr`. Founder has on-site recovery help available for the scheduled reboot; no reboot evidence is inferred.
