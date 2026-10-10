@@ -36,8 +36,10 @@ def test_allowed(event):
 @pytest.mark.parametrize('tool', ['upsert_client', 'delete_client', 'hard_delete_client', 'hard_delete_supplier_order', 'send_invoice', 'record_payment',
                                   'adjust_stock', 'transfer_stock', 'record_count', 'submit_feedback', 'upload_attachment', 'void_invoice', 'anything_new_the_server_adds'])
 def test_every_other_tool_of_the_erp_server_is_blocked(tool):
-    done = run({'tool_name': S + tool, 'tool_input': {}})
-    assert done.returncode == 2 and 'read-only' in done.stderr
+    # blocked by NAME, not incidentally: the inputs include a perfectly valid read query and realistic arguments
+    for arguments in ({}, {'query': 'SELECT "cli_id" FROM "TM_CLI_CLient" WHERE "cli_id" IN (5) LIMIT 100'}, {'client_id': 5, 'cli_company_name': 'x'}):
+        done = run({'tool_name': S + tool, 'tool_input': arguments})
+        assert done.returncode == 2 and 'is not permitted' in done.stderr and 'read-only' in done.stderr
 
 
 @pytest.mark.parametrize('sql', [
