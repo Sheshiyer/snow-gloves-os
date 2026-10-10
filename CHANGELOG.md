@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Manual Sentinel write review (source-only, default-off).** Owners can submit a read-only Sentinel verification child bound to a succeeded CTO write child's exact attempt and artifact checksum. The coordinator revalidates the binding and current authorization at claim, delivers bounded verified patch evidence, and the worker checks patch applicability without applying it. No automatic fanout, write, merge, or deployment authority is added.
 - **Cloud gateway.** OmniRoute can run on EC2 behind Cloudflare instead of the Coding Mac: `infra/aws-gateway` (Elastic IP, Cloudflare-only security group, SSM, S3 backups, DLM snapshots, alarms, budget) and `infra/cloudflare-gateway` (proxied DNS, Origin CA cert via SSM, WAF office allowlist on `/v1`, Access on the dashboard), driven by `scripts/fleet/cloud_gateway.sh`. `scripts/fleet/cloud_guard.py` and the doctor's `fleet-boundary` check refuse any account, zone or domain outside the `cloud_gateway` block. `gateway_client.py` takes `--url https://…` and `--via tailnet`. Docs: `docs/fleet/08-CLOUD-GATEWAY.md`.
 
 ## v0.2.1 — Onboarding TUI (2026-09-30)

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import stat
 import threading
 import time
 import uuid
@@ -14,6 +15,8 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from lib.fleet_write_review import MAX_ARTIFACT_BYTES, ReviewEvidenceError, evidence_from_artifact
 
 
 ROLES = ('ceo','cto','chief-of-staff','librarian','interpreter','dispatcher','sentinel')
@@ -95,6 +98,9 @@ class Coordinator:
                 self.db.execute('ALTER TABLE tasks ADD COLUMN %s TEXT' % column)
         if 'access' not in columns:
             self.db.execute("ALTER TABLE tasks ADD COLUMN access TEXT NOT NULL DEFAULT 'read'")
+        for column in ('review_of', 'review_binding'):
+            if column not in columns:
+                self.db.execute('ALTER TABLE tasks ADD COLUMN %s TEXT' % column)
         self.db.execute('CREATE INDEX IF NOT EXISTS tasks_parent ON tasks(parent_id)')
         self.db.execute('CREATE INDEX IF NOT EXISTS fanout_children_task ON fanout_children(task_id)')
         self.db.commit()
@@ -138,7 +144,7 @@ class Coordinator:
             self.db.execute('INSERT OR IGNORE INTO events(task_id,attempt_id,event_id,type,message,created) VALUES(?,?,?,?,?,?)', (row['id'],row['attempt_id'],'lease-expired','interrupted','Worker heartbeat expired; manual reconciliation required',now))
 
     def _public(self, row):
-        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes','access')
+        keys = ('id','owner','project','title','brief','runtime','category','status','created','updated','worker','attempt_id','logical_role','parent_id','stage','supersedes','access','review_of')
         result = {k: row[k] for k in keys}
         project = self.config['projects'][row['project']]
         result.update(tenant=project['tenant'],organization=project['organization'],session_id=row['id'])
@@ -446,6 +452,102 @@ class Coordinator:
             return None, None, 'artifact'
         return {'task_id': row['id'], 'artifact': verified}, source_output, None
 
+    def _review_secrets(self):
+        values = []
+        for group in ('principals', 'workers'):
+            values.extend(entry.get('token') for entry in self.config.get(group, {}).values())
+        bridge = self.config.get('hermes_bridge', {})
+        values.append(bridge.get('token') if isinstance(bridge, dict) else None)
+        return tuple(value for value in values if isinstance(value, str) and value)
+
+    def _review_binding_for_submission(self, owner, project, parent_id, source_id):
+        """Freeze one succeeded CTO write attempt and its verified artifact digest."""
+        if self.config['projects'][project].get('write_review_context') is not True:
+            raise Rejected(403, 'Write review context unavailable')
+        source = self.db.execute('SELECT * FROM tasks WHERE id=?', (source_id,)).fetchone()
+        root = self.db.execute('SELECT * FROM tasks WHERE id=?', (parent_id,)).fetchone()
+        if (not source or not root or source['owner'] != owner or root['owner'] != owner
+                or source['project'] != project or root['project'] != project
+                or source['parent_id'] != parent_id or root['parent_id'] is not None
+                or source['status'] != 'succeeded' or source['logical_role'] != 'cto'
+                or source['access'] != 'write' or source['category'] != 'development'
+                or source['runtime'] != 'codex' or not isinstance(source['attempt_id'], str)
+                or not re.fullmatch(r'[a-f0-9]{32}', source['attempt_id'])
+                or self.db.execute('SELECT 1 FROM tasks WHERE supersedes=? LIMIT 1', (source_id,)).fetchone()):
+            raise Rejected(409, 'Write review source unavailable')
+        try:
+            artifact, payload = self._artifact_payload(json.loads(source['artifact']) if source['artifact'] else None,
+                                                       max_bytes=MAX_ARTIFACT_BYTES)
+            evidence_from_artifact(payload, source['id'], source['attempt_id'], artifact['sha256'],
+                                   self._review_secrets())
+        except (Rejected, TypeError, ValueError, OSError, RecursionError, ReviewEvidenceError):
+            raise Rejected(409, 'Write review source unavailable') from None
+        return {'task_id': source['id'], 'attempt_id': source['attempt_id'],
+                'artifact_sha256': artifact['sha256']}
+
+    def _review_context(self, row):
+        """Revalidate frozen review provenance at claim and return safe evidence or a generic hold."""
+        if row['review_of'] is None:
+            if row['review_binding'] is not None:
+                return None, 'Review held: source or authorization checks require reconciliation.'
+            return None, None
+        hold = 'Review held: source or authorization checks require reconciliation.'
+        owner = row['owner']
+        principal = self.config.get('principals', {}).get(owner)
+        project = self.config.get('projects', {}).get(row['project'])
+        if (not principal or 'read' not in principal.get('permissions', PERMISSIONS)
+                or row['project'] not in principal.get('projects', []) or not project
+                or project.get('write_review_context') is not True):
+            return None, hold
+        if (row['access'] != 'read' or row['logical_role'] != 'sentinel' or row['stage'] != 'verify'
+                or row['runtime'] != 'codex' or row['category'] != 'development'
+                or not isinstance(row['parent_id'], str)):
+            return None, hold
+        try:
+            if not isinstance(row['review_binding'], str) or len(row['review_binding']) > 4096:
+                return None, hold
+            def unique_pairs(items):
+                out = {}
+                for key, value in items:
+                    if key in out:
+                        raise ValueError('duplicate binding key')
+                    out[key] = value
+                return out
+            binding = json.loads(row['review_binding'], object_pairs_hook=unique_pairs,
+                                 parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+            if (not isinstance(binding, dict) or set(binding) != {'task_id', 'attempt_id', 'artifact_sha256'}
+                    or binding['task_id'] != row['review_of']
+                    or not isinstance(binding['attempt_id'], str)
+                    or not re.fullmatch(r'[a-f0-9]{32}', binding['attempt_id'])
+                    or not isinstance(binding['artifact_sha256'], str)
+                    or not re.fullmatch(r'[a-f0-9]{64}', binding['artifact_sha256'])):
+                return None, hold
+            source = self.db.execute('SELECT * FROM tasks WHERE id=?', (row['review_of'],)).fetchone()
+            root = self.db.execute('SELECT * FROM tasks WHERE id=?', (row['parent_id'],)).fetchone()
+            if (not source or not root or source['owner'] != owner or root['owner'] != owner
+                    or source['project'] != row['project'] or root['project'] != row['project']
+                    or source['parent_id'] != row['parent_id'] or root['parent_id'] is not None
+                    or root['status'] in NO_NEW_CHILDREN
+                    or source['status'] != 'succeeded' or source['logical_role'] != 'cto'
+                    or source['access'] != 'write' or source['category'] != 'development'
+                    or source['runtime'] != 'codex' or source['attempt_id'] != binding['attempt_id']
+                    or self.db.execute('SELECT 1 FROM tasks WHERE supersedes=? LIMIT 1', (source['id'],)).fetchone()):
+                return None, hold
+            artifact, payload = self._artifact_payload(json.loads(source['artifact']) if source['artifact'] else None,
+                                                       max_bytes=MAX_ARTIFACT_BYTES)
+            if artifact['sha256'] != binding['artifact_sha256']:
+                return None, hold
+            evidence = evidence_from_artifact(payload, source['id'], source['attempt_id'],
+                                              artifact['sha256'], self._review_secrets())
+            return evidence, None
+        except (Rejected, TypeError, ValueError, OSError, RecursionError, ReviewEvidenceError):
+            return None, hold
+
+    def _review_hold(self, row):
+        if row['review_of'] is None:
+            return None
+        return self._review_context(row)[1]
+
     def _fanout_context(self, row):
         """Derive a planned child's dependency hold and safe immutable inputs."""
         membership = self._fanout_membership(row)
@@ -530,6 +632,18 @@ class Coordinator:
         access = body.get('access', 'read')
         if not isinstance(access,str) or access not in ('read','write'):
             raise Rejected(400, 'Invalid access')
+        review_of = body.get('review_of')
+        review_binding = None
+        if review_of is not None:
+            if not isinstance(review_of, str) or not re.fullmatch(r'[a-f0-9]{32}', review_of):
+                raise Rejected(400, 'Invalid review_of')
+            self._need(principal, 'read')
+            if (parent_id is None or role != 'sentinel' or stage != 'verify' or access != 'read'
+                    or runtime != 'codex' or body.get('category', 'development') != 'development'):
+                raise Rejected(400, 'Write review requires a read-only Sentinel verify child')
+            review_binding = self._review_binding_for_submission(owner, project, parent_id, review_of)
+        elif 'review_of' in body:
+            raise Rejected(400, 'Invalid review_of')
         if access == 'write':
             if parent_id is None:
                 raise Rejected(400, 'Write tasks must be children in a task graph')
@@ -544,6 +658,8 @@ class Coordinator:
             request.update(parent_id=parent_id,logical_role=role,stage=stage)
             if supersedes is not None:
                 request['supersedes'] = supersedes
+        if review_of is not None:
+            request.update(review_of=review_of, review_binding=review_binding)
         digest = hashlib.sha256(json.dumps(request,sort_keys=True).encode()).hexdigest()
         with self.lock:
             prior = self.db.execute('SELECT * FROM tasks WHERE owner=? AND idem=?',(owner,body['idempotency_key'])).fetchone()
@@ -603,6 +719,9 @@ class Coordinator:
                         raise Rejected(409, 'A retry must match the parent, role, stage and access of the failed task')
                     if old['status'] != 'failed':
                         raise Rejected(409, 'Only failed tasks can be retried; interrupted tasks need manual reconciliation')
+                    old_binding = json.loads(old['review_binding']) if old['review_binding'] else None
+                    if old['review_of'] != review_of or old_binding != review_binding:
+                        raise Rejected(409, 'A retry must preserve the original review source binding')
                     if self.db.execute('SELECT 1 FROM tasks WHERE supersedes=?',(supersedes,)).fetchone():
                         raise Rejected(409, 'Task was already retried')
                     attempts, cursor = 1, old
@@ -624,6 +743,12 @@ class Coordinator:
               (tid,owner,project,self.sanitize(body.get('title') or 'Fleet task'),self.sanitize(body['brief']),runtime,self.sanitize(body.get('category') or 'development'),body['idempotency_key'],digest,'queued',now,now))
             if parent_id is not None:
                 self.db.execute('UPDATE tasks SET parent_id=?,logical_role=?,stage=?,supersedes=?,access=? WHERE id=?',(parent_id,role,stage,supersedes,access,tid))
+            if review_of is not None:
+                current_binding = self._review_binding_for_submission(owner, project, parent_id, review_of)
+                if current_binding != review_binding:
+                    raise Rejected(409, 'Write review source changed during submission')
+                self.db.execute('UPDATE tasks SET review_of=?,review_binding=? WHERE id=?',
+                                (review_of, json.dumps(review_binding, sort_keys=True, separators=(',', ':')), tid))
             if interpretation:
                 self.db.execute('UPDATE tasks SET title=?,brief=?,category=?,logical_role=? WHERE id=?',(
                     self.sanitize(interpretation.get('title') or body.get('title') or 'Fleet task')[:200],
@@ -658,6 +783,9 @@ class Coordinator:
                     result['fanout'] = {'plan_id': context['plan_id'], 'order': context['order']}
                     if context.get('hold_reason'):
                         result['hold_reason'] = context['hold_reason']
+                review_hold = self._review_hold(row)
+                if review_hold:
+                    result['hold_reason'] = review_hold
             return result
 
     def _graph(self, parent):
@@ -666,13 +794,16 @@ class Coordinator:
         children = []
         for kid in kids:
             child = dict({k: v for k, v in self._public(kid).items()
-                          if k in ('id','logical_role','stage','status','artifact','supersedes')},
+                          if k in ('id','logical_role','stage','status','artifact','supersedes','review_of')},
                          superseded_by=replaced.get(kid['id']))
             context = self._fanout_context(kid)
             if context:
                 child['fanout'] = {'plan_id': context['plan_id'], 'order': context['order']}
                 if context.get('hold_reason'):
                     child['hold_reason'] = context['hold_reason']
+            review_hold = self._review_hold(kid)
+            if review_hold:
+                child['hold_reason'] = review_hold
             children.append(child)
         kids = [kid for kid in kids if kid['id'] not in replaced]  # a retried attempt no longer counts
         statuses = {kid['status'] for kid in kids}
@@ -712,6 +843,11 @@ class Coordinator:
                 context = self._fanout_context(row)
                 if context and context.get('hold_reason'):
                     continue
+                review_evidence = None
+                if row['review_of'] is not None or row['review_binding'] is not None:
+                    review_evidence, review_hold = self._review_context(row)
+                    if review_hold:
+                        continue
                 attempt, token = uuid.uuid4().hex, uuid.uuid4().hex + uuid.uuid4().hex
                 now = self.clock()
                 self.db.execute("UPDATE tasks SET status='running',worker=?,attempt_id=?,lease_hash=?,deadline=?,updated=? WHERE id=?",(name,attempt,hashlib.sha256(token.encode()).hexdigest(),now+self.config.get('lease_seconds',90),now,row['id']))
@@ -723,10 +859,12 @@ class Coordinator:
                     result['source_artifacts'] = context['source_artifacts']
                     if 'source_outputs' in context:
                         result['source_outputs'] = context['source_outputs']
+                if review_evidence is not None:
+                    result['review_evidence'] = review_evidence
                 return result
             return None
 
-    def _artifact_payload(self, artifact):
+    def _artifact_payload(self, artifact, max_bytes=16*1024*1024):
         if not isinstance(artifact,dict) or not isinstance(artifact.get('path'),str) or not isinstance(artifact.get('sha256'),str):
             raise Rejected(400,'Invalid artifact')
         path = Path(artifact['path'])
@@ -735,9 +873,16 @@ class Coordinator:
         resolved = path.resolve()
         if not resolved.is_relative_to(self.artifacts.resolve()) or path.is_symlink() or not resolved.is_file():
             raise Rejected(400,'Artifact outside allowed root or missing')
-        if resolved.stat().st_size > 16*1024*1024:
-            raise Rejected(400,'Artifact too large')
-        payload = resolved.read_bytes()
+        fd = os.open(resolved, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as source:
+            before = os.fstat(source.fileno())
+            if not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes:
+                raise Rejected(400,'Artifact too large or not a regular file')
+            payload = source.read(max_bytes + 1)
+            after = os.fstat(source.fileno())
+        identity = lambda info: (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        if len(payload) > max_bytes or identity(before) != identity(after):
+            raise Rejected(400,'Artifact changed or too large')
         digest = hashlib.sha256(payload).hexdigest()
         if not hmac.compare_digest(digest,artifact['sha256']):
             raise Rejected(400,'Artifact hash mismatch')
@@ -791,6 +936,8 @@ def load_config(path):
             raise ValueError('Invalid project fanout configuration')
         if 'artifact_context' in project and not isinstance(project['artifact_context'], bool):
             raise ValueError('Invalid project artifact context configuration')
+        if 'write_review_context' in project and not isinstance(project['write_review_context'], bool):
+            raise ValueError('Invalid project write review context configuration')
     tokens=set()
     for group in ('principals','workers'):
         for entry in config[group].values():

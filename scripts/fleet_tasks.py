@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -27,6 +28,7 @@ def main():
     submit.add_argument('--supersedes',help='id of a failed child of --parent to retry (same role and stage)')
     submit.add_argument('--access',choices=('read','write'),help='write needs a CTO child under --parent and explicit server-side enablement')
     submit.add_argument('--stage',help='child stage: plan, reference, review, dispatch or verify')
+    submit.add_argument('--review-of',help='verified succeeded CTO write-child id for a manual Sentinel review')
     sub.add_parser('list')
     for command in ('status','logs','cancel'):
         child=sub.add_parser(command)
@@ -49,8 +51,13 @@ def main():
                 body['supersedes']=args.supersedes
             if args.access:
                 body['access']=args.access
-        elif args.role or args.stage or args.supersedes or args.access:
-            parser.error('--role, --stage, --supersedes and --access require --parent')
+            if args.review_of is not None:
+                if (not re.fullmatch(r'[a-f0-9]{32}', args.review_of) or args.role != 'sentinel'
+                        or args.stage != 'verify' or args.access == 'write'):
+                    parser.error('--review-of requires a 32-hex source id and a read-only Sentinel verify child')
+                body['review_of']=args.review_of
+        elif args.role or args.stage or args.supersedes or args.access or args.review_of is not None:
+            parser.error('--role, --stage, --supersedes, --access and --review-of require --parent')
         body['idempotency_key']=args.idempotency_key or uuid.uuid4().hex
     elif args.command!='list':
         path+='/'+args.task_id
