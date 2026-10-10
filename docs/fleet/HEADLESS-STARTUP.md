@@ -163,6 +163,13 @@ bootstraps only the system domain. Original source definitions remain in the
 mode `0700` root backup. A failure stops the procedure and leaves a
 `rollback-required` journal; do not blindly retry.
 
+The reviewed Coding Macs support `launchctl bootout --wait`; service stops use
+that option with a 25-second command timeout before checking registration.
+Disable-state inspection accepts both `true`/`false` and the
+`enabled`/`disabled` words observed on these devices. A failed apply records the
+fixed operation name, allowlisted service label and exception type, without
+copying command output or credentials into the journal or operator response.
+
 For Coding 02, keep new submissions suspended and temporarily stop Coding 01's
 new coordinator so the remote probe can prove the scheduler is fenced:
 

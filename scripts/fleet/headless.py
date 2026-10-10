@@ -275,8 +275,18 @@ def disabled(domain, label):
     if result.returncode:
         require(not loaded(domain, label), 'Cannot inspect loaded service disable state')
         return False
-    match = re.search(r'"' + re.escape(label) + r'"\s*=>\s*(true|false)', result.stdout.decode(errors='replace'))
-    return bool(match and match[1] == 'true')
+    match = re.search(r'"' + re.escape(label) + r'"\s*=>\s*(\S+)', result.stdout.decode(errors='replace'))
+    require(not match or match[1] in {'true', 'false', 'enabled', 'disabled'},
+            'Unrecognized service disable state')
+    return bool(match and match[1] in {'true', 'disabled'})
+
+
+def stop_service(domain, label):
+    # These reviewed Coding Macs support --wait. Without it bootout can return
+    # while launchd still exposes the service, causing a false cutover failure.
+    # run() bounds the documented potentially indefinite wait to 25 seconds.
+    run(['/bin/launchctl', 'bootout', '--wait', domain + '/' + label], timeout=25)
+    require(not loaded(domain, label), 'Service remains loaded after bounded stop')
 
 
 DB_PROBE = """import hashlib,json,pathlib,sqlite3,sys,os,subprocess
@@ -483,21 +493,29 @@ def _apply(plan, expected):
     journal = {'schema': SCHEMA, 'phase': 'prepared', 'stopped': [], 'installed': []}
     save_journal(backup, journal)
     ordered = sorted(plan['services'], key=lambda s: (not s['label'].endswith('.coordinator'), s['label']))
+    operation = 'stop-user-service'
+    service = ordered[0]['label']
     try:
         for s in ordered:
+            service = s['label']
+            operation = 'stop-user-service'
             journal['stopped'].append(s['label'])
             save_journal(backup, journal)
             for d in s['domains']:
                 if d['loaded']:
                     run(['/bin/launchctl', 'disable', d['domain'] + '/' + s['label']])
-                    run(['/bin/launchctl', 'bootout', d['domain'] + '/' + s['label']])
+                    stop_service(d['domain'], s['label'])
                 else:
                     run(['/bin/launchctl', 'disable', d['domain'] + '/' + s['label']], check=False)
                 require(not loaded(d['domain'], s['label']), 'User service did not stop')
+            operation = 'remove-user-plist'
             require(fingerprint(Path(s['source'])) == plan['files'][s['source']], 'LaunchAgent changed while stopping')
             Path(s['source']).unlink()
+        operation = 'verify-quiescence'
         require(database_state(plan['quiescence'], info, require_stopped=True) == plan['database'], 'Coordinator changed during cutover; rollback required')
         for s in ordered:
+            service = s['label']
+            operation = 'install-system-service'
             destination = path_checked(s['destination'])
             require(not destination.exists() and not loaded('system', s['label']), 'System destination drifted during cutover')
             journal['installed'].append(s['label'])
@@ -507,10 +525,13 @@ def _apply(plan, expected):
             require(loaded('system', s['label']), 'System service did not load')
         journal['phase'] = 'installed'
         save_journal(backup, journal)
-    except Exception:
+    except Exception as exc:
         journal['phase'] = 'rollback-required'
+        journal['failure'] = {'operation': operation, 'service': service,
+                              'kind': type(exc).__name__}
         save_journal(backup, journal)
-        raise Refused('Cutover stopped; use the digest-bound backup to roll back before retrying') from None
+        raise Refused('Cutover stopped at ' + operation + ' for ' + service +
+                      '; use the digest-bound backup to roll back before retrying') from None
     return {'ok': True, 'backup': str(backup), 'installed': len(plan['services']),
             'cold_boot_verified': False, 'filevault': filevault()}
 
@@ -548,7 +569,7 @@ def _rollback(plan, expected):
     for s in ordered:
         if s['label'] in journal['installed']:
             if loaded('system', s['label']):
-                run(['/bin/launchctl', 'bootout', 'system/' + s['label']])
+                stop_service('system', s['label'])
             if s['label'].endswith('.coordinator'):
                 database_state(plan['quiescence'], info, require_stopped=True)
             target = Path(s['destination'])

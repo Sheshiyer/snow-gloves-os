@@ -17,6 +17,7 @@ from unittest.mock import patch
 SPEC = importlib.util.spec_from_file_location('fleet_headless', Path(__file__).resolve().parents[1] / 'scripts/fleet/headless.py')
 h = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(h)
+ORIGINAL_DISABLED = h.disabled
 
 
 class Headless(unittest.TestCase):
@@ -96,7 +97,7 @@ class Headless(unittest.TestCase):
         if command[0] == '/bin/launchctl':
             action = command[1]
             if action in {'disable', 'enable', 'bootout'}:
-                domain, label = command[2].rsplit('/', 1)
+                domain, label = command[-1].rsplit('/', 1)
                 if action == 'disable':
                     self.disabled.add((domain, label))
                 elif action == 'enable':
@@ -296,9 +297,34 @@ class Headless(unittest.TestCase):
         journal = json.loads((h.BACKUPS / plan['sha256'] / 'journal.json').read_bytes())
         self.assertEqual(journal['phase'], 'rollback-required')
         self.assertEqual(journal['installed'], [self.label])
+        self.assertEqual(journal['failure'], {'operation': 'install-system-service',
+                                             'service': self.label, 'kind': 'Refused'})
         self.bootstrap_error = False
         h.rollback(plan, plan['sha256'])
         self.assertTrue(self.source.exists())
+
+    def test_stop_waits_for_launchd_with_a_bounded_command(self):
+        with patch.object(h, 'run', return_value=subprocess.CompletedProcess([], 0)) as command:
+            with patch.object(h, 'loaded', return_value=False):
+                h.stop_service('gui/501', self.label)
+        command.assert_called_once_with(['/bin/launchctl', 'bootout', '--wait',
+                                         'gui/501/' + self.label], timeout=25)
+        with patch.object(h, 'run', return_value=subprocess.CompletedProcess([], 0)):
+            with patch.object(h, 'loaded', return_value=True):
+                with self.assertRaisesRegex(h.Refused, 'remains loaded'):
+                    h.stop_service('gui/501', self.label)
+
+    def test_disabled_parser_accepts_observed_macos_state_words(self):
+        original_disabled = ORIGINAL_DISABLED
+        for state, expected in [('disabled', True), ('enabled', False), ('true', True), ('false', False)]:
+            with self.subTest(state=state):
+                output = ('disabled services = {\n "' + self.label + '" => ' + state + '\n}\n').encode()
+                with patch.object(h, 'run', return_value=subprocess.CompletedProcess([], 0, output, b'')):
+                    self.assertEqual(original_disabled('gui/501', self.label), expected)
+        with patch.object(h, 'run', return_value=subprocess.CompletedProcess([], 0,
+                ('"' + self.label + '" => unknown').encode(), b'')):
+            with self.assertRaisesRegex(h.Refused, 'Unrecognized'):
+                original_disabled('gui/501', self.label)
 
     def test_rollback_preserves_newer_operator_edits(self):
         plan = self.plan()
