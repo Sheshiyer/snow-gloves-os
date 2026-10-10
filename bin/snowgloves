@@ -1,0 +1,39 @@
+#!/bin/sh
+set -eu
+
+VERSION_FILE="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)/VERSION"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
+
+if [ "${1-}" = "--help" ] || [ "${1-}" = "-h" ]; then
+  if [ "$#" -ne 1 ]; then
+    echo '{"error":"invalid_arguments","code":3}' >&2
+    exit 3
+  fi
+  cat <<'EOF'
+Snow Gloves local bootstrap
+
+Usage:
+  snowgloves --help | --version
+  snowgloves node inspect|plan|doctor|status|apply|resume|rollback|debug ...
+
+The local pilot configures files only. It does not enroll identity or mark a
+profile ready.
+EOF
+  exit 0
+fi
+
+if [ "${1-}" = "--version" ]; then
+  if [ "$#" -ne 1 ]; then
+    echo '{"error":"invalid_arguments","code":3}' >&2
+    exit 3
+  fi
+  cat "$VERSION_FILE"
+  exit 0
+fi
+
+if [ "${1-}" != "node" ]; then
+  echo '{"error":"invalid_arguments","code":3}' >&2
+  exit 3
+fi
+shift
+exec python3 -B "$SCRIPT_DIR/../scripts/node_bootstrap.py" "$@"
