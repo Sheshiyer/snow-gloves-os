@@ -572,6 +572,13 @@ until the actual mini supplies evidence.
 - [ ] ISC-414: Actual app cancellation and app-closed backend continuity are observed independently.
 - [x] ISC-415: Anti: transport/source evidence never promotes actual app or physical cold-boot acceptance.
 
+- [x] ISC-416: Founder-selected snow-gloves-ops starter pins repository, commit, path and Git blob identity.
+- [ ] ISC-417: Actual Coding01 Hermes reads the pinned GitHub target with its existing scoped identity.
+- [ ] ISC-418: Actual selected Grok Bot reads the same pinned GitHub target through its connector.
+- [ ] ISC-419: Independent Hermes and Grok observations agree on repository, commit, path, blob and size.
+- [x] ISC-420: Starter receipts distinguish GitHub reads from automatic ingestion, fleet execution and publication.
+- [x] ISC-421: Anti: the starter creates no cross-tenant permission or universal repository binding.
+
 ## Test Strategy
 
 - ISC-383 | verification confinement | edited verification script attempts an outside-worktree marker write through the allowlisted test command | outside bytes unchanged; violation denied; sandbox unavailable fails closed | disposable worker regression + OS sandbox probe
@@ -719,6 +726,12 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 ## Decisions
 
 - 2026-10-10: refined: approved implementation and completed preference interview select Coding01 primary, Coding02 worker, Grok Bot task operations, whole catalog with gated execution, unattended cold boot on Coding Macs only, no desktop autologin and separate protected authoring seat. ISC402–433 retain separate source, installed and physical acceptance.
+- 2026-10-10: Founder selects snow-gloves-ops as a bounded starter demonstration to learn and emulate per tenant. Pin existing remote main52884ad and README Git blob3db12a22; no private working-tree changes published. Controller authenticated metadata read succeeds. Coding01 gh reports invalid HeyZack-Domotique credential (API401/private repo404), Git noninteractive read cannot retrieve credentials. Default Hermes attempt stops for Nous credits; second bounded invocation uses the existing bridge custom loopback route, with no persistent config change. Grok prompt prepared; UI send waits for action-time confirmation required by Computer Use skill.
+
+- 2026-10-10: refined: Founder selects respective GitHub repositories mapped per all11 tenants, explicitly rejecting a universal coordination repository. Registry confirms axtech, heyzack, ecoled, kartezzi, izzimo, wave-concept, sunfeed, cee-management, china-sourcing, metagration, axio. Inspected tenant manifests/sources do not declare repository bindings; exact existing map remains to be located rather than inferred by brand name. Fresh Coding01 candidate/coordinator.json declares only project snowgloves tenantheyzack. This is installed configuration coverage, not proof of11tenant GitHub reads or runtime execution. Direct MCP app gates remain optional.
+
+- 2026-10-10: refined: Founder clarifies Grok Bots and Hermes coordinate through the GitHub repository where activity happens; direct Grok-to-fleet MCP access is unnecessary for this workflow. ISC-412–414 remain optional direct-client acceptance, not blockers for GitHub-mediated coordination. Preserve existing MCP work as optional tooling. Exact shared repository and evidence that both clients read the same revision/activity remain to be identified. GitHub read access alone does not prove automatic task ingestion, execution or result publication; do not add write scopes/webhooks or send bot messages from this clarification alone.
+
 - 2026-10-11: Founder requests parallel implementation of Grok Bot–Hermes integration. Add ISC-408–415 for secret-safe setup, transport and actual app acceptance. Routed noesis-execute batch held by gateway credit gate; Antigravity fallback quota429. Independent in-session source workers operate isolated; no service restart during concurrent Claude reboot tests. App inspection tool currently unavailable; no app acceptance inferred. Existing handoff next_action superseded only for this authorized integration lane.
 
 - 2026-10-10: Founder explicitly selects FileVault On for Air/authoring-mini and Off for the four dedicated fleet minis. Fresh status: Coding01 Off; Coding02/Creative/Marketing On; founder devices On. Prepared private CLAUDE-COLD-BOOT-HANDOFF.md and UUID/account-guarded disable-fleet-filevault.command for the existing Claude restart session. No FileVault, password, auto-login, daemon or restart change applied here. Cold-boot acceptance remains open until device evidence.
@@ -1753,3 +1766,7 @@ Final maintenance review adds the actual tenant enabled.yaml authority to Coding
 ISC-408/409: 38 synthetic client tests pass; integrated MCP regression reports 49 passed, 1 optional SDK skip. Private mode0600/symlink/duplicate-key/template credential, redirect/proxy/redaction and bounded discovery cases verified. ISC-411: actual Coding01 installed private HTTPS MCP initializes and lists14 tools with existing dedicated application credential. New CLI streamed over SSH returns exit0, transport-only, app_registration_verified=false and task_execution_verified=false. No service installation/restart, credential copy or actual app mutation. ISC-412–414 remain open. Receipt: private docs/fleet/onboarding/2026-10-10-fleet-online/GROK-INTEGRATION-VERIFICATION.json.
 
 ISC-410/415: integrated focused suite now82 passed,1 skipped after expanded HTTP authorization/route tests. Source commit b92895a contains only CLI, tests and supported app runbook; installed MCP and streamed physical probe are reported separately. Actual app registration/task/artifact/cancel/app-closed gates ISC-412–414 remain unchecked.
+
+### 2026-10-10 — Operations GitHub starter
+
+ISC-416/420/421: private PILOT.json pins Sheshiyer/snow-gloves-ops commit52884ad6d2d44bf1c25a8e20d96f85f0db1b1e13, README.md Git blob3db12a22b07650976c19a6b1c1e2a86d3c2c635e,size1702 from actual authenticated controller API. Source read target, model execution, failed authentication and unproven automation are separately recorded; no universal tenant binding or permission change. Actual Coding01 Hermes session20261010_231433_fac8c4 uses existing custom loopback route, exits0 and accurately reports GitHub401/404 without values. ISC-417–419 remain open; process success is not repository-read acceptance. Grok message remains unsent pending UI confirmation.
