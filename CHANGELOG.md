@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Local node bootstrap pilot.** `bin/snowgloves node` provides read-only inventory, deterministic digest-bound planning, apply/resume, status, held diagnostics, allowlisted debug data and ownership-checked rollback. `scripts/package_pilot.py` builds a checksum-verifiable archive; its self-contained installer supports dry-run and an isolated private prefix. Configuration stays beneath `.snowgloves-local/`; live enrollment, runtime/service activation and physical fleet acceptance retain separate gates. Runbook: `docs/LOCAL-MINI-PILOT.md`.
+
 - **Cloud gateway.** OmniRoute can run on EC2 behind Cloudflare instead of the Coding Mac: `infra/aws-gateway` (Elastic IP, Cloudflare-only security group, SSM, S3 backups, DLM snapshots, alarms, budget) and `infra/cloudflare-gateway` (proxied DNS, Origin CA cert via SSM, WAF office allowlist on `/v1`, Access on the dashboard), driven by `scripts/fleet/cloud_gateway.sh`. `scripts/fleet/cloud_guard.py` and the doctor's `fleet-boundary` check refuse any account, zone or domain outside the `cloud_gateway` block. `gateway_client.py` takes `--url https://…` and `--via tailnet`. Docs: `docs/fleet/08-CLOUD-GATEWAY.md`.
 
 ## v0.2.1 — Onboarding TUI (2026-09-30)

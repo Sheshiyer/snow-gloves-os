@@ -4,10 +4,10 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 344/384
+progress: 361/383
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 ## Problem
@@ -125,25 +125,25 @@ until the actual mini supplies evidence.
 
 ## Criteria
 
-- [ ] ISC-1: Inspect emits structured hardware and tool-presence evidence.
-- [ ] ISC-2: Repeated plan generation produces the same digest for the same inputs.
-- [ ] ISC-3: Invalid CLI invocation exits 3.
-- [ ] ISC-4: Anti: inspect and default doctor create no files.
-- [ ] ISC-5: Apply rejects a mismatched reviewed digest.
-- [ ] ISC-6: Apply rejects a changed source digest.
-- [ ] ISC-7: Concurrent mutation is rejected by a node lock.
-- [ ] ISC-8: Stage journal writes use atomic replacement.
-- [ ] ISC-9: Second apply produces no duplicate effects.
-- [ ] ISC-10: Resume rechecks bytes of completed stages.
-- [ ] ISC-11: Interrupted write can be reconciled safely from the journal.
-- [ ] ISC-12: Rollback removes only installer-owned files with matching bytes.
-- [ ] ISC-13: Drifted files keep rollback in manual recovery.
-- [ ] ISC-14: Anti: path traversal and symlink targets cannot escape the pilot directory.
-- [ ] ISC-15: Doctor reports unresolved live requirements as held.
-- [ ] ISC-16: Debug collection uses an allowlist that excludes environment secrets.
-- [ ] ISC-17: Local installer supports a dry-run that creates no files.
-- [ ] ISC-18: An isolated temporary installation executes the CLI lifecycle.
-- [ ] ISC-19: The distributable bundle passes its checksum verifier.
+- [x] ISC-1: Inspect emits structured hardware and tool-presence evidence.
+- [x] ISC-2: Repeated plan generation produces the same digest for the same inputs.
+- [x] ISC-3: Invalid CLI invocation exits 3.
+- [x] ISC-4: Anti: inspect and default doctor create no files.
+- [x] ISC-5: Apply rejects a mismatched reviewed digest.
+- [x] ISC-6: Apply rejects a changed source digest.
+- [x] ISC-7: Concurrent mutation is rejected by a node lock.
+- [x] ISC-8: Stage journal writes use atomic replacement.
+- [x] ISC-9: Second apply produces no duplicate effects.
+- [x] ISC-10: Resume rechecks bytes of completed stages.
+- [x] ISC-11: Interrupted write can be reconciled safely from the journal.
+- [x] ISC-12: Rollback removes only installer-owned files with matching bytes.
+- [x] ISC-13: Drifted files keep rollback in manual recovery.
+- [x] ISC-14: Anti: path traversal and symlink targets cannot escape the pilot directory.
+- [x] ISC-15: Doctor reports unresolved live requirements as held.
+- [x] ISC-16: Debug collection uses an allowlist that excludes environment secrets.
+- [x] ISC-17: Local installer supports a dry-run that creates no files.
+- [x] ISC-18: An isolated temporary installation executes the CLI lifecycle.
+- [x] ISC-19: The distributable bundle passes its checksum verifier.
 - [x] ISC-20: Existing tests and catalog consistency checks pass after integration.
 
 - [x] ISC-21: axio has a verified ingestion plan containing its existing tenant context.
@@ -526,9 +526,11 @@ until the actual mini supplies evidence.
 - [ ] ISC-380: Owned coordinator, Hermes bridge and worker launch agents run with loopback listeners and preserved native configuration.
 - [x] ISC-381: An isolated pilot restore drill recovers coordinator state and verifies accepted artifact hashes.
 - [x] ISC-382: The reviewed pilot package and runbook record scoped runtime capabilities, limitations and rollout evidence.
+- [ ] ISC-383: Anti: write-adapter verification commands can write outside the approved worktree; an edited verification script invoked by an unchanged allowlisted command is denied without an accepted artifact.
 
 ## Test Strategy
 
+- ISC-383 | verification confinement | edited verification script attempts an outside-worktree marker write through the allowlisted test command | outside bytes unchanged; violation denied; sandbox unavailable fails closed | disposable worker regression + OS sandbox probe
 - ISC-369..375 | source and host integration | coordinator/worker/bridge authorization, duplicate/failure/cancel/artifact and profile-pin tests | fail closed and preserve one assignment | pytest + scoped host probes
 - ISC-376..382 | browser and AXIO operational | real task, client disconnect, coordinator restart, owned listeners/config hashes and isolated restore | dated receipts per boundary; reboot remains ISC-353 | IAB + SSH + artifact digest
 
@@ -672,6 +674,7 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 
 ## Decisions
 
+- 2026-10-09: refined: gate write enablement on ISC-383. The worker's verification subprocess executes proposed project code outside the Codex sandbox; an argv allowlist and a worktree cwd do not confine that code. Preserve default-off write configuration while OS-enforced verification confinement is repaired. Routed Observe dispatch is held by unavailable hosted gateway management admission; no worker/model resolution or local fallback is claimed.
 - refined: 2026-10-09 founder declines Cloudflare Zero Trust Access; use private Tailscale transport plus application authorization for the fleet UI. The company hostname remains `fleet.hey-zack.fr`. Founder has on-site recovery help available for the scheduled reboot; no reboot evidence is inferred.
 - 2026-10-09 access-first steering: verify Coding 01 SSH over Tailscale and move the localhost UI to private persistent HTTPS before further Hermes acceptance. Physical SSH and tailnet HTTPS pass; custom company DNS/certificate and browser QA remain open.
 
@@ -1511,3 +1514,30 @@ ISC-353 accepted after the founder-confirmed second physical AXIO reboot. After 
 Reviewed source is published on feat/cloud-gateway and PR31 is updated for the accumulated fleet UI/Hermes pilot. Current upstream Actions retirement is incorporated. Clean Coding01 Git checkouts live at /Users/axio/Projects/snow-gloves-os and /Users/axio/Projects/snow-gloves-ops; the UI, API, coordinator, bridge and worker now use the canonical source checkout. Own dependency install and production build pass; HTTPS UI/snapshot/bridge health return200 after supervised restart. Live SQLite/credentials/artifacts retain the prior private runtime location. The accepted physical reboot receipt predates this path cutover; no further reboot is inferred.
 
 Real task79e51fe012b64787a22e4f6e6753a744 selects CTO and succeeds at transport/execution on the new checkout, with checksum-verified artifact. Source review rejects its nonexistent TSX component references. This is not accepted UI analysis or seven-agent fan-out. Private UI-REVIEW.json and NEXT-UI-HERMES-FLOW.md record the failure and next source-grounding/role-graph requirements. Native config drift ISC-380, other nodes, teammate scope and remaining fleet gates stay open.
+
+
+## Verification — write-adapter confinement audit, 9 October 2026
+
+- ISC-383: disposable source probe — FAILED at bdbd1e1: `accepted=true`, `test_exit_code=0`, `outside_file_written=true`, `changed_paths=["verify.py"]`. All paths and synthetic configuration were temporary; no live worker task ran. Existing 75 focused fleet tests and frontend production build pass but do not cover this escape. Private receipt: `docs/fleet/onboarding/2026-10-09-hermes-pilot/WRITE-ADAPTER-CONFINEMENT-AUDIT.json`. Actual IAB reaches the operator-token prompt; authenticated graph rendering and reboot after source-path/branch cutover remain pending. No acceptance is promoted.
+
+
+## Verification — local bootstrap foundation, 10 October 2026
+
+ISC-1–19 accepted at source and isolated local installation boundaries. The
+foundation and adjacent contract suites pass 113 tests; catalog generation is
+current. The independent installed probe builds and verifies the explicit
+package, extracts its actual archive, installs a private prefix and passes 20
+checks through the installed launcher. These include no-effect inspection and
+default doctor, deterministic planning, reviewed/source digest refusal before
+mutation, repeat apply/resume, actual flock exclusion, held diagnostics, secret
+exclusion and drift-preserving rollback. Journal tests cover atomic publication,
+preexisting-file ownership, forged ownership receipts, traversal/symlink refusal,
+no-clobber races and interrupted rollback. Independent real process kills before
+file link, after link before receipt and after rollback capture reconcile safely.
+
+Private acceptance and review: snow-gloves-ops/docs/fleet/onboarding/
+2026-10-10-controller-bootstrap/. Runbook: docs/LOCAL-MINI-PILOT.md.
+Configuration remains local metadata with profile_ready=false. These results do
+not accept physical enrollment, power-loss/reboot recovery, live runtime/vault
+activation, organization access, four-device execution, production role fanout,
+restore or measured capacity. All existing open criteria remain open.
