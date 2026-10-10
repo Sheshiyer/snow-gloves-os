@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: execute
-progress: 374/397
+progress: 376/401
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-10
@@ -1631,3 +1631,16 @@ The same focused suites now pass 117 tests, the actual installed launcher passes
 The original draft requires this correction before acceptance or activation;
 repository review/prepare wrappers are unavailable, so merge readiness remains
 unconfirmed. No broader fleet criterion changes in this source review.
+
+## 2026-10-09 — Gary isolated Hermes SSH access
+
+Founder authorizes Gary's existing dedicated SSH public key for gary-hermes on Coding01, limited to diagnostics and public platform source. Gary is independently observed online on the company tailnet. No project/task authority, model or private operations access is implied. Use a forced command and protected public source snapshot; a standard account alone is not read-only.
+
+- [x] ISC-394: Restricted SSH dispatcher validates bounded diagnostic/source commands without arbitrary shell, paths, writes or symlink escapes.
+- [x] ISC-395: Reviewed macOS installation plan preserves existing SSH settings, restricts Gary key/IP and user behavior, validates effective configuration and supports rollback.
+- [ ] ISC-396: Coding01 standard account and restricted key install pass device readback without exposing secrets; existing founder SSH remains available.
+- [ ] ISC-397: Gary MacBook authenticates with its own key, diagnostics/public source pass, disallowed shell/write/forwarding fail, and actual Hermes execution is distinguished from transport readiness.
+
+## 2026-10-09 — Restricted SSH source verification
+
+ISC-394/395 source and local checks: 34 focused tests pass, including path/symlink/shell denial, readable protected config, all-address user restrictions, inherited authority rejection, successful simulated apply/rerun and rollback. Peer review findings corrected; actual macOS dsmemberutil confirms exit0 with explicit nonmember text, now parsed correctly. Coding01 account exists UID502, /bin/sh, nonadmin. Local and Coding01 default dry runs remain separate from privileged installation. ISC-396 and ISC-397 stay open until actual installation, founder SSH preservation and Gary laptop tests. Routed producer contributed source, stopped for review with exit143; no completed worker receipt is inferred.
