@@ -265,3 +265,9 @@ def test_retries_do_not_consume_the_child_limit(fleet):
         child(c, conf, parent, 'dispatcher', key='fill-%d' % index)
     with pytest.raises(Rejected):
         child(c, conf, parent, 'dispatcher', key='over')
+
+def test_graph_limits_are_pinned():
+    from lib.fleet_coordinator import MAX_CHILDREN, MAX_ATTEMPTS
+
+    assert MAX_CHILDREN == 7
+    assert MAX_ATTEMPTS == 3
