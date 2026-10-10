@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {createFleetBoard, displayValue, fanoutAction, FleetClient, FLEET_STATES, graphLines, orderTasks, validateFanoutPlan, validateTask} from './fleet-tasks';
+import {createFleetBoard, displayValue, fanoutAction, FleetClient, FLEET_STATES, graphLines, orderTasks, validateFanoutPlan, validateTask, validateArtifact, validateContext, validateCapabilities, validateApprovals, eligibleWorkers} from './fleet-tasks';
 
 const task = {id: 'task-1', status: 'running', title: '<img src=x onerror=alert(1)>', project: 'snowgloves', category: 'development', node_id: 'mac-coding-1', runtime: 'codex'};
 const signal = () => new AbortController().signal;
@@ -24,6 +24,7 @@ class ElementHarness {
   onclick?: () => void | Promise<void>;
   onsubmit?: (event: {preventDefault(): void}) => void | Promise<void>;
   oninput?: () => void;
+  onchange?: () => void;
   constructor(public tagName: string) {}
   set innerHTML(_: string) { throw new Error('Unsafe HTML insertion'); }
   append(...nodes: ElementHarness[]) { this.children.push(...nodes); }
@@ -34,6 +35,14 @@ class ElementHarness {
 }
 const flush = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 const submitEvent = {preventDefault() {}};
+const context = {projects: [{id: 'snowgloves', tenant: 'demo', organization: 'Demo', runtimes: ['codex'], workers: [{id: 'coding1', node_id: 'mac-coding-1', access_modes: ['read', 'write'], availability: 'observed', runtimes: ['codex']}]}], permissions: ['read', 'submit', 'cancel']};
+function meta(path: string): Response | undefined {
+  if (path.endsWith('/context')) return json(context);
+  if (path.endsWith('/capabilities')) return json({capabilities: []});
+  if (path.endsWith('/approvals')) return json({approvals: []});
+  return undefined;
+}
+
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -143,7 +152,7 @@ describe('Fleet client contract', () => {
 describe('Hermes board lifecycle', () => {
   function mount() {
     vi.stubGlobal('document', {createElement: (tag: string) => new ElementHarness(tag)});
-    const fetcher = vi.fn(async (path: string) => path.endsWith('/events') ? json({events: [{message: '<script>alert(1)</script>', artifact: {path: '/artifact', sha256: 'abc'}}]}) : path === '/api/fleet/tasks' ? json({tasks: [task]}) : json({task}));
+    const fetcher = vi.fn(async (path: string) => meta(path) ?? (path.endsWith('/events') ? json({events: [{message: '<script>alert(1)</script>', artifact: {path: '/artifact', sha256: 'abc'}}]}) : path === '/api/fleet/tasks' ? json({tasks: [task]}) : json({task})));
     vi.stubGlobal('fetch', fetcher);
     const board = createFleetBoard(); const el = board.element as unknown as ElementHarness;
     return {board, el, fetcher};
@@ -155,8 +164,8 @@ describe('Hermes board lifecycle', () => {
     await connect(el); expect(el.find('input').value).toBe('');
     const taskButton = el.all().find(child => child.className.includes('fleet-task') && child.tagName === 'button')!;
     expect(taskButton.textContent).toContain('<img src=x'); await taskButton.onclick?.(); await flush();
-    expect(el.find('pre').textContent).toContain('<script>alert(1)</script>');
-    expect(el.find('pre').textContent).toContain('sha256');
+    expect(el.all().find(item => item.attrs['aria-label'] === 'Task events and artifact receipts')?.textContent).toContain('<script>alert(1)</script>');
+    expect(el.all().find(item => item.attrs['aria-label'] === 'Task events and artifact receipts')?.textContent).toContain('sha256');
     board.pause(true);
   });
   it('stops polling and aborts outstanding requests on close, then requires fresh credentials', async () => {
@@ -224,6 +233,7 @@ describe('read-only role planning board control', () => {
       };
     };
     const fetcher = vi.fn((path: string, init?: RequestInit) => {
+      const metadata = meta(path); if (metadata) return Promise.resolve(metadata);
       if (path === `/api/fleet/tasks/${rootId}/fanout`) {
         planned = true;
         fanoutSignal = init?.signal ?? undefined;
@@ -290,6 +300,7 @@ describe('read-only role planning board control', () => {
   it('fails closed on a malformed successful plan response', async () => {
     const {board, el, fetcher} = mount();
     fetcher.mockImplementation((path: string) => {
+      const metadata = meta(path); if (metadata) return Promise.resolve(metadata);
       if (path === `/api/fleet/tasks/${rootId}/fanout`) return Promise.resolve(json({plan_id: 'bad'}));
       if (path.endsWith('/events')) return Promise.resolve(json({events: []}));
       if (path === '/api/fleet/tasks') return Promise.resolve(json({tasks: [root]}));
@@ -358,7 +369,7 @@ describe('Task graph rendering', () => {
   it('shows role and stage on labels and renders the graph panel as text', async () => {
     vi.stubGlobal('document', {createElement: (tag: string) => new ElementHarness(tag)});
     const detail = {...parent, title: '<b>Root</b>', graph: {status: 'verified', children: [{logical_role: '<i>sentinel</i>', stage: 'verify', status: 'succeeded', artifact: {path: 'p', sha256: 's'}}]}};
-    vi.stubGlobal('fetch', vi.fn(async (path: string) => path.endsWith('/events') ? json({events: []}) : path === '/api/fleet/tasks' ? json({tasks: [parent, kidA]}) : json({task: detail})));
+    vi.stubGlobal('fetch', vi.fn(async (path: string) => meta(path) ?? (path.endsWith('/events') ? json({events: []}) : path === '/api/fleet/tasks' ? json({tasks: [parent, kidA]}) : json({task: detail}))));
     const board = createFleetBoard(); const el = board.element as unknown as ElementHarness; board.activate();
     el.find('input').value = 'secret-token'; await el.find('form').onsubmit?.(submitEvent); await flush();
     const buttons = el.all().filter(child => child.tagName === 'button' && child.className.includes('fleet-task'));
@@ -375,6 +386,7 @@ describe('Task graph rendering', () => {
     vi.stubGlobal('document', {createElement: (tag: string) => new ElementHarness(tag)});
     let cancelled = false;
     const fetcher = vi.fn(async (path: string) => {
+      const metadata = meta(path); if (metadata) return metadata;
       if (path.endsWith('/cancel')) cancelled = true;
       const detail = {...parent, graph: {status: cancelled ? 'cancelled' : 'incomplete', children: [{...kidB, status: cancelled ? 'cancelled' : 'queued'}]}};
       return path.endsWith('/events') ? json({events: []}) : path === '/api/fleet/tasks' ? json({tasks: [parent]}) : json({task: detail});
@@ -390,5 +402,199 @@ describe('Task graph rendering', () => {
     expect(el.find('button', 'Cancel task and open children').disabled).toBe(true);
     board.pause(true); await cancel.onclick?.();
     expect(fetcher.mock.calls.filter(call => call[0].endsWith('/cancel'))).toHaveLength(1);
+  });
+});
+
+
+describe('Authorized catalog and result controls', () => {
+  const cap = {id: 'review', name: '<b>Repository review</b>', project: 'snowgloves', tenant: 'demo', state: 'executable', reason: 'Ready on Coding 01', input_schema: {type: 'object', properties: {prompt: {type: 'string'}}}};
+  const approval = {id: 'f'.repeat(32), project: 'snowgloves', capability_id: 'review', status: 'pending', request_digest: '0'.repeat(64), inputs: {prompt: '<script>untrusted request</script>'}};
+  function mount(options: {permissions?: string[]; state?: string; approvals?: unknown[]; context?: unknown; artifact?: unknown} = {}) {
+    vi.stubGlobal('document', {createElement: (tag: string) => new ElementHarness(tag)});
+    const fetcher = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path.endsWith('/context')) return json(options.context ?? {...context, permissions: options.permissions ?? context.permissions});
+      if (path === '/api/fleet/capabilities') return json({capabilities: [ {...cap, state: options.state ?? cap.state}, ...['disabled', 'missing_configuration', 'unsupported', 'refused'].map(state => ({...cap, id: state, name: state, state, reason: `<script>${state}</script>`})) ]});
+      if (path === '/api/fleet/approvals' && init?.method === 'GET') return json({approvals: options.approvals ?? []});
+      if (path.endsWith('/artifact')) return json({artifact: options.artifact ?? {sha256: '0'.repeat(64), content: {patch: '<script>artifact</script>', result: 'Reviewed'}}});
+      if (path === '/api/fleet/capabilities/execute') return json({task: {...task, id: rootId}});
+      if (path === '/api/fleet/approvals' || /\/approvals\/.*\/(approve|reject)$/.test(path)) return json({approval});
+      if (path === '/api/fleet/tasks') return init?.method === 'POST' ? json({task}) : json({tasks: [{...task, artifact: {sha256: '0'.repeat(64)}}]});
+      if (path.endsWith('/events')) return json({events: []});
+      return json({task: {...task, artifact: {sha256: '0'.repeat(64)}}});
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const board = createFleetBoard(), el = board.element as unknown as ElementHarness;
+    board.activate();
+    return {board, el, fetcher};
+  }
+  async function connect(el: ElementHarness) {
+    el.find('input').value = 'ephemeral-key'; await el.find('form').onsubmit?.(submitEvent); await flush();
+  }
+  const labeledControl = (el: ElementHarness, label: string, tag: string) => el.find('label', label).find(tag);
+
+  it('fails closed on malformed authenticated context and does not claim connection', async () => {
+    const {el, board} = mount({context: {projects: [], permissions: 'approve'}}); await connect(el);
+    expect(el.all().some(item => item.textContent.startsWith('Connected'))).toBe(false);
+    expect(el.find('button', 'Submit to Coding 01').disabled).toBe(true);
+    expect(el.find('button', 'Execute capability').disabled).toBe(true);
+    board.pause(true);
+  });
+  it('shows all readiness reasons as text and gates submit on explicit permission', async () => {
+    const {el, board, fetcher} = mount({permissions: ['read']}); await connect(el);
+    for (const state of ['disabled', 'missing_configuration', 'unsupported', 'refused']) {
+      expect(el.all().some(item => item.textContent.includes(`<script>${state}</script>`))).toBe(true);
+    }
+    expect(labeledControl(el, 'Tenant / project', 'select').value).toBe('snowgloves');
+    expect(el.find('button', 'Execute capability').disabled).toBe(true);
+    await el.find('button', 'Execute capability').onclick?.();
+    expect(fetcher.mock.calls.some(([path]) => path.endsWith('/execute'))).toBe(false);
+    board.pause(true);
+  });
+  it('lists only observed Codex read-capable nodes and resets a stale preferred worker', async () => {
+    const workers = [
+      context.projects[0].workers[0],
+      {...context.projects[0].workers[0], id: 'offline', node_id: 'offline-node', availability: 'unobserved'},
+      {...context.projects[0].workers[0], id: 'claude', node_id: 'claude-node', runtimes: ['claude']},
+      {...context.projects[0].workers[0], id: 'write-only', node_id: 'write-only-node', access_modes: ['write']},
+    ];
+    const scoped = {...context, projects: [{...context.projects[0], workers}]};
+    const {el, board} = mount({context: scoped}); await connect(el);
+    const select = labeledControl(el, 'Execution node', 'select');
+    expect(select.children.map(option => option.value)).toEqual(['', 'coding1']);
+    expect(select.children[1].textContent).toContain('observed');
+    expect(el.all().some(item => item.textContent.includes('Configured unobserved nodes: 1'))).toBe(true);
+    select.value = 'coding1'; select.onchange?.();
+    workers[0] = {...workers[0], availability: 'unobserved'};
+    await vi.advanceTimersByTimeAsync(4000); await flush();
+    expect(select.value).toBe('');
+    expect(select.children.map(option => option.value)).toEqual(['']);
+    expect(el.find('button', 'Submit to Coding 01').disabled).toBe(true);
+    expect(el.find('button', 'Execute capability').disabled).toBe(true);
+    board.pause(true);
+  });
+  it('submits the authorized project and worker identity, without supplying node privileges', async () => {
+    const {el, board, fetcher} = mount(); await connect(el);
+    const worker = labeledControl(el, 'Execution node', 'select'); worker.value = 'coding1'; worker.onchange?.();
+    labeledControl(el, 'Task title', 'input').value = 'Scoped task';
+    labeledControl(el, 'Development request', 'textarea').value = 'Inspect repository';
+    await el.all().filter(item => item.tagName === 'form')[1].onsubmit?.(submitEvent); await flush();
+    const submitted = fetcher.mock.calls.find(([path, init]) => path === '/api/fleet/tasks' && init?.method === 'POST');
+    expect(JSON.parse(String(submitted?.[1]?.body))).toMatchObject({project: 'snowgloves', worker_id: 'coding1', runtime: 'codex'});
+    expect(String(submitted?.[1]?.body)).not.toContain('node_id');
+    board.pause(true);
+  });
+  it('keeps an uncertain capability retry idempotent and rotates when inputs change', async () => {
+    const {el, board, fetcher} = mount(); await connect(el);
+    const original = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation(async (path, init) => path.endsWith('/execute') ? Promise.reject(new Error('Network unavailable')) : original(path, init));
+    const inputs = labeledControl(el, 'Capability inputs (JSON object)', 'textarea');
+    inputs.value = '{"prompt":"Inspect"}'; inputs.oninput?.();
+    const execute = el.find('button', 'Execute capability');
+    await execute.onclick?.(); await flush(); await execute.onclick?.(); await flush();
+    let submissions = fetcher.mock.calls.filter(([path]) => path.endsWith('/execute')).map(([, init]) => JSON.parse(String(init?.body)));
+    expect(submissions).toHaveLength(2); expect(submissions[0].idempotency_key).toBe(submissions[1].idempotency_key);
+    inputs.value = '{"prompt":"Inspect changed"}'; inputs.oninput?.(); await execute.onclick?.(); await flush();
+    submissions = fetcher.mock.calls.filter(([path]) => path.endsWith('/execute')).map(([, init]) => JSON.parse(String(init?.body)));
+    expect(submissions[2].idempotency_key).not.toBe(submissions[1].idempotency_key);
+    inputs.value = '[]'; inputs.oninput?.(); await execute.onclick?.();
+    expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/execute'))).toHaveLength(3);
+    expect(el.all().some(item => item.textContent === 'Inputs must be a valid JSON object.')).toBe(true);
+    board.pause(true); await execute.onclick?.();
+    expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/execute'))).toHaveLength(3);
+  });
+  it('requests approval with concrete inputs and displays decisions only to an explicit approver', async () => {
+    const member = mount({state: 'approval_required', approvals: [approval]}); await connect(member.el);
+    expect(member.el.find('button', 'Execute capability').disabled).toBe(true);
+    expect(member.el.all().some(item => item.textContent === 'Approve reviewed request')).toBe(false);
+    expect(member.el.all().some(item => item.textContent.includes('<script>untrusted request</script>'))).toBe(true);
+    await member.el.find('button', 'Request approval').onclick?.(); await flush();
+    const submitted = member.fetcher.mock.calls.find(([path, init]) => path === '/api/fleet/approvals' && init?.method === 'POST');
+    expect(JSON.parse(String(submitted?.[1]?.body))).toMatchObject({project: 'snowgloves', capability_id: 'review', inputs: {}});
+    member.board.pause(true);
+    const founder = mount({permissions: ['read', 'submit', 'approve'], state: 'approval_required', approvals: [approval]}); await connect(founder.el);
+    const approve = founder.el.find('button', 'Approve reviewed request');
+    await approve.onclick?.(); await flush();
+    expect(founder.fetcher.mock.calls.filter(([path]) => path === `/api/fleet/approvals/${approval.id}/approve`)).toHaveLength(1);
+    founder.board.pause(true); await approve.onclick?.();
+    expect(founder.fetcher.mock.calls.filter(([path]) => path.endsWith('/approve'))).toHaveLength(1);
+  });
+  it('selects a matching approved request and clears it when reviewed inputs change', async () => {
+    const {el, board} = mount({state: 'approval_required', approvals: [{...approval, status: 'approved'}]}); await connect(el);
+    const selector = labeledControl(el, 'Approved request', 'select'); selector.value = approval.id; selector.onchange?.();
+    expect(el.find('button', 'Execute capability').disabled).toBe(false);
+    labeledControl(el, 'Capability inputs (JSON object)', 'textarea').oninput?.();
+    expect(selector.value).toBe(''); expect(el.find('button', 'Execute capability').disabled).toBe(true);
+    board.pause(true);
+  });
+  it('visibly disables detail actions during a slow refresh and restores eligible controls afterwards', async () => {
+    const {el, board, fetcher} = mount();
+    const original = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation(async (path, init) => path === `/api/fleet/tasks/${task.id}`
+      ? json({task: {...task, artifact: {sha256: '0'.repeat(64)}, fanout_action: {available: true, planned: false, reason: 'Roles are ready.'}}})
+      : original(path, init));
+    await connect(el);
+    await el.all().find(item => item.className === 'oc-btn fleet-task')!.onclick?.(); await flush();
+    const controls = ['Cancel task', 'Plan read-only roles', 'Read verified result'];
+    controls.forEach(label => expect(el.find('button', label).disabled).toBe(false));
+    const withDetail = fetcher.getMockImplementation()!;
+    let release: ((response: Response) => void) | undefined;
+    fetcher.mockImplementation((path, init) => path === '/api/fleet/tasks' && init?.method === 'GET'
+      ? new Promise<Response>(resolve => { release = resolve; })
+      : withDetail(path, init));
+    await vi.advanceTimersByTimeAsync(4000); await flush();
+    controls.forEach(label => expect(el.find('button', label).disabled).toBe(true));
+    for (const label of controls) await el.find('button', label).onclick?.();
+    expect(fetcher.mock.calls.some(([path]) => /\/(cancel|fanout|artifact)$/.test(path))).toBe(false);
+    release!(json({tasks: [task]})); await flush();
+    controls.forEach(label => expect(el.find('button', label).disabled).toBe(false));
+    board.pause(true);
+  });
+  it('reads safe artifact JSON, provides a blob download, and revokes it on pause', async () => {
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:verified-result');
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const {el, board} = mount(); await connect(el);
+    await el.all().find(item => item.className === 'oc-btn fleet-task')!.onclick?.(); await flush();
+    await el.find('button', 'Read verified result').onclick?.(); await flush();
+    expect(el.all().some(item => item.textContent.includes('<script>artifact</script>'))).toBe(true);
+    expect(el.find('a', 'Download safe artifact JSON')).toBeDefined();
+    expect(el.all().some(item => item.textContent === `Task ID: ${task.id}`)).toBe(true);
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(4000); await flush();
+    expect(el.find('a', 'Download safe artifact JSON')).toBeDefined();
+    expect(el.all().some(item => item.textContent === `Task ID: ${task.id}`)).toBe(true);
+    expect(createObjectURL).toHaveBeenCalledOnce(); board.pause(true);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:verified-result');
+  });
+  it('rejects malformed readiness, approval and artifact contracts', () => {
+    expect(() => validateContext({projects: [], permissions: {approve: true}})).toThrow();
+    expect(() => validateCapabilities({capabilities: [{...cap, state: 'magic'}]})).toThrow();
+    expect(() => validateApprovals({approvals: [{...approval, id: '../admin'}]})).toThrow();
+    expect(() => validateArtifact({artifact: {sha256: 'bad', content: {}}})).toThrow();
+  });
+});
+
+
+describe('Unavailable catalog entries from the coordinator', () => {
+  it('accepts unavailable entries without an execution schema but requires one for actionable states', () => {
+    const unavailable = ['disabled', 'missing_configuration', 'unsupported', 'refused'].map(state => ({
+      id: `catalog-${state}`, name: `Catalog ${state}`, project: 'snowgloves', tenant: 'demo', state,
+      reason: 'No reviewed execution adapter is installed.',
+    }));
+    expect(validateCapabilities({capabilities: unavailable})).toEqual(unavailable);
+    for (const state of ['executable', 'approval_required']) {
+      expect(() => validateCapabilities({capabilities: [{...unavailable[0], state}]})).toThrow('Invalid capability catalog');
+      expect(validateCapabilities({capabilities: [{...unavailable[0], state, input_schema: {type: 'object'}}]})).toHaveLength(1);
+    }
+  });
+});
+
+
+describe('Worker observation contract', () => {
+  it('requires explicit valid observation and runtimes instead of treating configured workers as online', () => {
+    const worker = context.projects[0].workers[0];
+    expect(eligibleWorkers(validateContext(context).projects[0]).map(item => item.id)).toEqual(['coding1']);
+    for (const invalid of [{...worker, availability: undefined}, {...worker, availability: 'online'}, {...worker, runtimes: undefined}]) {
+      expect(() => validateContext({...context, projects: [{...context.projects[0], workers: [invalid]}]})).toThrow('Invalid coordinator context');
+    }
   });
 });

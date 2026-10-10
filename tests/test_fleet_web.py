@@ -29,8 +29,12 @@ def web(tmp_path):
             self.end_headers()
             self.wfile.write(data)
 
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get('Content-Length', '0')))
+            self.do_GET()
+
     upstream = ThreadingHTTPServer(('127.0.0.1', 0), Upstream)
-    server = create_server(tmp_path, ['fleet.test'], ['https://fleet.test'], 0, upstream.server_port, upstream.server_port)
+    server = create_server(tmp_path, ['fleet.test'], ['https://fleet.test'], 0, upstream.server_port, upstream.server_port, upstream.server_port)
     threads = [threading.Thread(target=s.serve_forever, daemon=True) for s in (server, upstream)]
     for t in threads:
         t.start()
@@ -90,3 +94,11 @@ def test_transport_allowlist_covers_only_reviewed_actions():
     assert fleet_route('POST', '/approvals/' + tid + '/approve')
     assert not fleet_route('GET', '/worker/claim')
     assert not fleet_route('POST', '/service/restart')
+
+
+def test_mcp_post_forwards_only_dedicated_transport_route(web):
+    request, calls, _ = web
+    assert request("/api/mcp", {"Authorization": "Bearer app-test", "Origin": "https://fleet.test", "Accept": "application/json, text/event-stream"}, method="POST", body="{} ")[0] == 200
+    assert calls[-1] == ("/mcp", "Bearer app-test", "https://fleet.test")
+    assert request("/api/mcp")[0] == 405
+    assert request("/api/mcp?session=1", method="POST", body="{}")[0] == 404
