@@ -1,0 +1,24 @@
+{
+  "name": "snowgloves-mods",
+  "description": "Snow Gloves OS mods for Claude Code: status band, connector gate, approvals desk",
+  "owner": {
+    "name": "Snow Gloves OS"
+  },
+  "plugins": [
+    {
+      "name": "sg-rail",
+      "source": "./sg-rail",
+      "description": "Status band above the prompt: tenant, data root, Hermes, OmniRoute, approvals, graph walk, ISA, Temperance rail"
+    },
+    {
+      "name": "sg-connector-gate",
+      "source": "./sg-connector-gate",
+      "description": "Enforces connector-gate on catalog-managed MCP servers"
+    },
+    {
+      "name": "sg-approvals",
+      "source": "./sg-approvals",
+      "description": "Review desk pane for approval tickets, decided only by a person"
+    }
+  ]
+}

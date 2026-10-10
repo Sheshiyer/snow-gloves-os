@@ -43,7 +43,11 @@ def main(argv=None):
     ap.add_argument("--reason", default="")
     ap.add_argument("--actor", default=os.environ.get("SNOWGLOVES_ACTOR", ""),
                     help="recorded as decided_by on approve/reject (default: $SNOWGLOVES_ACTOR)")
+    ap.add_argument("--data-root", help="instance data checkout (default: $SNOWGLOVES_DATA, else this checkout)")
     a = ap.parse_args(argv)
+    if a.data_root:
+        global ROOT
+        ROOT = paths.data_root(a.data_root)
     if a.cmd == "list":
         print(json.dumps(load(a.tenant), indent=2)); return
     if not a.id: sys.exit("--id required")

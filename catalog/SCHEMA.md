@@ -8,7 +8,7 @@ Each file `catalog/cards/<id>.md` is a **pointer** to a third-party skill, MCP s
 |---|---|
 | `id` | kebab-case, must equal the file name. Prefixes: `fk-` for founders-kit categories, `ms-` for marketingskills skills |
 | `name` | display name |
-| `category` | `skills` \| `mcp` \| `connector` \| `plugin` \| `playbook` (code libraries and tools use `plugin`; reference lists and prompt kits use `playbook`) |
+| `category` | `skills` \| `mcp` \| `connector` \| `plugin` \| `playbook` \| `mod` (code libraries and tools use `plugin`; reference lists and prompt kits use `playbook`; Claude Code mods, which run inside Claude Code, use `mod`) |
 | `kind` | free text: `skill`, `skill-pack`, `mcp-server`, `library`, `resource-list`, `runtime`, … |
 | `disposition` | `add` \| `hold` \| `refuse` \| `pointer` |
 | `repo` | upstream URL, or `""` if unresolved |
@@ -31,3 +31,10 @@ The body holds a short explanation of why the card exists, plus its provenance (
 - `refuse` means it shows on the dashboard and can never be enabled. This matches Factor's shelf.
 
 `build_catalog.py` exits 2 on an unknown category, disposition, risk, agent, hook, or runtime, and on a malformed `mcp` block (no `command`/`url`, non-string `args`, non-string `env` values). `catalog/modules.json` carries `mcp` only on cards that declare it.
+
+## Mods
+
+A `mod` card points at a Claude Code mod: a plugin whose hooks module runs inside Claude Code (see `docs/mods.md`).
+
+- First-party mods live in `mods/` and get `add`. The Claude adapter renders an enabled mod into `tenants/<t>/runtime/claude/mods.settings.json`, a settings fragment that adds the `mods/` directory marketplace and enables the mod. It never edits `~/.claude/settings.json` itself.
+- A third-party mod (for example one listed on claudemod.com) starts as `hold`. Mods are not sandboxed, so the review runs `claude plugin validate --json` on the mod's folder and records its `hooks:` and `calls:` lines in the card body before the founder moves it to `add` or `refuse`.

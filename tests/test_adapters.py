@@ -195,3 +195,46 @@ def test_render_without_node_is_unchanged(tmp_path):
     assert "wing" not in manifest and "effective" not in manifest
     rules = (roots["project"] / "AGENTS.md").read_text()
     assert rules.startswith(ad.BLOCK_START) and "Wing:" not in rules and "tenant=" not in rules
+
+
+MODS = [
+    {"id": "sg-rail", "name": "Rail", "category": "mod", "disposition": "add"},
+    {"id": "sg-approvals", "name": "Approvals", "category": "mod", "disposition": "add"},
+    {"id": "sg-nope", "name": "Nope", "category": "mod", "disposition": "add"},
+]
+
+
+def test_render_claude_mods_writes_a_settings_fragment(tmp_path):
+    roots = {**_roots(tmp_path), "platform": ROOT}
+    plan = ad.render_plan(ad.load_adapter(ADAPTERS, "claude"), MODS, [], "acme", roots, data_root=tmp_path / "ops")
+    ad.write_plan(plan)
+    fragment = json.loads((roots["tenant"] / "runtime" / "claude" / "mods.settings.json").read_text())
+    market = fragment["extraKnownMarketplaces"]["snowgloves-mods"]["source"]
+    assert market == {"source": "directory", "path": str(ROOT / "mods")}
+    assert fragment["enabledPlugins"] == {"sg-rail@snowgloves-mods": True, "sg-approvals@snowgloves-mods": True}
+    configs = fragment["pluginConfigs"]
+    assert configs["sg-rail@snowgloves-mods"]["options"] == {"tenant": "acme", "dataRoot": str(tmp_path / "ops")}
+    assert configs["sg-approvals@snowgloves-mods"]["options"] == {"dataRoot": str(tmp_path / "ops")}  # no tenant option
+    assert any(s.startswith("sg-nope: not listed") for s in plan.skipped)
+    assert "claude plugin install sg-rail@snowgloves-mods" in (roots["tenant"] / "runtime" / "claude" / "plugins.md").read_text()
+    assert not (roots["home"] / ".claude" / "settings.json").exists()
+
+
+def test_render_claude_mods_without_data_root_leaves_it_out(tmp_path):
+    roots = {**_roots(tmp_path), "platform": ROOT}
+    plan = ad.render_plan(ad.load_adapter(ADAPTERS, "claude"), MODS[:1], [], "acme", roots)
+    fragment = json.loads(plan.files[roots["tenant"] / "runtime" / "claude" / "mods.settings.json"])
+    assert fragment["pluginConfigs"]["sg-rail@snowgloves-mods"]["options"] == {"tenant": "acme"}
+
+
+def test_render_mods_on_other_runtimes_is_skipped(tmp_path):
+    roots = {**_roots(tmp_path), "platform": ROOT}
+    plan = ad.render_plan(ad.load_adapter(ADAPTERS, "cursor"), MODS[:1], [], "acme", roots)
+    assert any("no mod support" in s for s in plan.skipped)
+    assert not any(p.name == "mods.settings.json" for p in plan.files)
+
+
+def test_validate_wants_a_mods_format_with_a_mods_path():
+    data = yaml.safe_load((ADAPTERS / "claude" / "adapter.yaml").read_text())
+    del data["formats"]["mods"]
+    assert any("formats.mods" in p for p in ad.validate(data, "claude"))

@@ -28,6 +28,9 @@ BLOCK_END = "<!-- snowgloves:end -->"
 SKILL_CATEGORIES = ("skills", "playbook")
 MCP_CATEGORIES = ("mcp", "connector")
 PLUGIN_CATEGORIES = ("plugin",)
+MOD_CATEGORIES = ("mod",)
+MOD_FORMATS = ("claude-plugin-settings",)
+DEFAULT_MOD_MARKETPLACE = "snowgloves-mods"
 
 
 class AdapterError(ValueError):
@@ -52,6 +55,8 @@ def validate(data: dict, folder: str | None = None) -> list[str]:
         problems.append(f"formats.skill must be one of {SKILL_FORMATS}")
     if formats.get("mcp") not in MCP_FORMATS:
         problems.append(f"formats.mcp must be one of {MCP_FORMATS}")
+    if paths.get("mods") and formats.get("mods") not in MOD_FORMATS:
+        problems.append(f"formats.mods must be one of {MOD_FORMATS} when paths.mods is set")
     if not isinstance(data.get("install", []), list):
         problems.append("install must be a list")
     verify = data.get("verify", {})
@@ -303,6 +308,46 @@ def upsert_block(existing: str | None, body: str, tag: str | None = None) -> str
     return existing.rstrip("\n") + "\n\n" + block
 
 
+def _mod_settings(
+    marketplace_dir: Path, ids: list[str], tenant: str, data_root: Path | None,
+) -> tuple[dict, list[str], list[str]]:
+    """A settings.json fragment that adds the mods marketplace and enables each mod.
+
+    The marketplace is a directory, so Claude Code loads the mods in place from the platform
+    checkout. pluginConfigs fills each mod's tenant and dataRoot options, when its manifest has them.
+    """
+    manifest = marketplace_dir / ".claude-plugin" / "marketplace.json"
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    name = data.get("name") or DEFAULT_MOD_MARKETPLACE
+    listed = {p.get("name"): p for p in data.get("plugins") or [] if isinstance(p, dict)}
+    enabled, configs, done, missing = {}, {}, [], []
+    for ident in ids:
+        entry = listed.get(ident)
+        if entry is None:
+            missing.append(ident)
+            continue
+        plugin_id = f"{ident}@{name}"
+        enabled[plugin_id] = True
+        source = (marketplace_dir / str(entry.get("source") or ident)).resolve()
+        plugin_json = source / ".claude-plugin" / "plugin.json"
+        fields = (json.loads(plugin_json.read_text(encoding="utf-8")).get("userConfig") or {}) if plugin_json.is_file() else {}
+        options = {}
+        if "tenant" in fields:
+            options["tenant"] = tenant
+        if "dataRoot" in fields and data_root is not None:
+            options["dataRoot"] = str(data_root)
+        if options:
+            configs[plugin_id] = {"options": options}
+        done.append(plugin_id)
+    fragment = {
+        "extraKnownMarketplaces": {name: {"source": {"source": "directory", "path": str(marketplace_dir)}}},
+        "enabledPlugins": enabled,
+    }
+    if configs:
+        fragment["pluginConfigs"] = configs
+    return fragment, done, missing
+
+
 def render_plan(
     adapter: dict,
     items: list[dict],
@@ -313,6 +358,7 @@ def render_plan(
     in_sandbox: bool = False,
     node: dict | None = None,
     context_links: list[Path] | None = None,
+    data_root: Path | None = None,
 ) -> Plan:
     """Build every file this runtime needs for the enabled items. Nothing is written.
 
@@ -331,6 +377,7 @@ def render_plan(
     skills_dir = resolve(paths.get("skills"), roots)
     mcp_entries: dict[str, dict] = {}
     plugin_lines: list[str] = []
+    mod_ids: list[str] = []
     for item in items:
         category = item.get("category", "skills")
         if item.get("disposition") == "pointer":
@@ -347,6 +394,8 @@ def render_plan(
             plan.files[path] = _skill_md(item, card_bodies.get(item["id"], ""), formats["skill"], tenant)
         elif category in MCP_CATEGORIES:
             mcp_entries[item["id"]] = _mcp_entry(item, formats["mcp"], node_mcps.get(item["id"]))
+        elif category in MOD_CATEGORIES:
+            mod_ids.append(item["id"])
         elif category in PLUGIN_CATEGORIES:
             template = adapter.get("plugin_install")
             if template:
@@ -383,6 +432,23 @@ def render_plan(
 
     tenant_dir = roots["tenant"]
     out_dir = tenant_dir / "runtime" / wing / runtime if node is not None else tenant_dir / "runtime" / runtime
+    if mod_ids:
+        mods_dir = resolve(paths.get("mods"), roots)
+        if mods_dir is None or formats.get("mods") not in MOD_FORMATS:
+            plan.skipped.append(f"{', '.join(mod_ids)}: {runtime} has no mod support (mods are Claude Code plugins)")
+        elif not (mods_dir / ".claude-plugin" / "marketplace.json").is_file():
+            plan.skipped.append(f"{', '.join(mod_ids)}: no mods marketplace at {mods_dir}")
+        else:
+            fragment, done, missing = _mod_settings(mods_dir, mod_ids, tenant, data_root)
+            for ident in missing:
+                plan.skipped.append(f"{ident}: not listed in {mods_dir}/.claude-plugin/marketplace.json")
+            if done:
+                plan.files[out_dir / "mods.settings.json"] = json.dumps(fragment, indent=2) + "\n"
+                plugin_lines.append(
+                    f"- mods ({', '.join(done)}): merge {out_dir / 'mods.settings.json'} into ~/.claude/settings.json, "
+                    "or run `claude plugin marketplace add " + str(mods_dir) + "` and then "
+                    + " and ".join(f"`claude plugin install {p}`" for p in done)
+                )
     if plugin_lines:
         plan.files[out_dir / "plugins.md"] = (
             f"# Plugins for {adapter['name']}\n\nSnow Gloves does not install plugins. Run these yourself:\n\n"

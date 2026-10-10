@@ -4,6 +4,7 @@
       "formats": {
         "mcp": "json",
         "mcp_key": "mcpServers",
+        "mods": "claude-plugin-settings",
         "rules": "markdown-block",
         "skill": "skill-md"
       },
@@ -18,6 +19,7 @@
       "notes": "Skills load from ~/.claude/skills and <project>/.claude/skills. SKILL.md needs `name` and\n`description` front matter. `.mcp.json` is shared with the team; secrets go in env vars, not the file.\n",
       "paths": {
         "mcp": "{project}/.mcp.json",
+        "mods": "{platform}/mods",
         "plugins": "{home}/.claude/plugins",
         "rules": "{project}/CLAUDE.md",
         "skills": "{home}/.claude/skills"
@@ -3271,6 +3273,72 @@
     },
     {
       "agents": [
+        "chief-of-staff",
+        "sentinel"
+      ],
+      "approval": "no",
+      "body": "# Snow Gloves approvals desk\n\nA first-party Claude Code mod at `mods/sg-approvals`: the \"review desk\" of `docs/SESSION-WORLD-DESIGN.md`. It lists pending tickets from `scripts/sg_mods.py snapshot` (payload keys only, never values) and decides them through `scripts/approvals.py approve|reject --actor`, which moves the ticket to `history.jsonl`.\n\nDecisions are human-only: the mod registers no tool for Claude and submits no prompt, so only a button press decides. A high-risk approval asks for confirmation first. A 30-second timer toasts when new tickets arrive and never opens the pane by itself.\n",
+      "category": "mod",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "sg-approvals",
+      "kind": "claude-mod",
+      "name": "Snow Gloves approvals desk",
+      "repo": "",
+      "risk": "medium",
+      "runtimes": [
+        "claude"
+      ],
+      "source": "snow-gloves-os/mods/sg-approvals",
+      "summary": "/approvals opens a pane of pending approval tickets across tenants, with approve and reject buttons only a person can press."
+    },
+    {
+      "agents": [
+        "sentinel"
+      ],
+      "approval": "no",
+      "body": "# Snow Gloves connector gate\n\nA first-party Claude Code mod at `mods/sg-connector-gate`. It hooks `tool.call` for `mcp__*` tools and decides from `scripts/sg_mods.py gate-table`, which joins `catalog/modules.json`, the tenant's `enabled.yaml`, and the approvals history.\n\nIt governs only the servers the catalog manages (categories `mcp` and `connector`, keyed by card id as the adapter writes `.mcp.json`). Every other MCP server, such as the claude.ai ERP connector, goes on untouched with `next(e)`, so the settings `PreToolUse` hooks that guard it (`erp-read-only.py`) still run. It never answers a call with a result and has no `tool.check` hook.\n\nA high-risk or `approval: yes` tool without a grant queues a ticket through `sg_mods.py request-approval` and is refused until a person approves it in `/approvals`. A failure in the gate refuses calls to managed servers only. With no tenant set it only observes.\n",
+      "category": "mod",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [
+        "sentinel.connector-gate"
+      ],
+      "id": "sg-connector-gate",
+      "kind": "claude-mod",
+      "name": "Snow Gloves connector gate",
+      "repo": "",
+      "risk": "medium",
+      "runtimes": [
+        "claude"
+      ],
+      "source": "snow-gloves-os/mods/sg-connector-gate",
+      "summary": "skills/connector-gate as code: refuses hold and refuse cards, servers the tenant has not enabled, and high-risk or approval tools without an approved ticket."
+    },
+    {
+      "agents": [
+        "chief-of-staff"
+      ],
+      "approval": "no",
+      "body": "# Snow Gloves rail\n\nA first-party Claude Code mod that ships in this repo at `mods/sg-rail` and loads in place from the `snowgloves-mods` directory marketplace.\n\nIt reads `scripts/sg_mods.py snapshot` every 30 seconds and probes the Hermes and OmniRoute `/healthz` endpoints. While it is loaded it sets `TEMPERANCE_RAIL_SINK=file`, so the Temperance PromptProcessing hook writes the rail to `~/.claude/MEMORY/STATE/rail/<session>.ui.json` and the band draws it, instead of the rail riding along in Claude's context on every prompt. It writes no files.\n\n`claude plugin validate` calls: `$.process.run`, `$.http.fetch`, `$.fs.read`, `$.fs.exists`, `$.env.get`, `$.env.set` (TEMPERANCE_RAIL_SINK), `$.command.*`, `$.state.*`, `$.ui.*`, `$.clock.*`, `$.session.cwd`, `$.session.id`. See `docs/mods.md`.\n",
+      "category": "mod",
+      "disposition": "add",
+      "enableable": true,
+      "hooks": [],
+      "id": "sg-rail",
+      "kind": "claude-mod",
+      "name": "Snow Gloves rail (status band)",
+      "repo": "",
+      "risk": "low",
+      "runtimes": [
+        "claude"
+      ],
+      "source": "snow-gloves-os/mods/sg-rail",
+      "summary": "Band above the Claude Code prompt: tenant, data root, Hermes and OmniRoute health, pending approvals, graph walk, ISA progress, and the Temperance rail. Adds /sg."
+    },
+    {
+      "agents": [
         "ceo",
         "cto"
       ],
@@ -3616,17 +3684,18 @@
     "by_category": {
       "connector": 1,
       "mcp": 6,
+      "mod": 3,
       "playbook": 36,
       "plugin": 13,
       "skills": 79
     },
     "by_disposition": {
-      "add": 64,
+      "add": 67,
       "hold": 14,
       "pointer": 45,
       "refuse": 12
     },
-    "total": 135
+    "total": 138
   },
   "schema": "snowgloves.modules.v1",
   "version": "0.2.1"

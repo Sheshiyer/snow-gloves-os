@@ -3,9 +3,9 @@
 schema: snowgloves.modules.v1
 version: 0.2.1
 counts:
-  total: 135
+  total: 138
   by_disposition:
-    add: 64
+    add: 67
     hold: 14
     refuse: 12
     pointer: 45
@@ -15,6 +15,7 @@ counts:
     connector: 1
     plugin: 13
     playbook: 36
+    mod: 3
 cards:
 - id: agent-reach
   name: Agent-Reach
@@ -2205,6 +2206,56 @@ cards:
   - codex
   summary: Claude/Codex skill for scroll-scrubbed 3D landing scenes. Repo URL not in the harvest.
   enableable: false
+- id: sg-approvals
+  name: Snow Gloves approvals desk
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-approvals
+  risk: medium
+  approval: 'no'
+  agents:
+  - chief-of-staff
+  - sentinel
+  hooks: []
+  runtimes:
+  - claude
+  summary: /approvals opens a pane of pending approval tickets across tenants, with approve and reject buttons only a person can press.
+  enableable: true
+- id: sg-connector-gate
+  name: Snow Gloves connector gate
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-connector-gate
+  risk: medium
+  approval: 'no'
+  agents:
+  - sentinel
+  hooks:
+  - sentinel.connector-gate
+  runtimes:
+  - claude
+  summary: 'skills/connector-gate as code: refuses hold and refuse cards, servers the tenant has not enabled, and high-risk or approval tools without an approved ticket.'
+  enableable: true
+- id: sg-rail
+  name: Snow Gloves rail (status band)
+  category: mod
+  kind: claude-mod
+  disposition: add
+  repo: ''
+  source: snow-gloves-os/mods/sg-rail
+  risk: low
+  approval: 'no'
+  agents:
+  - chief-of-staff
+  hooks: []
+  runtimes:
+  - claude
+  summary: 'Band above the Claude Code prompt: tenant, data root, Hermes and OmniRoute health, pending approvals, graph walk, ISA progress, and the Temperance rail. Adds /sg.'
+  enableable: true
 - id: spec-kit
   name: spec-kit
   category: skills

@@ -18,6 +18,8 @@ Each adapter is one file, `adapters/<id>/adapter.yaml`, with schema `snowgloves.
 | `muse` | Muse (placeholder) | `numbered-list` | `~/.muse/skills` | `~/.muse/mcp.json` (json) | `{project}/AGENTS.md` block |
 | `generic` | Any agent | `numbered-list` | `{tenant}/runtime/generic/skills` | `{tenant}/runtime/generic/mcp.json` (json) | `{tenant}/runtime/generic/AGENTS.md` block |
 
+The `claude` adapter also has `paths.mods` (`{platform}/mods`) and `formats.mods: claude-plugin-settings`: an enabled `mod` card renders `tenants/<slug>/runtime/claude/mods.settings.json`, a settings fragment that adds the `snowgloves-mods` directory marketplace, enables the mod, and fills its `tenant` and `dataRoot` options. Snow Gloves never merges it into `~/.claude/settings.json` itself. Other adapters have no mods path and skip `mod` cards. See [mods.md](./mods.md).
+
 `numbered-list` means the runtime has no known question tool; the interview prints numbered options and reads back the answer. `generic` renders everything inside the tenant folder so you can copy it into any runtime.
 
 ## Unverified fields

@@ -69,3 +69,14 @@ def test_list_unchanged(queue, capsys):
     assert [r["id"] for r in rows] == ["t1", "t2"]
     assert all("decided_by" not in r for r in rows)
     assert not history(queue)
+
+
+def test_data_root_flag(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(approvals, "ROOT", tmp_path / "elsewhere")
+    ops = tmp_path / "ops"
+    q = ops / "tenants" / "acme" / "approvals"
+    q.mkdir(parents=True)
+    (q / "pending.jsonl").write_text(json.dumps({"id": "t9", "status": "pending"}) + "\n", encoding="utf-8")
+    approvals.main(["approve", "--tenant", "acme", "--id", "t9", "--actor", "founder", "--data-root", str(ops)])
+    assert json.loads(capsys.readouterr().out)["ticket"]["decided_by"] == "founder"
+    assert history(q)[0]["id"] == "t9"
