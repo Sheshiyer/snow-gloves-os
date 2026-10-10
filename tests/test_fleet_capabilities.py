@@ -197,6 +197,32 @@ def test_approval_requires_explicit_permission_and_identity_from_auth(capabiliti
     assert c.capabilities.approvals('outsider', config['principals']['outsider'])['approvals'] == []
 
 
+def test_lost_response_retry_replays_after_worker_and_activation_change(capabilities):
+    c, config, clock, _, enabled = capabilities
+    tid = execute(capabilities, worker_id='mac-coding-1')['task']['id']
+    clock[0] += 61  # the selected worker is no longer observed
+    enabled.write_text(enabled.read_text().replace('  - id: review\n', ''))  # and the capability is deactivated
+    assert execute(capabilities, worker_id='mac-coding-1')['task']['id'] == tid
+    with pytest.raises(Rejected) as error:
+        execute(capabilities, inputs={'focus': 'changed'}, worker_id='mac-coding-1')
+    assert error.value.status == 409
+    with pytest.raises(Rejected):  # live readiness still gates new keys
+        execute(capabilities, worker_id='mac-coding-1', idempotency_key='fresh')
+
+
+def test_approval_listing_scopes_before_the_newest_200_window(capabilities):
+    c, config, clock, *_ = capabilities
+    mine = request(capabilities)
+    with c.transaction():
+        for n in range(205):
+            c.db.execute('INSERT INTO capability_approvals(id,owner,project,capability_id,idem,request_digest,inputs_json,status,created) '
+                         'VALUES(?,?,?,?,?,?,?,?,?)', ('%032x' % (n + 1), 'approver', 'snowgloves', 'gated', 'k%d' % n, 'd',
+                                                       '{"inputs": {}}', 'pending', clock[0] + 1 + n))
+    listed = c.capabilities.approvals('founder', config['principals']['founder'])['approvals']
+    assert [a['id'] for a in listed] == [mine['id']]
+    assert len(c.capabilities.approvals('approver', config['principals']['approver'])['approvals']) == 200
+
+
 def test_approval_bound_to_inputs_project_and_consumed_once(capabilities):
     c, config, *_ = capabilities
     approval = request(capabilities)

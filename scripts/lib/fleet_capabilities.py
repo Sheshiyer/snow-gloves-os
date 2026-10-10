@@ -253,10 +253,11 @@ class Capabilities:
                                  for project in sorted(self.c.config['projects']) if project in principal['projects']
                                  for ident in sorted(cards)]}
 
-    def action(self, principal, body):
+    def request(self, principal, body):
+        """Validate the request shape and caller authority; no live readiness gates."""
         if not isinstance(body, dict) or set(body) - {'project', 'capability_id', 'inputs', 'idempotency_key', 'approval_id', 'worker_id'}:
             reject(400, 'Invalid capability request')
-        project, ident, inputs = body.get('project'), body.get('capability_id'), body.get('inputs', {})
+        project, ident = body.get('project'), body.get('capability_id')
         self.c._need(principal, 'submit')
         cfg = self.project(principal, project)
         if not isinstance(ident, str) or not ID.fullmatch(ident):
@@ -264,20 +265,39 @@ class Capabilities:
         key = body.get('idempotency_key')
         if not isinstance(key, str) or not key.strip() or len(key) > 200:
             reject(400, 'Invalid idempotency_key')
+        return cfg
+
+    def bind(self, body, cfg, cards, registry):
+        """Validate inputs and compute the digest binding them to the current adapter and catalog gate."""
+        ident, inputs = body['capability_id'], body.get('inputs', {})
+        entry = registry[ident]
+        validate_inputs(entry['input_schema'], inputs)
+        card = cards[ident]
+        action = dict(project=body['project'], tenant=cfg['tenant'], capability_id=ident, inputs=inputs,
+                      worker_id=body.get('worker_id'), adapter=entry, catalog_gate={key: card.get(key) for key in ('kind', 'risk', 'approval', 'disposition', 'enableable')})
+        return entry, hashlib.sha256(canonical(action)).hexdigest()
+
+    def action(self, principal, body):
+        cfg = self.request(principal, body)
+        project, ident = body['project'], body['capability_id']
         cards, registry = self.catalog(), self.registry()
         ready = self.readiness(principal, project, ident, cards, registry)
         if ready['state'] not in ('executable', 'approval_required'):
             reject(409, ready['reason'])
-        entry = registry[ident]
-        validate_inputs(entry['input_schema'], inputs)
+        entry, digest = self.bind(body, cfg, cards, registry)
         worker_id = body.get('worker_id')
         if worker_id is not None and worker_id not in [w['id'] for w in self.workers(project, 'codex') if w['availability'] == 'observed']:
             reject(409, 'Selected worker unavailable')
-        card = cards[ident]
-        action = dict(project=project, tenant=cfg['tenant'], capability_id=ident, inputs=inputs,
-                      worker_id=worker_id, adapter=entry, catalog_gate={key: card.get(key) for key in ('kind', 'risk', 'approval', 'disposition', 'enableable')})
-        digest = hashlib.sha256(canonical(action)).hexdigest()
         return ready, entry, digest
+
+    def retry_digest(self, principal, body):
+        """Digest for replaying an existing idempotency key: the request must still match what was
+        stored, but live readiness (worker presence, activation, source) does not apply to it."""
+        cfg = self.request(principal, body)
+        cards, registry = self.catalog(), self.registry()
+        if body['capability_id'] not in registry or body['capability_id'] not in cards:
+            reject(409, 'Idempotency key conflicts with prior execution')
+        return self.bind(body, cfg, cards, registry)[1]
 
     def public_approval(self, row):
         result = {key: row[key] for key in ('id', 'owner', 'project', 'capability_id', 'status', 'request_digest', 'created', 'decided', 'decided_by', 'consumed_task')}
@@ -288,10 +308,18 @@ class Capabilities:
 
     def approvals(self, owner, principal):
         self.c._need(principal, 'read')
+        # Scope in SQL so the newest-200 window holds only rows this caller may see.
+        projects = sorted(set(principal['projects']))
+        if not projects:
+            return {'approvals': []}
+        query, params = 'SELECT * FROM capability_approvals WHERE project IN (%s)' % ','.join('?' * len(projects)), list(projects)
+        if 'approve' not in principal.get('permissions', []):
+            owners = sorted({owner, *principal.get('view_owners', [])})
+            query += ' AND owner IN (%s)' % ','.join('?' * len(owners))
+            params += owners
         with self.c.lock:
-            rows = self.c.db.execute('SELECT * FROM capability_approvals ORDER BY created DESC LIMIT 200')
-            return {'approvals': [self.public_approval(row) for row in rows if row['project'] in principal['projects'] and
-                                  (row['owner'] in {owner, *principal.get('view_owners', [])} or 'approve' in principal.get('permissions', []))]}
+            rows = self.c.db.execute(query + ' ORDER BY created DESC LIMIT 200', params)
+            return {'approvals': [self.public_approval(row) for row in rows]}
 
     def request_approval(self, owner, principal, body):
         with self.c.transaction():
@@ -341,12 +369,15 @@ class Capabilities:
 
     def execute(self, owner, principal, body):
         with self.c.transaction():
-            ready, entry, digest = self.action(principal, body)
-            prior = self.c.db.execute('SELECT * FROM capability_executions WHERE owner=? AND idem=?', (owner, body['idempotency_key'])).fetchone()
+            key = body.get('idempotency_key') if isinstance(body, dict) else None
+            prior = self.c.db.execute('SELECT * FROM capability_executions WHERE owner=? AND idem=?', (owner, key)).fetchone() if isinstance(key, str) else None
             if prior:
+                # A lost response must replay the original task even after the worker or readiness changed.
+                digest = self.retry_digest(principal, body)
                 if prior['request_digest'] != digest or prior['approval_id'] != body.get('approval_id'):
                     reject(409, 'Idempotency key conflicts with prior execution')
                 return {'task': self.c._public(self.c._owned(owner, principal, prior['task_id'], mutate=True)), 'request_digest': digest}
+            ready, entry, digest = self.action(principal, body)
             approval_id = body.get('approval_id')
             if ready['state'] == 'approval_required':
                 if not isinstance(approval_id, str):

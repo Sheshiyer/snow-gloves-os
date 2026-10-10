@@ -217,7 +217,7 @@ class Headless(unittest.TestCase):
         plan = self.plan()
         with self.assertRaisesRegex(h.Refused, 'digest'):
             h.validate_plan(plan, 'b' * 64)
-        for field, value in (('host', 'other-host'), ('user', dict(self.info, uid=0))):
+        for field, value in (('host', 'other-host'), ('user', dict(self.info, uid=self.info['uid'] + 1))):
             changed = copy.deepcopy(plan)
             changed[field] = value
             changed['sha256'] = h.digest(h.canonical({k: v for k, v in changed.items() if k != 'sha256'}))
