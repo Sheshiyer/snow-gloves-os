@@ -32,6 +32,11 @@ def create_server(vault):
             return text(fresh().sample(segment, limit))
 
         @mcp.tool()
+        def marketing_erp_link_status(tenant: str | None = None) -> str:
+            """Per segment: how many contacts carry a confirmed ERP client reference."""
+            return text(fresh().erp_link_status(tenant))
+
+        @mcp.tool()
         def marketing_is_suppressed(email: str) -> str:
             """Whether an address is on the do-not-contact list."""
             return text({'suppressed': fresh().is_suppressed(email)})

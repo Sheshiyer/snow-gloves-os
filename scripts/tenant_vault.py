@@ -16,6 +16,7 @@ def main(argv=None):
     sub = parser.add_subparsers(dest='command', required=True)
     p = sub.add_parser('ingest-bank'); p.add_argument('--tenant', required=True); p.add_argument('--file', required=True)
     p = sub.add_parser('ingest-contacts'); p.add_argument('--tenant', required=True); p.add_argument('--contacts', required=True); p.add_argument('--suppression')
+    p = sub.add_parser('link-erp'); p.add_argument('--tenant', required=True); p.add_argument('--accounts', required=True); p.add_argument('--snapshot', default='')
     sub.add_parser('accounts'); sub.add_parser('entities'); sub.add_parser('segments')
     p = sub.add_parser('audit'); p.add_argument('-n', type=int, default=20)
     p = sub.add_parser('reveal'); p.add_argument('--id', type=int, required=True); p.add_argument('--actor', required=True); p.add_argument('--reason', required=True)
@@ -28,6 +29,8 @@ def main(argv=None):
             result = vault.ingest_bank_markdown(args.tenant, Path(args.file).read_text(encoding='utf-8', errors='replace'), Path(args.file).name)
         elif c == 'ingest-contacts':
             result = vault.ingest_contacts(args.tenant, args.contacts, args.suppression, Path(args.contacts).name)
+        elif c == 'link-erp':
+            result = vault.link_erp(args.tenant, args.accounts, args.snapshot, Path(args.accounts).name)
         elif c == 'accounts':
             result = vault.accounts()
         elif c == 'entities':

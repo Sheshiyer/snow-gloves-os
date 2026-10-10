@@ -218,7 +218,7 @@ def test_mcp_server_exposes_only_safe_tools(finance, marketing, tmp_path):
     from vault_mcp import create_server
     names = lambda v: sorted(t.name for t in asyncio.run(create_server(v).list_tools()))
     assert names(finance) == ['finance_accounts', 'finance_entities', 'finance_verify_iban']
-    assert names(marketing) == ['marketing_is_suppressed', 'marketing_sample', 'marketing_segments']
+    assert names(marketing) == ['marketing_erp_link_status', 'marketing_is_suppressed', 'marketing_sample', 'marketing_segments']
     for forbidden in ('reveal', 'export', 'iban_enc'):
         assert not any(forbidden in n for n in names(finance) + names(marketing))
 

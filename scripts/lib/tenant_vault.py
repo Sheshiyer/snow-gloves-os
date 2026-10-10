@@ -34,7 +34,9 @@ SCHEMA = {
             company TEXT, account_id TEXT, segment TEXT, grp TEXT, business_line TEXT, account_status TEXT, revenue_tier TEXT, source TEXT,
             erp_ref TEXT, imported_at REAL NOT NULL, UNIQUE(tenant, email));
         CREATE INDEX IF NOT EXISTS contacts_segment ON contacts(tenant, segment);
-        CREATE TABLE IF NOT EXISTS suppression (email TEXT PRIMARY KEY, reason TEXT, imported_at REAL NOT NULL);''',
+        CREATE TABLE IF NOT EXISTS suppression (email TEXT PRIMARY KEY, reason TEXT, imported_at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS erp_account_facts (tenant TEXT NOT NULL, erp_ref TEXT NOT NULL, company TEXT, status TEXT, revenue_tier TEXT,
+            erp_invoices INTEGER, erp_quotes INTEGER, client_since TEXT, snapshot TEXT, source TEXT, PRIMARY KEY (tenant, erp_ref));''',
 }
 AUDIT = 'CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, ts REAL NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, target TEXT, detail TEXT);'
 
@@ -234,6 +236,38 @@ class Vault:
         self._audit('system', 'ingest_contacts', tenant, '%d added, %d existing, %d duplicates, %d invalid, %d suppression entries' % (added, existing, duplicates, invalid, suppressed))
         return {'contacts_added': added, 'duplicates': duplicates, 'invalid': invalid, 'suppressed': suppressed, 'contacts_existing': existing}
 
+    def link_erp(self, tenant, accounts_csv, snapshot='', source=''):
+        """Offline link from the ERP-derived account export. Only numeric ids whose export basis is erp_invoices are
+        real ERP client ids; mail-derived keys and ids the export never confirmed stay unlinked. Never unlinks.
+        Keeps coarse, non-monetary facts only; money belongs in finance."""
+        self._need('marketing')
+        confirmed, mail_only = {}, 0
+        with open(accounts_csv, newline='', encoding='utf-8-sig', errors='replace') as handle:
+            for row in csv.DictReader(handle):
+                account = (row.get('account_id') or '').strip()
+                if re.fullmatch(r'\d+', account) and (row.get('transactions_basis') or '').strip() == 'erp_invoices':
+                    confirmed[account] = row
+                elif account and not re.fullmatch(r'\d+', account):
+                    mail_only += 1
+        whole = lambda v: int(float(v)) if str(v or '').strip().replace('.', '', 1).isdigit() else 0
+        linked_contacts = 0
+        for account, row in confirmed.items():
+            ref = 'erp_axtech:client:' + account
+            self.db.execute('INSERT OR REPLACE INTO erp_account_facts(tenant, erp_ref, company, status, revenue_tier, erp_invoices, erp_quotes, client_since, snapshot, source) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                            (tenant, ref, row.get('company'), row.get('status'), row.get('revenue_tier'), whole(row.get('erp_invoices')), whole(row.get('erp_quotes')),
+                             row.get('client_since') or '', snapshot, source))
+            linked_contacts += self.db.execute('UPDATE contacts SET erp_ref=? WHERE tenant=? AND account_id=?', (ref, tenant, account)).rowcount
+        unlinked = self.db.execute('SELECT COUNT(*) FROM contacts WHERE tenant=? AND erp_ref IS NULL', (tenant,)).fetchone()[0]
+        self.db.commit()
+        result = {'linked_accounts': len(confirmed), 'linked_contacts': linked_contacts, 'unlinked_contacts': unlinked, 'mail_only_accounts': mail_only}
+        self._audit('system', 'link_erp', tenant, '%d accounts, %d contacts linked, %d unlinked; snapshot %s' % (len(confirmed), linked_contacts, unlinked, snapshot or 'unspecified'))
+        return result
+
+    def erp_link_status(self, tenant=None):
+        self._need('marketing')
+        rows = self.db.execute('SELECT segment, COUNT(*) AS n, SUM(erp_ref IS NOT NULL) AS linked FROM contacts %s GROUP BY segment ORDER BY segment' % ('WHERE tenant=?' if tenant else ''), (tenant,) if tenant else ())
+        return {r['segment']: {'contacts': r['n'], 'linked': r['linked'], 'unlinked': r['n'] - r['linked']} for r in rows}
+
     def is_suppressed(self, email):
         self._need('marketing')
         return self.db.execute('SELECT 1 FROM suppression WHERE email=?', (str(email).strip().lower(),)).fetchone() is not None
@@ -252,7 +286,7 @@ class Vault:
     def sample(self, segment, limit=10):
         self._need('marketing')
         limit = max(0, min(int(limit), SAMPLE_CAP))
-        return [{'email': mask_email(r['email']), 'company': r['company'], 'segment': r['segment'], 'revenue_tier': r['revenue_tier']} for r in self._reachable(segment, limit)]
+        return [{'email': mask_email(r['email']), 'company': r['company'], 'segment': r['segment'], 'revenue_tier': r['revenue_tier'], 'erp_linked': r['erp_ref'] is not None} for r in self._reachable(segment, limit)]
 
     def export_segment(self, segment, dest, actor, reason):
         """Write full addresses for an approved send step to a private file. Never returned to a caller, never overwrites."""
