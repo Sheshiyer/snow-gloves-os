@@ -18,6 +18,10 @@ SPEC = importlib.util.spec_from_file_location('fleet_headless', Path(__file__).r
 h = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(h)
 ORIGINAL_DISABLED = h.disabled
+ORIGINAL_USER_INFO = h.user_info
+EXAMPLE_POLICY = Path(__file__).resolve().parents[1] / 'docs/fleet/headless-policy.example.json'
+USER = 'operator'
+REMOTE = 'operator@coordinator.example.ts.net'
 
 
 class Headless(unittest.TestCase):
@@ -26,7 +30,7 @@ class Headless(unittest.TestCase):
         self.addCleanup(self.stack.close)
         self.tmp = self.stack.enter_context(tempfile.TemporaryDirectory())
         self.root = Path(self.tmp).resolve()
-        self.home = self.root / 'axio'
+        self.home = self.root / USER
         self.home.mkdir(mode=0o700)
         self.agents = self.home / 'Library/LaunchAgents'
         self.agents.mkdir(parents=True, mode=0o700)
@@ -34,7 +38,7 @@ class Headless(unittest.TestCase):
         self.logs.mkdir(mode=0o700)
         self.daemons = self.root / 'daemons'
         self.daemons.mkdir(mode=0o755)
-        self.info = {'name': 'axio', 'uid': os.getuid(), 'gid': os.getgid(), 'home': str(self.home)}
+        self.info = {'name': USER, 'uid': os.getuid(), 'gid': os.getgid(), 'home': str(self.home)}
         self.exe = self.home / 'python3'
         self.exe.write_text('#!/bin/sh\nexit 0\n')
         self.exe.chmod(0o700)
@@ -54,20 +58,14 @@ class Headless(unittest.TestCase):
         self.commands = []
         self.bootstrap_error = False
         self.probe = {'ok': True, 'pending': 0, 'state_sha256': 'a' * 64}
-        self.original_path_checked = h.path_checked
         self.original_private_file = h.private_file
         self.original_write = h.write_private
         self.original_db_state = h.database_state
-        def checked(value, within=None):
-            if within == Path('/Users/axio'):
-                within = self.home
-            return self.original_path_checked(value, within)
-        self.stack.enter_context(patch.object(h, 'path_checked', checked))
         self.stack.enter_context(patch.object(h, 'DAEMONS', self.daemons))
         self.stack.enter_context(patch.object(h, 'BACKUPS', self.root / 'backups'))
         self.stack.enter_context(patch.object(h.platform, 'system', lambda: 'Darwin'))
         self.stack.enter_context(patch.object(h.platform, 'node', lambda: 'coding01-test'))
-        self.stack.enter_context(patch.object(h, 'user_info', lambda name: dict(self.info)))
+        self.stack.enter_context(patch.object(h, 'user_info', self.fake_user_info))
         self.stack.enter_context(patch.object(h, 'require_root', lambda: None))
         self.stack.enter_context(patch.object(h, 'root_private_directory', lambda p: self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o700)))
         self.stack.enter_context(patch.object(h, 'private_file', lambda p, uid, **kw: self.original_private_file(p, os.getuid() if uid == 0 else uid, **kw)))
@@ -78,8 +76,30 @@ class Headless(unittest.TestCase):
         self.stack.enter_context(patch.object(h, 'disabled', lambda domain, label: (domain, label) in self.disabled))
         self.stack.enter_context(patch.object(h, 'run', self.fake_run))
         self.label = 'com.snowgloves.hermes-pilot.coordinator'
+        self.worker = 'com.snowgloves.hermes-pilot.worker'
         self.source = self.make_agent(self.label)
         self.live.add(('gui/' + str(os.getuid()), self.label))
+        self.policy_doc = {'schema': h.POLICY_SCHEMA, 'users': {USER: {
+            'labels': [self.label, self.worker, 'com.snowgloves.hermes-pilot.tls-renew'],
+            'process_type': {self.worker: 'Standard'},
+            'quiescence': {'db_root': str(self.home), 'ssh_hosts': [], 'requires_ssh_probe': False}}}}
+        self.policy = self.write_policy(self.policy_doc)
+        self.entry = h.user_policy(h.validate_policy(self.policy_doc), self.info)
+
+    def fake_user_info(self, name, policy):
+        self.assertIsInstance(policy, dict)
+        if name not in policy['users']:
+            raise h.Refused('Service user is not in the headless policy')
+        return dict(self.info)
+
+    def write_policy(self, doc, name='policy.json'):
+        path = self.root / name
+        path.write_text(json.dumps(doc))
+        path.chmod(0o600)
+        return path
+
+    def render(self, source=None, entry=None):
+        return h.render(source or self.source, self.info, entry or self.entry)
 
     def make_agent(self, label, **kw):
         raw = {'Label': label, 'ProgramArguments': [str(self.exe), str(self.script), '--config', str(self.config)],
@@ -110,18 +130,19 @@ class Headless(unittest.TestCase):
                 raw = plistlib.loads(Path(command[3]).read_bytes())
                 if command[2] == 'system':
                     self.assertFalse(any(domain != 'system' for domain, _label in self.live))
-                    self.assertEqual(raw['UserName'], 'axio')
+                    self.assertEqual(raw['UserName'], USER)
                 self.live.add((command[2], raw['Label']))
         return subprocess.CompletedProcess(command, 0, b'', b'')
 
-    def plan(self, *labels):
-        return h.make_plan('axio', list(labels or (self.label,)), str(self.db))
+    def plan(self, *labels, policy=None):
+        return h.make_plan(USER, list(labels or (self.label,)), str(self.db), policy=str(policy or self.policy))
 
     def test_nonroot_absolute_private_generated_service(self):
-        generated, files = h.render(self.source, self.info)
-        self.assertEqual(generated['UserName'], 'axio')
+        generated, files = self.render()
+        self.assertEqual(generated['UserName'], USER)
         self.assertEqual(generated['EnvironmentVariables']['HOME'], str(self.home))
-        self.assertEqual(generated['EnvironmentVariables']['USER'], 'axio')
+        self.assertEqual(generated['EnvironmentVariables']['USER'], USER)
+        self.assertEqual(generated['ProcessType'], 'Background')
         self.assertGreaterEqual(generated['ThrottleInterval'], 30)
         self.assertEqual(generated['Umask'], 0o077)
         self.assertIn(str(self.config), files)
@@ -131,16 +152,17 @@ class Headless(unittest.TestCase):
     def test_scheduled_renewal_does_not_become_continuous(self):
         label = 'com.snowgloves.hermes-pilot.tls-renew'
         source = self.make_agent(label, StartCalendarInterval={'Hour': 3, 'Minute': 12}, KeepAlive=False, RunAtLoad=False)
-        generated, _ = h.render(source, self.info)
+        generated, _ = self.render(source)
         self.assertFalse(generated['KeepAlive'])
         self.assertFalse(generated['RunAtLoad'])
         self.assertEqual(generated['StartCalendarInterval'], {'Hour': 3, 'Minute': 12})
 
-    def test_transport_and_http_mcp_are_explicitly_allowlisted(self):
-        self.assertIn('fr.heyzack.snowgloves.coding02-transport', h.SERVICES['maccoding2'])
-        self.assertIn('fr.heyzack.snowgloves.coding02-worker', h.SERVICES['maccoding2'])
-        self.assertIn('com.snowgloves.hermes-pilot.mcp-http', h.SERVICES['axio'])
-        self.assertNotIn('com.temperance.engine.pulse-compat', h.SERVICES['axio'])
+    def test_module_carries_no_fleet_identities_and_example_policy_is_valid(self):
+        for name in ('USERS', 'SERVICES', 'SSH_HOSTS'):
+            self.assertFalse(hasattr(h, name))
+        example = h.validate_policy(json.loads(EXAMPLE_POLICY.read_text()))
+        self.assertIn('operator', example['users'])
+        self.assertTrue(any(q['quiescence']['requires_ssh_probe'] for q in example['users'].values()))
 
     def test_env_node_entrypoint_gets_explicit_hashed_interpreter(self):
         node = self.home / 'node'
@@ -149,12 +171,12 @@ class Headless(unittest.TestCase):
         self.exe.write_text('#!/usr/bin/env node\n// fixture entrypoint\n')
         original = h.executable_path
         with patch.object(h, 'executable_path', lambda value, home: node if value == '/opt/homebrew/bin/node' else original(value, home)):
-            generated, files = h.render(self.source, self.info)
+            generated, files = self.render()
         self.assertEqual(generated['ProgramArguments'][:2], [str(node), str(self.exe)])
         self.assertIn(str(node), files)
         self.exe.write_text('#!/usr/bin/env python3\n')
         with self.assertRaisesRegex(h.Refused, 'explicit interpreter'):
-            h.render(self.source, self.info)
+            self.render()
 
     def test_inline_secrets_and_interactive_dependencies_refused_without_echo(self):
         for env in ({'API_TOKEN': 'VERY_SECRET'}, {'HOME': '/Users/root'}, {'PATH': '.:/usr/bin'},
@@ -162,7 +184,7 @@ class Headless(unittest.TestCase):
             with self.subTest(env=tuple(env)):
                 self.make_agent(self.label, EnvironmentVariables=env)
                 with self.assertRaises(h.Refused) as caught:
-                    h.render(self.source, self.info)
+                    self.render()
                 self.assertNotIn('VERY_SECRET', str(caught.exception))
 
     def test_token_file_allowed_but_unsafe_mode_refused(self):
@@ -170,12 +192,12 @@ class Headless(unittest.TestCase):
         token.write_text('PRIVATE_TOKEN_CONTENT')
         token.chmod(0o600)
         self.make_agent(self.label, EnvironmentVariables={'APP_TOKEN_FILE': str(token)})
-        generated, files = h.render(self.source, self.info)
+        generated, files = self.render()
         self.assertIn(str(token), files)
         self.assertNotIn('PRIVATE_TOKEN_CONTENT', json.dumps(generated))
         token.chmod(0o644)
         with self.assertRaisesRegex(h.Refused, 'permissions'):
-            h.render(self.source, self.info)
+            self.render()
 
     def test_gui_labels_properties_args_and_wrappers_refused(self):
         for change in ({'Label': 'com.grok.app'}, {'LimitLoadToSessionType': 'Aqua'},
@@ -184,11 +206,11 @@ class Headless(unittest.TestCase):
             with self.subTest(change=tuple(change)):
                 self.make_agent(self.label, **change)
                 with self.assertRaises(h.Refused):
-                    h.render(self.source, self.info)
+                    self.render()
         self.make_agent(self.label)
         self.script.write_text('import subprocess\nsubprocess.run(["osascript"])\n')
         with self.assertRaisesRegex(h.Refused, 'Wrapper'):
-            h.render(self.source, self.info)
+            self.render()
 
     def test_source_log_config_symlinks_and_traversal_refused(self):
         for value in ('relative.plist', str(self.home) + '/../outside', str(self.home) + '//logs/file'):
@@ -198,20 +220,20 @@ class Headless(unittest.TestCase):
         alias.symlink_to(self.logs, target_is_directory=True)
         self.make_agent(self.label, StandardOutPath=str(alias / 'output.log'))
         with self.assertRaisesRegex(h.Refused, 'Symlink'):
-            h.render(self.source, self.info)
+            self.render()
         self.make_agent(self.label)
         self.config.chmod(0o644)
         with self.assertRaisesRegex(h.Refused, 'permissions'):
-            h.render(self.source, self.info)
+            self.render()
 
     def test_missing_config_and_private_log_bounds_refused(self):
         self.make_agent(self.label, ProgramArguments=[str(self.exe), '--config', str(self.home / 'missing.json')])
         with self.assertRaisesRegex(h.Refused, 'missing'):
-            h.render(self.source, self.info)
+            self.render()
         self.make_agent(self.label)
         self.logs.chmod(0o755)
         with self.assertRaisesRegex(h.Refused, 'private'):
-            h.render(self.source, self.info)
+            self.render()
 
     def test_digest_host_account_domain_and_path_tampering(self):
         plan = self.plan()
@@ -351,11 +373,11 @@ class Headless(unittest.TestCase):
                 conn.execute('INSERT INTO tasks(id,status,updated) VALUES(?,?,?)', ('one', status, 1))
                 conn.commit()
             with self.assertRaisesRegex(h.Refused, 'pending'):
-                self.original_db_state({'db': str(self.db)}, self.info)
+                self.original_db_state({'db': str(self.db)}, self.info, self.entry['quiescence'])
         with closing(sqlite3.connect(self.db)) as conn:
             conn.execute("UPDATE tasks SET status='succeeded'")
             conn.commit()
-        state = self.original_db_state({'db': str(self.db)}, self.info)
+        state = self.original_db_state({'db': str(self.db)}, self.info, self.entry['quiescence'])
         self.assertEqual(state['pending'], 0)
         self.assertEqual(len(state['state_sha256']), 64)
 
@@ -364,16 +386,21 @@ class Headless(unittest.TestCase):
         def ssh(command, **kw):
             seen.append((command, kw))
             return subprocess.CompletedProcess(command, 0, json.dumps(dict(self.probe, scheduler_loaded=True)).encode(), b'')
+        remote = {'db_root': str(self.home), 'ssh_hosts': [REMOTE], 'requires_ssh_probe': True}
         with patch.object(h, 'run', ssh):
             with self.assertRaisesRegex(h.Refused, 'Stop the coordinator'):
-                self.original_db_state({'db': str(self.db), 'ssh_host': 'axio@100.117.187.123', 'identity_file': str(self.config)}, self.info, require_stopped=True)
+                self.original_db_state({'db': str(self.db), 'ssh_host': REMOTE, 'identity_file': str(self.config)}, self.info, remote, require_stopped=True)
         self.assertEqual(seen[0][0][0], '/usr/bin/ssh')
         self.assertIn('IdentityAgent=none', seen[0][0])
         self.assertIn('StrictHostKeyChecking=yes', seen[0][0])
         self.assertEqual(seen[0][1]['info'], self.info)
         self.assertIn('mode=ro', seen[0][0][-1])
         with self.assertRaisesRegex(h.Refused, 'Unreviewed'):
-            self.original_db_state({'db': str(self.db), 'ssh_host': 'attacker@example.org'}, self.info)
+            self.original_db_state({'db': str(self.db), 'ssh_host': 'attacker@example.org'}, self.info, remote)
+        with self.assertRaisesRegex(h.Refused, 'Unreviewed'):
+            self.original_db_state({'db': str(self.db), 'ssh_host': REMOTE}, self.info, self.entry['quiescence'])
+        with self.assertRaisesRegex(h.Refused, 'requires the coordinator SSH'):
+            self.original_db_state({'db': str(self.db)}, self.info, remote)
 
     def test_filevault_on_never_reports_startup_candidate_or_physical_proof(self):
         plan = self.plan()
@@ -387,10 +414,292 @@ class Headless(unittest.TestCase):
         with patch.object(h, 'make_plan', side_effect=OSError('PRIVATE_TOKEN_CONTENT')):
             output = io.StringIO()
             with patch('sys.stderr', output):
-                result = h.main(['inspect', '--user', 'axio', '--service', self.label, '--quiescence-db', str(self.db)])
+                result = h.main(['inspect', '--policy', str(self.policy), '--user', USER, '--service', self.label, '--quiescence-db', str(self.db)])
         self.assertEqual(result, 2)
         self.assertNotIn('PRIVATE_TOKEN_CONTENT', output.getvalue())
         self.assertEqual(json.loads(output.getvalue())['ok'], False)
+
+
+    # --- private policy -------------------------------------------------
+
+    def refused(self, doc, pattern=None):
+        with self.assertRaises(h.Refused) as caught:
+            h.validate_policy(doc)
+        if pattern:
+            self.assertRegex(str(caught.exception), pattern)
+
+    def mutated(self, change):
+        doc = copy.deepcopy(self.policy_doc)
+        change(doc, doc['users'][USER])
+        return doc
+
+    def test_policy_validation_refuses_each_invalid_shape(self):
+        q = lambda e: e['quiescence']
+        cases = {
+            'unknown top-level key': lambda d, e: d.update(extra=1),
+            'wrong schema': lambda d, e: d.update(schema='snowgloves.headless-policy.v0'),
+            'no users': lambda d, e: d.update(users={}),
+            'root user': lambda d, e: d['users'].update(root=d['users'].pop(USER)),
+            'invalid user name': lambda d, e: d['users'].update({'Bad User': d['users'].pop(USER)}),
+            'unknown user key': lambda d, e: e.update(nice=5),
+            'missing labels': lambda d, e: e.pop('labels'),
+            'missing quiescence': lambda d, e: e.pop('quiescence'),
+            'empty labels': lambda d, e: e.update(labels=[]),
+            'duplicate labels': lambda d, e: e['labels'].append(self.label),
+            'non-string label': lambda d, e: e['labels'].append(7),
+            'path-like label': lambda d, e: e['labels'].append('../evil'),
+            'apple label': lambda d, e: e['labels'].append('com.apple.screensharing'),
+            'process type unlisted label': lambda d, e: e['process_type'].update({'com.example.other': 'Standard'}),
+            'process type interactive': lambda d, e: e['process_type'].update({self.worker: 'Interactive'}),
+            'process type adaptive': lambda d, e: e['process_type'].update({self.worker: 'Adaptive'}),
+            'process type not a dict': lambda d, e: e.update(process_type=['Standard']),
+            'working directory unlisted label': lambda d, e: e.update(working_directory={'com.example.other': str(self.home)}),
+            'working directory relative': lambda d, e: e.update(working_directory={self.worker: 'relative/dir'}),
+            'working directory traversal': lambda d, e: e.update(working_directory={self.worker: str(self.home) + '/../x'}),
+            'unknown quiescence key': lambda d, e: q(e).update(port=22),
+            'missing quiescence key': lambda d, e: q(e).pop('ssh_hosts'),
+            'relative db root': lambda d, e: q(e).update(db_root='data'),
+            'non-bool probe flag': lambda d, e: q(e).update(requires_ssh_probe='no'),
+            'hosts without probe': lambda d, e: q(e).update(ssh_hosts=[REMOTE]),
+            'probe without hosts': lambda d, e: q(e).update(requires_ssh_probe=True),
+            'option-injection host': lambda d, e: q(e).update(ssh_hosts=['-oProxyCommand=x'], requires_ssh_probe=True),
+            'host without user': lambda d, e: q(e).update(ssh_hosts=['coordinator.example.ts.net'], requires_ssh_probe=True),
+        }
+        for name, change in cases.items():
+            with self.subTest(name):
+                self.refused(self.mutated(change))
+        for data, pattern in ((b'{"schema": 1, "schema": 2}', 'Duplicate'), (b'{"a": NaN}', 'Non-finite'),
+                              (b'{not json', 'not valid JSON'), (b'\xff', 'not valid JSON')):
+            with self.subTest(data=data):
+                with self.assertRaisesRegex(h.Refused, pattern):
+                    h.strict_json(data)
+        outside = self.mutated(lambda d, e: e.update(working_directory={self.worker: str(self.root / 'elsewhere')}))
+        with self.assertRaisesRegex(h.Refused, 'outside the service home'):
+            h.user_policy(h.validate_policy(outside), self.info)
+        remote_db = self.mutated(lambda d, e: e['quiescence'].update(db_root=str(self.root / 'other')))
+        with self.assertRaisesRegex(h.Refused, 'inside the service home'):
+            h.user_policy(h.validate_policy(remote_db), self.info)
+        with self.assertRaisesRegex(h.Refused, 'not in the headless policy'):
+            h.user_policy(h.validate_policy(self.policy_doc), dict(self.info, name='someone'))
+
+    def test_policy_file_must_be_private_regular_owned_and_present(self):
+        self.policy.chmod(0o644)
+        with self.assertRaisesRegex(h.Refused, 'private'):
+            h.read_policy(str(self.policy))
+        with self.assertRaisesRegex(h.Refused, 'private'):
+            self.plan()
+        self.policy.chmod(0o600)
+        with self.assertRaisesRegex(h.Refused, 'owned'):
+            h.read_policy(str(self.policy), owners={os.getuid() + 1})
+        alias = self.root / 'alias.json'
+        alias.symlink_to(self.policy)
+        with self.assertRaisesRegex(h.Refused, 'Symlink'):
+            h.read_policy(str(alias))
+        with self.assertRaisesRegex(h.Refused, 'missing'):
+            h.read_policy(str(self.root / 'absent.json'))
+        policy, source = h.read_policy(str(self.policy))
+        self.assertEqual(policy, h.validate_policy(self.policy_doc))
+        self.assertEqual(source['sha256'], h.digest(self.policy.read_bytes()))
+        self.assertEqual(source['mode'], 0o600)
+
+    def test_plan_refused_without_policy_with_clear_reason(self):
+        with self.assertRaisesRegex(h.Refused, 'policy is required; pass --policy'):
+            h.make_plan(USER, [self.label], str(self.db))
+        output = io.StringIO()
+        with patch('sys.stderr', output):
+            result = h.main(['plan', '--user', USER, '--service', self.label, '--quiescence-db', str(self.db),
+                             '--output', str(self.home / 'plan.json')])
+        self.assertEqual(result, 2)
+        self.assertIn('--policy', json.loads(output.getvalue())['reason'])
+        self.assertFalse((self.home / 'plan.json').exists())
+        other = self.write_policy(dict(self.policy_doc, users={'someone': self.policy_doc['users'][USER]}), 'other.json')
+        with self.assertRaisesRegex(h.Refused, 'not in the headless policy'):
+            self.plan(policy=other)
+
+    def test_process_type_defaults_background_and_standard_needs_policy(self):
+        generated, _ = self.render()
+        self.assertEqual(generated['ProcessType'], 'Background')
+        worker = self.make_agent(self.worker)
+        self.assertEqual(self.render(worker)[0]['ProcessType'], 'Standard')
+        worker = self.make_agent(self.worker, ProcessType='Background')
+        self.assertEqual(self.render(worker)[0]['ProcessType'], 'Standard')
+        worker = self.make_agent(self.worker, ProcessType='Standard')
+        self.assertEqual(self.render(worker)[0]['ProcessType'], 'Standard')
+        self.make_agent(self.label, ProcessType='Standard')
+        with self.assertRaisesRegex(h.Refused, 'Standard source process type'):
+            self.render()
+        for kind in ('Interactive', 'Adaptive'):
+            with self.subTest(kind=kind):
+                worker = self.make_agent(self.worker, ProcessType=kind)
+                with self.assertRaisesRegex(h.Refused, 'GUI process type'):
+                    self.render(worker)
+
+    def test_working_directory_override_valid_outside_symlink_missing_and_shared(self):
+        checkout = self.home / 'checkout'
+        checkout.mkdir(mode=0o700)
+        worker = self.make_agent(self.worker, WorkingDirectory=str(self.home))
+        entry = copy.deepcopy(self.entry)
+        entry['working_directory'] = {self.worker: str(checkout)}
+        generated, _ = self.render(worker, entry)
+        self.assertEqual(generated['WorkingDirectory'], str(checkout))
+        outside = self.root / 'outside'
+        outside.mkdir(mode=0o700)
+        alias = self.home / 'alias'
+        alias.symlink_to(outside, target_is_directory=True)
+        shared = self.home / 'shared'
+        shared.mkdir()
+        shared.chmod(0o755)
+        for value, pattern in ((str(outside), 'outside the service home'), (str(alias), 'Symlink'),
+                               (str(alias / 'nested'), 'Symlink'),
+                               (str(self.home / 'missing'), 'already exist'), (str(shared), 'private')):
+            with self.subTest(value=value):
+                entry['working_directory'] = {self.worker: value}
+                with self.assertRaisesRegex(h.Refused, pattern):
+                    self.render(worker, entry)
+        doc = copy.deepcopy(self.policy_doc)
+        doc['users'][USER]['working_directory'] = {self.worker: str(self.home / 'missing')}
+        with self.assertRaisesRegex(h.Refused, 'already exist'):
+            self.plan(policy=self.write_policy(doc, 'missing-wd.json'))
+        doc['users'][USER]['working_directory'] = {self.worker: str(checkout)}
+        self.make_agent(self.worker)
+        plan = self.plan(self.label, self.worker, policy=self.write_policy(doc, 'wd.json'))
+        planned = {s['label']: s['plist'] for s in plan['services']}
+        self.assertEqual(planned[self.worker]['WorkingDirectory'], str(checkout))
+        self.assertEqual(planned[self.worker]['ProcessType'], 'Standard')
+        self.assertEqual(planned[self.label]['ProcessType'], 'Background')
+
+    def test_policy_is_embedded_fingerprinted_and_digest_bound(self):
+        with patch.object(h.time, 'time', lambda: 1_700_000_000):
+            first = self.plan()
+            same = self.plan()
+            doc = copy.deepcopy(self.policy_doc)
+            doc['users'][USER]['process_type'] = {}
+            changed = self.plan(policy=self.write_policy(doc, 'changed.json'))
+        self.assertEqual(first['policy'], h.validate_policy(self.policy_doc))
+        self.assertEqual(first['policy_source']['sha256'], h.digest(self.policy.read_bytes()))
+        self.assertNotIn(str(self.policy), first['files'])
+        self.assertEqual(first['sha256'], same['sha256'])
+        self.assertNotEqual(first['sha256'], changed['sha256'])
+        tampered = copy.deepcopy(first)
+        tampered['policy']['users'][USER]['labels'].append('com.example.extra')
+        with self.assertRaisesRegex(h.Refused, 'digest'):
+            h.validate_plan(tampered, first['sha256'])
+
+    def resign(self, plan):
+        plan['sha256'] = h.digest(h.canonical({k: v for k, v in plan.items() if k != 'sha256'}))
+        return plan
+
+    def test_embedded_policy_allowlists_are_enforced(self):
+        self.make_agent(self.worker)
+        plan = self.plan(self.label, self.worker)
+        info, entry = h.validate_plan(plan, plan['sha256'])
+        self.assertEqual(entry['process_type'], {self.worker: 'Standard'})
+        narrowed = copy.deepcopy(plan)
+        narrowed['policy']['users'][USER]['labels'].remove(self.worker)
+        narrowed['policy']['users'][USER]['process_type'] = {}
+        with self.assertRaisesRegex(h.Refused, 'Invalid selected services'):
+            h.validate_plan(self.resign(narrowed), narrowed['sha256'])
+        renamed = copy.deepcopy(plan)
+        renamed['policy']['users'] = {'someone': renamed['policy']['users'][USER]}
+        with self.assertRaisesRegex(h.Refused, 'not in the headless policy'):
+            h.validate_plan(self.resign(renamed), renamed['sha256'])
+        remote = copy.deepcopy(plan)
+        remote['policy']['users'][USER]['labels'].remove(self.label)
+        remote['services'] = [s for s in remote['services'] if s['label'] != self.label]
+        with self.assertRaisesRegex(h.Refused, 'coordinator'):
+            h.validate_plan(self.resign(remote), remote['sha256'])
+        noncanonical = copy.deepcopy(plan)
+        del noncanonical['policy']['users'][USER]['working_directory']
+        with self.assertRaisesRegex(h.Refused, 'not canonical'):
+            h.validate_plan(self.resign(noncanonical), noncanonical['sha256'])
+        missing = copy.deepcopy(plan)
+        del missing['policy']
+        with self.assertRaisesRegex(h.Refused, 'policy schema'):
+            h.validate_plan(self.resign(missing), missing['sha256'])
+        downgraded = copy.deepcopy(plan)
+        downgraded['policy']['users'][USER]['process_type'] = {}
+        with self.assertRaisesRegex(h.Refused, 'differs'):
+            h.apply(self.resign(downgraded), downgraded['sha256'])
+        self.assertFalse(self.commands)
+        with self.assertRaisesRegex(h.Refused, 'coordinator'):
+            self.plan(self.worker)
+        with self.assertRaisesRegex(h.Refused, 'labels'):
+            self.plan(self.label, 'com.example.unlisted')
+        with self.assertRaisesRegex(h.Refused, 'SSH probe selection'):
+            h.make_plan(USER, [self.label], str(self.db), REMOTE, policy=str(self.policy))
+
+    def test_root_operations_never_open_a_policy_file(self):
+        plan = self.plan()
+        target = str(self.policy)
+        self.policy.unlink()
+        seen, calls = [], []
+        def spy(original):
+            def wrapper(*args, **kw):
+                calls.append(1)
+                if args and str(args[0]) == target:
+                    seen.append(args[0])
+                return original(*args, **kw)
+            return wrapper
+        with ExitStack() as stack:
+            stack.enter_context(patch('builtins.open', spy(open)))
+            stack.enter_context(patch.object(io, 'open', spy(io.open)))
+            stack.enter_context(patch.object(os, 'open', spy(os.open)))
+            for name in ('open', 'read_bytes', 'read_text'):
+                stack.enter_context(patch.object(Path, name, spy(getattr(Path, name))))
+            h.validate_plan(plan, plan['sha256'])
+            h.apply(plan, plan['sha256'])
+            self.assertTrue(h.status(plan, plan['sha256'])['startup_candidate'])
+            h.rollback(plan, plan['sha256'])
+        self.assertTrue(calls)
+        self.assertEqual(seen, [])
+        self.assertTrue(self.source.exists())
+
+    def legacy(self):
+        plan = self.plan()
+        legacy = {k: v for k, v in plan.items() if k not in ('policy', 'policy_source', 'sha256')}
+        legacy['schema'] = h.LEGACY_SCHEMA
+        return self.resign(legacy)
+
+    def test_legacy_plans_need_explicit_legacy_policy_for_rollback_and_status_only(self):
+        legacy = self.legacy()
+        policy = h.validate_policy(self.policy_doc)
+        for operation in (h.status, h.rollback, h.apply):
+            with self.subTest(operation=operation.__name__):
+                with self.assertRaisesRegex(h.Refused, '--legacy-policy'):
+                    operation(legacy, legacy['sha256'])
+        self.assertFalse(h.status(legacy, legacy['sha256'], policy)['startup_candidate'])
+        backup = h.backup_directory(legacy)
+        h.save_journal(backup, {'schema': h.LEGACY_SCHEMA, 'phase': 'prepared', 'stopped': [], 'installed': []})
+        self.assertTrue(h.rollback(legacy, legacy['sha256'], policy)['ok'])
+        other = copy.deepcopy(self.policy_doc)
+        other['users'][USER]['labels'] = [self.worker]
+        with self.assertRaisesRegex(h.Refused, 'Invalid selected services'):
+            h.status(legacy, legacy['sha256'], other)
+        current = self.plan()
+        with self.assertRaisesRegex(h.Refused, 'only to plans without'):
+            h.status(current, current['sha256'], policy)
+        with self.assertRaises(TypeError):
+            h.apply(legacy, legacy['sha256'], policy)
+
+    def test_cli_reads_legacy_policy_only_for_legacy_plans(self):
+        legacy, current = self.legacy(), self.plan()
+        absent = str(self.root / 'never-read.json')
+        for plan in (current, legacy):
+            output, errors = io.StringIO(), io.StringIO()
+            with patch.object(h, 'load_review', lambda path, plan=plan: copy.deepcopy(plan)), \
+                    patch.object(h, 'plan_owners', lambda plan: {0, os.getuid()}), \
+                    patch('sys.stdout', output), patch('sys.stderr', errors):
+                h.main(['status', '--plan', '/unused', '--expect-sha256', plan['sha256'], '--legacy-policy', absent])
+                code = h.main(['status', '--plan', '/unused', '--expect-sha256', plan['sha256'],
+                               '--legacy-policy', str(self.policy)])
+            if plan is current:
+                self.assertEqual(code, 2)
+                self.assertIn('only to plans without', errors.getvalue())
+                self.assertNotIn('missing', errors.getvalue())
+            else:
+                self.assertEqual(code, 0)
+                self.assertIn('missing', errors.getvalue())
+                self.assertIn('startup_candidate', output.getvalue())
 
 
 if __name__ == '__main__':
