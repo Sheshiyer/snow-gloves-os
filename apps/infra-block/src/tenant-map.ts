@@ -28,11 +28,11 @@ function record(v: unknown, keys: string[]): Record<string, unknown> {
   return r;
 }
 function id(v: unknown): string {
-  if (typeof v !== 'string' || !/^[a-z0-9_][a-z0-9_.-]{0,63}$/.test(v) || SENSITIVE.test(v)) return fail();
+  if (typeof v !== 'string' || /[\r\n]/.test(v) || !/^[a-z0-9_][a-z0-9_.-]{0,63}$/.test(v) || SENSITIVE.test(v)) return fail();
   return v;
 }
 function name(v: unknown): string {
-  if (typeof v !== 'string' || v.length < 1 || v.length > 96 || !/^[A-Za-z0-9 &(),.'+/_-]+$/.test(v) || SENSITIVE.test(v)) return fail();
+  if (typeof v !== 'string' || /[\r\n]/.test(v) || v.length < 1 || v.length > 96 || !/^[A-Za-z0-9 &(),.'+/_-]+$/.test(v) || SENSITIVE.test(v)) return fail();
   return v;
 }
 function one<T extends string>(v: unknown, values: readonly T[]): T {
