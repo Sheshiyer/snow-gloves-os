@@ -211,6 +211,8 @@ def is_safe_allowlisted_relative_path(rel_str: str) -> bool:
 
     # catalog
     if top == "catalog":
+        if len(parts) == 2 and filename == "business-roles.json":
+            return True
         if len(parts) == 2 and filename == "modules.json":
             return True
         if len(parts) >= 3 and parts[1] == "cards":
