@@ -1,4 +1,5 @@
 import { renderBrandPassport } from './brand-summary';
+import { renderTenantCapabilityMap, tenantCapabilityCountLabels } from './tenant-map';
 import './ops.css';
 import { createFleetBoard } from './fleet-tasks';
 import { loadSnapshot, loadDocument, previewPlan, validateSnapshot } from './ops-client';
@@ -2459,14 +2460,13 @@ function renderOverview(): HTMLElement {
       card.className = 'oc-card';
 
       const slug = toStr(t.slug);
-      const enabled = toArr<string>(t.enabledModules);
-      const ags = toArr<string>(t.agents);
+      const capabilityCounts = tenantCapabilityCountLabels(t.capabilityMap);
 
       const header = document.createElement('div');
       header.className = 'oc-card-header';
       header.innerHTML = safeHtml`<div>
         <h3 class="oc-card-title">${toStr(t.name || t.slug)}</h3>
-        <div class="oc-card-subtitle">Slug: ${slug} · Runtime: ${toStr(t.primaryRuntime, 'Unconfigured')}</div>
+        <div class="oc-card-subtitle">Slug: ${slug} · Runtime: ${t.capabilityMap?.runtime || t.capabilityMap?.runtimeState || 'Unverified'}</div>
       </div>
       <span class="oc-badge oc-badge-scope-private">TENANT VAULT</span>`;
 
@@ -2474,11 +2474,11 @@ function renderOverview(): HTMLElement {
       body.className = 'oc-card-body';
 
       const modP = document.createElement('p');
-      modP.innerHTML = safeHtml`<strong>Enabled Modules (${enabled.length}):</strong> ${enabled.join(', ') || 'None'}`;
+      modP.textContent = capabilityCounts.modules;
       body.appendChild(modP);
 
       const agP = document.createElement('p');
-      agP.innerHTML = safeHtml`<strong>Assigned Agents (${ags.length}):</strong> ${ags.join(', ') || 'None'}`;
+      agP.textContent = capabilityCounts.agents;
       body.appendChild(agP);
 
       const appP = document.createElement('div');
@@ -2489,8 +2489,9 @@ function renderOverview(): HTMLElement {
 
       const availP = document.createElement('p');
       availP.style.margin = '4px 0 0 0';
-      availP.innerHTML = safeHtml`<strong>Dataset:</strong> ${toStr(t.availability, 'unavailable')} · <strong>Registered Sources:</strong> ${t.sourceCount}`;
+      availP.innerHTML = safeHtml`<strong>Dataset:</strong> ${toStr(t.availability, 'unavailable')} · <strong>Mapped registered sources:</strong> ${t.capabilityMap?.registeredSources.length ?? 'Unavailable'}`;
       body.appendChild(availP);
+      body.appendChild(renderTenantCapabilityMap(t.capabilityMap, slug));
       body.appendChild(renderBrandPassport(t));
       const provenanceP = document.createElement('p');
       provenanceP.textContent = `Source References: ${t.sources.join(', ') || 'None available'}`;
