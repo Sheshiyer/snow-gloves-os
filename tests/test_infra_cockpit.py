@@ -1,11 +1,13 @@
 """Integration tests for Infrastructure Cockpit Server."""
 
 import http.client
+import gzip
 import json
 import threading
 from pathlib import Path
 import pytest
 import yaml
+import infra_cockpit
 
 from lib.cockpit_snapshot import build_snapshot
 from infra_cockpit import create_server
@@ -206,3 +208,97 @@ def test_query_length_bound(server_fixture):
     long_query = "tenant=" + ("a" * 2000)
     st, _, _ = _req(port, "GET", f"/api/infra/snapshot?{long_query}")
     assert st == 400
+
+
+@pytest.fixture
+def large_snapshot(server_fixture, monkeypatch):
+    _, _, repo = server_fixture
+    catalog = {'cards': [{'id': f'module-{i}', 'summary': 'Public catalog source context. ' * 100} for i in range(100)], 'connectors': []}
+    (repo / 'catalog/modules.json').write_text(json.dumps(catalog))
+    snapshot = build_snapshot(repo, tenant='t1', probe=False)
+    # Freeze an actual source snapshot so identity and gzip byte comparison is exact.
+    monkeypatch.setattr(infra_cockpit, 'build_snapshot', lambda **kwargs: snapshot)
+    body = json.dumps(snapshot, indent=2).encode('utf-8')
+    assert len(body) > 300_000
+    return body
+
+
+def test_large_snapshot_gzip_roundtrip_and_security_headers(server_fixture, large_snapshot):
+    _, port, _ = server_fixture
+    origin = 'http://127.0.0.1:18760'
+    for encoding in ['gzip', 'br, gzip, deflate', 'GZip;q=1.000', 'identity;q=0, gzip;q=0.5']:
+        status, headers, body = _req(port, 'GET', '/api/infra/snapshot?tenant=t1', headers={'Accept-Encoding': encoding, 'Origin': origin})
+        hdrs = dict(headers)
+        assert status == 200
+        assert hdrs['Content-Encoding'] == 'gzip'
+        assert int(hdrs['Content-Length']) == len(body)
+        assert len(body) < len(large_snapshot) // 10
+        assert gzip.decompress(body) == large_snapshot
+        assert json.loads(gzip.decompress(body))['scope']['tenant'] == 't1'
+        assert body[4:8] == b'\0\0\0\0'  # Stable gzip timestamp.
+        assert hdrs['Cache-Control'] == 'no-store'
+        assert hdrs['X-Content-Type-Options'] == 'nosniff'
+        assert hdrs['Access-Control-Allow-Origin'] == origin
+        assert [value for key, value in headers if key.lower() == 'vary'] == ['Origin, Accept-Encoding']
+    _, _, repeat = _req(port, 'GET', '/api/infra/snapshot?tenant=t1', headers={'Accept-Encoding': 'gzip'})
+    assert repeat == body
+
+
+def test_identity_absent_zero_and_invalid_negotiation(server_fixture, large_snapshot):
+    _, port, _ = server_fixture
+    for encoding in ['', 'identity', 'br', '*', 'gzip;q=0', 'gzip;q=0.000, *;q=1', 'gzip;q=bad', 'gzip;q=NaN', 'gzip;q=-1', 'gzip;q=1.1', 'gzip;q=.5', 'gzip;q=0.1234', 'gzip;q=1;q=0', 'gzip;q=1, gzip;q=0', 'gzip;other=1', 'gzip, br;q=bad']:
+        status, headers, body = _req(port, 'GET', '/api/infra/snapshot?tenant=t1', headers={'Accept-Encoding': encoding})
+        assert status == 200
+        assert 'Content-Encoding' not in dict(headers), encoding
+        assert dict(headers)['Vary'] == 'Accept-Encoding'
+        assert int(dict(headers)['Content-Length']) == len(body)
+        assert body == large_snapshot
+    # http.client normally supplies identity; omit the header explicitly as well.
+    conn = http.client.HTTPConnection('127.0.0.1', port, timeout=2)
+    conn.putrequest('GET', '/api/infra/snapshot?tenant=t1', skip_accept_encoding=True)
+    conn.endheaders()
+    response = conn.getresponse()
+    assert response.status == 200
+    assert response.getheader('Content-Encoding') is None
+    assert response.read() == large_snapshot
+    conn.close()
+
+
+def test_small_json_stays_identity_and_raw_response_bound_precedes_compression(server_fixture, large_snapshot, monkeypatch):
+    _, port, _ = server_fixture
+    status, headers, body = _req(port, 'GET', '/healthz', headers={'Accept-Encoding': 'gzip'})
+    assert status == 200
+    assert 'Content-Encoding' not in dict(headers)
+    assert json.loads(body)['status'] == 'ok'
+    # A highly compressible payload still exceeds the raw response limit.
+    compressed_size = len(gzip.compress(large_snapshot, mtime=0))
+    monkeypatch.setattr(infra_cockpit, 'MAX_RESPONSE_BYTES', compressed_size + 100)
+    status, headers, body = _req(port, 'GET', '/api/infra/snapshot?tenant=t1', headers={'Accept-Encoding': 'gzip'})
+    assert status == 500
+    assert json.loads(body) == {'error': 'response_too_large'}
+    assert 'Content-Encoding' not in dict(headers)
+
+
+def test_gzip_preserves_private_scope_pin_and_origin_denial(server_fixture, tmp_path):
+    server, port, repo = server_fixture
+    root = tmp_path / 'private'
+    for slug in ('t1', 't2'):
+        tenant = root / 'tenants' / slug
+        tenant.mkdir(parents=True)
+        (tenant / 'MANIFEST.yaml').write_text(f'name: {slug}\n')
+    server.data_root = root
+    server.configured_tenant = 't1'
+    status, headers, body = _req(port, 'GET', '/api/infra/snapshot', headers={'Accept-Encoding': 'gzip', 'Origin': 'http://127.0.0.1:18760'})
+    assert status == 200
+    assert dict(headers)['Content-Encoding'] == 'gzip'
+    snapshot = json.loads(gzip.decompress(body))
+    assert snapshot['scope'] == {'mode': 'local-private', 'tenant': 't1', 'readOnly': True}
+    assert [tenant['slug'] for tenant in snapshot['tenants']] == ['t1']
+    status, _, body = _req(port, 'GET', '/api/infra/snapshot?tenant=t2', headers={'Accept-Encoding': 'gzip'})
+    assert status == 403
+    assert json.loads(body) == {'error': 'tenant_scope_mismatch'}
+    status, headers, body = _req(port, 'GET', '/api/infra/snapshot', headers={'Accept-Encoding': 'gzip', 'Origin': 'http://attacker.com'})
+    assert status == 403
+    assert json.loads(body) == {'error': 'forbidden_origin'}
+    assert 'Access-Control-Allow-Origin' not in dict(headers)
+    assert dict(headers)['Cache-Control'] == 'no-store'
