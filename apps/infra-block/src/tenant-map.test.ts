@@ -52,6 +52,8 @@ describe('source configuration contract', () => {
     (x: any) => { x.configuredModules[0].name = '<img src=x onerror=alert(1)>'; },
     (x: any) => { x.configuredModules[0].id = 'token-private'; },
     (x: any) => { x.configuredModules[0].id = 'x'.repeat(65); },
+    (x: any) => { x.configuredModules[0].id = 'skill-a\n'; },
+    (x: any) => { x.configuredModules[0].name = 'Skill A\n'; },
     (x: any) => { x.configuredModules[0].disposition = 'refuse'; },
     (x: any) => { x.configuredModules[0].disposition = 'hold'; },
     (x: any) => { x.configuredModules[0].gate = 'catalog_permitted'; },

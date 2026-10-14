@@ -1,4 +1,4 @@
-import { renderBrandPassport } from './brand-summary';
+import { renderBrandPassport, brandDisplayName } from './brand-summary';
 import { renderTenantCapabilityMap, tenantCapabilityCountLabels } from './tenant-map';
 import './ops.css';
 import { createFleetBoard } from './fleet-tasks';
@@ -2465,7 +2465,7 @@ function renderOverview(): HTMLElement {
       const header = document.createElement('div');
       header.className = 'oc-card-header';
       header.innerHTML = safeHtml`<div>
-        <h3 class="oc-card-title">${toStr(t.name || t.slug)}</h3>
+        <h3 class="oc-card-title">${brandDisplayName(t)}</h3>
         <div class="oc-card-subtitle">Slug: ${slug} · Runtime: ${t.capabilityMap?.runtime || t.capabilityMap?.runtimeState || 'Unverified'}</div>
       </div>
       <span class="oc-badge oc-badge-scope-private">TENANT VAULT</span>`;
