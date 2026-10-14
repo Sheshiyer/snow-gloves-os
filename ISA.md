@@ -1746,7 +1746,7 @@ Goal: reconcile every registered private tenant's configured skills, custom agen
 - [x] ISC-428: Anti: public fixtures, malformed or foreign-tenant records and symlink inputs expose private instance metadata or implied authority.
 - [x] ISC-429: Current Coding01 integration receipt records actual project admission and private tenant projection with evidence boundaries.
 - [x] ISC-430: Parallel audit receipts distinguish governed-rail failure from substantive non-Sol in-session fallback results.
-- [ ] ISC-431: Private report and ordered connection followups are saved with reproducible checksums and a clear entry guide.
+- [x] ISC-431: Private report and ordered connection followups are saved with reproducible checksums and a clear entry guide.
 - [ ] ISC-432: Actual browser checks cover the existing town map and tenant switching while preserving active fleet services.
 
 Verification plan: registry/report equality and SHA256 checks for422/431; targeted catalog/parser and safety tests for423/424/426/428; existing planning snapshot comparison for425; source build plus actual browser readback for427/432; bounded SSH/HTTP probes for429; batch SUMMARY/index plus reported fallback model identities for430. No connector enablement, external messages, credential changes, service restart or new privileged fleet admission follows from mapping.
@@ -1784,3 +1784,5 @@ Reconciliation transport refinement: direct Coding01 scoped API requests take0.0
 - ISC-433: Actual full421080byte snapshot delivered as46398bytegzip in2.115s through founder SSH/Vite route; decoded11tenant contract preserved.
 
 ISC-425/427/432 remain open for actual rendered Neighborhoods/planning/tenant-switching proof. Required in-app browser is unavailable; reconnect question is pending. Source/API/transport success is not reported as rendered UI acceptance.
+
+- ISC-431: Private packet integrity/readback — 34archive members,33payload hashes verified on the travelling mini andCoding01; archive SHA256dc6fac94ef0be1374a9824b3a30e11a1c7c4eb0960767ac0c18472c48b1a1774. START-HERE.md andCONNECTIONS.md are preserved on both hosts.
