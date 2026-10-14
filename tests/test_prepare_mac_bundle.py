@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from prepare_mac_bundle import build_bundle, verify_existing_bundle
+from prepare_mac_bundle import build_bundle, is_safe_allowlisted_relative_path, verify_existing_bundle
 
 
 class TestPrepareMacBundle(unittest.TestCase):
@@ -153,6 +153,75 @@ class TestPrepareMacBundle(unittest.TestCase):
         target.write_text("print('tampered')", encoding="utf-8")
 
         self.assertFalse(verify_existing_bundle(out_dir))
+
+    def test_business_role_catalog_is_an_exact_public_allowlist_entry(self) -> None:
+        self.assertTrue(is_safe_allowlisted_relative_path("catalog/business-roles.json"))
+        for excluded in (
+            "catalog/business-roles-private.json",
+            "catalog/nested/business-roles.json",
+            "catalog/tenant-reconciliation.json",
+            "catalog/business-roles.yaml",
+            "catalog/../business-roles.json",
+        ):
+            self.assertFalse(is_safe_allowlisted_relative_path(excluded), excluded)
+
+    def test_business_role_templates_work_from_packaged_and_extracted_bundle(self) -> None:
+        source_root = Path(__file__).resolve().parents[1]
+        for relative in (
+            "scripts/lib/__init__.py",
+            "scripts/lib/cockpit_tenant_map.py",
+            "catalog/modules.json",
+            "catalog/business-roles.json",
+        ):
+            target = self.repo_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_root / relative, target)
+        self._write_file("catalog/business-roles-private.json", '{"private": true}')
+        self._write_file("catalog/nested/business-roles.json", '{"private": true}')
+        bundle = Path(self.test_dir) / "bundle_roles"
+        build_bundle(self.repo_dir, bundle)
+        self.assertTrue(verify_existing_bundle(bundle))
+        archive = shutil.make_archive(str(Path(self.test_dir) / "transport"), "gztar", root_dir=bundle)
+        extracted = Path(self.test_dir) / "extracted"
+        shutil.unpack_archive(archive, extracted)
+        self.assertTrue(verify_existing_bundle(extracted))
+        manifest = json.loads((extracted / "MANIFEST.json").read_text())
+        self.assertIn("catalog/business-roles.json", manifest["files"])
+        self.assertFalse((extracted / "catalog/business-roles-private.json").exists())
+        self.assertFalse((extracted / "catalog/nested").exists())
+        tenant = Path(self.test_dir) / "instance" / "tenants" / "acme"
+        tenant.mkdir(parents=True)
+        before = set(extracted.rglob("*"))
+        # Isolated Python can import only the extracted helper after the explicit
+        # path insertion; checkout imports cannot conceal a missing bundle asset.
+        result = subprocess.run(
+            [sys.executable, "-I", "-B", "-c", (
+                "import sys,json; from pathlib import Path; "
+                "sys.path.insert(0,str(Path.cwd()/'scripts')); "
+                "from lib import cockpit_tenant_map as module; "
+                "print(json.dumps({'module':module.__file__,"
+                "'map':module.capability_map(Path.cwd(),Path(sys.argv[1]))}))"
+            ), str(tenant)],
+            cwd=extracted, capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(Path(output["module"]), extracted / "scripts/lib/cockpit_tenant_map.py")
+        mapping = output["map"]
+        self.assertEqual(mapping["templatesState"], "configured")
+        self.assertEqual(len(mapping["availableBusinessRoles"]), 19)
+        self.assertTrue(all(role["preparationOnly"] is True for role in mapping["availableBusinessRoles"]))
+        self.assertEqual(len(mapping["availableControlRoles"]), 7)
+        self.assertEqual(mapping["assignedAgents"], [])
+        self.assertEqual(mapping["status"], "source_config_only")
+        self.assertEqual(mapping["connectionAuth"], "unverified")
+        self.assertEqual(set(extracted.rglob("*")), before)
+        self.assertTrue(verify_existing_bundle(extracted))
+
+    def test_business_role_catalog_rejects_private_scope_json(self) -> None:
+        self._write_file("catalog/business-roles.json", '{"scope": {"mode": "local-private"}}')
+        with self.assertRaises(ValueError):
+            build_bundle(self.repo_dir, Path(self.test_dir) / "bundle_private_roles")
 
     def test_nested_output_refused(self) -> None:
         out_dir = self.repo_dir / "nested_output"
