@@ -25,11 +25,12 @@ import yaml
 from lib import paths
 from lib.redact import redact_text
 from lib.cockpit_brand_summary import brand_summary
+from lib.cockpit_tenant_map import capability_map
 
 MAX_FILE_BYTES = 4 * 1024 * 1024       # 4 MB max YAML/JSON
 MAX_CATALOG_BYTES = 1 * 1024 * 1024    # 1 MB max catalog
 MAX_DOC_BYTES = 128 * 1024             # 128 KiB max doc read
-MAX_ACCEPTANCE_BYTES = 256 * 1024      # Ledger history grows independently of document previews
+MAX_ACCEPTANCE_BYTES = 512 * 1024      # Ledger history grows independently of document previews
 MAX_AUDIT_TAIL_BYTES = 256 * 1024      # 256 KiB max audit tail
 MAX_AUDIT_LINE_BYTES = 8 * 1024        # 8 KiB per audit line
 MAX_AUDIT_RECORDS = 100
@@ -324,6 +325,7 @@ def _load_tenants(repo_root: Path, data_root: Optional[Path], filter_tenant: Opt
         total_malformed_approvals += app_malformed
 
         tenants.append({
+            "capabilityMap": capability_map(repo_root, entry),
             "slug": slug,
             "name": name,
             "primaryRuntime": primary_runtime,

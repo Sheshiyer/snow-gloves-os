@@ -290,6 +290,23 @@ describe('Ops Contracts and Client', () => {
     expect(() => validateSnapshot(unsafeScopeReadOnly)).toThrow(OpsClientError);
   });
 
+  it('preserves bounded tenant maps and rejects foreign or malformed mappings at snapshot boundary', () => {
+    const raw = structuredClone(VALID_SNAPSHOT_FIXTURE);
+    raw.tenants[0].capabilityMap = {
+      tenant: 'tenant-a', status: 'source_config_only', connectionAuth: 'unverified',
+      catalogState: 'configured', templatesState: 'configured', enabledState: 'missing',
+      runtimeState: 'missing', runtime: null, sourcesState: 'missing',
+      configuredModules: [], assignedAgents: [], availableControlRoles: [],
+      availableBusinessRoles: [], registeredSources: [],
+    };
+    expect(validateSnapshot(raw).tenants[0].capabilityMap).toEqual(raw.tenants[0].capabilityMap);
+    raw.tenants[0].capabilityMap.tenant = 'foreign';
+    expect(() => validateSnapshot(raw)).toThrow('Invalid tenant capability map');
+    raw.tenants[0].capabilityMap.tenant = 'tenant-a';
+    Object.assign(raw.tenants[0].capabilityMap, {notes: 'PRIVATE_VALUE'});
+    expect(() => validateSnapshot(raw)).toThrow('Invalid tenant capability map');
+  });
+
   it('rejects unsafe keys in deep safe records', () => {
     const maliciousProfile = structuredClone(VALID_SNAPSHOT_FIXTURE);
     maliciousProfile.fleet[0].profile = JSON.parse('{"__proto__": {"admin": true}}');

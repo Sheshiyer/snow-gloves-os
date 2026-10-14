@@ -1,0 +1,166 @@
+"""Bounded, read-only tenant configuration projection; never runtime evidence."""
+from __future__ import annotations
+
+import json
+import os
+import re
+from pathlib import Path
+
+import yaml
+
+MAX_BYTES = 262144
+MAX_ROWS = 128
+CONTROL_ROLES = frozenset({"ceo", "cto", "chief-of-staff", "librarian", "interpreter", "dispatcher", "sentinel"})
+SOURCE_TYPES = frozenset({"filesystem", "obsidian", "git", "github", "google-drive", "gdrive", "drive", "notebooklm", "url", "web", "manual", "document", "api", "email", "vault"})
+ID_RE = re.compile(r"[a-z0-9_][a-z0-9_.-]{0,63}\Z")
+SENSITIVE_RE = re.compile(r"(?i)(?:^|[^a-z0-9])(?:secret|password|passwd|credentials?|token|bearer)(?:$|[^a-z0-9])|api[_. -]?key|(?:^|[^a-z0-9])(?:sk-|ghp_|github_pat_)")
+
+
+def safe_id(value):
+    return isinstance(value, str) and ID_RE.fullmatch(value) is not None and not SENSITIVE_RE.search(value)
+
+
+def _label(value, fallback):
+    # Names come only from public catalog fields. Never project arbitrary tenant text.
+    return value if isinstance(value, str) and 0 < len(value) <= 96 and re.fullmatch(r"[A-Za-z0-9 &(),.'+/-]+", value) and not SENSITIVE_RE.search(value) else fallback
+
+
+def _read(path: Path, limit=MAX_BYTES):
+    """Open every path component without following links, including ancestor dirs."""
+    handles = []
+    try:
+        absolute = path.absolute()
+        if ".." in absolute.parts:
+            return None, "held"
+        handles.append(os.open(absolute.anchor, os.O_RDONLY | os.O_DIRECTORY))
+        for part in absolute.parts[1:-1]:
+            handles.append(os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=handles[-1]))
+        fd = os.open(absolute.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=handles[-1])
+        handles.append(fd)
+        import stat
+        if not stat.S_ISREG(os.fstat(fd).st_mode) or os.fstat(fd).st_size > limit:
+            return None, "held"
+        raw = os.read(fd, limit + 1)
+        if len(raw) > limit:
+            return None, "held"
+        if path.suffix == ".json":
+            value = json.loads(raw, object_pairs_hook=_unique_pairs)
+        else:
+            # Disallow YAML aliases and duplicate keys, rather than accepting ambiguous config.
+            if any(isinstance(t, (yaml.tokens.AliasToken, yaml.tokens.AnchorToken)) for t in yaml.scan(raw)):
+                return None, "held"
+            value = yaml.load(raw, Loader=_UniqueLoader)
+        return value, "configured"
+    except FileNotFoundError:
+        return None, "missing"
+    except (OSError, ValueError, TypeError, UnicodeError, yaml.YAMLError, RecursionError):
+        return None, "held"
+    finally:
+        for fd in reversed(handles):
+            os.close(fd)
+
+
+def _unique_pairs(pairs):
+    out = {}
+    for key, value in pairs:
+        if key in out:
+            raise ValueError("duplicate key")
+        out[key] = value
+    return out
+
+
+class _UniqueLoader(yaml.SafeLoader):
+    pass
+
+
+def _mapping(loader, node):
+    return _unique_pairs(loader.construct_pairs(node))
+
+
+_UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping)
+
+
+def _tenant_file(tenant_dir, name, schema=None):
+    value, state = _read(tenant_dir / name)
+    if state == "configured" and (not isinstance(value, dict) or value.get("tenant") != tenant_dir.name or (schema and value.get("schema") != schema)):
+        return None, "held"
+    return value, state
+
+
+def _rows(value):
+    return isinstance(value, list) and len(value) <= MAX_ROWS
+
+
+def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
+    """Only IDs, public labels and closed enums leave this source reader."""
+    if not safe_id(tenant_dir.name):
+        raise ValueError("invalid tenant")
+    catalog, catalog_state = _read(repo_root / "catalog" / "modules.json", 1048576)
+    cards, controls = {}, []
+    if isinstance(catalog, dict) and catalog.get("schema") == "snowgloves.modules.v1" and isinstance(catalog.get("cards"), list) and len(catalog["cards"]) <= 4096 and _rows(catalog.get("agents")):
+        duplicate_ids = set()
+        for card in catalog["cards"]:
+            if isinstance(card, dict) and safe_id(card.get("id")):
+                if card["id"] in cards:
+                    duplicate_ids.add(card["id"])
+                cards[card["id"]] = card
+        for ident in duplicate_ids:
+            cards.pop(ident, None)
+        for agent in catalog["agents"]:
+            if isinstance(agent, dict) and safe_id(agent.get("slug")) and agent["slug"] in CONTROL_ROLES and agent["slug"] not in [a["id"] for a in controls]:
+                controls.append({"id": agent["slug"], "name": _label(agent.get("role"), agent["slug"])})
+    else:
+        catalog_state = "held"
+
+    roles, roles_state = _read(repo_root / "catalog" / "business-roles.json")
+    templates = []
+    if _rows(roles):
+        for role in roles:
+            if isinstance(role, dict) and safe_id(role.get("id")) and safe_id(role.get("desk")) and safe_id(role.get("control_owner")) and role["control_owner"] in CONTROL_ROLES and role.get("preparation_only") is True and role["id"] not in [r["id"] for r in templates]:
+                templates.append({"id": role["id"], "name": _label(role.get("name"), role["id"]), "desk": role["desk"], "controlOwner": role["control_owner"], "preparationOnly": True})
+    else:
+        roles_state = "held"
+
+    enabled, enabled_state = _tenant_file(tenant_dir, "enabled.yaml", "snowgloves.enabled.v1")
+    if enabled_state == "configured" and (not _rows(enabled.get("modules")) or not _rows(enabled.get("agents"))):
+        enabled, enabled_state = None, "held"
+    configured, assigned = [], []
+    known_roles = {r["id"] for r in controls + templates}
+    if enabled_state == "configured":
+        for ident in enabled["agents"]:
+            if safe_id(ident) and ident not in [a["id"] for a in assigned]:
+                assigned.append({"id": ident, "status": "configured" if ident in known_roles else "held"})
+        for item in enabled["modules"]:
+            ident = item.get("id") if isinstance(item, dict) else item
+            if not safe_id(ident) or ident in [m["id"] for m in configured]:
+                continue
+            card = cards.get(ident, {})
+            category = card.get("category") if card.get("category") in ("skills", "mcp", "connector", "plugin", "playbook") else "unknown"
+            disposition = card.get("disposition") if card.get("disposition") in ("add", "pointer", "hold", "refuse") else "unknown"
+            risk = card.get("risk") if card.get("risk") in ("low", "medium", "high") else "unknown"
+            approval = card.get("approval") if card.get("approval") in ("yes", "no") else "unknown"
+            permitted = category != "unknown" and disposition in ("add", "pointer") and risk != "unknown" and approval != "unknown" and card.get("enableable") is True and _rows(card.get("agents")) and all(isinstance(a, str) and a in known_roles for a in card["agents"])
+            configured.append({"id": ident, "name": _label(card.get("name"), ident), "category": category, "disposition": disposition, "risk": risk, "approval": approval, "gate": ("approval_required" if approval == "yes" or risk == "high" else "catalog_permitted") if permitted else "held", "roles": sorted({a for a in card.get("agents", []) if isinstance(a, str) and a in known_roles}) if _rows(card.get("agents")) else []})
+
+    runtime, runtime_state = _tenant_file(tenant_dir, "runtime.yaml", "snowgloves.runtime.v1")
+    runtime_id = None
+    if runtime_state == "configured":
+        # Runtime IDs must be published adapter IDs; no arbitrary runtime label leaves config.
+        adapters = catalog.get("adapters", []) if catalog_state == "configured" else []
+        allowed = {a["id"] for a in adapters if isinstance(a, dict) and safe_id(a.get("id"))} if _rows(adapters) else set()
+        if safe_id(runtime.get("primary")) and runtime["primary"] in allowed:
+            runtime_id = runtime["primary"]
+        else:
+            runtime_state = "held"
+
+    source_data, sources_state = _tenant_file(tenant_dir, "sources.yaml")
+    sources = []
+    if sources_state == "configured":
+        if not _rows(source_data.get("sources")):
+            sources_state = "held"
+        else:
+            for source in source_data["sources"]:
+                if isinstance(source, dict) and safe_id(source.get("id")) and isinstance(source.get("type"), str) and source["type"] in SOURCE_TYPES and ("tenant" not in source or source["tenant"] == tenant_dir.name) and ("ingest" not in source or type(source["ingest"]) is bool) and source["id"] not in [s["id"] for s in sources]:
+                    sources.append({"id": source["id"], "type": source["type"], "admitted": source.get("ingest") is True})
+
+    return {"tenant": tenant_dir.name, "status": "source_config_only", "connectionAuth": "unverified", "catalogState": catalog_state, "templatesState": roles_state, "enabledState": enabled_state, "runtimeState": runtime_state, "runtime": runtime_id, "sourcesState": sources_state, "configuredModules": configured, "assignedAgents": assigned, "availableControlRoles": controls, "availableBusinessRoles": templates, "registeredSources": sources}
