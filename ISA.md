@@ -3,11 +3,11 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: execute
+phase: verify
 progress: 391/421
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-11
+updated: 2026-10-14
 ---
 
 ## Problem
@@ -1732,3 +1732,55 @@ Prepared private cofounder guide, founder enrollment sequence, four-host SSH con
 ### 2026-10-11 — Phone hotspot access verification
 
 ISC-357: travelling authoring mini default route uses Wi-Fi en1 through phone hotspot gateway172.20.10.1. All four fleet tailnet SSH aliases authenticated and returned hostname/account/uptime. Private fleet HTTPS responds200 with certificate verification; gateway rejects unauthenticated request401 and accepts existing credential200. Credential held in process memory only. Receipt: private docs/fleet/DEPARTURE-2026-10-11/HOTSPOT-VERIFICATION.json. No services restarted, network disconnected, reboot/logout or new managed task performed. App UI and cofounder enrollment remain separate.
+
+### Eleven-tenant reconciliation — 14 October 2026
+
+Goal: reconcile every registered private tenant's configured skills, custom agents, saved UI planning and connection evidence; project the map into existing Neighborhoods and verify current Coding01 integration without interrupting services. Connection registration and planning remain separate from authentication and live execution. Missing admission records are visible gaps rather than inferred grants.
+
+- [x] ISC-422: Deterministic private report covers exactly the eleven registry entries with cited source hashes.
+- [x] ISC-423: Capability projection resolves configured module authority from the current catalog and holds unknown or refused entries.
+- [x] ISC-424: Configured tenant agents remain distinct from reusable control roles and preparation-only business templates.
+- [ ] ISC-425: Existing parent, project, desk and cross-brand planning records remain visible with their planning-only status.
+- [x] ISC-426: Connection and source registration show configured/admitted status without claiming authentication or ingestion.
+- [ ] ISC-427: Existing Neighborhoods renders the mapped skills, agents and connections through a validated snapshot contract.
+- [x] ISC-428: Anti: public fixtures, malformed or foreign-tenant records and symlink inputs expose private instance metadata or implied authority.
+- [x] ISC-429: Current Coding01 integration receipt records actual project admission and private tenant projection with evidence boundaries.
+- [x] ISC-430: Parallel audit receipts distinguish governed-rail failure from substantive non-Sol in-session fallback results.
+- [ ] ISC-431: Private report and ordered connection followups are saved with reproducible checksums and a clear entry guide.
+- [ ] ISC-432: Actual browser checks cover the existing town map and tenant switching while preserving active fleet services.
+
+Verification plan: registry/report equality and SHA256 checks for422/431; targeted catalog/parser and safety tests for423/424/426/428; existing planning snapshot comparison for425; source build plus actual browser readback for427/432; bounded SSH/HTTP probes for429; batch SUMMARY/index plus reported fallback model identities for430. No connector enablement, external messages, credential changes, service restart or new privileged fleet admission follows from mapping.
+
+Feature plan: independent tenant audits (422/430/431); generic bounded source-to-UI projection in isolated worktree (423-428/432); current Coding01 read-only verification (429). Existing unrelated fleet criteria remain open in ISA order and are outside this non-disruptive mapping pass.
+
+Decision: failure at ingestion would conflate module selection with live connector access. Resolve authority at the source projection using the catalog, then validate that contract at the UI. The existing brand planning projection remains the planning source. Governed rails are unavailable after quota refresh; two native profile families both fail a shared required Keychain prerequisite. In-session gpt-6-luna audits and gpt-6-astra worktree implementation are explicitly non-Sol fallbacks; gateway attribution is not inferred for that rail.
+
+### 2026-10-14 — Current fleet live verification
+
+Read-only live audit: Coding01, Creative and Marketing authenticate via tailnet SSH; system coordinator/worker/transport services and forwarded health probes respond. Coding02 is offline in current Tailscale state (last seen 2026-10-13T09:51:04.1Z), authoring SSH times out and Coding01 TCP22 does not connect. Historical ISC-365 enrollment remains historical; current four-node availability is degraded.
+
+- ISC-370: Physical API verification — authenticated CLI submit/status/logs complete today. Task bf07a7c060c04ec5a600b6d269678e07 succeeds on mac-marketing, Hermes interpretation and heartbeats recorded.
+- ISC-367: Physical managed execution recheck — coordinator artifact actual SHA256 27a0d713856b8b88dc068561aa38904772a98307b24946cf2e691f275c8ecdef matches reported hash; returned FLEET_LIVE_20261014 with all seven role slugs and snow-gloves-ops. Route noesis-execute; resolved upstream provider/model remains unverified.
+
+Live configuration capacity1; admitted project snowgloves/heyzack; Creative/Marketing read-only, Coding02 configured read/write but offline. Marketing serving release db4fcba differs from local source3310b1a. HTTPS fleet200, unauthenticated gateway401. No restart, credential change, new write/build, connector authentication or UI acceptance performed. Private receipt: docs/fleet/LIVE-2026-10-14/VERIFICATION.json.
+
+### 2026-10-14 — Coding02 recovery investigation
+
+Founder authorizes Coding02 recovery. Fresh Tailscale offline/SSH timeout; Bonjour resolution fails from Coding01 and Marketing. Historical LAN192.168.0.27 responds to ping but refuses22/5900 and is not identity-verified; older192.168.0.22 times out. No live configuration modified and no root cause inferred. Physical office identity/power/network check requested before attempting targeted service repair. Private diagnostic and helper guide: docs/fleet/LIVE-2026-10-14/CODING02-RECOVERY.json and CODING02-HELPER.md. Recovery remains unaccepted until authenticated host and fresh node-specific artifact proof return.
+
+- [x] ISC-433: Actual private candidate snapshot reaches the travelling client within its existing eight-second request budget with the same validated tenant scope.
+
+Reconciliation transport refinement: direct Coding01 scoped API requests take0.043-0.104s; actual travelling-client uncompressed312468byte response takes25.05s against the existing8s client timeout. Refine physical UI acceptance to include compressed delivery before claiming usability. No shared service change follows from this finding.
+
+### Eleven-tenant source and installed API verification
+
+- ISC-422: Registry/report equality: exactly11tenants; source-hash inventory saved in private MAPPING.json.
+- ISC-423: Backend/catalog safety suites pass; high-risk approval independent of catalog flag; actual installed client contract passes.
+- ISC-424: Actual Coding01 candidate returns0assigned agents separately from7controls/19preparation templates pertenant.
+- ISC-426: Actual candidate maps configured module/source IDs with connectionAuth unverified and source_config_only status.
+- ISC-428: 126focused backend tests plus current public-fixture probe show no private tenant/reconciliation projection; malformed/symlink/foreign-scope tests pass.
+- ISC-429: Current Coding01 health200, coordinator digest unchanged, main API tenantheyzack; isolatedcandidate all11 scopeverified.
+- ISC-430: Governed batch0accepted; nativeprofiles missingKeychain; substantive gpt-6-luna audits and gpt-6-astra source commits saved with rail distinction.
+- ISC-433: Actual full421080byte snapshot delivered as46398bytegzip in2.115s through founder SSH/Vite route; decoded11tenant contract preserved.
+
+ISC-425/427/432 remain open for actual rendered Neighborhoods/planning/tenant-switching proof. Required in-app browser is unavailable; reconnect question is pending. Source/API/transport success is not reported as rendered UI acceptance.
