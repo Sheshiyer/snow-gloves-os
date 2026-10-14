@@ -7,6 +7,7 @@ Strict CORS, Host header checks, zero traceback leaks, and bounded query/body pa
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import socket
 import http.client
@@ -34,9 +35,34 @@ DEFAULT_ALLOWED_ORIGINS = (
 MAX_REQUEST_BODY = 16 * 1024  # 16 KiB
 MAX_QUERY_STRING = 1024       # 1024 chars
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024  # 4 MB
+MIN_GZIP_BYTES = 1024  # Small JSON responses stay identity encoded.
 MAX_HEADER_BYTES = 32 * 1024  # 32 KiB
 MAX_REQUESTLINE_BYTES = 4 * 1024  # 4 KiB
 SOCKET_TIMEOUT = 2.0
+
+
+def _accepts_gzip(value: str) -> bool:
+    """Require explicit gzip permission; ambiguous or malformed weights fail to identity."""
+    gzip_quality = None
+    for item in value.split(","):
+        if not item.strip():
+            continue
+        parts = [part.strip() for part in item.split(";")]
+        coding = parts[0].lower()
+        if not re.fullmatch(r"[!#$%&'*+.^_`|~0-9a-z-]+", coding) or len(parts) > 2:
+            return False
+        quality = 1.0
+        if len(parts) == 2:
+            match = re.fullmatch(r"q\s*=\s*(0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?)", parts[1], re.IGNORECASE)
+            if match is None:
+                return False
+            quality = float(match[1])
+        if coding == "gzip":
+            if gzip_quality is not None:
+                return False
+            gzip_quality = quality
+    return gzip_quality is not None and gzip_quality > 0
+
 
 def _parse_strict_json(body_raw: bytes) -> Dict[str, Any]:
     def _check_unique_keys(pairs):
@@ -108,15 +134,24 @@ class CockpitServerHandler(BaseHTTPRequestHandler):
             if len(body) > MAX_RESPONSE_BYTES:
                 self._send_error_json(HTTPStatus.INTERNAL_SERVER_ERROR, "response_too_large", origin)
                 return
+            compressed = False
+            headers = getattr(self, "headers", None)
+            accept_encoding = ",".join(headers.get_all("Accept-Encoding", [])) if headers else ""
+            if len(body) >= MIN_GZIP_BYTES and _accepts_gzip(accept_encoding):
+                candidate = gzip.compress(body, compresslevel=6, mtime=0)
+                if len(candidate) < len(body):
+                    body, compressed = candidate, True
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            if compressed:
+                self.send_header("Content-Encoding", "gzip")
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Connection", "close")
             if origin:
                 self.send_header("Access-Control-Allow-Origin", origin)
-                self.send_header("Vary", "Origin")
+            self.send_header("Vary", "Origin, Accept-Encoding" if origin else "Accept-Encoding")
             self.end_headers()
             self.wfile.write(body)
         except Exception:
