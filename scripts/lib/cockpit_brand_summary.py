@@ -1,11 +1,47 @@
 import json, re, hashlib
 from itertools import islice
 from pathlib import Path
+from lib.cockpit_tenant_map import _read as _read_config, safe_id, SENSITIVE_RE
 
 MAX_JSON_BYTES, MAX_HASH_BYTES, MAX_HASH_COUNT, MAX_RECORDS = 131072, 500000, 128, 128
 CANONICAL_CONTEXT = {"company.md", "customer.md", "offer.md", "open-questions.md", "owner.md", "proof.md", "voice.md"}
 SLUG_RE, HEX_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$"), re.compile(r"^[0-9a-f]{64}$")
 SECRET_RE = re.compile(r"(?i)(?:bearer\s+[^\s,;]+|(?:token|secret|api[_-]?key|password|credential)[=:\s]+[^\s,;]+)")
+RECONCILIATION_ISSUES = frozenset({"legacy_slug", "parent_unconfirmed", "delivery_partner_not_parent", "service_not_software", "project_parent_unconfirmed"})
+RECONCILIATION_KEYS = frozenset({"tenant", "displayName", "status", "planningReview", "issues", "sourceIds"})
+
+
+def _reconciliation(data_root: Path, slug: str) -> dict | None:
+    """Owner-confirmed context only; this record cannot grant identity or runtime authority."""
+    path = data_root / "specs" / "006-editorial-steward-integration" / "tenant-reconciliation.json"
+    if not _is_safe(path, data_root):
+        return None
+    packet, state = _read_config(path, MAX_JSON_BYTES)
+    if state != "configured" or not isinstance(packet, dict) or set(packet) != {"schema", "authority", "tenants"}:
+        return None
+    if packet["schema"] != "snowgloves.tenant-reconciliation.v1" or packet["authority"] != "context_only":
+        return None
+    rows = packet["tenants"]
+    if not isinstance(rows, list) or len(rows) > MAX_RECORDS:
+        return None
+    seen, matched = set(), None
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != RECONCILIATION_KEYS or not safe_id(row["tenant"]) or row["tenant"] in seen:
+            return None
+        seen.add(row["tenant"])
+        name = row["displayName"]
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 &(),.'+-]{0,63}", name) or SENSITIVE_RE.search(name):
+            return None
+        if row["status"] != "owner_confirmed" or row["planningReview"] not in ("pending", "reconciled"):
+            return None
+        issues, sources = row["issues"], row["sourceIds"]
+        if not isinstance(issues, list) or len(issues) > 5 or any(not isinstance(i, str) or i not in RECONCILIATION_ISSUES for i in issues) or len(set(issues)) != len(issues):
+            return None
+        if not isinstance(sources, list) or not 1 <= len(sources) <= 16 or any(not safe_id(i) for i in sources) or len(set(sources)) != len(sources):
+            return None
+        if row["tenant"] == slug:
+            matched = {key: row[key] for key in RECONCILIATION_KEYS}
+    return matched
 
 def _is_safe(p: Path, root: Path) -> bool:
     try:
@@ -232,4 +268,7 @@ def brand_summary(data_root: Path, tenant_dir: Path, source_data: dict | list | 
                 "status": "planning_not_provisioned", "projects": projs,
                 "desks": allowed_desks, "flows": flows, "sources": [f"data:tenant:{slug}:planning"]
             }
+    reconciliation = _reconciliation(data_root, slug)
+    if reconciliation is not None:
+        out["reconciliation"] = reconciliation
     return out

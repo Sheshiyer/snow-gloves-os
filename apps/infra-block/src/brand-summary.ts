@@ -56,6 +56,48 @@ export interface BrandPlanning {
 export interface BrandPassportInput {
   knowledge?: BrandKnowledge;
   planning?: BrandPlanning;
+  reconciliation?: BrandReconciliation;
+}
+
+export const RECONCILIATION_LABELS = {
+  legacy_slug: 'Display name updated; legacy tenant slug retained',
+  parent_unconfirmed: 'Planning parent needs owner review',
+  delivery_partner_not_parent: 'Delivery partner must not be represented as a parent',
+  service_not_software: 'Classify this offering as a service, not software',
+  project_parent_unconfirmed: 'Project parent needs owner review',
+} as const;
+export interface BrandReconciliation {
+  tenant: string; displayName: string; status: 'owner_confirmed';
+  planningReview: 'pending' | 'reconciled';
+  issues: (keyof typeof RECONCILIATION_LABELS)[]; sourceIds: string[];
+}
+const RECONCILIATION_SENSITIVE = /(?:^|[^a-z0-9])(?:secret|password|passwd|credentials?|token|bearer)(?:$|[^a-z0-9])|api[_. -]?key|(?:^|[^a-z0-9])(?:sk-|ghp_|github_pat_)/i;
+
+function parseReconciliation(raw: unknown, tenant?: string): BrandReconciliation {
+  if (!isRecord(raw)) fail('Invalid reconciliation: expected object');
+  const keys = new Set(['tenant', 'displayName', 'status', 'planningReview', 'issues', 'sourceIds']);
+  assertOnlyKeys(raw, keys, 'reconciliation');
+  if ([...keys].some(key => !Object.hasOwn(raw, key))) fail('Invalid reconciliation: missing field');
+  const safeId = (v: unknown): string => {
+    if (typeof v !== 'string' || /[\r\n]/.test(v) || !/^[a-z0-9_][a-z0-9_.-]{0,63}$/.test(v) || RECONCILIATION_SENSITIVE.test(v)) fail('Invalid reconciliation identifier');
+    return v;
+  };
+  if (!tenant || safeId(raw.tenant) !== tenant) fail('Invalid reconciliation: tenant mismatch');
+  const displayName = readBoundedString(raw.displayName, 'reconciliation.displayName', 64);
+  if (/[\r\n]/.test(displayName) || !/^[A-Za-z0-9][A-Za-z0-9 &(),.'+-]{0,63}$/.test(displayName) || RECONCILIATION_SENSITIVE.test(displayName)) fail('Invalid reconciliation display name');
+  const status = readEnum(raw.status, 'reconciliation.status', ['owner_confirmed'] as const);
+  const planningReview = readEnum(raw.planningReview, 'reconciliation.planningReview', ['pending', 'reconciled'] as const);
+  if (!Array.isArray(raw.issues) || raw.issues.length > 5) fail('Invalid reconciliation issues');
+  const issues = raw.issues.map(i => readEnum(i, 'reconciliation.issues', Object.keys(RECONCILIATION_LABELS) as (keyof typeof RECONCILIATION_LABELS)[]));
+  if (new Set(issues).size !== issues.length) fail('Invalid reconciliation duplicate issues');
+  if (!Array.isArray(raw.sourceIds) || raw.sourceIds.length < 1 || raw.sourceIds.length > 16) fail('Invalid reconciliation sources');
+  const sourceIds = raw.sourceIds.map(safeId);
+  if (new Set(sourceIds).size !== sourceIds.length) fail('Invalid reconciliation duplicate sources');
+  return {tenant, displayName, status, planningReview, issues, sourceIds};
+}
+
+export function brandDisplayName(tenant: BrandPassportInput & {slug: string; name?: string}): string {
+  return tenant.reconciliation?.displayName || tenant.name || tenant.slug;
 }
 
 function fail(message: string): never {
@@ -234,9 +276,9 @@ function parsePlanning(raw: unknown): BrandPlanning {
   return { parent, relationship, authority, status, projects, desks, flows, sources };
 }
 
-export function parseBrandSummary(raw: Record<string, unknown>): BrandPassportInput {
+export function parseBrandSummary(raw: Record<string, unknown>, tenant?: string): BrandPassportInput {
   if (!isRecord(raw)) fail('Invalid brand summary: expected object');
-  const allowed = new Set(['knowledge', 'planning']);
+  const allowed = new Set(['knowledge', 'planning', 'reconciliation']);
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) fail(`Invalid brand summary: unexpected key "${key}"`);
   }
@@ -246,6 +288,9 @@ export function parseBrandSummary(raw: Record<string, unknown>): BrandPassportIn
   }
   if ('planning' in raw && raw.planning !== undefined) {
     result.planning = parsePlanning(raw.planning);
+  }
+  if ('reconciliation' in raw && raw.reconciliation !== undefined) {
+    result.reconciliation = parseReconciliation(raw.reconciliation, tenant);
   }
   return result;
 }
@@ -263,6 +308,15 @@ export function renderBrandPassport(t: BrandPassportInput): HTMLElement {
   const heading = document.createElement('h2');
   heading.textContent = 'Imported brand evidence';
   section.appendChild(heading);
+
+  if (t.reconciliation) {
+    const r = t.reconciliation;
+    appendLine(section, `Owner-confirmed context: ${r.displayName} · Tenant slug: ${r.tenant}`);
+    appendLine(section, `Planning review: ${r.planningReview}${r.planningReview === 'pending' ? ' — earlier planning relationships require reconciliation' : ''}`);
+    r.issues.forEach(issue => appendLine(section, RECONCILIATION_LABELS[issue]));
+    appendLine(section, `Context sources: ${r.sourceIds.join(', ')}`);
+    appendLine(section, 'Context only · No runtime, module, or identity permissions granted');
+  }
 
   if (t.knowledge) {
     const k = t.knowledge;
