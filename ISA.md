@@ -1847,4 +1847,4 @@ Reconciliation transport refinement: direct Coding01 scoped API requests take0.0
 
 ISC-425/427/432 remain open for actual rendered Neighborhoods/planning/tenant-switching proof. Required in-app browser is unavailable; reconnect question is pending. Source/API/transport success is not reported as rendered UI acceptance.
 
-- ISC-431: Private packet integrity/readback — 34archive members,33payload hashes verified on the travelling mini andCoding01; archive SHA256dc6fac94ef0be1374a9824b3a30e11a1c7c4eb0960767ac0c18472c48b1a1774. START-HERE.md andCONNECTIONS.md are preserved on both hosts.
+- ISC-431: Private packet integrity/readback — 34archive members,33payload hashes verified on the travelling mini andCoding01; initial packet SHA256dc6fac94ef0be1374a9824b3a30e11a1c7c4eb0960767ac0c18472c48b1a1774 was verified before the final IZIMMO context correction; latest packet SHA25604c13d12d49ec5ae016f999afddca71c2bbef3b3bdf41b782a1cc1eae6968e9c is independently verified on both hosts. START-HERE.md andCONNECTIONS.md are preserved on both hosts.
