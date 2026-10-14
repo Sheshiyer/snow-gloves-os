@@ -84,6 +84,32 @@ def test_acceptance_history_has_a_separate_bounded_reader(tmp_path):
     assert any(w["code"] == "acceptance_unavailable" for w in snap["warnings"])
 
 
+@pytest.mark.parametrize("size", [256 * 1024 + 1, 512 * 1024, 512 * 1024 + 1])
+def test_growing_acceptance_ledger_keeps_explicit_512k_byte_limit(tmp_path, size):
+    ledger = tmp_path / "ISA.md"
+    criterion = "- [x] ISC-1: Source proof\n"
+    ledger.write_bytes(criterion.encode() + b"X" * (size - len(criterion)))
+    assert ledger.stat().st_size == size
+    assert MAX_ACCEPTANCE_BYTES == 512 * 1024
+    snap = build_snapshot(tmp_path, probe=False)
+    if size <= 512 * 1024:
+        assert snap["acceptance"] == [{"id": "ISC-1", "criterion": "Source proof", "status": "accepted", "source": "ISA.md"}]
+        assert not any(w["code"] == "acceptance_unavailable" for w in snap["warnings"])
+    else:
+        assert snap["acceptance"] == []
+        assert any(w["code"] == "acceptance_unavailable" for w in snap["warnings"])
+
+
+def test_acceptance_criterion_count_remains_bounded_independently_of_bytes(tmp_path):
+    ledger = tmp_path / "ISA.md"
+    ledger.write_text("".join(f"- [x] ISC-{i}: Source proof\n" for i in range(1, 1026)))
+    assert ledger.stat().st_size < MAX_ACCEPTANCE_BYTES
+    snap = build_snapshot(tmp_path, probe=False)
+    assert len(snap["acceptance"]) == 1024
+    assert snap["acceptance"][-1]["id"] == "ISC-1024"
+    assert any(w["code"] == "acceptance_truncated" for w in snap["warnings"])
+
+
 def test_scoped_instance_and_ambient_default_are_read_only(tmp_path, monkeypatch):
     data = instance(tmp_path)
     before = tree_digest(data)
