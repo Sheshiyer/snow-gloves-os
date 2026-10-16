@@ -27,7 +27,8 @@ const ROLE_FOR_KIND: Record<AskKind, ResidentSlug> = {
 const ROLES = new Set<string>(RESIDENTS.map(resident => resident.slug));
 const ASK_ID = /^[a-f0-9]{32}$/;
 const PROJECT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
-const TENANT_ID = /^[a-z0-9_][a-z0-9_-]{0,63}$/;
+// Mirrors Capabilities.project(): `_demo` or [A-Za-z0-9][A-Za-z0-9_.-]{0,99}.
+const TENANT_ID = /^(?:_demo|[A-Za-z0-9][A-Za-z0-9_.-]{0,99})$/;
 const ASK_KEYS = new Set(['id', 'project', 'tenant', 'kind', 'role', 'title', 'source', 'answer_type', 'proposed', 'status', 'answer', 'answered', 'answered_by']);
 const REQUIRED_KEYS = ['id', 'project', 'tenant', 'kind', 'role', 'title', 'source', 'answer_type', 'proposed', 'status', 'answer'];
 
@@ -61,7 +62,7 @@ function parseAsk(raw: unknown, project: string): TenantAsk {
   if (raw.project !== project || !PROJECT_ID.test(project)) fail('project');
   const id = plain(raw.id, 32, 'id');
   if (!ASK_ID.test(id)) fail('id');
-  const tenant = plain(raw.tenant, 64, 'tenant');
+  const tenant = plain(raw.tenant, 100, 'tenant');
   if (!TENANT_ID.test(tenant)) fail('tenant');
   if (typeof raw.kind !== 'string' || !(KINDS as readonly string[]).includes(raw.kind)) fail('kind');
   const kind = raw.kind as AskKind;

@@ -66,6 +66,14 @@ describe('tenant ask parsing', () => {
     expect(() => parseAsks({asks: [wire({role: 'founder'})]}, 'heyzack')).toThrow(/role/);
   });
 
+  it('accepts every tenant id the coordinator accepts', () => {
+    for (const tenant of ['Acme', 'acme.com', 'a'.repeat(100), '_demo']) {
+      expect(parseAsks({asks: [wire({tenant})]}, 'heyzack')[0].tenant).toBe(tenant);
+    }
+    expect(() => parseAsks({asks: [wire({tenant: 'a'.repeat(101)})]}, 'heyzack')).toThrow(/tenant/);
+    expect(() => parseAsks({asks: [wire({tenant: '.hidden'})]}, 'heyzack')).toThrow(/tenant/);
+  });
+
   it('parses an answered ask whose stored answer contains the word token', () => {
     const parsed = parseAsks({asks: [wire({status: 'answered', answer: {value: 'renew the token'}})]}, 'heyzack');
     expect(parsed).toEqual([model({status: 'answered', answer: {value: 'renew the token'}})]);
