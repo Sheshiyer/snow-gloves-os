@@ -39,7 +39,9 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 function plain(value: unknown, max: number, field: string): string {
-  if (typeof value !== 'string' || value.length < 1 || value.length > max || /[\u0000-\u001f]/.test(value)) fail(field);
+  // Count code points, as the Python backend does, not UTF-16 code units.
+  const length = typeof value === 'string' ? Array.from(value).length : 0;
+  if (typeof value !== 'string' || length < 1 || length > max || /[\u0000-\u001f]/.test(value)) fail(field);
   return value;
 }
 function parseAnswer(raw: unknown, answerType: TenantAsk['answerType'], status: TenantAsk['status']): TenantAsk['answer'] {

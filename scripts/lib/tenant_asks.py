@@ -101,10 +101,14 @@ def _read_text(path: Path) -> str | None:
 
 def load_proposals(tenant_dir: Path) -> dict[str, str]:
     """Latest valid proposal per ask id from the bounded newest tail of the journal."""
-    path = tenant_dir / 'asks' / 'proposed.jsonl'
+    asks_dir = tenant_dir / 'asks'
+    path = asks_dir / 'proposed.jsonl'
     proposals: dict[str, str] = {}
     try:
-        if path.is_symlink() or not path.is_file():
+        # Never follow a link at the asks directory or the journal itself, and
+        # require the resolved journal to stay inside this tenant.
+        if (asks_dir.is_symlink() or path.is_symlink() or not path.is_file()
+                or not path.resolve().is_relative_to(tenant_dir.resolve())):
             return proposals
         size = path.stat().st_size
         with path.open('rb') as stream:

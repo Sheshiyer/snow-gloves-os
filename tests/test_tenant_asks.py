@@ -261,3 +261,14 @@ def test_long_context_filename_source_fits_the_client_limit(tmp_path):
     asks = derive_asks(tmp_path, 'heyzack')
     facts = [a for a in asks if a['kind'] == 'fact']
     assert len(facts) == 1 and len(facts[0]['source']) <= 240
+
+
+def test_symlinked_asks_directory_is_not_read(tmp_path):
+    t = tmp_path / 'tenants' / 'heyzack'; (t / 'context').mkdir(parents=True)
+    (t / 'context/offer.md').write_text('# Offer\nFILL: the price.\n')
+    ident = ask_id('heyzack', 'fact', 'context/offer.md|the price.')
+    outside = tmp_path / 'outside'; outside.mkdir()
+    (outside / 'proposed.jsonl').write_text(json.dumps({'ask_id': ident, 'proposed': 'EUR 1'}) + '\n')
+    (t / 'asks').symlink_to(outside, target_is_directory=True)
+    ask = derive_asks(tmp_path / 'tenants', 'heyzack')[0]
+    assert ask['answer_type'] == 'text' and ask['proposed'] is None

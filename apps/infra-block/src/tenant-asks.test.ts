@@ -66,6 +66,13 @@ describe('tenant ask parsing', () => {
     expect(() => parseAsks({asks: [wire({role: 'founder'})]}, 'heyzack')).toThrow(/role/);
   });
 
+  it('measures string limits in code points like the backend', () => {
+    const title = '\u{1F600}'.repeat(160);
+    expect(title.length).toBe(320);
+    expect(parseAsks({asks: [wire({title})]}, 'heyzack')[0].title).toBe(title);
+    expect(() => parseAsks({asks: [wire({title: title + '\u{1F600}'})]}, 'heyzack')).toThrow(/title/);
+  });
+
   it('accepts every tenant id the coordinator accepts', () => {
     for (const tenant of ['Acme', 'acme.com', 'a'.repeat(100), '_demo']) {
       expect(parseAsks({asks: [wire({tenant})]}, 'heyzack')[0].tenant).toBe(tenant);
