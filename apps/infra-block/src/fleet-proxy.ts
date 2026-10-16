@@ -1,4 +1,5 @@
 const FLEET_ID = '[a-f0-9]{32}';
+const PROJECT = '[a-z0-9][a-z0-9_-]{0,63}';
 const MAX_FLEET_PROXY_BODY_BYTES = 32 * 1024;
 
 export interface FleetProxyRequest {
@@ -12,9 +13,13 @@ export function fleetProxyAllowed(method: string | undefined, url: string | unde
                                   contentLength: string | string[] | undefined): boolean {
   if (!method || !url || url.includes('?') || url.includes('#') || Array.isArray(contentLength)) return false;
   const task = new RegExp(`^/api/fleet/tasks/${FLEET_ID}`);
+  const askList = new RegExp(`^/api/fleet/asks/${PROJECT}$`);
+  const askAnswer = new RegExp(`^/api/fleet/asks/${PROJECT}/${FLEET_ID}/answer$`);
   const get = ['/api/fleet/tasks', '/api/fleet/context', '/api/fleet/capabilities', '/api/fleet/approvals'].includes(url)
+    || askList.test(url)
     || task.test(url) && new RegExp(`^/api/fleet/tasks/${FLEET_ID}(?:/(?:events|artifact))?$`).test(url);
   const post = ['/api/fleet/tasks', '/api/fleet/capabilities/execute', '/api/fleet/approvals'].includes(url)
+    || askAnswer.test(url)
     || new RegExp(`^/api/fleet/approvals/${FLEET_ID}/(?:approve|reject)$`).test(url)
     || task.test(url) && new RegExp(`^/api/fleet/tasks/${FLEET_ID}/(?:cancel|fanout)$`).test(url);
   if (method === 'GET') return get && (contentLength === undefined || contentLength === '0');

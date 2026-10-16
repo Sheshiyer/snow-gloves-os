@@ -1,4 +1,5 @@
 import './fleet-tasks.css';
+import {parseAsks, type TenantAsk} from './tenant-asks';
 
 type RecordValue = Record<string, unknown>;
 const record = (value: unknown): value is RecordValue => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -123,8 +124,8 @@ export class FleetClient {
   }
   async request(path: string, signal: AbortSignal, body?: unknown): Promise<unknown> {
     const method = body === undefined ? 'GET' : 'POST';
-    const getAllowed = ['/tasks', '/context', '/capabilities', '/approvals'].includes(path) || /^\/tasks\/[^/?#]+(?:\/(?:events|artifact))?$/.test(path);
-    const postAllowed = ['/tasks', '/capabilities/execute', '/approvals'].includes(path) || /^\/tasks\/[^/?#]+\/(?:cancel|fanout)$/.test(path) || /^\/approvals\/[a-f0-9]{32}\/(?:approve|reject)$/.test(path);
+    const getAllowed = ['/tasks', '/context', '/capabilities', '/approvals'].includes(path) || /^\/tasks\/[^/?#]+(?:\/(?:events|artifact))?$/.test(path) || /^\/asks\/[a-z0-9][a-z0-9_-]{0,63}$/.test(path);
+    const postAllowed = ['/tasks', '/capabilities/execute', '/approvals'].includes(path) || /^\/tasks\/[^/?#]+\/(?:cancel|fanout)$/.test(path) || /^\/approvals\/[a-f0-9]{32}\/(?:approve|reject)$/.test(path) || /^\/asks\/[a-z0-9][a-z0-9_-]{0,63}\/[a-f0-9]{32}\/answer$/.test(path);
     if ((method === 'GET' && !getAllowed) || (method === 'POST' && !postAllowed)) throw new Error('Unsupported fleet operation.');
     if (path.endsWith('/fanout') && (!record(body) || Object.keys(body).length)) throw new Error('Fanout accepts no options.');
     const encoded = body === undefined ? undefined : JSON.stringify(body);
@@ -176,6 +177,16 @@ export class FleetClient {
   async fanout(id: string, signal: AbortSignal): Promise<FanoutPlan> {
     if (!TASK_ID.test(id)) throw new Error('Fanout requires a 32-character lowercase hex task id.');
     return validateFanoutPlan(await this.request(`/tasks/${id}/fanout`, signal, {}), id);
+  }
+  async asks(project: string): Promise<TenantAsk[]> {
+    return parseAsks(await this.request(`/asks/${project}`, new AbortController().signal), project);
+  }
+  async answerAsk(project: string, id: string, answer: {value: string} | {accept: boolean}): Promise<TenantAsk> {
+    const raw = await this.request(`/asks/${project}/${id}/answer`, new AbortController().signal, answer);
+    if (!record(raw) || !Object.hasOwn(raw, 'ask')) throw new Error('Invalid tenant asks.');
+    const [ask] = parseAsks({asks: [raw.ask]}, project);
+    if (!ask || ask.id !== id || ask.project !== project) throw new Error('Invalid tenant asks.');
+    return ask;
   }
 }
 
