@@ -387,3 +387,27 @@ def test_kickoff_task_body_is_accepted_by_the_coordinator(tmp_path):
         assert task['status'] == 'queued' and task['category'] == 'development'
     finally:
         c.close()
+
+
+def test_admit_rejects_unknown_principal_or_worker():
+    config = _base_config()
+    with pytest.raises(ValueError, match='principal'):
+        admit(config, ['tryambakam'], 'org', 'foundr', ['mac-coding-1'], root='/tmp/repo')
+    with pytest.raises(ValueError, match='worker'):
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-codng-1'], root='/tmp/repo')
+    with pytest.raises(ValueError, match='worker'):
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-codng-1'])
+
+
+def test_kickoff_skips_projects_without_open_fact_asks(monkeypatch, capsys, tmp_path):
+    token_file = tmp_path / 'token'
+    token_file.write_text('secret-token-value')
+    submitted = []
+    only_other = [dict(_fact_asks_for_main()[0], kind='connect', role='dispatcher'),
+                  dict(_fact_asks_for_main()[0], id='b' * 32, status='answered')]
+    monkeypatch.setattr(fleet_kickoff, '_list_asks', lambda c, t, p: only_other if p == 'quiet' else _fact_asks_for_main())
+    monkeypatch.setattr(fleet_kickoff, '_submit_task', lambda c, t, project, *a: submitted.append(project))
+    monkeypatch.setattr(sys, 'argv', ['fleet_kickoff.py', '--coordinator', 'http://x', '--token-file', str(token_file),
+                                      '--projects', 'quiet,busy', '--submit'])
+    assert fleet_kickoff.main() == 0
+    assert submitted == ['busy']

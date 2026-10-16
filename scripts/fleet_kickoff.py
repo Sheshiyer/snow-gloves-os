@@ -94,7 +94,9 @@ def main():
             print('warning: could not list asks for project %s' % project, file=sys.stderr)
             failed = True
             continue
-        if not asks:
+        # A wave's idempotency key is spent on the first submission, so only
+        # submit once there is at least one open fact ask to research.
+        if not any(isinstance(a, dict) and a.get('kind') == 'fact' and a.get('status') == 'open' for a in asks):
             continue
         tenant = asks[0].get('tenant', project)
         brief = kickoff_brief(tenant, asks)

@@ -198,3 +198,14 @@ def test_empty_proposal_keeps_fact_as_text(tmp_path):
     (t / 'asks/proposed.jsonl').write_text(json.dumps({'ask_id': ident, 'proposed': '  '}) + '\n')
     ask = derive_asks(tmp_path, 'heyzack')[0]
     assert ask['answer_type'] == 'text' and ask['proposed'] is None
+
+
+def test_duplicate_sources_yield_unique_ids(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    (t / 'context/offer.md').write_text('# Offer\nFILL: the price.\nFILL: the price.\n')
+    (t / 'sources.yaml').write_text('sources:\n- {id: drive, type: gdrive, ingest: false}\n- {id: drive, type: gdrive, ingest: false}\n')
+    asks = derive_asks(tmp_path, 'heyzack')
+    ids = [a['id'] for a in asks]
+    assert len(ids) == len(set(ids))
+    assert [a['kind'] for a in asks].count('fact') == 1
+    assert [a['title'] for a in asks].count('Connect drive') == 1

@@ -281,4 +281,11 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None) ->
     asks += _module_connect_asks(tenant, enabled_value)
     asks += _website_ask(tenant, manifest)
     asks += _brand_ask(tenant, sources_value)
-    return asks[:MAX_ASKS]
+    # A repeated FILL line, flow, source or module would repeat a stable id;
+    # clients reject duplicate ids, so keep the first occurrence only.
+    seen, unique = set(), []
+    for ask in asks:
+        if ask['id'] not in seen:
+            seen.add(ask['id'])
+            unique.append(ask)
+    return unique[:MAX_ASKS]
