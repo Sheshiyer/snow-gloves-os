@@ -22,6 +22,8 @@ def admit(config, tenants, organization, principal, workers, root=None):
     has no absolute Git root, so *root* is required whenever any listed worker
     is local (not enrolled with ``remote_artifacts: true``).
     """
+    if not isinstance(organization, str) or not organization.strip():
+        raise ValueError('Project organization must be a non-empty string')
     if not isinstance(config.get('principals', {}).get(principal), dict):
         raise ValueError('Unknown principal: %s' % principal)
     unknown = [name for name in workers if not isinstance(config.get('workers', {}).get(name), dict)]

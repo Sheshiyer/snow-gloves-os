@@ -1,5 +1,6 @@
 """Founder asks derived from tenant files: bounded, sensitive-safe, never raising."""
 import json
+import re
 from pathlib import Path
 
 import yaml
@@ -218,3 +219,15 @@ def test_control_character_proposal_keeps_fact_as_text(tmp_path):
     (t / 'asks/proposed.jsonl').write_text(json.dumps({'ask_id': ident, 'proposed': 'a\nb'}) + '\n')
     ask = derive_asks(tmp_path, 'heyzack')[0]
     assert ask['answer_type'] == 'text' and ask['proposed'] is None
+
+
+def test_control_characters_in_titles_are_normalized(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    (t / 'context/offer.md').write_text('# Offer\nFILL: the\tprice.\n')
+    proposal = {'cross_brand_flows': [{'id': 'f1', 'status': 'proposed_not_approved', 'participants': ['heyzack'],
+                                       'description': 'line one\nline two'}]}
+    asks = derive_asks(tmp_path, 'heyzack', proposal)
+    assert asks and all(not re.search(r'[\x00-\x1f\x7f]', a['title'] + a['source']) for a in asks)
+    titles = {a['kind']: a['title'] for a in asks}
+    assert titles['fact'] == 'the price.'
+    assert 'line one line two' in titles['decision']

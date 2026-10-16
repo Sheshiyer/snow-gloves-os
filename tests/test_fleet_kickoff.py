@@ -441,3 +441,10 @@ def test_import_proposals_rejects_control_characters(tmp_path):
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}) == 1
     lines = (tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl').read_text().splitlines()
     assert [json.loads(line)['ask_id'] for line in lines] == ['id2']
+
+
+def test_admit_rejects_blank_organization():
+    config = _base_config()
+    for organization in ('', '   ', None):
+        with pytest.raises(ValueError, match='organization'):
+            admit(config, ['tryambakam'], organization, 'founder', ['mac-coding-1'], root=GIT_ROOT)

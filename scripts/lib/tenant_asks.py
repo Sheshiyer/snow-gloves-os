@@ -29,6 +29,9 @@ ROLE_FOR_KIND: dict[str, str] = {
 
 MAX_ASKS = 400
 MAX_TITLE = 160
+# Clients reject strings containing C0 control characters (or DEL); every
+# emitted string is checked or normalized against this one pattern.
+CONTROL_RE = re.compile(r'[\x00-\x1f\x7f]')
 MAX_PROPOSED = 500
 MAX_FILE_BYTES = 256 * 1024
 PROPOSAL_MAX_BYTES = 512 * 1024
@@ -115,7 +118,7 @@ def _proposals(tenant_dir: Path) -> dict[str, str]:
             if not isinstance(ask, str) or not isinstance(proposed, str):
                 continue
             if (not proposed.strip() or len(proposed) > MAX_PROPOSED or SENSITIVE_RE.search(proposed)
-                    or re.search(r'[\x00-\x1f\x7f]', proposed)):
+                    or CONTROL_RE.search(proposed)):
                 continue
             proposals[ask] = proposed
     except (OSError, UnicodeError):
@@ -267,6 +270,10 @@ def _brand_ask(tenant: str, sources_value) -> list[dict]:
              'answer_type': 'yes_no', 'proposed': None}]
 
 
+def _clean_text(value):
+    return ' '.join(CONTROL_RE.sub(' ', value).split()) if isinstance(value, str) else ''
+
+
 def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None) -> list[dict]:
     tenant_dir = _tenant_dir(tenants_dir, tenant)
     if tenant_dir is None:
@@ -286,7 +293,11 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None) ->
     # clients reject duplicate ids, so keep the first occurrence only.
     seen, unique = set(), []
     for ask in asks:
-        if ask['id'] not in seen:
-            seen.add(ask['id'])
-            unique.append(ask)
+        # Ids come from keys, so normalizing display text never moves an answer.
+        ask['title'] = _clean_text(ask['title'])[:MAX_TITLE]
+        ask['source'] = _clean_text(ask['source'])
+        if not ask['title'] or not ask['source'] or ask['id'] in seen:
+            continue
+        seen.add(ask['id'])
+        unique.append(ask)
     return unique[:MAX_ASKS]

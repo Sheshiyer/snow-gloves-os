@@ -9,10 +9,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from lib.tenant_asks import SENSITIVE_RE
+from lib.tenant_asks import CONTROL_RE as CONTROL_CHARS, SENSITIVE_RE
 
-# The browser rejects strings with C0 control characters, so never import one.
-CONTROL_CHARS = re.compile(r'[\x00-\x1f\x7f]')
 MAX_PROPOSED = 500
 MAX_EVIDENCE = 500
 MAX_ARTIFACT = 256 * 1024

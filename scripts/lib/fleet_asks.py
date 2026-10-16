@@ -14,7 +14,7 @@ import re
 
 from . import paths
 from .fleet_capabilities import reject
-from .tenant_asks import SENSITIVE_RE, derive_asks, load_proposal
+from .tenant_asks import CONTROL_RE, SENSITIVE_RE, derive_asks, load_proposal
 
 MAX_ANSWER = 500
 ASK_ID = re.compile(r'[a-f0-9]{32}\Z')
@@ -50,7 +50,7 @@ class Asks:
             value = body['value']
             if not isinstance(value, str) or not 0 < len(value) <= MAX_ANSWER:
                 reject(400, 'Invalid answer')
-            if SENSITIVE_RE.search(value):
+            if SENSITIVE_RE.search(value) or CONTROL_RE.search(value):
                 reject(400, 'Invalid answer')
             return {'value': value}
         if set(body) != {'accept'}:
