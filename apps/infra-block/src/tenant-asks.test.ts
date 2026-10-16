@@ -31,11 +31,20 @@ class AskElement {
   disabled = false;
   type = '';
   maxLength = -1;
+  parent: AskElement | null = null;
   onclick?: () => void | Promise<void>;
   onsubmit?: (event: {preventDefault(): void}) => void | Promise<void>;
   constructor(public tagName: string) {}
   set innerHTML(_: string) { throw new Error('Unsafe HTML insertion'); }
-  append(...nodes: AskElement[]) { this.children.push(...nodes); }
+  append(...nodes: AskElement[]) {
+    for (const node of nodes) node.parent = this;
+    this.children.push(...nodes);
+  }
+  remove() {
+    const index = this.parent?.children.indexOf(this) ?? -1;
+    if (index >= 0) this.parent?.children.splice(index, 1);
+    this.parent = null;
+  }
   setAttribute(name: string, value: string) { this.attrs[name] = value; }
   all(): AskElement[] { return [this, ...this.children.flatMap(child => child.all())]; }
 }
@@ -55,6 +64,11 @@ describe('tenant ask parsing', () => {
     expect(() => parseAsks({asks: [wire({project: 'other'})]}, 'heyzack')).toThrow(/project/);
     expect(() => parseAsks({asks: [wire({kind: 'invoice'})]}, 'heyzack')).toThrow(/kind/);
     expect(() => parseAsks({asks: [wire({role: 'founder'})]}, 'heyzack')).toThrow(/role/);
+  });
+
+  it('parses an answered ask whose stored answer contains the word token', () => {
+    const parsed = parseAsks({asks: [wire({status: 'answered', answer: {value: 'renew the token'}})]}, 'heyzack');
+    expect(parsed).toEqual([model({status: 'answered', answer: {value: 'renew the token'}})]);
   });
 
   it('counts open asks only, by tenant and crew role', () => {
@@ -100,17 +114,64 @@ describe('ask stack', () => {
     expect(onAnswer).toHaveBeenCalledWith(ask, {value: 'EUR 99'});
   });
 
-  it('disables the stack and shows the coordinator message when an answer is rejected', async () => {
+  it('shows a rejection only on that ask and leaves the other card usable', async () => {
+    const rejected = model({answerType: 'yes_no', proposed: 'EUR 99'});
+    const other = model({id: 'b'.repeat(32), title: 'the domain.', answerType: 'yes_no', proposed: 'hey-zack.fr'});
+    const onAnswer = vi.fn(async (ask: TenantAsk) => {
+      if (ask.id === rejected.id) throw new Error('Coordinator request failed (400).');
+    });
+    const stack = render([rejected, other], onAnswer);
+    const [rejectedCard, otherCard] = stack.children;
+    await rejectedCard.all().find(element => element.tagName === 'button' && element.textContent === 'Yes')?.onclick?.();
+    expect(rejectedCard.all().some(element => element.className === 'oc-asks-error' && element.textContent === 'Coordinator request failed (400).')).toBe(true);
+    expect(otherCard.all().some(element => element.className === 'oc-asks-error')).toBe(false);
+    expect(rejectedCard.all().filter(element => element.tagName === 'button').every(element => element.disabled)).toBe(false);
+    expect(otherCard.all().filter(element => element.tagName === 'button').every(element => element.disabled)).toBe(false);
+    await otherCard.all().find(element => element.tagName === 'button' && element.textContent === 'No')?.onclick?.();
+    expect(onAnswer).toHaveBeenCalledTimes(2);
+    expect(onAnswer).toHaveBeenLastCalledWith(other, {accept: false});
+  });
+
+  it('re-enables a rejected ask so the founder can retry', async () => {
     const ask = model({answerType: 'yes_no', proposed: 'EUR 99'});
-    const onAnswer = vi.fn().mockRejectedValue(new Error('Coordinator request failed (400).'));
+    const onAnswer = vi.fn()
+      .mockRejectedValueOnce(new Error('Coordinator request failed (400).'))
+      .mockResolvedValueOnce(undefined);
     const stack = render([ask], onAnswer);
-    await stack.all().find(element => element.textContent === 'Yes')?.onclick?.();
-    expect(stack.all().filter(element => element.tagName === 'button').every(element => element.disabled)).toBe(true);
-    expect(stack.all().some(element => element.textContent.includes('Coordinator request failed (400).'))).toBe(true);
+    const yes = () => stack.all().find(element => element.tagName === 'button' && element.textContent === 'Yes');
+    await yes()?.onclick?.();
+    expect(yes()?.disabled).toBe(false);
+    await yes()?.onclick?.();
+    expect(onAnswer).toHaveBeenCalledTimes(2);
+    expect(onAnswer).toHaveBeenNthCalledWith(2, ask, {accept: true});
   });
 });
 
 describe('ask sync and fleet client', () => {
+  it('keeps the last good list when a later poll fails', async () => {
+    const emit = vi.fn();
+    const good = [model()];
+    const asks = vi.fn().mockResolvedValueOnce(good).mockRejectedValueOnce(new Error('network down'));
+    const client = {asks} as unknown as FleetClient;
+    let poll: (() => void) | undefined;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(handler => {
+      poll = handler as () => void;
+      return 1 as unknown as ReturnType<typeof setInterval>;
+    });
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    const stop = startAskSync(client, ['heyzack'], emit, 60_000);
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(good);
+    poll?.();
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(asks).toHaveBeenCalledTimes(2);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls.some(call => call[0] === null)).toBe(false);
+    stop();
+    expect(emit.mock.calls.at(-1)).toEqual([null]);
+  });
+
   it('emits null when ask sync stops', async () => {
     const emit = vi.fn();
     const client = {asks: vi.fn().mockResolvedValue([model()])} as unknown as FleetClient;

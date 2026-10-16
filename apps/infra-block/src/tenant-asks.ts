@@ -25,7 +25,6 @@ const ROLE_FOR_KIND: Record<AskKind, ResidentSlug> = {
   brand: 'interpreter',
 };
 const ROLES = new Set<string>(RESIDENTS.map(resident => resident.slug));
-const SENSITIVE = /(?:^|[^a-z0-9])(?:secret|password|token|bearer|credentials?)(?:$|[^a-z0-9])|api[_. -]?key|(?:^|[^a-z0-9])(?:sk-|ghp_|github_pat_)/i;
 const ASK_ID = /^[a-f0-9]{32}$/;
 const PROJECT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 const TENANT_ID = /^[a-z0-9_][a-z0-9_-]{0,63}$/;
@@ -39,7 +38,7 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 function plain(value: unknown, max: number, field: string): string {
-  if (typeof value !== 'string' || value.length < 1 || value.length > max || /[\u0000-\u001f]/.test(value) || SENSITIVE.test(value)) fail(field);
+  if (typeof value !== 'string' || value.length < 1 || value.length > max || /[\u0000-\u001f]/.test(value)) fail(field);
   return value;
 }
 function parseAnswer(raw: unknown, answerType: TenantAsk['answerType'], status: TenantAsk['status']): TenantAsk['answer'] {
@@ -102,12 +101,10 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
   const stack = document.createElement('section');
   stack.className = 'oc-asks';
   stack.setAttribute('aria-label', 'Founder asks');
-  const buttons: HTMLButtonElement[] = [];
-  let closed = false;
-  async function submit(card: HTMLElement, ask: TenantAsk, answer: {value: string} | {accept: boolean}): Promise<void> {
-    if (closed) return;
-    closed = true;
-    for (const button of buttons) button.disabled = true;
+  async function submit(card: HTMLElement, controls: HTMLButtonElement[], ask: TenantAsk, answer: {value: string} | {accept: boolean}): Promise<void> {
+    if (controls.some(control => control.disabled)) return;
+    for (const control of controls) control.disabled = true;
+    for (const child of Array.from(card.children)) if (child.className === 'oc-asks-error') child.remove();
     try {
       await onAnswer(ask, answer);
     } catch (error) {
@@ -116,6 +113,7 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
       note.setAttribute('role', 'alert');
       note.textContent = error instanceof Error && error.message.trim() ? error.message : 'Coordinator rejected the answer.';
       card.append(note);
+      for (const control of controls) control.disabled = false;
     }
   }
   if (!asks.length) {
@@ -144,13 +142,14 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
     if (ask.answerType === 'yes_no') {
       const actions = document.createElement('div');
       actions.className = 'oc-asks-actions';
+      const controls: HTMLButtonElement[] = [];
       for (const choice of [{label: 'Yes', accept: true}, {label: 'No', accept: false}] as const) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'oc-asks-btn';
         button.textContent = choice.label;
-        button.onclick = () => submit(card, ask, {accept: choice.accept});
-        buttons.push(button);
+        button.onclick = () => submit(card, controls, ask, {accept: choice.accept});
+        controls.push(button);
         actions.append(button);
       }
       card.append(actions);
@@ -166,13 +165,13 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
       send.type = 'submit';
       send.className = 'oc-asks-btn';
       send.textContent = 'Send';
-      buttons.push(send);
+      const controls = [send];
       form.append(input, send);
       form.onsubmit = event => {
         event.preventDefault();
         const value = input.value;
         if (!value.trim() || value.length > 500) return;
-        return submit(card, ask, {value});
+        return submit(card, controls, ask, {value});
       };
       card.append(form);
     }
@@ -181,7 +180,7 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
   return stack;
 }
 
-/** Poll open asks for the connected projects. The stop function clears them. */
+/** Poll open asks for the connected projects. A failed poll keeps the last list. The stop function clears them. */
 export function startAskSync(client: FleetClient, projects: string[], emit: (asks: TenantAsk[] | null) => void, intervalMs = 60000): () => void {
   let stopped = false;
   let generation = 0;
@@ -193,7 +192,7 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
         const batches = await Promise.all(projects.map(project => client.asks(project)));
         if (!stopped && epoch === generation) emit(batches.flat());
       } catch {
-        if (!stopped && epoch === generation) emit(null);
+        // Keep the last good list. Only stop() emits null.
       }
     })();
   };
