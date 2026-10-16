@@ -1,5 +1,5 @@
 import './fleet-tasks.css';
-import {parseAsks, type TenantAsk} from './tenant-asks';
+import {parseAsks, startAskSync, type TenantAsk} from './tenant-asks';
 
 type RecordValue = Record<string, unknown>;
 const record = (value: unknown): value is RecordValue => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -232,6 +232,29 @@ export function createFleetBoard(): FleetBoard {
   const operationKey = () => crypto.randomUUID();
   let submissionKey = operationKey(), capabilityKey = operationKey();
   let context: FleetContext | null = null, capabilities: FleetCapability[] = [], approvals: FleetApproval[] = [];
+  let stopAsks: (() => void) | null = null, askProjectKey = '', shownAsks: TenantAsk[] | null = null;
+  function emitAsks(detail: TenantAsk[] | null) {
+    shownAsks = detail;
+    if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
+    document.dispatchEvent(new CustomEvent('tenant-asks', {detail}));
+  }
+  function stopAskSync() {
+    const stop = stopAsks;
+    stopAsks = null;
+    askProjectKey = '';
+    stop?.();
+  }
+  function syncAsks(current: FleetClient) {
+    if (client !== current || !context) return;
+    const projects = context.projects.map(project => project.id);
+    const key = projects.join('\0');
+    if (stopAsks && askProjectKey === key) return;
+    const previous = stopAsks;
+    stopAsks = null;
+    askProjectKey = key;
+    previous?.();
+    stopAsks = startAskSync(current, projects, emitAsks);
+  }
   const detailActions = new Map<HTMLButtonElement, () => boolean>();
   let artifactUrl: string | null = null, loadedArtifact: {taskId: string; artifact: FleetArtifact} | null = null;
   let preferredProject = '', preferredWorker = '', preferredCapability = '';
@@ -306,7 +329,7 @@ export function createFleetBoard(): FleetBoard {
 
   const abortRequests = () => { generation++; clearTimeout(timer); requests.forEach(controller => controller.abort()); requests.clear(); busy = false; };
   const clearView = () => { detailActions.clear(); revokeArtifact(); loadedArtifact = null; list.replaceChildren(); details.replaceChildren(); catalogRows.replaceChildren(); approvalsPanel.replaceChildren(); context = null; capabilities = []; approvals = []; projectSelect.replaceChildren(); workerSelect.replaceChildren(); capabilitySelect.replaceChildren(); approvalSelect.replaceChildren(); schema.textContent = ''; capabilityState.textContent = 'Connect to inspect catalog readiness.'; updateActions(); };
-  function failure(error: unknown) { clearView(); status.textContent = `Disconnected: ${error instanceof Error ? error.message : 'Request failed.'} No current task data.`; client = null; submit.disabled = true; abortRequests(); updateActions(); }
+  function failure(error: unknown) { clearView(); status.textContent = `Disconnected: ${error instanceof Error ? error.message : 'Request failed.'} No current task data.`; client = null; stopAskSync(); submit.disabled = true; abortRequests(); updateActions(); }
   async function request<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> { const controller = new AbortController(); requests.add(controller); try { return await operation(controller.signal); } finally { requests.delete(controller); } }
   const taskLabel = (task: FleetTask) => [task.title || task.id, task.status, task.logical_role, task.stage, task.organization || task.org || 'Organization unspecified', task.project, task.category, task.node || task.node_id || task.worker || 'Unassigned', task.runtime].map(displayValue).join(' · ');
   function renderDetail(task: FleetTask, events: RecordValue[]) {
@@ -386,6 +409,7 @@ export function createFleetBoard(): FleetBoard {
       ]);
       if (epoch !== generation || !active) return;
       context = nextContext; capabilities = nextCapabilities; approvals = nextApprovals;
+      if (client === currentClient) syncAsks(currentClient);
       renderContext();
       let detail: FleetTask | null = null, events: RecordValue[] = [];
       if (selected) [detail, events] = await Promise.all([request(signal => currentClient.detail(selected, signal)), request(signal => currentClient.events(selected, signal))]);
@@ -398,8 +422,8 @@ export function createFleetBoard(): FleetBoard {
     } catch (error) { if (epoch === generation) failure(error); }
     finally { if (epoch === generation) { busy = false; updateActions(); if (active && client) timer = setTimeout(() => void refresh(), 4000); } }
   }
-  connectForm.onsubmit = event => { event.preventDefault(); abortRequests(); clearView(); selected = ''; try { client = new FleetClient(tokenInput.value); tokenInput.value = ''; submit.disabled = true; status.textContent = 'Connecting…'; void refresh(); } catch (error) { failure(error); } };
-  disconnect.onclick = () => { abortRequests(); client = null; tokenInput.value = ''; submit.disabled = true; selected = ''; clearView(); status.textContent = 'Disconnected. Credentials cleared from this board.'; };
+  connectForm.onsubmit = event => { event.preventDefault(); abortRequests(); clearView(); stopAskSync(); selected = ''; try { client = new FleetClient(tokenInput.value); tokenInput.value = ''; submit.disabled = true; status.textContent = 'Connecting…'; void refresh(); } catch (error) { failure(error); } };
+  disconnect.onclick = () => { abortRequests(); client = null; stopAskSync(); tokenInput.value = ''; submit.disabled = true; selected = ''; clearView(); status.textContent = 'Disconnected. Credentials cleared from this board.'; };
   submitForm.oninput = () => { submissionKey = operationKey(); };
   submitForm.onsubmit = async event => {
     event.preventDefault(); if (!client || !active || busy || submit.disabled || !title.value.trim() || !brief.value.trim()) return;
@@ -439,5 +463,34 @@ export function createFleetBoard(): FleetBoard {
   }
   execute.onclick = () => capabilityOperation(false);
   requestApproval.onclick = () => capabilityOperation(true);
-  return {element, activate() { active = true; void refresh(); }, pause(clearCredentials = false) { active = false; abortRequests(); clearView(); tokenInput.value = ''; if (clearCredentials) { client = null; selected = ''; } updateActions(); status.textContent = client ? 'Paused. Reopen Hermes to refresh current records.' : 'Disconnected. Enter an operator token to connect.'; }};
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('tenant-ask-answer', event => {
+      const detail = (event as CustomEvent<{project?: string; id?: string; answer?: {value: string} | {accept: boolean}; done?: (error?: Error) => void}>).detail;
+      if (!detail || typeof detail.done !== 'function' || typeof detail.project !== 'string' || typeof detail.id !== 'string' || !detail.answer) return;
+      event.preventDefault();
+      const current = client;
+      const finish = detail.done;
+      if (!current) { finish(new Error('Connect the Hermes board to see asks.')); return; }
+      void current.answerAsk(detail.project, detail.id, detail.answer).then(next => {
+        if (client === current && shownAsks) emitAsks(shownAsks.map(ask => ask.project === next.project && ask.id === next.id ? next : ask));
+        finish();
+      }).catch(error => { finish(error instanceof Error ? error : new Error('Coordinator rejected the answer.')); });
+    });
+  }
+  return {element, activate() { active = true; void refresh(); }, pause(clearCredentials = false) { active = false; abortRequests(); clearView(); tokenInput.value = ''; if (clearCredentials) { client = null; selected = ''; stopAskSync(); } updateActions(); status.textContent = client ? 'Paused. Reopen Hermes to refresh current records.' : 'Disconnected. Enter an operator token to connect.'; }};
+}
+
+/** Hands an answer to the connected Hermes board. Rejects when the board has no token. */
+export function submitTenantAsk(project: string, id: string, answer: {value: string} | {accept: boolean}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (error?: Error) => { if (settled) return; settled = true; if (error) reject(error); else resolve(); };
+    if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') {
+      done(new Error('Connect the Hermes board to see asks.'));
+      return;
+    }
+    const event = new CustomEvent('tenant-ask-answer', {cancelable: true, detail: {project, id, answer, done}});
+    document.dispatchEvent(event);
+    if (!event.defaultPrevented) done(new Error('Connect the Hermes board to see asks.'));
+  });
 }
