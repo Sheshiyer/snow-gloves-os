@@ -176,6 +176,15 @@ describe('ask stack', () => {
   });
 });
 
+describe('ask counts', () => {
+  it('counts tenants named like Object.prototype members', () => {
+    const asks = ['constructor', 'toString', 'constructor'].map((tenant, i) => model({id: String(i).repeat(32).slice(0, 32).replace(/./g, String(i)), tenant}));
+    const counts = summarizeAsks(asks).byTenant;
+    expect(counts['constructor']).toBe(2);
+    expect(counts['toString']).toBe(1);
+  });
+});
+
 describe('answered asks', () => {
   it('lists open asks first and shows an answered ask as its answer with hidden controls', () => {
     const answered = model({id: 'b'.repeat(32), title: 'the segment.', status: 'answered', answer: {value: 'Homeowners'}});

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { BrandKnowledge, BrandPlanning } from './brand-summary.js';
-import { summarizeAsks, type TenantAsk } from './tenant-asks';
+import { askCount, summarizeAsks, type TenantAsk } from './tenant-asks';
 
 export interface BrandTenant {
   slug: string;
@@ -149,7 +149,7 @@ export function mountBrandAtlas(
 
       row.appendChild(button);
       row.appendChild(scope);
-      const waiting = askCounts[tenant.slug] ?? 0;
+      const waiting = askCount(askCounts, tenant.slug);
       if (waiting > 0) {
         const count = document.createElement('span');
         count.className = 'sg-brand-ask-count';
@@ -218,7 +218,7 @@ export function createBrandMarkers(
     if (disposed) return;
     for (const mesh of meshes) {
       const slug = mesh.userData.slug;
-      const count = typeof slug === 'string' ? askCounts[slug] : undefined;
+      const count = typeof slug === 'string' ? askCount(askCounts, slug) : undefined;
       if (!count) continue;
       const sprite = askCountSprite(count);
       sprite.position.copy(mesh.position);

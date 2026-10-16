@@ -95,7 +95,7 @@ def test_answer_persisted_and_journaled(asks_ctx):
     assert record['ask_id'] == target
     assert record['answered_by'] == 'approver'
     assert record['answer'] == {'value': 'EUR 99'}
-    assert set(record) == {'answer_id', 'ask_id', 'project', 'tenant', 'kind', 'title', 'answer', 'answered', 'answered_by'}
+    assert set(record) == {'answer_id', 'ask_id', 'project', 'tenant', 'kind', 'title', 'answer', 'proposed', 'answered', 'answered_by'}
 
 
 def test_reanswer_updates_and_appends(asks_ctx):
@@ -233,3 +233,23 @@ def test_concurrent_flushes_append_each_record_once(asks_ctx, monkeypatch):
     for thread in threads: thread.join()
     values = [json.loads(line)['answer']['value'] for line in (tenant / 'asks' / 'answers.jsonl').read_text().splitlines()]
     assert values == ['EUR 99', 'EUR 100']
+
+
+def test_yes_no_answer_keeps_the_proposal_it_answered(asks_ctx):
+    c, config, clock, tenant = asks_ctx
+    target = _ask_id(c, config)
+    (tenant / 'asks').mkdir(exist_ok=True)
+    (tenant / 'asks' / 'proposed.jsonl').write_text(json.dumps({'ask_id': target, 'proposed': 'EUR 99'}) + '\n')
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'accept': True})
+    (tenant / 'asks' / 'proposed.jsonl').write_text('')
+    listed = {a['id']: a for a in c.asks.list('founder', config['principals']['founder'], 'snowgloves')['asks']}
+    assert listed[target]['answer_type'] == 'yes_no' and listed[target]['proposed'] == 'EUR 99'
+    assert listed[target]['answer'] == {'accept': True}
+    record = json.loads((tenant / 'asks' / 'answers.jsonl').read_text().splitlines()[-1])
+    assert record['proposed'] == 'EUR 99'
+    second = Coordinator(config, clock=lambda: clock[0])
+    try:
+        again = {a['id']: a for a in second.asks.list('founder', config['principals']['founder'], 'snowgloves')['asks']}
+        assert again[target]['proposed'] == 'EUR 99'
+    finally:
+        second.close()

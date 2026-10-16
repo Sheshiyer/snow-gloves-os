@@ -93,7 +93,7 @@ def test_broken_files_do_not_raise(tmp_path): ...
   - `Asks.answer(owner, principal, project, ask_id, body) -> {"ask": public_ask}`.
   - `public_ask` is the derived dict plus `project`, `status` (`"open"`/`"answered"`), `answer` (`{"value": str}` / `{"accept": bool}` / None), `answered`, `answered_by`.
   - Routes: `GET /v1/asks/<project>` and `POST /v1/asks/<project>/<32-hex>/answer`, where `<project>` matches `[a-z0-9][a-z0-9_-]{0,63}`.
-  - Journal: one JSON line per answer appended to `<tenants_dir>/<tenant>/asks/answers.jsonl` with keys `answer_id, ask_id, project, tenant, kind, title, answer, answered, answered_by`, written only after the SQLite commit via an outbox table that is retried on the next answer, listing and coordinator start.
+  - Journal: one JSON line per answer appended to `<tenants_dir>/<tenant>/asks/answers.jsonl` with keys `answer_id, ask_id, project, tenant, kind, title, answer, proposed, answered, answered_by` (proposed is the value a yes/no answer accepted or rejected), written only after the SQLite commit via an outbox table that is retried on the next answer, listing and coordinator start.
 
 - [ ] **Step 1: Write the failing tests**
 

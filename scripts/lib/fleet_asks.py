@@ -31,10 +31,13 @@ def install(coordinator):
       CREATE TABLE IF NOT EXISTS ask_answers (
         project TEXT NOT NULL, ask_id TEXT NOT NULL, tenant TEXT NOT NULL, kind TEXT NOT NULL,
         answer_json TEXT NOT NULL, answered REAL NOT NULL, answered_by TEXT NOT NULL,
-        PRIMARY KEY(project, ask_id));
+        proposed TEXT, PRIMARY KEY(project, ask_id));
       CREATE TABLE IF NOT EXISTS ask_journal_outbox (
         answer_id TEXT PRIMARY KEY, tenant TEXT NOT NULL, record_json TEXT NOT NULL, created REAL NOT NULL);
     ''')
+    columns = {row[1] for row in coordinator.db.execute('PRAGMA table_info(ask_answers)')}
+    if 'proposed' not in columns:
+        coordinator.db.execute('ALTER TABLE ask_answers ADD COLUMN proposed TEXT')
 
 
 def _display_principal(owner):
@@ -51,18 +54,22 @@ class Asks:
         self._flush_lock = threading.Lock()
 
     @staticmethod
-    def _reconcile(ask, answer):
-        """Keep an answered ask in the shape it was answered in.
+    def _reconcile(ask, answer, proposed=None):
+        """Keep an answered ask in the shape, and with the proposal, it was answered with.
 
         A proposal imported after a typed answer would otherwise turn the ask
-        into yes/no while the stored answer still holds a value.
+        into yes/no while the stored answer still holds a value; a yes/no answer
+        keeps the proposed value it accepted or rejected even if that proposal
+        is no longer derived.
         """
         if not isinstance(answer, dict):
             return ask
         if 'value' in answer and ask['answer_type'] != 'text':
             return dict(ask, answer_type='text', proposed=None)
-        if 'accept' in answer and ask['answer_type'] != 'yes_no':
-            return dict(ask, answer_type='yes_no')
+        if 'accept' in answer:
+            snapshot = proposed if isinstance(proposed, str) and proposed else ask['proposed']
+            if ask['answer_type'] != 'yes_no' or snapshot != ask['proposed']:
+                return dict(ask, answer_type='yes_no', proposed=snapshot)
         return ask
 
     @staticmethod
@@ -149,7 +156,7 @@ class Asks:
                 public.append(self._public_ask(ask, project, None, None, None))
             else:
                 answer = json.loads(row['answer_json'])
-                public.append(self._public_ask(self._reconcile(ask, answer), project, answer,
+                public.append(self._public_ask(self._reconcile(ask, answer, row['proposed']), project, answer,
                                                row['answered'], row['answered_by']))
         return {'asks': public}
 
@@ -161,30 +168,32 @@ class Asks:
         tenant = cfg['tenant']
         with self.c.transaction():
             ask = self._derive_ask(tenant, ask_id)
-            prior = self.c.db.execute('SELECT answer_json FROM ask_answers WHERE project=? AND ask_id=?',
+            prior = self.c.db.execute('SELECT answer_json, proposed FROM ask_answers WHERE project=? AND ask_id=?',
                                       (project, ask_id)).fetchone()
             if prior is not None:
-                ask = self._reconcile(ask, json.loads(prior['answer_json']))
+                ask = self._reconcile(ask, json.loads(prior['answer_json']), prior['proposed'])
             answer = self._validated_answer(ask, body)
             self._journal_path(tenant)  # refuse up front if the journal can never be written
             now = self.c.clock()
             by = _display_principal(owner)
+            # A yes/no answer is only meaningful with the value it accepted or rejected.
+            proposed = ask['proposed'] if 'accept' in answer else None
             record = {'answer_id': uuid.uuid4().hex, 'ask_id': ask_id, 'project': project, 'tenant': tenant,
-                      'kind': ask['kind'], 'title': ask['title'], 'answer': answer, 'answered': now,
-                      'answered_by': by}
+                      'kind': ask['kind'], 'title': ask['title'], 'answer': answer, 'proposed': proposed,
+                      'answered': now, 'answered_by': by}
             self.c.db.execute('''
-              INSERT INTO ask_answers(project, ask_id, tenant, kind, answer_json, answered, answered_by)
-              VALUES(?, ?, ?, ?, ?, ?, ?)
+              INSERT INTO ask_answers(project, ask_id, tenant, kind, answer_json, answered, answered_by, proposed)
+              VALUES(?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(project, ask_id) DO UPDATE SET
                 tenant=excluded.tenant, kind=excluded.kind, answer_json=excluded.answer_json,
-                answered=excluded.answered, answered_by=excluded.answered_by
+                answered=excluded.answered, answered_by=excluded.answered_by, proposed=excluded.proposed
             ''', (project, ask_id, tenant, ask['kind'],
-                  json.dumps(answer, sort_keys=True, separators=(',', ':')), now, by))
+                  json.dumps(answer, sort_keys=True, separators=(',', ':')), now, by, proposed))
             self.c.db.execute('INSERT INTO ask_journal_outbox(answer_id, tenant, record_json, created) VALUES(?, ?, ?, ?)',
                               (record['answer_id'], tenant, json.dumps(record, sort_keys=True), now))
         # The answer is durable in SQLite; the journal follows, never precedes, it.
         self.flush(tenant)
-        return {'ask': self._public_ask(ask, project, answer, now, by)}
+        return {'ask': self._public_ask(self._reconcile(ask, answer, proposed), project, answer, now, by)}
 
     def flush(self, tenant=None):
         """Append committed outbox records to their journals; a failed append stays queued."""

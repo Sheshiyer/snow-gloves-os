@@ -89,8 +89,14 @@ export function parseAsks(raw: unknown, project: string): TenantAsk[] {
   if (new Set(asks.map(ask => ask.id)).size !== asks.length) fail('id');
   return asks;
 }
+/** Own-property count lookup that ignores inherited Object.prototype members. */
+export function askCount(counts: Record<string, number>, key: string): number {
+  return Object.hasOwn(counts, key) && typeof counts[key] === 'number' ? counts[key] : 0;
+}
+
 export function summarizeAsks(asks: TenantAsk[]): {byTenant: Record<string, number>; byRole: Partial<Record<ResidentSlug, number>>} {
-  const byTenant: Record<string, number> = {};
+  // Null prototype: a tenant named like an Object.prototype member still counts from zero.
+  const byTenant: Record<string, number> = Object.create(null);
   const byRole: Partial<Record<ResidentSlug, number>> = {};
   for (const ask of asks) {
     if (ask.status !== 'open') continue;
