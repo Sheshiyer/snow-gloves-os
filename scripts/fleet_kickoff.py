@@ -41,7 +41,9 @@ def _task_body(project, tenant, brief, wave):
         'project': project,
         'title': 'Kickoff research: ' + tenant,
         'brief': brief,
-        'category': 'commercial-preparation',
+        # Root commercial-preparation tasks require an admitted business context;
+        # kickoff research is a plain read-only task.
+        'category': 'development',
         'access': 'read',
         'idempotency_key': 'kickoff-%s-%s' % (project, wave),
     }

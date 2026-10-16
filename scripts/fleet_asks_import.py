@@ -63,7 +63,7 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids):
         proposed = entry.get('proposed')
         if not isinstance(ask_id, str) or ask_id not in known_ids:
             continue
-        if not isinstance(proposed, str) or len(proposed) > MAX_PROPOSED:
+        if not isinstance(proposed, str) or not proposed.strip() or len(proposed) > MAX_PROPOSED:
             continue
         if SENSITIVE_RE.search(proposed):
             continue

@@ -114,7 +114,7 @@ def _proposals(tenant_dir: Path) -> dict[str, str]:
             proposed, ask = record.get('proposed'), record.get('ask_id')
             if not isinstance(ask, str) or not isinstance(proposed, str):
                 continue
-            if len(proposed) > MAX_PROPOSED or SENSITIVE_RE.search(proposed):
+            if not proposed.strip() or len(proposed) > MAX_PROPOSED or SENSITIVE_RE.search(proposed):
                 continue
             proposals[ask] = proposed
     except (OSError, UnicodeError):

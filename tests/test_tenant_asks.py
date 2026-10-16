@@ -189,3 +189,12 @@ def test_load_proposal_missing_invalid_and_oversize(tmp_path):
     assert load_proposal(tmp_path) is None
     path.write_text(json.dumps({'cross_brand_flows': []}))
     assert load_proposal(tmp_path) == {'cross_brand_flows': []}
+
+
+def test_empty_proposal_keeps_fact_as_text(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True); (t / 'asks').mkdir()
+    (t / 'context/offer.md').write_text('# Offer\nFILL: the price.\n')
+    ident = ask_id('heyzack', 'fact', 'context/offer.md|the price.')
+    (t / 'asks/proposed.jsonl').write_text(json.dumps({'ask_id': ident, 'proposed': '  '}) + '\n')
+    ask = derive_asks(tmp_path, 'heyzack')[0]
+    assert ask['answer_type'] == 'text' and ask['proposed'] is None

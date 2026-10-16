@@ -8,13 +8,24 @@ import sys
 from pathlib import Path
 
 
-def admit(config, tenants, organization, principal, workers):
+def admit(config, tenants, organization, principal, workers, root=None):
     """Return a new config with each tenant admitted as a read-only codex project.
 
     An existing project already mapped to a tenant is left untouched.  New
     project ids are appended to the principal's and each listed worker's
     projects.  No write, fanout or write_projects grant is ever set.
+
+    The coordinator refuses to start when a project served by a local worker
+    has no absolute Git root, so *root* is required whenever any listed worker
+    is local (not enrolled with ``remote_artifacts: true``).
     """
+    local = [name for name in workers
+             if isinstance(config.get('workers', {}).get(name), dict)
+             and config['workers'][name].get('remote_artifacts') is not True]
+    if root is not None and (not isinstance(root, str) or not os.path.isabs(root)):
+        raise ValueError('Project root must be an absolute path')
+    if local and root is None:
+        raise ValueError('A project root is required when admitting tenants to local workers: %s' % ', '.join(local))
     result = copy.deepcopy(config)
     projects = result.setdefault('projects', {})
     existing_tenants = {p.get('tenant') for p in projects.values()
@@ -23,6 +34,8 @@ def admit(config, tenants, organization, principal, workers):
         if tenant in projects or tenant in existing_tenants:
             continue
         projects[tenant] = {'tenant': tenant, 'organization': organization, 'runtimes': ['codex']}
+        if root is not None:
+            projects[tenant]['root'] = root
         principal_entry = result.get('principals', {}).get(principal)
         if isinstance(principal_entry, dict):
             principal_projects = principal_entry.setdefault('projects', [])
@@ -77,12 +90,17 @@ def main():
     parser.add_argument('--organization', required=True)
     parser.add_argument('--principal', required=True)
     parser.add_argument('--workers', required=True)
+    parser.add_argument('--root', help='absolute Git checkout for the new projects; required for local workers')
     parser.add_argument('--write', action='store_true')
     args = parser.parse_args()
     config = json.loads(Path(args.config).read_text())
     tenants = [t.strip() for t in args.tenants.split(',') if t.strip()]
     workers = [w.strip() for w in args.workers.split(',') if w.strip()]
-    new_config = admit(config, tenants, args.organization, args.principal, workers)
+    try:
+        new_config = admit(config, tenants, args.organization, args.principal, workers, root=args.root)
+    except ValueError as exc:
+        print('error: %s' % exc, file=sys.stderr)
+        sys.exit(2)
     if args.write:
         _write_config(Path(args.config), new_config)
         return 0

@@ -42,23 +42,23 @@ def _base_config():
 
 def test_admit_keeps_existing_project_mapped_to_tenant():
     config = _base_config()
-    result = admit(config, ['heyzack', 'tryambakam'], 'new-org', 'founder', ['mac-coding-1'])
+    result = admit(config, ['heyzack', 'tryambakam'], 'new-org', 'founder', ['mac-coding-1'], root='/tmp/repo')
     assert 'heyzack' not in result['projects']
     assert result['projects']['snowgloves']['tenant'] == 'heyzack'
     assert result['projects']['tryambakam'] == {
-        'tenant': 'tryambakam', 'organization': 'new-org', 'runtimes': ['codex']}
+        'tenant': 'tryambakam', 'organization': 'new-org', 'runtimes': ['codex'], 'root': '/tmp/repo'}
 
 
 def test_admit_appends_to_principal_and_workers():
     config = _base_config()
-    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'])
+    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
     assert 'tryambakam' in result['principals']['founder']['projects']
     assert 'tryambakam' in result['workers']['mac-coding-1']['projects']
 
 
 def test_admit_never_adds_write_grants():
     config = _base_config()
-    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'])
+    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
     project = result['projects']['tryambakam']
     assert 'write' not in project
     assert 'fanout' not in project
@@ -67,14 +67,14 @@ def test_admit_never_adds_write_grants():
 
 def test_admit_is_idempotent():
     config = _base_config()
-    result = admit(config, ['heyzack', 'tryambakam'], 'org', 'founder', ['mac-coding-1'])
-    result2 = admit(result, ['heyzack', 'tryambakam'], 'org', 'founder', ['mac-coding-1'])
+    result = admit(config, ['heyzack', 'tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
+    result2 = admit(result, ['heyzack', 'tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
     assert result2 == result
 
 
 def test_admit_does_not_mutate_input():
     config = _base_config()
-    admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'])
+    admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
     assert 'tryambakam' not in config['projects']
     assert config['principals']['founder']['projects'] == ['snowgloves']
 
@@ -198,7 +198,7 @@ def test_import_proposals_count_matches_lines(tmp_path):
 def test_write_config_is_atomic_mode_0600(tmp_path):
     config_path = tmp_path / 'coordinator.json'
     config_path.write_text(json.dumps(_base_config()))
-    result = admit(_base_config(), ['tryambakam'], 'org', 'founder', ['mac-coding-1'])
+    result = admit(_base_config(), ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
     _write_config(config_path, result)
     mode = stat.S_IMODE(config_path.stat().st_mode)
     assert mode == 0o600
@@ -272,7 +272,7 @@ def test_task_body_idempotency_key_uses_wave():
     body2 = _task_body('heyzack', 'heyzack', 'brief', '2027-01-01')
     assert body2['idempotency_key'] == 'kickoff-heyzack-2027-01-01'
     assert body['access'] == 'read'
-    assert body['category'] == 'commercial-preparation'
+    assert body['category'] == 'development'
 
 
 def test_kickoff_brief_truncates_at_line_boundary():
@@ -338,3 +338,52 @@ def test_kickoff_submit_failure_warns_per_project(monkeypatch, capsys, tmp_path)
     err = capsys.readouterr().err
     assert 'p1' in err and 'p2' in err
     assert 'secret-token-value' not in err
+
+
+def test_admit_requires_root_for_local_workers():
+    config = _base_config()
+    with pytest.raises(ValueError, match='root'):
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'])
+    with pytest.raises(ValueError, match='root'):
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root='relative/repo')
+
+
+def test_admit_remote_only_workers_need_no_root():
+    config = _base_config()
+    config['workers']['mac-creative'] = {'token': 'creative-secret-token-x', 'projects': [], 'runtimes': ['codex'], 'remote_artifacts': True}
+    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-creative'])
+    assert 'root' not in result['projects']['tryambakam']
+    assert 'tryambakam' in result['workers']['mac-creative']['projects']
+
+
+def test_task_body_uses_development_category_without_business_context():
+    body = _task_body('tryambakam', 'tryambakam', 'brief', '2026-10-16')
+    assert body.get('category', 'development') == 'development'
+    assert 'business_context' not in body
+    assert body['access'] == 'read'
+
+
+def test_import_proposals_rejects_empty_proposed(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    artifact = '[{"ask_id":"id1","proposed":"","evidence":"ctx"},{"ask_id":"id2","proposed":"   ","evidence":"ctx"}]'
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}) == 0
+    assert not (tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl').exists()
+
+
+def test_kickoff_task_body_is_accepted_by_the_coordinator(tmp_path):
+    from test_fleet_coordinator import fleet as _fleet  # noqa: F401
+    import subprocess
+    from lib.fleet_coordinator import Coordinator
+    repo = tmp_path / 'repo'; repo.mkdir()
+    subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+    config = {'data_root': str(tmp_path / 'ops'),
+              'projects': {'snowgloves': {'root': str(repo), 'tenant': 'heyzack', 'organization': 'heyzack', 'runtimes': ['codex']}},
+              'principals': {'founder': {'token': 'founder-secret-token-x', 'projects': ['snowgloves']}},
+              'workers': {}, 'capacity': 1, 'lease_seconds': 30, 'allowed_origins': []}
+    c = Coordinator(config, clock=lambda: 100.0)
+    try:
+        task = c.submit('founder', config['principals']['founder'], _task_body('snowgloves', 'heyzack', 'Propose values.', '2026-10-16'))
+        assert task['status'] == 'queued' and task['category'] == 'development'
+    finally:
+        c.close()
