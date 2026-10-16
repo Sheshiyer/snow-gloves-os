@@ -1,14 +1,16 @@
 """Tests for tenant admission, kickoff briefs and proposal import."""
 import json
+import stat
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from fleet_admit_tenants import admit
-from fleet_kickoff import kickoff_brief
-from fleet_asks_import import import_proposals
+import fleet_kickoff
+from fleet_admit_tenants import admit, _write_config
+from fleet_kickoff import kickoff_brief, _task_body
+from fleet_asks_import import import_proposals, _last_json_array
 
 
 def _base_config():
@@ -187,3 +189,152 @@ def test_import_proposals_count_matches_lines(tmp_path):
     assert count == 3
     lines = (tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl').read_text().splitlines()
     assert len(lines) == count
+
+
+# ---------------------------------------------------------------------------
+# atomic config write (fleet_admit_tenants --write)
+# ---------------------------------------------------------------------------
+
+def test_write_config_is_atomic_mode_0600(tmp_path):
+    config_path = tmp_path / 'coordinator.json'
+    config_path.write_text(json.dumps(_base_config()))
+    result = admit(_base_config(), ['tryambakam'], 'org', 'founder', ['mac-coding-1'])
+    _write_config(config_path, result)
+    mode = stat.S_IMODE(config_path.stat().st_mode)
+    assert mode == 0o600
+    loaded = json.loads(config_path.read_text())
+    assert 'tryambakam' in loaded['projects']
+
+
+# ---------------------------------------------------------------------------
+# bounded last-json-array search (fleet_asks_import)
+# ---------------------------------------------------------------------------
+
+def test_last_json_array_finds_final_array_in_large_artifact():
+    final = '[{"ask_id":"id1","proposed":"final"}]'
+    chunk = '[' + 'a' * 80 + '\n'
+    target = 256 * 1024
+    repeats = (target - len(final)) // len(chunk) + 1
+    text = chunk * repeats + final
+    assert len(text) >= 256 * 1024
+    assert text.count('[') > 1000
+    result = _last_json_array(text)
+    assert result is not None
+    assert result[0]['proposed'] == 'final'
+
+
+def test_last_json_array_bounded_when_no_valid_array():
+    chunk = '[' + 'a' * 50 + '\n'
+    text = chunk * 300
+    assert text.count('[') > 200
+    assert _last_json_array(text) is None
+
+
+# ---------------------------------------------------------------------------
+# evidence sensitive filter + cap (fleet_asks_import)
+# ---------------------------------------------------------------------------
+
+def test_import_proposals_drops_sensitive_evidence(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    artifact = json.dumps([
+        {'ask_id': 'id1', 'proposed': 'safe', 'evidence': 'my api key is abc'},
+        {'ask_id': 'id2', 'proposed': 'safe2', 'evidence': 'clean evidence'},
+    ])
+    count = import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'})
+    assert count == 1
+    lines = (tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl').read_text().splitlines()
+    entry = json.loads(lines[0])
+    assert entry['ask_id'] == 'id2'
+    assert entry['evidence'] == 'clean evidence'
+
+
+def test_import_proposals_caps_evidence_at_500(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    artifact = json.dumps([
+        {'ask_id': 'id1', 'proposed': 'safe', 'evidence': 'e' * 600},
+    ])
+    count = import_proposals(tenants_dir, 'heyzack', artifact, {'id1'})
+    assert count == 1
+    lines = (tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl').read_text().splitlines()
+    entry = json.loads(lines[0])
+    assert len(entry['evidence']) == 500
+
+
+# ---------------------------------------------------------------------------
+# wave flag and idempotency key (fleet_kickoff)
+# ---------------------------------------------------------------------------
+
+def test_task_body_idempotency_key_uses_wave():
+    body = _task_body('heyzack', 'heyzack', 'brief', '2026-10-16')
+    assert body['idempotency_key'] == 'kickoff-heyzack-2026-10-16'
+    body2 = _task_body('heyzack', 'heyzack', 'brief', '2027-01-01')
+    assert body2['idempotency_key'] == 'kickoff-heyzack-2027-01-01'
+    assert body['access'] == 'read'
+    assert body['category'] == 'commercial-preparation'
+
+
+def test_kickoff_brief_truncates_at_line_boundary():
+    asks = [_fact_ask(i) for i in range(50)]
+    for ask in asks:
+        ask['title'] = 'T' * 200
+        ask['source'] = 'S' * 200
+    brief = kickoff_brief('heyzack', asks)
+    assert len(brief) <= 16000
+    last_line = brief.splitlines()[-1]
+    assert last_line.startswith('- ')
+    assert last_line.endswith(')')
+
+
+# ---------------------------------------------------------------------------
+# CLI failure handling (fleet_kickoff)
+# ---------------------------------------------------------------------------
+
+def _fact_asks_for_main():
+    return [{'id': 'a' * 32, 'tenant': 'heyzack', 'kind': 'fact', 'role': 'librarian',
+             'title': 'q', 'source': 'context/x.md', 'answer_type': 'text',
+             'proposed': None, 'status': 'open'}]
+
+
+def test_kickoff_main_warns_and_keeps_going(monkeypatch, capsys, tmp_path):
+    token_file = tmp_path / 'token'
+    token_file.write_text('secret-token-value')
+    calls = []
+
+    def fake_list(coordinator, token, project):
+        calls.append(project)
+        return None if project == 'bad' else _fact_asks_for_main()
+
+    monkeypatch.setattr(fleet_kickoff, '_list_asks', fake_list)
+    monkeypatch.setattr(sys, 'argv', ['fleet_kickoff.py', '--coordinator', 'http://x',
+                                      '--token-file', str(token_file),
+                                      '--projects', 'bad,good'])
+    rc = fleet_kickoff.main()
+    assert rc == 1
+    assert calls == ['bad', 'good']
+    err = capsys.readouterr().err
+    assert 'bad' in err
+    assert 'secret-token-value' not in err
+
+
+def test_kickoff_submit_failure_warns_per_project(monkeypatch, capsys, tmp_path):
+    token_file = tmp_path / 'token'
+    token_file.write_text('secret-token-value')
+    submitted = []
+
+    def fake_submit(coordinator, token, project, tenant, brief, wave):
+        submitted.append(project)
+        return 'kickoff failed: HTTP 500'
+
+    monkeypatch.setattr(fleet_kickoff, '_list_asks', lambda c, t, p: _fact_asks_for_main())
+    monkeypatch.setattr(fleet_kickoff, '_submit_task', fake_submit)
+    monkeypatch.setattr(sys, 'argv', ['fleet_kickoff.py', '--coordinator', 'http://x',
+                                      '--token-file', str(token_file), '--projects', 'p1,p2',
+                                      '--submit'])
+    rc = fleet_kickoff.main()
+    assert rc == 1
+    assert submitted == ['p1', 'p2']
+    err = capsys.readouterr().err
+    assert 'p1' in err and 'p2' in err
+    assert 'secret-token-value' not in err

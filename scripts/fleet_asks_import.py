@@ -8,37 +8,47 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from lib.tenant_asks import SENSITIVE_RE
+
 MAX_PROPOSED = 500
+MAX_EVIDENCE = 500
 MAX_ARTIFACT = 256 * 1024
-SENSITIVE_TERMS = ('token', 'password', 'secret', 'api key', 'sk-', 'ghp_', 'github_pat_', 'bearer', 'credential')
-
-
-def _is_sensitive(text):
-    lower = text.lower()
-    return any(term in lower for term in SENSITIVE_TERMS)
+_MAX_SCAN_ATTEMPTS = 200
 
 
 def _last_json_array(text):
-    """Return the last valid JSON array found in *text*, or None."""
+    """Return the last valid JSON array found in *text*, or None.
+
+    Candidate '[' positions are walked from the end of *text* via rfind and
+    ``raw_decode`` is tried at each, stopping at the first that decodes to a
+    list.  At most 200 positions are examined, so the search is bounded even
+    when the text contains thousands of '[' characters.
+    """
     decoder = json.JSONDecoder()
-    last = None
-    for i, ch in enumerate(text):
-        if ch == '[':
-            try:
-                value, _ = decoder.raw_decode(text[i:])
-            except (ValueError, json.JSONDecodeError):
-                continue
-            if isinstance(value, list):
-                last = value
-    return last
+    pos = len(text)
+    for _ in range(_MAX_SCAN_ATTEMPTS):
+        idx = text.rfind('[', 0, pos)
+        if idx == -1:
+            break
+        try:
+            value, _end = decoder.raw_decode(text, idx)
+        except (ValueError, json.JSONDecodeError):
+            pos = idx
+            continue
+        if isinstance(value, list):
+            return value
+        pos = idx
+    return None
 
 
 def import_proposals(tenants_dir, tenant, artifact_text, known_ids):
     """Append valid proposals from *artifact_text* to ``asks/proposed.jsonl``.
 
-    Only entries whose ``ask_id`` is in *known_ids* and whose ``proposed`` value
-    is ≤ 500 characters and passes the sensitive filter are kept.  Returns the
-    number of lines written.
+    Only entries whose ``ask_id`` is in *known_ids* and whose ``proposed``
+    value is <= 500 characters and passes the sensitive filter are kept.
+    ``evidence`` is capped at 500 characters and must also pass the sensitive
+    filter; an entry is dropped if either value matches.  Returns the number
+    of lines written.
     """
     if len(artifact_text) > MAX_ARTIFACT:
         return 0
@@ -55,11 +65,15 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids):
             continue
         if not isinstance(proposed, str) or len(proposed) > MAX_PROPOSED:
             continue
-        if _is_sensitive(proposed):
+        if SENSITIVE_RE.search(proposed):
             continue
         record = {'ask_id': ask_id, 'proposed': proposed}
-        if isinstance(entry.get('evidence'), str):
-            record['evidence'] = entry['evidence']
+        evidence = entry.get('evidence')
+        if isinstance(evidence, str):
+            evidence = evidence[:MAX_EVIDENCE]
+            if SENSITIVE_RE.search(evidence):
+                continue
+            record['evidence'] = evidence
         valid.append(record)
     if not valid:
         return 0
@@ -76,6 +90,8 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids):
     with os.fdopen(fd, 'a') as stream:
         for record in valid:
             stream.write(json.dumps(record) + '\n')
+        stream.flush()
+        os.fsync(stream.fileno())
     return len(valid)
 
 
@@ -114,13 +130,14 @@ def main():
         print('Artifact output unavailable', file=sys.stderr)
         return 1
     try:
-        from lib.tenant_asks import derive_asks
         from lib import paths
     except ImportError:
-        print('tenant_asks module unavailable', file=sys.stderr)
+        print('paths module unavailable', file=sys.stderr)
         return 1
     tenants_dir = paths.tenants_dir()
-    known_ids = {ask['id'] for ask in derive_asks(tenants_dir, tenant)}
+    listing = _get(args.coordinator, token, '/v1/asks/' + project)
+    known_ids = {ask['id'] for ask in (listing.get('asks') if isinstance(listing, dict) else [])
+                 if isinstance(ask, dict) and isinstance(ask.get('id'), str)}
     count = import_proposals(tenants_dir, tenant, output, known_ids)
     print('Imported %d proposal(s)' % count)
     return 0
