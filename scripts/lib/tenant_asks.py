@@ -125,7 +125,7 @@ def _proposals(tenant_dir: Path) -> dict[str, str]:
 def _fact_asks(tenant_dir: Path, tenant: str, proposals: dict[str, str]) -> list[dict]:
     context = tenant_dir / 'context'
     asks: list[dict] = []
-    if not context.is_dir():
+    if context.is_symlink() or not context.is_dir():
         return asks
     for path in sorted(context.glob('*.md')):
         if path.name == 'open-questions.md':
@@ -180,6 +180,7 @@ def _decision_asks(tenant: str, proposal: dict | None) -> list[dict]:
 def _not_admitted(source: dict) -> bool:
     if 'admitted' in source:
         return source.get('admitted') is not True
+    # Real sources.yaml files use `ingest`, not `admitted`.
     return source.get('ingest') is not True
 
 
@@ -230,11 +231,17 @@ def _website_ask(tenant: str, manifest) -> list[dict]:
     if not isinstance(brand, dict):
         return []
     domain = brand.get('domain')
-    if not isinstance(domain, str) or not domain.strip().startswith('FILL'):
+    if not isinstance(domain, str):
         return []
-    title = 'Confirm brand domain'
+    match = re.match(r'FILL:\s*(.*)$', domain.strip())
+    if not match:
+        return []
+    title = match.group(1).strip()
+    if not title:
+        title = 'Confirm brand domain'
     if SENSITIVE_RE.search(title):
         return []
+    title = title[:MAX_TITLE]
     key = 'domain'
     return [{'id': ask_id(tenant, 'website', key), 'tenant': tenant, 'kind': 'website',
              'role': ROLE_FOR_KIND['website'], 'title': title, 'source': 'MANIFEST.yaml',
