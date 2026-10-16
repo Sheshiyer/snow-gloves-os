@@ -9,6 +9,7 @@ from pathlib import Path
 
 MAX_ASKS = 40
 MAX_BRIEF = 16000
+DEFAULT_WAVE = '2026-10-16'
 
 
 def kickoff_brief(tenant, asks):
@@ -26,7 +27,24 @@ def kickoff_brief(tenant, asks):
         'Omit any ask for which you have no evidence. '
         'Each proposed value must be 500 characters or fewer.'
         % (tenant, MAX_ASKS, '\n'.join(lines)))
-    return brief[:MAX_BRIEF]
+    if len(brief) <= MAX_BRIEF:
+        return brief
+    truncated = brief[:MAX_BRIEF]
+    last_nl = truncated.rfind('\n')
+    if last_nl != -1:
+        truncated = truncated[:last_nl]
+    return truncated
+
+
+def _task_body(project, tenant, brief, wave):
+    return {
+        'project': project,
+        'title': 'Kickoff research: ' + tenant,
+        'brief': brief,
+        'category': 'commercial-preparation',
+        'access': 'read',
+        'idempotency_key': 'kickoff-%s-%s' % (project, wave),
+    }
 
 
 def _list_asks(coordinator, token, project):
@@ -35,20 +53,14 @@ def _list_asks(coordinator, token, project):
         headers={'Authorization': 'Bearer ' + token})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return json.load(response).get('asks', [])
+            asks = json.load(response).get('asks', [])
+            return asks if isinstance(asks, list) else []
     except (urllib.error.URLError, OSError, ValueError):
-        return []
+        return None
 
 
-def _submit_task(coordinator, token, project, tenant, brief):
-    body = {
-        'project': project,
-        'title': 'Kickoff research: ' + tenant,
-        'brief': brief,
-        'category': 'commercial-preparation',
-        'access': 'read',
-        'idempotency_key': 'kickoff-%s-2026-10-16' % project,
-    }
+def _submit_task(coordinator, token, project, tenant, brief, wave):
+    body = _task_body(project, tenant, brief, wave)
     request = urllib.request.Request(
         coordinator.rstrip('/') + '/v1/tasks',
         data=json.dumps(body).encode(),
@@ -57,12 +69,10 @@ def _submit_task(coordinator, token, project, tenant, brief):
         with urllib.request.urlopen(request, timeout=30) as response:
             print(json.dumps(json.load(response), indent=2))
     except urllib.error.HTTPError as exc:
-        print('Kickoff failed: HTTP ' + str(exc.code), file=sys.stderr)
-        return 1
+        return 'kickoff failed: HTTP %d' % exc.code
     except (urllib.error.URLError, OSError):
-        print('Fleet coordinator unavailable', file=sys.stderr)
-        return 1
-    return 0
+        return 'kickoff failed: coordinator unavailable'
+    return None
 
 
 def main():
@@ -71,23 +81,30 @@ def main():
     parser.add_argument('--token-file', required=True)
     parser.add_argument('--projects', required=True)
     parser.add_argument('--submit', action='store_true')
+    parser.add_argument('--wave', default=DEFAULT_WAVE)
     args = parser.parse_args()
     token = Path(args.token_file).read_text().strip()
     projects = [p.strip() for p in args.projects.split(',') if p.strip()]
+    failed = False
     for project in projects:
         asks = _list_asks(args.coordinator, token, project)
+        if asks is None:
+            print('warning: could not list asks for project %s' % project, file=sys.stderr)
+            failed = True
+            continue
         if not asks:
             continue
         tenant = asks[0].get('tenant', project)
         brief = kickoff_brief(tenant, asks)
         if args.submit:
-            rc = _submit_task(args.coordinator, token, project, tenant, brief)
-            if rc:
-                return rc
+            err = _submit_task(args.coordinator, token, project, tenant, brief, args.wave)
+            if err:
+                print('warning: %s (project: %s)' % (err, project), file=sys.stderr)
+                failed = True
         else:
             print(brief)
             print('---')
-    return 0
+    return 1 if failed else 0
 
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@
 import argparse
 import copy
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -43,6 +44,32 @@ def _diff(old, new):
     return {'added_projects': added}
 
 
+def _write_config(path, config):
+    """Atomically write *config* to *path* with mode 0600 from creation.
+
+    The config file holds principal tokens, so it is written to a temp file in
+    the same directory opened with O_CREAT|O_EXCL at 0600, fsynced, then
+    os.replace'd onto the target.  There is never a moment where the file
+    exists with broader permissions.
+    """
+    path = Path(path)
+    data = json.dumps(config, indent=2).encode('utf-8')
+    tmp_path = path.with_name('.' + path.name + '.tmp.%d' % os.getpid())
+    fd = os.open(str(tmp_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        try:
+            offset = 0
+            while offset < len(data):
+                offset += os.write(fd, data[offset:])
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        os.replace(str(tmp_path), str(path))
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', required=True)
@@ -57,9 +84,7 @@ def main():
     workers = [w.strip() for w in args.workers.split(',') if w.strip()]
     new_config = admit(config, tenants, args.organization, args.principal, workers)
     if args.write:
-        path = Path(args.config)
-        path.write_text(json.dumps(new_config, indent=2))
-        path.chmod(0o600)
+        _write_config(Path(args.config), new_config)
         return 0
     print(json.dumps(_diff(config, new_config), indent=2))
     return 0
