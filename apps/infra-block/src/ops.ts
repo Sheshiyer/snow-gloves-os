@@ -1,7 +1,8 @@
 import { renderBrandPassport, brandDisplayName } from './brand-summary';
 import { renderTenantCapabilityMap, tenantCapabilityCountLabels } from './tenant-map';
 import './ops.css';
-import { createFleetBoard } from './fleet-tasks';
+import { createFleetBoard, submitTenantAsk } from './fleet-tasks';
+import { renderAskStack, type TenantAsk } from './tenant-asks';
 import { loadSnapshot, loadDocument, previewPlan, validateSnapshot } from './ops-client';
 import type { OpsSnapshot, OpsDocument, PlanRequest, PlanPreview } from './ops-contracts';
 import { fleetNodes, fleetActivity } from './fleet-model';
@@ -331,6 +332,7 @@ export function mountCockpit(
   let renderedSection: SectionName | null = null;
 
   let snapshot: OpsSnapshot | null = null;
+  let townAsks: TenantAsk[] | null = null;
   let isFetching = false;
   let isStale = false;
   let lastLoadedSource: 'api' | 'fixture' | null = null;
@@ -902,6 +904,33 @@ export function mountCockpit(
     }
   }
 
+  function renderWaiting(slug: string): HTMLElement {
+    const section = document.createElement('section');
+    section.className = 'oc-waiting';
+    section.setAttribute('aria-label', 'Waiting on you');
+    const heading = document.createElement('h2');
+    heading.className = 'oc-card-title';
+    heading.textContent = 'Waiting on you';
+    section.append(heading);
+    if (townAsks === null) {
+      const note = document.createElement('p');
+      note.textContent = 'Connect the Hermes board to see asks';
+      section.append(note);
+    } else {
+      section.append(renderAskStack(townAsks.filter(ask => ask.tenant === slug), (ask, answer) => submitTenantAsk(ask.project, ask.id, answer)));
+    }
+    return section;
+  }
+
+  const onTownAsks = (event: Event): void => {
+    const detail = (event as CustomEvent<TenantAsk[] | null>).detail;
+    townAsks = Array.isArray(detail) ? detail : null;
+    if (isOpen && currentSection === 'Tenants') render();
+  };
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('tenant-asks', onTownAsks);
+  }
+
   function jumpToBuilding(buildingId: string) {
     closeOverlay();
     onSelectNode(buildingId);
@@ -1245,6 +1274,7 @@ export function mountCockpit(
           break;
       }
     }
+    if (currentSection === 'Tenants' && selectedTenantScope) content.appendChild(renderWaiting(selectedTenantScope));
 
     main.append(content);
     const drawer = document.createElement('section'); drawer.className = 'oc-cockpit'; drawer.dataset.station = currentSection.toLowerCase(); drawer.setAttribute('aria-label', `${STATION_NAMES[currentSection]} field drawer`);

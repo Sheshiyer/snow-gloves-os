@@ -9,6 +9,8 @@ import {
 import type { OpsSnapshot } from './ops-contracts';
 import { loadSnapshot, validateSnapshot } from './ops-client';
 import { FLEET_LAYOUT, fleetActivity, fleetNodes, type FleetProjection } from './fleet-model';
+import { submitTenantAsk } from './fleet-tasks';
+import { renderAskStack, summarizeAsks, type TenantAsk } from './tenant-asks';
 
 export interface HomeNavigation { slug: string | null; x: number; z: number; moving: boolean; nearbySlug: string | null; }
 
@@ -167,6 +169,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
   let isVisible = true;
   let isKitOpen = false;
   let selectedSlug: ResidentSlug | null = null;
+  let townAsks: TenantAsk[] | null = null;
   let pollTimer: number | null = null;
   let freshnessTimer: number | null = null;
   let presenceSignature = '';
@@ -289,6 +292,7 @@ export function mountHome(host: HTMLElement, callbacks: MountHomeCallbacks): Hom
               <span class="ih-ticket-k">Registered sources</span>
               <div class="ih-ticket-sources-list" id="ih-ticket-sources"></div>
             </div>
+            <div id="ih-ticket-asks"></div>
           </div>
 
           <div class="ih-ticket-actions">
@@ -640,15 +644,18 @@ function disposeNavigation(): void {
 
     const focusedId = host.contains(document.activeElement) ? (document.activeElement as HTMLElement).id : '';
     beltEl.innerHTML = '';
+    const byRole = townAsks ? summarizeAsks(townAsks).byRole : {};
     for (const res of RESIDENTS) {
       const pres = presenceMap.get(res.slug);
       const state = pres ? pres.state : 'unknown';
+      const waiting = byRole[res.slug] ?? 0;
+      const stateLabel = waiting > 0 ? `${waiting} asks waiting` : (pres ? pres.label : 'Unknown');
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `ih-token-btn ${selectedSlug === res.slug ? 'ih-token-selected' : ''}`;
       btn.id = `ih-token-${res.slug}`;
       btn.setAttribute('aria-pressed', selectedSlug === res.slug ? 'true' : 'false');
-      btn.setAttribute('aria-label', `${res.name}, ${res.role}, state: ${pres ? pres.label : 'Unknown'}`);
+      btn.setAttribute('aria-label', `${res.name}, ${res.role}, state: ${stateLabel}`);
       btn.style.setProperty('--ih-token-color', res.color);
       btn.style.setProperty('--ih-token-accent', res.accent);
 
@@ -663,7 +670,13 @@ function disposeNavigation(): void {
       const shortRole: Record<ResidentSlug, string> = {ceo:'CEO', cto:'CTO', 'chief-of-staff':'Routing', librarian:'Knowledge', interpreter:'Interpretation', dispatcher:'Dispatch', sentinel:'Audit'};
       (btn.querySelector('.ih-token-name') as HTMLElement).textContent = shortRole[res.slug];
       (btn.querySelector('.ih-token-role') as HTMLElement).textContent = res.station;
-      (btn.querySelector('.ih-token-state-tag') as HTMLElement).textContent = pres ? pres.label : 'Unknown';
+      (btn.querySelector('.ih-token-state-tag') as HTMLElement).textContent = stateLabel;
+      if (waiting > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'ih-ask-badge';
+        badge.textContent = String(waiting);
+        btn.querySelector('.ih-token-portrait')?.append(badge);
+      }
 
       btn.addEventListener('click', () => {
         if (selectedSlug === res.slug) {
@@ -743,6 +756,14 @@ function disposeNavigation(): void {
       evidenceEl.textContent = 'unobserved';
       reasonEl.textContent = 'No evidence observed in active projection.';
       recordWrap.hidden = true;
+    }
+    const waiting = townAsks ? (summarizeAsks(townAsks).byRole[slug] ?? 0) : 0;
+    if (waiting > 0) stateEl.textContent = `${waiting} asks waiting`;
+    const asksHost = host.querySelector('#ih-ticket-asks');
+    if (asksHost) {
+      asksHost.replaceChildren(...(townAsks
+        ? [renderAskStack(townAsks.filter(ask => ask.role === slug), (ask, answer) => submitTenantAsk(ask.project, ask.id, answer))]
+        : []));
     }
 
     sourcesList.innerHTML = '';
@@ -1063,9 +1084,17 @@ function disposeNavigation(): void {
     closeDialogue();
   });
 
+  const onTownAsks = (event: Event): void => {
+    if (disposed) return;
+    const detail = (event as CustomEvent<TenantAsk[] | null>).detail;
+    townAsks = Array.isArray(detail) ? detail : null;
+    renderBelt();
+    if (selectedSlug) openDialogue(selectedSlug);
+  };
   document.addEventListener('visibilitychange', handleVisibilityChange);
   document.addEventListener('cockpit-snapshot', handleSnapshotEvent as EventListener);
   document.addEventListener('fleet-selection', handleFleetSelection);
+  document.addEventListener('tenant-asks', onTownAsks);
   window.addEventListener('keydown', handleKeyDown);
 
   const measureHome = () => {
@@ -1154,6 +1183,7 @@ function disposeNavigation(): void {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('cockpit-snapshot', handleSnapshotEvent as EventListener);
       document.removeEventListener('fleet-selection', handleFleetSelection);
+      document.removeEventListener('tenant-asks', onTownAsks);
       window.removeEventListener('keydown', handleKeyDown);
       document.body.classList.remove('home-explore');
       document.body.classList.remove('field-kit-open');

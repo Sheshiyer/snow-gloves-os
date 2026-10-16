@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { BrandKnowledge, BrandPlanning } from './brand-summary.js';
+import { summarizeAsks, type TenantAsk } from './tenant-asks';
 
 export interface BrandTenant {
   slug: string;
@@ -23,6 +24,7 @@ export interface BrandAtlasHandle {
 export interface BrandMarkersHandle {
   group: THREE.Group;
   update: BrandAtlasUpdate;
+  setAskCounts: (counts: Record<string, number>) => void;
   pick: (raycaster: THREE.Raycaster, maxDistance?: number) => boolean;
   dispose: () => void;
 }
@@ -64,6 +66,37 @@ function scopeLabel(availability: BrandTenant['availability']): string {
   return availability === 'local' ? 'local private data' : 'public fixtures';
 }
 
+function askCountSprite(count: number): THREE.Sprite {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const context = canvas.getContext('2d');
+  if (context) {
+    context.clearRect(0, 0, 128, 128);
+    context.beginPath();
+    context.arc(64, 64, 52, 0, Math.PI * 2);
+    context.fillStyle = '#9a3b2f';
+    context.fill();
+    context.fillStyle = '#f4edda';
+    context.font = '700 64px sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(String(count), 64, 66);
+  }
+  const material = new THREE.SpriteMaterial({map: new THREE.CanvasTexture(canvas), transparent: true, depthTest: false});
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(0.85, 0.85, 1);
+  return sprite;
+}
+
+function releaseSprite(sprite: THREE.Sprite): void {
+  const material = sprite.material;
+  if (!Array.isArray(material)) {
+    material.map?.dispose();
+    material.dispose();
+  }
+}
+
 export function mountBrandAtlas(
   host: HTMLElement,
   onSelect: (slug: string) => void,
@@ -80,8 +113,11 @@ export function mountBrandAtlas(
   host.appendChild(root);
 
   const clickHandlers: Array<{ button: HTMLButtonElement; handler: () => void }> = [];
+  let askCounts: Record<string, number> = {};
+  let shown: {tenants: BrandTenant[] | null; mode: string; stale: boolean} | null = null;
 
   const update: BrandAtlasUpdate = (tenants, mode, stale) => {
+    shown = {tenants, mode, stale};
     for (const entry of clickHandlers) {
       entry.button.removeEventListener('click', entry.handler);
     }
@@ -113,11 +149,30 @@ export function mountBrandAtlas(
 
       row.appendChild(button);
       row.appendChild(scope);
+      const waiting = askCounts[tenant.slug] ?? 0;
+      if (waiting > 0) {
+        const count = document.createElement('span');
+        count.className = 'sg-brand-ask-count';
+        count.textContent = String(waiting);
+        row.appendChild(count);
+      }
       list.appendChild(row);
     }
   };
 
+  const onAsks = (event: Event): void => {
+    const detail = (event as CustomEvent<TenantAsk[] | null>).detail;
+    askCounts = Array.isArray(detail) ? summarizeAsks(detail).byTenant : {};
+    if (shown) update(shown.tenants, shown.mode, shown.stale);
+  };
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('tenant-asks', onAsks);
+  }
+
   const dispose = (): void => {
+    if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
+      document.removeEventListener('tenant-asks', onAsks);
+    }
     for (const entry of clickHandlers) {
       entry.button.removeEventListener('click', entry.handler);
     }
@@ -141,6 +196,15 @@ export function createBrandMarkers(
 
   const meshes: THREE.Mesh[] = [];
   let disposed = false;
+  let askCounts: Record<string, number> = {};
+
+  const clearSprites = (): void => {
+    for (const child of [...group.children]) {
+      if (!(child as THREE.Sprite).isSprite) continue;
+      group.remove(child);
+      releaseSprite(child as THREE.Sprite);
+    }
+  };
 
   const clearMeshes = (): void => {
     for (const mesh of meshes) {
@@ -149,8 +213,33 @@ export function createBrandMarkers(
     meshes.length = 0;
   };
 
+  const paintAskCounts = (): void => {
+    clearSprites();
+    if (disposed) return;
+    for (const mesh of meshes) {
+      const slug = mesh.userData.slug;
+      const count = typeof slug === 'string' ? askCounts[slug] : undefined;
+      if (!count) continue;
+      const sprite = askCountSprite(count);
+      sprite.position.copy(mesh.position);
+      sprite.position.y += MARKER_RADIUS + 0.55;
+      sprite.userData.slug = slug;
+      group.add(sprite);
+    }
+  };
+
+  const setAskCounts = (counts: Record<string, number>): void => {
+    const next: Record<string, number> = {};
+    for (const [slug, count] of Object.entries(counts)) {
+      if (Number.isInteger(count) && count > 0) next[slug] = count;
+    }
+    askCounts = next;
+    paintAskCounts();
+  };
+
   const update: BrandAtlasUpdate = (tenants, _mode, stale) => {
     clearMeshes();
+    clearSprites();
     if (disposed) return;
     if (stale || tenants === null) return;
     const bounded = assertTenants(tenants);
@@ -166,6 +255,7 @@ export function createBrandMarkers(
       group.add(mesh);
       meshes.push(mesh);
     }
+    paintAskCounts();
   };
 
   const pick = (raycaster: THREE.Raycaster, maxDistance = Infinity): boolean => {
@@ -187,6 +277,7 @@ export function createBrandMarkers(
   const dispose = (): void => {
     if (disposed) return;
     disposed = true;
+    clearSprites();
     clearMeshes();
     sphereGeometry.dispose();
     localMaterial.dispose();
@@ -194,5 +285,5 @@ export function createBrandMarkers(
     if (group.parent) group.parent.remove(group);
   };
 
-  return { group, update, pick, dispose };
+  return { group, update, setAskCounts, pick, dispose };
 }
