@@ -181,6 +181,9 @@ class Coordinator:
         from .fleet_capabilities import Capabilities, install
         install(self)
         self.capabilities = Capabilities(self)
+        from .fleet_asks import Asks, install as install_asks
+        install_asks(self)
+        self.asks = Asks(self)
         self.db.commit()
 
     @contextmanager
@@ -1381,6 +1384,11 @@ def server(coordinator, port=4101):
                 elif not worker_route and re.fullmatch(r'/v1/approvals/[a-f0-9]{32}/(?:approve|reject)', path) and self.command == 'POST':
                     parts = path.split('/')
                     result = coordinator.capabilities.decide(name, principal, parts[3], 'approved' if parts[4] == 'approve' else 'rejected', body)
+                elif not worker_route and re.fullmatch(r'/v1/asks/[a-z0-9][a-z0-9_-]{0,63}', path) and self.command == 'GET':
+                    result = coordinator.asks.list(name, principal, path.split('/')[3])
+                elif not worker_route and re.fullmatch(r'/v1/asks/[a-z0-9][a-z0-9_-]{0,63}/[a-f0-9]{32}/answer', path) and self.command == 'POST':
+                    parts = path.split('/')
+                    result = coordinator.asks.answer(name, principal, parts[3], parts[4], body)
                 elif not worker_route and re.fullmatch(r'/v1/tasks/[a-f0-9]{32}/artifact', path) and self.command == 'GET':
                     result = coordinator.capabilities.artifact(name, principal, path.split('/')[3])
                 elif path=='/v1/worker/claim' and self.command=='POST':
