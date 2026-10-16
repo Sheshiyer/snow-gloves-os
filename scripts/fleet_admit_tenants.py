@@ -31,6 +31,12 @@ def admit(config, tenants, organization, principal, workers, root=None):
     unknown = [name for name in workers if not isinstance(config.get('workers', {}).get(name), dict)]
     if unknown:
         raise ValueError('Unknown worker: %s' % ', '.join(unknown))
+    # Kickoff tasks are read-only codex tasks; Coordinator.claim() filters on both.
+    def can_claim(entry):
+        modes = entry.get('access_modes', ['read'] if entry.get('remote_artifacts') is True else ['read', 'write'])
+        return 'codex' in (entry.get('runtimes') or []) and 'read' in modes
+    if not any(can_claim(config['workers'][name]) for name in workers):
+        raise ValueError('At least one listed worker must be able to claim read-only codex tasks')
     local = [name for name in workers
              if isinstance(config.get('workers', {}).get(name), dict)
              and config['workers'][name].get('remote_artifacts') is not True]

@@ -488,3 +488,14 @@ def test_import_survives_hundreds_of_citation_brackets(tmp_path):
     artifact = 'Summary.\n' + json.dumps(entries)
     assert artifact.count('[') > 400
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id0', 'id1', 'id2'}) == 3
+
+
+def test_admit_requires_a_worker_that_can_claim_read_only_codex_tasks():
+    config = _base_config()
+    config['workers']['mac-coding-1']['runtimes'] = ['claude']
+    with pytest.raises(ValueError, match='read-only codex'):
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
+    config = _base_config()
+    config['workers']['mac-coding-1']['access_modes'] = ['write']
+    with pytest.raises(ValueError, match='read-only codex'):
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
