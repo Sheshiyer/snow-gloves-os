@@ -231,3 +231,16 @@ def test_control_characters_in_titles_are_normalized(tmp_path):
     titles = {a['kind']: a['title'] for a in asks}
     assert titles['fact'] == 'the price.'
     assert 'line one line two' in titles['decision']
+
+
+def test_oversized_proposal_journal_keeps_the_newest_tail(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True); (t / 'asks').mkdir()
+    (t / 'context/offer.md').write_text('# Offer\nFILL: the price.\n')
+    ident = ask_id('heyzack', 'fact', 'context/offer.md|the price.')
+    filler = json.dumps({'ask_id': 'f' * 32, 'proposed': 'x' * 400}) + '\n'
+    with (t / 'asks/proposed.jsonl').open('w') as stream:
+        stream.write(filler * 1000)
+        stream.write(json.dumps({'ask_id': ident, 'proposed': 'EUR 99'}) + '\n')
+    assert (t / 'asks/proposed.jsonl').stat().st_size > 256 * 1024
+    ask = derive_asks(tmp_path, 'heyzack')[0]
+    assert ask['answer_type'] == 'yes_no' and ask['proposed'] == 'EUR 99'

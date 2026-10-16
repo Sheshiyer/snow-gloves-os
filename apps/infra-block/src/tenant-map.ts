@@ -1,6 +1,6 @@
 /** Configuration evidence only. No field in this contract certifies a live connection. */
 export type ConfigState = 'configured' | 'missing' | 'held';
-export type ModuleCategory = 'skills' | 'mcp' | 'connector' | 'plugin' | 'playbook' | 'unknown';
+export type ModuleCategory = 'skills' | 'mcp' | 'connector' | 'plugin' | 'playbook' | 'mod' | 'unknown';
 export interface ConfiguredModule {
   id: string; name: string; category: ModuleCategory;
   disposition: 'add' | 'pointer' | 'hold' | 'refuse' | 'unknown';
@@ -63,7 +63,7 @@ export function parseTenantCapabilityMap(raw: unknown, tenant: string): TenantCa
   const roles = new Set([...availableControlRoles, ...availableBusinessRoles].map(x => x.id));
   const configuredModules = unique(list(r.configuredModules, item => {
     const x = record(item, ['id', 'name', 'category', 'disposition', 'risk', 'approval', 'gate', 'roles']);
-    const module: ConfiguredModule = {id: id(x.id), name: name(x.name), category: one(x.category, ['skills', 'mcp', 'connector', 'plugin', 'playbook', 'unknown']), disposition: one(x.disposition, ['add', 'pointer', 'hold', 'refuse', 'unknown']), risk: one(x.risk, ['low', 'medium', 'high', 'unknown']), approval: one(x.approval, ['yes', 'no', 'unknown']), gate: one(x.gate, ['held', 'approval_required', 'catalog_permitted']), roles: list(x.roles, id)};
+    const module: ConfiguredModule = {id: id(x.id), name: name(x.name), category: one(x.category, ['skills', 'mcp', 'connector', 'plugin', 'playbook', 'mod', 'unknown']), disposition: one(x.disposition, ['add', 'pointer', 'hold', 'refuse', 'unknown']), risk: one(x.risk, ['low', 'medium', 'high', 'unknown']), approval: one(x.approval, ['yes', 'no', 'unknown']), gate: one(x.gate, ['held', 'approval_required', 'catalog_permitted']), roles: list(x.roles, id)};
     if (module.roles.some(role => !roles.has(role)) || new Set(module.roles).size !== module.roles.length) return fail();
     if (module.gate !== 'held' && (!['add', 'pointer'].includes(module.disposition) || module.category === 'unknown' || module.risk === 'unknown' || module.approval === 'unknown')) return fail();
     const needsApproval = module.approval === 'yes' || module.risk === 'high';
@@ -126,6 +126,7 @@ export function renderTenantCapabilityMap(raw: unknown, tenant: string): HTMLEle
   const displayModule = (m: ConfiguredModule) => `${m.name} [${m.id}] · ${m.category} · ${m.disposition} · risk ${m.risk} · approval ${m.approval} · ${m.gate.replaceAll('_', ' ')}${m.roles.length ? ` · Applicable roles: ${m.roles.join(', ')}` : ''}`;
   group(section, 'Configured skills', map.configuredModules.filter(m => m.category === 'skills').map(displayModule));
   group(section, 'Configured connections — authentication unverified', map.configuredModules.filter(m => ['connector', 'mcp', 'plugin'].includes(m.category)).map(displayModule));
+  group(section, 'Configured mods', map.configuredModules.filter(m => m.category === 'mod').map(displayModule));
   group(section, 'Other configured IDs', map.configuredModules.filter(m => ['playbook', 'unknown'].includes(m.category)).map(displayModule));
   group(section, 'Assigned tenant agents — configuration only', map.assignedAgents.map(a => `${a.id} · ${a.status}`));
   group(section, 'Available shared control roles — availability is not assignment', map.availableControlRoles.map(a => `${a.name} [${a.id}]`));

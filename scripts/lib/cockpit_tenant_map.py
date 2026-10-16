@@ -135,7 +135,7 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
             if not safe_id(ident) or ident in [m["id"] for m in configured]:
                 continue
             card = cards.get(ident, {})
-            category = card.get("category") if card.get("category") in ("skills", "mcp", "connector", "plugin", "playbook") else "unknown"
+            category = card.get("category") if card.get("category") in ("skills", "mcp", "connector", "plugin", "playbook", "mod") else "unknown"
             disposition = card.get("disposition") if card.get("disposition") in ("add", "pointer", "hold", "refuse") else "unknown"
             risk = card.get("risk") if card.get("risk") in ("low", "medium", "high") else "unknown"
             approval = card.get("approval") if card.get("approval") in ("yes", "no") else "unknown"

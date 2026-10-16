@@ -98,13 +98,23 @@ def _read_text(path: Path) -> str | None:
         return None
 
 
-def _proposals(tenant_dir: Path) -> dict[str, str]:
+def load_proposals(tenant_dir: Path) -> dict[str, str]:
+    """Latest valid proposal per ask id from the bounded newest tail of the journal."""
     path = tenant_dir / 'asks' / 'proposed.jsonl'
     proposals: dict[str, str] = {}
     try:
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_FILE_BYTES:
+        if path.is_symlink() or not path.is_file():
             return proposals
-        for line in path.read_text(encoding='utf-8').splitlines():
+        size = path.stat().st_size
+        with path.open('rb') as stream:
+            if size > MAX_FILE_BYTES:
+                stream.seek(size - MAX_FILE_BYTES)
+            raw = stream.read(MAX_FILE_BYTES)
+        text = raw.decode('utf-8', errors='replace')
+        if size > MAX_FILE_BYTES:
+            # Drop the partial first line of an append-only journal's tail.
+            text = text.split('\n', 1)[1] if '\n' in text else ''
+        for line in text.splitlines():
             line = line.strip()
             if not line:
                 continue
@@ -278,7 +288,7 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None) ->
     tenant_dir = _tenant_dir(tenants_dir, tenant)
     if tenant_dir is None:
         return []
-    proposals = _proposals(tenant_dir)
+    proposals = load_proposals(tenant_dir)
     sources_value = _read_yaml(tenant_dir / 'sources.yaml')
     enabled_value = _read_yaml(tenant_dir / 'enabled.yaml')
     manifest = _read_yaml(tenant_dir / 'MANIFEST.yaml')

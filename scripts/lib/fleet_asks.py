@@ -34,6 +34,21 @@ class Asks:
         self.c = coordinator
 
     @staticmethod
+    def _reconcile(ask, answer):
+        """Keep an answered ask in the shape it was answered in.
+
+        A proposal imported after a typed answer would otherwise turn the ask
+        into yes/no while the stored answer still holds a value.
+        """
+        if not isinstance(answer, dict):
+            return ask
+        if 'value' in answer and ask['answer_type'] != 'text':
+            return dict(ask, answer_type='text', proposed=None)
+        if 'accept' in answer and ask['answer_type'] != 'yes_no':
+            return dict(ask, answer_type='yes_no')
+        return ask
+
+    @staticmethod
     def _public_ask(ask, project, answer, answered, answered_by):
         result = dict(ask)
         result.update(project=project, status='answered' if answer is not None else 'open',
@@ -115,7 +130,8 @@ class Asks:
             if row is None:
                 public.append(self._public_ask(ask, project, None, None, None))
             else:
-                public.append(self._public_ask(ask, project, json.loads(row['answer_json']),
+                answer = json.loads(row['answer_json'])
+                public.append(self._public_ask(self._reconcile(ask, answer), project, answer,
                                                row['answered'], row['answered_by']))
         return {'asks': public}
 
@@ -127,6 +143,10 @@ class Asks:
         tenant = cfg['tenant']
         with self.c.transaction():
             ask = self._derive_ask(tenant, ask_id)
+            prior = self.c.db.execute('SELECT answer_json FROM ask_answers WHERE project=? AND ask_id=?',
+                                      (project, ask_id)).fetchone()
+            if prior is not None:
+                ask = self._reconcile(ask, json.loads(prior['answer_json']))
             answer = self._validated_answer(ask, body)
             journal_path = self._journal_path(tenant)
             now = self.c.clock()

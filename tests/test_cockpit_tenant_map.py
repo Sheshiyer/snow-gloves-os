@@ -165,3 +165,17 @@ def test_capability_map_failure_is_isolated_to_one_tenant(tree):
     assert 'capabilityMap' in by_slug['acme']
     assert 'capabilityMap' not in by_slug['customer-token']
     assert 'capability map unavailable' in by_slug['customer-token']['warnings']
+
+
+def test_catalog_mod_cards_keep_their_category(tree):
+    repo, tenant = tree
+    catalog = json.loads((repo / 'catalog' / 'modules.json').read_text())
+    catalog['cards'].append({'id': 'sg-rail', 'name': 'Rail', 'category': 'mod', 'disposition': 'add',
+                             'risk': 'low', 'approval': 'no', 'agents': ['cto'], 'enableable': True})
+    (repo / 'catalog' / 'modules.json').write_text(json.dumps(catalog))
+    enabled = yaml.safe_load((tenant / 'enabled.yaml').read_text())
+    enabled['modules'].append('sg-rail')
+    (tenant / 'enabled.yaml').write_text(yaml.safe_dump(enabled))
+    modules = {m['id']: m for m in capability_map(repo, tenant)['configuredModules']}
+    assert modules['sg-rail']['category'] == 'mod'
+    assert modules['sg-rail']['gate'] == 'catalog_permitted'

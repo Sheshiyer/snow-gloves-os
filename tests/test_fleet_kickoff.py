@@ -448,3 +448,12 @@ def test_admit_rejects_blank_organization():
     for organization in ('', '   ', None):
         with pytest.raises(ValueError, match='organization'):
             admit(config, ['tryambakam'], organization, 'founder', ['mac-coding-1'], root=GIT_ROOT)
+
+
+def test_import_skips_proposals_already_recorded(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    artifact = '[{"ask_id":"id1","proposed":"EUR 99","evidence":"ctx"}]'
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}) == 1
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}) == 0
+    assert len((tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl').read_text().splitlines()) == 1

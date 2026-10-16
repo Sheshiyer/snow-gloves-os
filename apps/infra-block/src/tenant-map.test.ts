@@ -103,6 +103,14 @@ describe('capability section rendering', () => {
     const content = rendered.text();
     for (const label of ['Skills, agents and connections', 'Configured skills (1)', 'Assigned tenant agents — configuration only (0)', 'Available shared control roles', 'preparation only, not instantiated', 'Runtime: missing', 'Connection authentication unverified', 'approval required', 'Applicable roles: cto', 'admission is not completed ingestion']) expect(content).toContain(label);
   });
+  it('keeps catalog mod cards as mods and lists them in their own group', () => {
+    vi.stubGlobal('document', {createElement: (tag: string) => new Element(tag)});
+    const raw = {...fixture(), configuredModules: [...fixture().configuredModules, {id: 'sg-rail', name: 'Rail', category: 'mod', disposition: 'add', risk: 'low', approval: 'no', gate: 'catalog_permitted', roles: ['cto']}]};
+    expect(parseTenantCapabilityMap(raw, 'acme').configuredModules.find(m => m.id === 'sg-rail')?.category).toBe('mod');
+    const content = (renderTenantCapabilityMap(raw, 'acme') as unknown as Element).text();
+    expect(content).toContain('Configured mods (1)');
+    expect(content).toContain('Rail [sg-rail]');
+  });
   it('renders an unavailable notice and none of an invalid response', () => {
     vi.stubGlobal('document', {createElement: (tag: string) => new Element(tag)});
     const raw = {...fixture(), connectionAuth: 'verified', notes: 'PRIVATE_VALUE'};

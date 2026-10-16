@@ -155,3 +155,15 @@ def test_http_routes(asks_ctx):
     finally:
         http.shutdown()
         http.server_close()
+
+
+def test_answered_text_ask_keeps_its_shape_when_a_proposal_arrives(asks_ctx):
+    c, config, _, tenant = asks_ctx
+    target = _ask_id(c, config)
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'value': 'EUR 99'})
+    (tenant / 'asks' / 'proposed.jsonl').write_text(json.dumps({'ask_id': target, 'proposed': 'EUR 120'}) + '\n')
+    listed = {a['id']: a for a in c.asks.list('founder', config['principals']['founder'], 'snowgloves')['asks']}
+    assert listed[target]['answer_type'] == 'text' and listed[target]['proposed'] is None
+    assert listed[target]['answer'] == {'value': 'EUR 99'}
+    again = c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'value': 'EUR 100'})
+    assert again['ask']['answer'] == {'value': 'EUR 100'}

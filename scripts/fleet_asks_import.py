@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from lib.tenant_asks import CONTROL_RE as CONTROL_CHARS, SENSITIVE_RE
+from lib.tenant_asks import CONTROL_RE as CONTROL_CHARS, SENSITIVE_RE, load_proposals
 
 MAX_PROPOSED = 500
 MAX_EVIDENCE = 500
@@ -77,6 +77,12 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids):
                 continue
             record['evidence'] = evidence
         valid.append(record)
+    # Re-importing the same artifact must not grow the journal.
+    recorded = load_proposals(Path(tenants_dir) / tenant)
+    latest = {}
+    for record in valid:
+        latest[record['ask_id']] = record
+    valid = [r for r in latest.values() if recorded.get(r['ask_id']) != r['proposed']]
     if not valid:
         return 0
     base = Path(tenants_dir).resolve()
@@ -138,8 +144,9 @@ def main():
         return 1
     tenants_dir = paths.tenants_dir()
     listing = _get(args.coordinator, token, '/v1/asks/' + project)
+    # Only open asks take proposals; an answered ask keeps the founder's answer.
     known_ids = {ask['id'] for ask in (listing.get('asks') if isinstance(listing, dict) else [])
-                 if isinstance(ask, dict) and isinstance(ask.get('id'), str)}
+                 if isinstance(ask, dict) and isinstance(ask.get('id'), str) and ask.get('status') == 'open'}
     count = import_proposals(tenants_dir, tenant, output, known_ids)
     print('Imported %d proposal(s)' % count)
     return 0
