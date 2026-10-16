@@ -478,3 +478,13 @@ def test_admit_requires_at_least_one_worker():
     config = _base_config()
     with pytest.raises(ValueError, match='worker'):
         admit(config, ['tryambakam'], 'org', 'founder', [])
+
+
+def test_import_survives_hundreds_of_citation_brackets(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    evidence = '[1]' * 160
+    entries = [{'ask_id': 'id%d' % i, 'proposed': 'v%d' % i, 'evidence': evidence} for i in range(3)]
+    artifact = 'Summary.\n' + json.dumps(entries)
+    assert artifact.count('[') > 400
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id0', 'id1', 'id2'}) == 3

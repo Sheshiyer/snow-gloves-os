@@ -63,7 +63,7 @@ class Asks:
             if set(body) != {'value'}:
                 reject(400, 'Invalid answer')
             value = body['value']
-            if not isinstance(value, str) or not 0 < len(value) <= MAX_ANSWER:
+            if not isinstance(value, str) or not value.strip() or len(value) > MAX_ANSWER:
                 reject(400, 'Invalid answer')
             if SENSITIVE_RE.search(value) or CONTROL_RE.search(value):
                 reject(400, 'Invalid answer')

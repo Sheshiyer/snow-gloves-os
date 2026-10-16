@@ -60,7 +60,7 @@ def test_answer_requires_approve(asks_ctx):
 def test_answer_shape_matches_type(asks_ctx):
     c, config, *_ = asks_ctx
     target = _ask_id(c, config)
-    for body in ({'accept': True}, {'value': 'x' * 501}, {'value': 'my token is abc'}, {}, {'value': 'line one\nline two'}, {'value': 'tab\there'}):
+    for body in ({'accept': True}, {'value': 'x' * 501}, {'value': 'my token is abc'}, {}, {'value': 'line one\nline two'}, {'value': 'tab\there'}, {'value': '   '}):
         with pytest.raises(Rejected) as error:
             c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, body)
         assert error.value.status == 400

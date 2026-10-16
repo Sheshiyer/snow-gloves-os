@@ -11,6 +11,7 @@ from pathlib import Path
 
 from lib.tenant_asks import CONTROL_RE as CONTROL_CHARS, SENSITIVE_RE, load_proposals
 
+_ARRAY_OF_OBJECTS = re.compile(r'\[\s*\{')
 MAX_PROPOSED = 500
 MAX_EVIDENCE = 500
 MAX_ARTIFACT = 256 * 1024
@@ -18,29 +19,24 @@ _MAX_SCAN_ATTEMPTS = 200
 
 
 def _last_json_array(text):
-    """Return the last valid JSON array found in *text*, or None.
+    """Return the last JSON array of proposal objects found in *text*, or None.
 
-    Candidate '[' positions are walked from the end of *text* via rfind and
-    ``raw_decode`` is tried at each, stopping at the first that decodes to a
-    non-empty list of objects carrying ``ask_id``.  At most 200 positions are examined, so the search is bounded even
-    when the text contains thousands of '[' characters.
+    A proposal array must open with ``[`` followed by ``{``, so only those
+    positions are candidates; brackets inside strings such as citation
+    markers ("[1]") never consume an attempt. Candidates are tried from the
+    end with ``raw_decode``, stopping at the first non-empty array of objects
+    carrying ``ask_id``. The text is already capped at MAX_ARTIFACT, and at
+    most _MAX_SCAN_ATTEMPTS candidates are decoded.
     """
     decoder = json.JSONDecoder()
-    pos = len(text)
-    for _ in range(_MAX_SCAN_ATTEMPTS):
-        idx = text.rfind('[', 0, pos)
-        if idx == -1:
-            break
+    starts = [match.start() for match in _ARRAY_OF_OBJECTS.finditer(text)]
+    for idx in reversed(starts[-_MAX_SCAN_ATTEMPTS:]):
         try:
             value, _end = decoder.raw_decode(text, idx)
         except (ValueError, json.JSONDecodeError):
-            pos = idx
             continue
-        # Only a non-empty array of proposal objects counts; an array decoded
-        # from inside a string or a nested value (e.g. "source [1]") does not.
         if isinstance(value, list) and value and all(isinstance(item, dict) and 'ask_id' in item for item in value):
             return value
-        pos = idx
     return None
 
 
