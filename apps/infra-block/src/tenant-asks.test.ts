@@ -120,13 +120,27 @@ describe('ask stack', () => {
     const stack = render([ask], onAnswer);
     const input = stack.all().find(element => element.tagName === 'input');
     const form = stack.all().find(element => element.tagName === 'form');
-    expect(input?.maxLength).toBe(500);
+    expect(input?.maxLength).toBe(1000);
     input!.value = '';
     await form?.onsubmit?.({preventDefault() {}});
     expect(onAnswer).not.toHaveBeenCalled();
     input!.value = 'EUR 99';
     await form?.onsubmit?.({preventDefault() {}});
     expect(onAnswer).toHaveBeenCalledWith(ask, {value: 'EUR 99'});
+  });
+
+  it('counts the 500-character answer limit in code points', async () => {
+    const ask = model();
+    const onAnswer = vi.fn().mockResolvedValue(undefined);
+    const stack = render([ask], onAnswer);
+    const input = stack.all().find(element => element.tagName === 'input');
+    const form = stack.all().find(element => element.tagName === 'form');
+    input!.value = '\u{1F600}'.repeat(500);
+    await form?.onsubmit?.({preventDefault() {}});
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+    input!.value = '\u{1F600}'.repeat(501);
+    await form?.onsubmit?.({preventDefault() {}});
+    expect(onAnswer).toHaveBeenCalledTimes(1);
   });
 
   it('shows a rejection only on that ask and leaves the other card usable', async () => {

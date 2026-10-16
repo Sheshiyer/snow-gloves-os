@@ -50,7 +50,9 @@ def ask_id(tenant: str, kind: str, key: str) -> str:
 def load_proposal(data_root: Path) -> dict | None:
     path = Path(data_root) / PROPOSAL_REL
     try:
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > PROPOSAL_MAX_BYTES:
+        # A linked parent directory must not pull in a file from outside the data root.
+        if (path.is_symlink() or not path.is_file() or path.stat().st_size > PROPOSAL_MAX_BYTES
+                or not path.resolve().is_relative_to(Path(data_root).resolve())):
             return None
         value = json.loads(path.read_bytes().decode('utf-8'))
         return value if isinstance(value, dict) else None

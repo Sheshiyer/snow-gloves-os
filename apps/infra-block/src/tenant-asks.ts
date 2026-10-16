@@ -177,8 +177,9 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
       const input = document.createElement('input');
       input.className = 'oc-asks-input';
       input.type = 'text';
-      input.maxLength = 500;
-      input.setAttribute('maxlength', '500');
+      // 500 code points can take up to 1000 UTF-16 units; the code-point limit is checked on submit.
+      input.maxLength = 1000;
+      input.setAttribute('maxlength', '1000');
       const send = document.createElement('button');
       send.type = 'submit';
       send.className = 'oc-asks-btn';
@@ -188,7 +189,7 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
       form.onsubmit = event => {
         event.preventDefault();
         const value = input.value;
-        if (!value.trim() || value.length > 500) return;
+        if (!value.trim() || Array.from(value).length > 500) return;
         return submit(card, controls, ask, {value});
       };
       appendControls(form);

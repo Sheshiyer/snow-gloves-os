@@ -509,3 +509,11 @@ def test_import_ignores_nested_arrays_and_bracket_text_before_the_array(tmp_path
     assert import_proposals(tenants_dir, 'heyzack', prose + json.dumps(entries), {'id1'}) == 1
     record = json.loads((tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl').read_text().splitlines()[0])
     assert record['ask_id'] == 'id1'
+
+
+def test_kickoff_body_with_emoji_titles_fits_the_coordinator_limit():
+    from fleet_kickoff import _encode_body
+    asks = [dict(_fact_ask(i), title='\U0001F600' * 160, source='context/offer.md') for i in range(40)]
+    body = _encode_body(_task_body('heyzack', 'heyzack', kickoff_brief('heyzack', asks), '2026-10-16'))
+    assert len(body) <= 64 * 1024
+    assert json.loads(body.decode('utf-8'))['brief'].count('\U0001F600') > 1000

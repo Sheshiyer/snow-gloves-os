@@ -63,11 +63,21 @@ def _list_asks(coordinator, token, project):
         return None
 
 
+MAX_BODY_BYTES = 64 * 1024  # the coordinator's HTTP body limit
+
+
+def _encode_body(body):
+    """UTF-8 JSON without ASCII escapes, so non-BMP text is not inflated sixfold."""
+    return json.dumps(body, ensure_ascii=False).encode('utf-8')
+
+
 def _submit_task(coordinator, token, project, tenant, brief, wave):
-    body = _task_body(project, tenant, brief, wave)
+    data = _encode_body(_task_body(project, tenant, brief, wave))
+    if len(data) > MAX_BODY_BYTES:
+        return 'kickoff failed: brief exceeds the coordinator body limit'
     request = urllib.request.Request(
         coordinator.rstrip('/') + '/v1/tasks',
-        data=json.dumps(body).encode(),
+        data=data,
         headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
