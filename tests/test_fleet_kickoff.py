@@ -517,3 +517,10 @@ def test_kickoff_body_with_emoji_titles_fits_the_coordinator_limit():
     body = _encode_body(_task_body('heyzack', 'heyzack', kickoff_brief('heyzack', asks), '2026-10-16'))
     assert len(body) <= 64 * 1024
     assert json.loads(body.decode('utf-8'))['brief'].count('\U0001F600') > 1000
+
+
+def test_import_rejects_lone_surrogates(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    artifact = '[{"ask_id":"id1","proposed":"bad \\ud800","evidence":"x"},{"ask_id":"id2","proposed":"EUR 99","evidence":"x"}]'
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}) == 1

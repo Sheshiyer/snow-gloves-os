@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 
@@ -30,6 +31,7 @@ ROLE_FOR_KIND: dict[str, str] = {
 MAX_ASKS = 400
 MAX_TITLE = 160
 MAX_SOURCE = 240  # the client's source limit
+MAX_CONTEXT_ENTRIES = 1024  # directory entries considered in context/
 # Clients reject strings containing C0 control characters (or DEL); every
 # emitted string is checked or normalized against this one pattern.
 CONTROL_RE = re.compile(r'[\x00-\x1f\x7f]')
@@ -45,6 +47,17 @@ SENSITIVE_RE = re.compile(r"(?i)(?:^|[^a-z0-9])(?:secret|password|passwd|credent
 
 def ask_id(tenant: str, kind: str, key: str) -> str:
     return hashlib.sha256(f"{tenant}|{kind}|{key}".encode('utf-8')).hexdigest()[:32]
+
+
+def is_scalar_text(value) -> bool:
+    """True when *value* is a str of Unicode scalar values (no lone surrogates)."""
+    if not isinstance(value, str):
+        return False
+    try:
+        value.encode('utf-8')
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def load_proposal(data_root: Path) -> dict | None:
@@ -135,7 +148,7 @@ def load_proposals(tenant_dir: Path) -> dict[str, str]:
             if not isinstance(ask, str) or not isinstance(proposed, str):
                 continue
             if (not proposed.strip() or len(proposed) > MAX_PROPOSED or SENSITIVE_RE.search(proposed)
-                    or CONTROL_RE.search(proposed)):
+                    or CONTROL_RE.search(proposed) or not is_scalar_text(proposed)):
                 continue
             proposals[ask] = proposed
     except (OSError, UnicodeError):
@@ -148,9 +161,21 @@ def _fact_asks(tenant_dir: Path, tenant: str, proposals: dict[str, str]) -> list
     asks: list[dict] = []
     if context.is_symlink() or not context.is_dir():
         return asks
-    for path in sorted(context.glob('*.md')):
-        if path.name == 'open-questions.md':
-            continue
+    # Bound the traversal and stop once the ask budget is spent.
+    names = []
+    try:
+        with os.scandir(context) as entries:
+            for count, entry in enumerate(entries):
+                if count >= MAX_CONTEXT_ENTRIES:
+                    break
+                if entry.name.endswith('.md') and entry.name != 'open-questions.md':
+                    names.append(entry.name)
+    except OSError:
+        return asks
+    for name in sorted(names):
+        if len(asks) >= MAX_ASKS:
+            break
+        path = context / name
         text = _read_text(path)
         if text is None:
             continue
@@ -167,6 +192,8 @@ def _fact_asks(tenant_dir: Path, tenant: str, proposals: dict[str, str]) -> list
             asks.append({'id': ask_id(tenant, 'fact', key), 'tenant': tenant, 'kind': 'fact',
                          'role': ROLE_FOR_KIND['fact'], 'title': value[:MAX_TITLE], 'source': source,
                          'answer_type': 'yes_no' if proposed is not None else 'text', 'proposed': proposed})
+            if len(asks) >= MAX_ASKS:
+                break
     return asks
 
 

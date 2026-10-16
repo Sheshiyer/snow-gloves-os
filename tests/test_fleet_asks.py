@@ -60,7 +60,7 @@ def test_answer_requires_approve(asks_ctx):
 def test_answer_shape_matches_type(asks_ctx):
     c, config, *_ = asks_ctx
     target = _ask_id(c, config)
-    for body in ({'accept': True}, {'value': 'x' * 501}, {'value': 'my token is abc'}, {}, {'value': 'line one\nline two'}, {'value': 'tab\there'}, {'value': '   '}):
+    for body in ({'accept': True}, {'value': 'x' * 501}, {'value': 'my token is abc'}, {}, {'value': 'line one\nline two'}, {'value': 'tab\there'}, {'value': '   '}, {'value': 'bad \ud800 surrogate'}):
         with pytest.raises(Rejected) as error:
             c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, body)
         assert error.value.status == 400
@@ -253,3 +253,15 @@ def test_yes_no_answer_keeps_the_proposal_it_answered(asks_ctx):
         assert again[target]['proposed'] == 'EUR 99'
     finally:
         second.close()
+
+
+def test_partial_journal_tail_is_repaired_before_append(asks_ctx):
+    c, config, _, tenant = asks_ctx
+    target = _ask_id(c, config)
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'value': 'EUR 99'})
+    journal = tenant / 'asks' / 'answers.jsonl'
+    with journal.open('ab') as stream:
+        stream.write(b'{"answer_id":"partial","ask')
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'value': 'EUR 100'})
+    lines = journal.read_text().splitlines()
+    assert [json.loads(line)['answer']['value'] for line in lines] == ['EUR 99', 'EUR 100']

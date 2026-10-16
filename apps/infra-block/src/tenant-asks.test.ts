@@ -227,6 +227,31 @@ describe('ask sync and fleet client', () => {
     stop();
   });
 
+  it('applies a successful answer to the polling cache and drops older in-flight polls', async () => {
+    const emit = vi.fn();
+    const open = model({project: 'heyzack'});
+    const other = model({id: 'c'.repeat(32), project: 'other', tenant: 'other'});
+    let call = 0;
+    const asks = vi.fn(async (project: string) => {
+      call += 1;
+      if (project === 'heyzack' && call > 2) throw new Error('500');
+      return project === 'heyzack' ? [open] : [other];
+    });
+    const client = {asks} as unknown as FleetClient;
+    let poll: (() => void) | undefined;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(handler => { poll = handler as () => void; return 1 as unknown as ReturnType<typeof setInterval>; });
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    const sync = startAskSync(client, ['heyzack', 'other'], emit, 60_000);
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    const answered = {...open, status: 'answered' as const, answer: {value: 'EUR 99'}};
+    sync.applyAnswer(answered);
+    expect(emit).toHaveBeenLastCalledWith([answered, other]);
+    poll?.();
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(emit).toHaveBeenLastCalledWith([answered, other]);
+    sync();
+  });
+
   it('keeps the last good list when a later poll fails', async () => {
     const emit = vi.fn();
     const good = [model()];

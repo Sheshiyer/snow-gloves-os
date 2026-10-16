@@ -206,12 +206,16 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
 }
 
 /** Poll open asks for the connected projects. A failed poll keeps the last list. The stop function clears them. */
-export function startAskSync(client: FleetClient, projects: string[], emit: (asks: TenantAsk[] | null) => void, intervalMs = 60000): () => void {
+/** Stop function for an ask sync; `applyAnswer` folds a successful answer into the poll cache. */
+export type AskSync = (() => void) & {applyAnswer(ask: TenantAsk): void};
+
+export function startAskSync(client: FleetClient, projects: string[], emit: (asks: TenantAsk[] | null) => void, intervalMs = 60000): AskSync {
   let stopped = false;
   let generation = 0;
   // Only ids the asks route accepts are polled; each project fails on its own.
   const routable = projects.filter(project => /^[a-z0-9][a-z0-9_-]{0,63}$/.test(project));
   const lastGood = new Map<string, TenantAsk[]>();
+  const publish = () => emit(routable.flatMap(project => lastGood.get(project) ?? []));
   const pull = () => {
     if (stopped) return;
     const epoch = ++generation;
@@ -221,15 +225,23 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
       // If every poll failed, keep the last good list. Only stop() emits null.
       if (!results.some(result => result.status === 'fulfilled')) return;
       results.forEach((result, index) => { if (result.status === 'fulfilled') lastGood.set(routable[index], result.value); });
-      emit(routable.flatMap(project => lastGood.get(project) ?? []));
+      publish();
     })();
   };
   pull();
   const timer = setInterval(pull, intervalMs);
-  return () => {
+  const stop = (() => {
     if (stopped) return;
     stopped = true;
     clearInterval(timer);
     emit(null);
+  }) as AskSync;
+  stop.applyAnswer = (next: TenantAsk) => {
+    if (stopped) return;
+    generation++; // a poll that started before the answer must not restore the old ask
+    const current = lastGood.get(next.project);
+    if (current) lastGood.set(next.project, current.map(ask => ask.id === next.id ? next : ask));
+    publish();
   };
+  return stop;
 }

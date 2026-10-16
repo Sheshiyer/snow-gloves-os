@@ -298,3 +298,25 @@ def test_load_catalog_maps_ids_to_categories(tmp_path):
         {'id': 'github-mcp', 'category': 'mcp'}, {'id': 'x', 'category': 'skills'}, {'nope': 1}]}))
     assert load_catalog(tmp_path) == {'github-mcp': 'mcp', 'x': 'skills'}
     assert load_catalog(tmp_path / 'missing') == {}
+
+
+def test_fact_derivation_stops_at_the_cap(tmp_path, monkeypatch):
+    import lib.tenant_asks as ta
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    for i in range(30):
+        (t / 'context' / ('f%02d.md' % i)).write_text(''.join('FILL: item %d-%d\n' % (i, j) for j in range(20)))
+    reads = []
+    original = ta._read_text
+    monkeypatch.setattr(ta, '_read_text', lambda path: (reads.append(path), original(path))[1])
+    asks = derive_asks(tmp_path, 'heyzack')
+    assert len([a for a in asks if a['kind'] == 'fact']) == 400
+    assert len(reads) == 20
+
+
+def test_proposals_with_lone_surrogates_are_ignored(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True); (t / 'asks').mkdir()
+    (t / 'context/offer.md').write_text('# Offer\nFILL: the price.\n')
+    ident = ask_id('heyzack', 'fact', 'context/offer.md|the price.')
+    (t / 'asks/proposed.jsonl').write_text('{"ask_id": "%s", "proposed": "bad \\ud800"}\n' % ident)
+    ask = derive_asks(tmp_path, 'heyzack')[0]
+    assert ask['answer_type'] == 'text' and ask['proposed'] is None

@@ -19,7 +19,7 @@ import uuid
 
 from . import paths
 from .fleet_capabilities import reject
-from .tenant_asks import CONTROL_RE, SENSITIVE_RE, derive_asks, load_catalog, load_proposal
+from .tenant_asks import CONTROL_RE, SENSITIVE_RE, derive_asks, is_scalar_text, load_catalog, load_proposal
 
 MAX_ANSWER = 500
 MAX_PRINCIPAL = 120  # the client's answered_by limit
@@ -89,7 +89,7 @@ class Asks:
             value = body['value']
             if not isinstance(value, str) or not value.strip() or len(value) > MAX_ANSWER:
                 reject(400, 'Invalid answer')
-            if SENSITIVE_RE.search(value) or CONTROL_RE.search(value):
+            if SENSITIVE_RE.search(value) or CONTROL_RE.search(value) or not is_scalar_text(value):
                 reject(400, 'Invalid answer')
             return {'value': value}
         if set(body) != {'accept'}:
@@ -125,8 +125,13 @@ class Asks:
 
     @staticmethod
     def _append_journal(path, record):
-        line = json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=False) + '\n'
-        flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
+        """Append one JSON line, first truncating any incomplete tail a failed write left.
+
+        Appends are serialized by the flush lock and this journal has no other
+        writer, so bytes after the last newline can only be our own partial line.
+        """
+        line = (json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=False) + '\n').encode('utf-8')
+        flags = os.O_RDWR | os.O_CREAT | os.O_APPEND
         if hasattr(os, 'O_NOFOLLOW'):
             flags |= os.O_NOFOLLOW
         try:
@@ -134,12 +139,27 @@ class Asks:
         except OSError:
             reject(503, 'Ask journal unavailable')
         try:
-            with os.fdopen(fd, 'wb') as stream:
-                stream.write(line.encode('utf-8'))
-                stream.flush()
-                os.fsync(stream.fileno())
+            size = os.fstat(fd).st_size
+            if size:
+                keep, offset = 0, size
+                while offset > 0:
+                    start = max(0, offset - 65536)
+                    chunk = os.pread(fd, offset - start, start)
+                    index = chunk.rfind(b'\n')
+                    if index != -1:
+                        keep = start + index + 1
+                        break
+                    offset = start
+                if keep != size:
+                    os.ftruncate(fd, keep)
+            view = memoryview(line)
+            while view:
+                view = view[os.write(fd, view):]
+            os.fsync(fd)
         except OSError:
             reject(503, 'Ask journal unavailable')
+        finally:
+            os.close(fd)
 
     def list(self, owner, principal, project):
         self.c._need(principal, 'read')

@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from lib.tenant_asks import CONTROL_RE as CONTROL_CHARS, SENSITIVE_RE, load_proposals
+from lib.tenant_asks import CONTROL_RE as CONTROL_CHARS, SENSITIVE_RE, is_scalar_text, load_proposals
 
 _ARRAY_OF_OBJECTS = re.compile(r'\[\s*\{')
 MAX_PROPOSED = 500
@@ -67,7 +67,7 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids):
         if not isinstance(ask_id, str) or ask_id not in known_ids:
             continue
         if (not isinstance(proposed, str) or not proposed.strip() or len(proposed) > MAX_PROPOSED
-                or CONTROL_CHARS.search(proposed)):
+                or CONTROL_CHARS.search(proposed) or not is_scalar_text(proposed)):
             continue
         if SENSITIVE_RE.search(proposed):
             continue
@@ -75,7 +75,7 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids):
         evidence = entry.get('evidence')
         if isinstance(evidence, str):
             evidence = evidence[:MAX_EVIDENCE]
-            if SENSITIVE_RE.search(evidence):
+            if SENSITIVE_RE.search(evidence) or not is_scalar_text(evidence):
                 continue
             record['evidence'] = evidence
         valid.append(record)

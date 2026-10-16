@@ -1,5 +1,5 @@
 import './fleet-tasks.css';
-import {parseAsks, startAskSync, type TenantAsk} from './tenant-asks';
+import {parseAsks, startAskSync, type AskSync, type TenantAsk} from './tenant-asks';
 
 type RecordValue = Record<string, unknown>;
 const record = (value: unknown): value is RecordValue => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -232,9 +232,8 @@ export function createFleetBoard(): FleetBoard {
   const operationKey = () => crypto.randomUUID();
   let submissionKey = operationKey(), capabilityKey = operationKey();
   let context: FleetContext | null = null, capabilities: FleetCapability[] = [], approvals: FleetApproval[] = [];
-  let stopAsks: (() => void) | null = null, askProjectKey = '', shownAsks: TenantAsk[] | null = null;
+  let stopAsks: AskSync | null = null, askProjectKey = '';
   function emitAsks(detail: TenantAsk[] | null) {
-    shownAsks = detail;
     if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
     document.dispatchEvent(new CustomEvent('tenant-asks', {detail}));
   }
@@ -472,7 +471,7 @@ export function createFleetBoard(): FleetBoard {
       const finish = detail.done;
       if (!current) { finish(new Error('Connect the Hermes board to see asks.')); return; }
       void current.answerAsk(detail.project, detail.id, detail.answer).then(next => {
-        if (client === current && shownAsks) emitAsks(shownAsks.map(ask => ask.project === next.project && ask.id === next.id ? next : ask));
+        if (client === current) stopAsks?.applyAnswer(next);
         finish();
       }).catch(error => { finish(error instanceof Error ? error : new Error('Coordinator rejected the answer.')); });
     });
