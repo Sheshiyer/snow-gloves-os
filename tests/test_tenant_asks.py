@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from lib.tenant_asks import SENSITIVE_RE, ASK_KINDS, ROLE_FOR_KIND, ask_id, derive_asks, load_proposal
+from lib.tenant_asks import SENSITIVE_RE, load_catalog, ASK_KINDS, ROLE_FOR_KIND, ask_id, derive_asks, load_proposal
 
 
 def test_ask_kinds_and_roles():
@@ -281,3 +281,20 @@ def test_proposal_read_through_a_linked_directory_is_refused(tmp_path):
     (data / 'specs').mkdir()
     (data / 'specs' / '006-editorial-steward-integration').symlink_to(outside, target_is_directory=True)
     assert load_proposal(data) is None
+
+
+def test_module_connect_asks_use_catalog_categories(tmp_path):
+    t = tmp_path / 'heyzack'; t.mkdir()
+    (t / 'enabled.yaml').write_text(yaml.safe_dump({'schema': 'snowgloves.enabled.v1', 'tenant': 'heyzack', 'modules': [
+        'github-mcp', {'id': 'stale', 'category': 'mcp'}, {'id': 'gmail', 'category': 'skills'}]}))
+    catalog = {'github-mcp': 'mcp', 'stale': 'skills', 'gmail': 'connector'}
+    titles = sorted(a['title'] for a in derive_asks(tmp_path, 'heyzack', catalog=catalog) if a['kind'] == 'connect')
+    assert titles == ['Connect github-mcp', 'Connect gmail']
+
+
+def test_load_catalog_maps_ids_to_categories(tmp_path):
+    (tmp_path / 'catalog').mkdir()
+    (tmp_path / 'catalog' / 'modules.json').write_text(json.dumps({'cards': [
+        {'id': 'github-mcp', 'category': 'mcp'}, {'id': 'x', 'category': 'skills'}, {'nope': 1}]}))
+    assert load_catalog(tmp_path) == {'github-mcp': 'mcp', 'x': 'skills'}
+    assert load_catalog(tmp_path / 'missing') == {}

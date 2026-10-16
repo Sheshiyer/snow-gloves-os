@@ -225,7 +225,21 @@ def _source_connect_asks(tenant: str, sources_value) -> list[dict]:
     return asks
 
 
-def _module_connect_asks(tenant: str, enabled_value) -> list[dict]:
+def load_catalog(code_root: Path) -> dict[str, str]:
+    """Module id -> category from the platform catalog, which owns module metadata."""
+    path = Path(code_root) / 'catalog' / 'modules.json'
+    try:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > 8 * 1024 * 1024:
+            return {}
+        value = json.loads(path.read_bytes().decode('utf-8'))
+    except (OSError, UnicodeError, ValueError, RecursionError):
+        return {}
+    cards = value.get('cards') if isinstance(value, dict) else None
+    return {card['id']: card['category'] for card in cards or []
+            if isinstance(card, dict) and isinstance(card.get('id'), str) and isinstance(card.get('category'), str)}
+
+
+def _module_connect_asks(tenant: str, enabled_value, catalog: dict[str, str] | None = None) -> list[dict]:
     asks: list[dict] = []
     if not isinstance(enabled_value, dict):
         return asks
@@ -233,10 +247,15 @@ def _module_connect_asks(tenant: str, enabled_value) -> list[dict]:
     if not isinstance(modules, list):
         return asks
     for module in modules:
-        if not isinstance(module, dict) or module.get('category') not in ('mcp', 'connector'):
-            continue
-        module_id = module.get('id')
+        # Entries may be bare ids; the catalog, when given, decides the category.
+        module_id = module.get('id') if isinstance(module, dict) else module
         if not isinstance(module_id, str) or not ID_RE.fullmatch(module_id):
+            continue
+        if catalog is not None:
+            category = catalog.get(module_id)
+        else:
+            category = module.get('category') if isinstance(module, dict) else None
+        if category not in ('mcp', 'connector'):
             continue
         key = f"module|{module_id}"
         asks.append({'id': ask_id(tenant, 'connect', key), 'tenant': tenant, 'kind': 'connect',
@@ -291,7 +310,8 @@ def _clean_text(value):
     return ' '.join(CONTROL_RE.sub(' ', value).split()) if isinstance(value, str) else ''
 
 
-def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None) -> list[dict]:
+def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
+                catalog: dict[str, str] | None = None) -> list[dict]:
     tenant_dir = _tenant_dir(tenants_dir, tenant)
     if tenant_dir is None:
         return []
@@ -303,7 +323,7 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None) ->
     asks += _fact_asks(tenant_dir, tenant, proposals)
     asks += _decision_asks(tenant, proposal)
     asks += _source_connect_asks(tenant, sources_value)
-    asks += _module_connect_asks(tenant, enabled_value)
+    asks += _module_connect_asks(tenant, enabled_value, catalog)
     asks += _website_ask(tenant, manifest)
     asks += _brand_ask(tenant, sources_value)
     # A repeated FILL line, flow, source or module would repeat a stable id;

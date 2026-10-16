@@ -14,11 +14,12 @@ the private tenants directory.
 import json
 import os
 import re
+import threading
 import uuid
 
 from . import paths
 from .fleet_capabilities import reject
-from .tenant_asks import CONTROL_RE, SENSITIVE_RE, derive_asks, load_proposal
+from .tenant_asks import CONTROL_RE, SENSITIVE_RE, derive_asks, load_catalog, load_proposal
 
 MAX_ANSWER = 500
 MAX_PRINCIPAL = 120  # the client's answered_by limit
@@ -45,6 +46,9 @@ def _display_principal(owner):
 class Asks:
     def __init__(self, coordinator):
         self.c = coordinator
+        # One flush at a time: select, append and delete never interleave across
+        # request threads, so each record is appended once and in commit order.
+        self._flush_lock = threading.Lock()
 
     @staticmethod
     def _reconcile(ask, answer):
@@ -89,7 +93,7 @@ class Asks:
         return {'accept': accept}
 
     def _derive_ask(self, tenant, ask_id):
-        asks = derive_asks(paths.tenants_dir(), tenant, load_proposal(paths.data_root()))
+        asks = derive_asks(paths.tenants_dir(), tenant, load_proposal(paths.data_root()), load_catalog(paths.code_root()))
         for ask in asks:
             if ask['id'] == ask_id:
                 return ask
@@ -137,7 +141,7 @@ class Asks:
         with self.c.lock:
             rows = {row['ask_id']: row for row in self.c.db.execute(
                 'SELECT * FROM ask_answers WHERE project=?', (project,))}
-        asks = derive_asks(paths.tenants_dir(), cfg['tenant'], load_proposal(paths.data_root()))
+        asks = derive_asks(paths.tenants_dir(), cfg['tenant'], load_proposal(paths.data_root()), load_catalog(paths.code_root()))
         public = []
         for ask in asks:
             row = rows.get(ask['id'])
@@ -185,15 +189,21 @@ class Asks:
     def flush(self, tenant=None):
         """Append committed outbox records to their journals; a failed append stays queued."""
         from .fleet_coordinator import Rejected
-        with self.c.lock:
-            query, params = 'SELECT * FROM ask_journal_outbox', ()
-            if tenant is not None:
-                query, params = query + ' WHERE tenant=?', (tenant,)
-            rows = list(self.c.db.execute(query + ' ORDER BY created, answer_id', params))
-        for row in rows:
-            try:
-                self._append_journal(self._journal_path(row['tenant']), json.loads(row['record_json']))
-            except (Rejected, OSError, ValueError):
-                continue
-            with self.c.transaction():
-                self.c.db.execute('DELETE FROM ask_journal_outbox WHERE answer_id=?', (row['answer_id'],))
+        with self._flush_lock:
+            with self.c.lock:
+                query, params = 'SELECT rowid, * FROM ask_journal_outbox', ()
+                if tenant is not None:
+                    query, params = query + ' WHERE tenant=?', (tenant,)
+                rows = list(self.c.db.execute(query + ' ORDER BY rowid', params))
+            blocked = set()
+            for row in rows:
+                # Keep per-tenant order: once one record fails, later ones wait.
+                if row['tenant'] in blocked:
+                    continue
+                try:
+                    self._append_journal(self._journal_path(row['tenant']), json.loads(row['record_json']))
+                except (Rejected, OSError, ValueError):
+                    blocked.add(row['tenant'])
+                    continue
+                with self.c.transaction():
+                    self.c.db.execute('DELETE FROM ask_journal_outbox WHERE answer_id=?', (row['answer_id'],))

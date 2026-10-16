@@ -211,3 +211,25 @@ def test_answered_by_is_bounded_for_the_client(asks_ctx):
     result = c.asks.answer(name, config['principals'][name], 'snowgloves', target, {'value': 'EUR 99'})
     by = result['ask']['answered_by']
     assert 0 < len(by) <= 120 and not any(ord(ch) < 32 for ch in by)
+
+
+def test_concurrent_flushes_append_each_record_once(asks_ctx, monkeypatch):
+    import time
+    c, config, _, tenant = asks_ctx
+    target = _ask_id(c, config)
+    original = c.asks._append_journal
+    state = {'fail': True}
+    def slow(path, record):
+        if state['fail']:
+            raise Rejected(503, 'Ask journal unavailable')
+        time.sleep(0.05)
+        return original(path, record)
+    monkeypatch.setattr(c.asks, '_append_journal', slow)
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'value': 'EUR 99'})
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'value': 'EUR 100'})
+    state['fail'] = False
+    threads = [threading.Thread(target=c.asks.flush) for _ in range(4)]
+    for thread in threads: thread.start()
+    for thread in threads: thread.join()
+    values = [json.loads(line)['answer']['value'] for line in (tenant / 'asks' / 'answers.jsonl').read_text().splitlines()]
+    assert values == ['EUR 99', 'EUR 100']
