@@ -111,8 +111,8 @@ def test_unsafe_identifiers_and_source_text_not_exposed(tree):
     (tenant / 'enabled.yaml').write_text(yaml.safe_dump({'schema': 'snowgloves.enabled.v1', 'tenant': 'acme', 'agents': ['../../outside', 'token-123', 'cto', 'unregistered'], 'modules': ['secret-123', 'https://private', '<img src=x>', {'id': 'skill-a', 'name': 'TOKEN_VALUE'}]}))
     (tenant / 'sources.yaml').write_text(yaml.safe_dump({'tenant': 'acme', 'sources': [{'id': 'ok', 'type': 'filesystem', 'ingest': False, 'url': 'https://private'}, {'id': 'foreign', 'type': 'filesystem', 'tenant': 'other', 'ingest': True}, {'id': 'token-123', 'type': 'filesystem'}, {'id': 'bad-type', 'type': ['filesystem']}, {'id': 'bad-admission', 'type': 'filesystem', 'ingest': 'yes'}]}))
     result = capability_map(repo, tenant)
-    assert [m['id'] for m in result['configuredModules']] == ['skill-a']
-    assert result['assignedAgents'] == [{'id': 'cto', 'status': 'configured'}, {'id': 'unregistered', 'status': 'held'}]
+    assert result['enabledState'] == 'held'
+    assert result['configuredModules'] == [] and result['assignedAgents'] == []
     assert result['sourcesState'] == 'held' and result['registeredSources'] == []
     for excluded in ['TOKEN_VALUE', 'token-123', 'https://private', 'foreign', '<img']:
         assert excluded not in json.dumps(result)
@@ -187,3 +187,13 @@ def test_malformed_source_row_holds_the_source_list(tree):
         {'id': 'brand-docs', 'type': 'filesystem', 'ingest': True}, {'id': 'odd', 'type': 'carrier-pigeon'}]}))
     result = capability_map(repo, tenant)
     assert result['sourcesState'] == 'held' and result['registeredSources'] == []
+
+
+def test_malformed_enablement_row_holds_the_enablement(tree):
+    repo, tenant = tree
+    enabled = yaml.safe_load((tenant / 'enabled.yaml').read_text())
+    enabled['modules'].append('skill-a')  # duplicate id
+    (tenant / 'enabled.yaml').write_text(yaml.safe_dump(enabled))
+    result = capability_map(repo, tenant)
+    assert result['enabledState'] == 'held'
+    assert result['configuredModules'] == [] and result['assignedAgents'] == []

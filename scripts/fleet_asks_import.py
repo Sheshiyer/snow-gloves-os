@@ -44,7 +44,30 @@ def _last_json_array(text):
     return found
 
 
-def import_proposals(tenants_dir, tenant, artifact_text, known_ids):
+def _scan_journal(path):
+    """Full streaming scan: latest proposal per ask id and every imported source."""
+    latest, sources = {}, set()
+    try:
+        if path.is_symlink() or not path.is_file():
+            return latest, sources
+        with path.open('r', encoding='utf-8', errors='replace') as stream:
+            for line in stream:
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(record, dict):
+                    continue
+                if isinstance(record.get('ask_id'), str) and isinstance(record.get('proposed'), str):
+                    latest[record['ask_id']] = record['proposed']
+                if isinstance(record.get('source'), str):
+                    sources.add(record['source'])
+    except OSError:
+        pass
+    return latest, sources
+
+
+def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None):
     """Append valid proposals from *artifact_text* to ``asks/proposed.jsonl``.
 
     Only entries whose ``ask_id`` is in *known_ids* and whose ``proposed``
@@ -79,12 +102,17 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids):
                 continue
             record['evidence'] = evidence
         valid.append(record)
-    # Re-importing the same artifact must not grow the journal.
-    recorded = load_proposals(Path(tenants_dir) / tenant)
+    # Dedupe against the whole journal, not the bounded display tail, and never
+    # re-import a task: an old artifact must not override a newer proposal.
+    recorded, imported = _scan_journal(Path(tenants_dir) / tenant / 'asks' / 'proposed.jsonl')
+    if source is not None and source in imported:
+        return 0
     latest = {}
     for record in valid:
         latest[record['ask_id']] = record
     valid = [r for r in latest.values() if recorded.get(r['ask_id']) != r['proposed']]
+    if source is not None:
+        valid = [dict(r, source=source) for r in valid]
     if not valid:
         return 0
     base = Path(tenants_dir).resolve()
@@ -149,7 +177,7 @@ def main():
     # Only open asks take proposals; an answered ask keeps the founder's answer.
     known_ids = {ask['id'] for ask in (listing.get('asks') if isinstance(listing, dict) else [])
                  if isinstance(ask, dict) and isinstance(ask.get('id'), str) and ask.get('status') == 'open'}
-    count = import_proposals(tenants_dir, tenant, output, known_ids)
+    count = import_proposals(tenants_dir, tenant, output, known_ids, source="task:" + args.task)
     print('Imported %d proposal(s)' % count)
     return 0
 

@@ -127,13 +127,17 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
     configured, assigned = [], []
     known_roles = {r["id"] for r in controls + templates}
     if enabled_state == "configured":
+        malformed = False
         for ident in enabled["agents"]:
-            if safe_id(ident) and ident not in [a["id"] for a in assigned]:
-                assigned.append({"id": ident, "status": "configured" if ident in known_roles else "held"})
-        for item in enabled["modules"]:
+            if not safe_id(ident) or ident in [a["id"] for a in assigned]:
+                malformed = True
+                break
+            assigned.append({"id": ident, "status": "configured" if ident in known_roles else "held"})
+        for item in ([] if malformed else enabled["modules"]):
             ident = item.get("id") if isinstance(item, dict) else item
             if not safe_id(ident) or ident in [m["id"] for m in configured]:
-                continue
+                malformed = True
+                break
             card = cards.get(ident, {})
             category = card.get("category") if card.get("category") in ("skills", "mcp", "connector", "plugin", "playbook", "mod") else "unknown"
             disposition = card.get("disposition") if card.get("disposition") in ("add", "pointer", "hold", "refuse") else "unknown"
@@ -141,6 +145,9 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
             approval = card.get("approval") if card.get("approval") in ("yes", "no") else "unknown"
             permitted = category != "unknown" and disposition in ("add", "pointer") and risk != "unknown" and approval != "unknown" and card.get("enableable") is True and _rows(card.get("agents")) and all(isinstance(a, str) and a in known_roles for a in card["agents"])
             configured.append({"id": ident, "name": _label(card.get("name"), ident), "category": category, "disposition": disposition, "risk": risk, "approval": approval, "gate": ("approval_required" if approval == "yes" or risk == "high" else "catalog_permitted") if permitted else "held", "roles": sorted({a for a in card.get("agents", []) if isinstance(a, str) and a in known_roles}) if _rows(card.get("agents")) else []})
+        if malformed:
+            # Fail closed: one unsafe, malformed or duplicate row holds the enablement.
+            configured, assigned, enabled_state = [], [], "held"
 
     runtime, runtime_state = _tenant_file(tenant_dir, "runtime.yaml", "snowgloves.runtime.v1")
     runtime_id = None

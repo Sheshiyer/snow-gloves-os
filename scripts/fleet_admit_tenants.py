@@ -48,9 +48,26 @@ def admit(config, tenants, organization, principal, workers, root=None, remote_r
              and config['workers'][name].get('remote_artifacts') is not True]
     if root is not None and (not isinstance(root, str) or not os.path.isabs(root)):
         raise ValueError('Project root must be an absolute path')
-    # Same invariant load_config() enforces, checked before any config is written.
-    if root is not None and (not os.path.isdir(root) or not os.path.exists(os.path.join(root, '.git'))):
-        raise ValueError('Project root must be an existing Git checkout: %s' % root)
+    # A shared checkout would let one tenant's read-only task see another
+    # tenant's private folder, so several tenants need a {tenant} root template.
+    current = config.get('projects', {})
+    mapped = {p.get('tenant') for p in current.values() if isinstance(p, dict)}
+    new_tenants = [t for t in tenants if t not in current and t not in mapped]
+    if root is not None and len(new_tenants) > 1 and '{tenant}' not in root:
+        raise ValueError('Admitting several tenants needs a tenant-scoped root template containing {tenant}')
+    roots = {}
+    for tenant in new_tenants:
+        if root is None:
+            continue
+        candidate = root.replace('{tenant}', tenant)
+        # Same invariant load_config() enforces, checked before any config is written.
+        if not os.path.isdir(candidate) or not os.path.exists(os.path.join(candidate, '.git')):
+            raise ValueError('Project root must be an existing Git checkout: %s' % candidate)
+        holder = os.path.join(candidate, 'tenants')
+        if os.path.isdir(holder) and any(name != tenant for name in os.listdir(holder)
+                                         if os.path.isdir(os.path.join(holder, name))):
+            raise ValueError('Project root %s holds other tenants; use a tenant-scoped checkout' % candidate)
+        roots[tenant] = candidate
     # The asks API, proxy and UI route project ids as [a-z0-9][a-z0-9_-]{0,63}.
     unroutable = [t for t in tenants if not isinstance(t, str) or not PROJECT_ID.fullmatch(t)]
     if unroutable:
@@ -67,8 +84,8 @@ def admit(config, tenants, organization, principal, workers, root=None, remote_r
         if tenant in projects or tenant in existing_tenants:
             continue
         projects[tenant] = {'tenant': tenant, 'organization': organization, 'runtimes': ['codex']}
-        if root is not None:
-            projects[tenant]['root'] = root
+        if tenant in roots:
+            projects[tenant]['root'] = roots[tenant]
         principal_entry = result.get('principals', {}).get(principal)
         if isinstance(principal_entry, dict):
             principal_projects = principal_entry.setdefault('projects', [])

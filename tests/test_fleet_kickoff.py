@@ -526,3 +526,42 @@ def test_import_rejects_lone_surrogates(tmp_path):
     (tenants_dir / 'heyzack').mkdir(parents=True)
     artifact = '[{"ask_id":"id1","proposed":"bad \\ud800","evidence":"x"},{"ask_id":"id2","proposed":"EUR 99","evidence":"x"}]'
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}) == 1
+
+
+def test_admit_refuses_a_shared_root_for_several_tenants(tmp_path):
+    config = _base_config()
+    with pytest.raises(ValueError, match='tenant'):
+        admit(config, ['tenant-a', 'tenant-b'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
+    for name in ('tenant-a', 'tenant-b'):
+        os.makedirs(tmp_path / name / '.git')
+    result = admit(config, ['tenant-a', 'tenant-b'], 'org', 'founder', ['mac-coding-1'], root=str(tmp_path / '{tenant}'))
+    assert result['projects']['tenant-a']['root'] == str(tmp_path / 'tenant-a')
+    assert result['projects']['tenant-b']['root'] == str(tmp_path / 'tenant-b')
+
+
+def test_admit_refuses_a_root_holding_other_tenants(tmp_path):
+    config = _base_config()
+    shared = tmp_path / 'ops'
+    os.makedirs(shared / '.git')
+    os.makedirs(shared / 'tenants' / 'tenant-a')
+    os.makedirs(shared / 'tenants' / 'other-tenant')
+    with pytest.raises(ValueError, match='other tenants'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(shared))
+
+
+def test_reimporting_the_same_task_is_a_no_op_beyond_the_tail(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    asks_dir.mkdir(parents=True)
+    old = '[{"ask_id":"id1","proposed":"EUR 99","evidence":"x"}]'
+    assert import_proposals(tenants_dir, 'heyzack', old, {'id1'}, source='task-old') == 1
+    filler = json.dumps({'ask_id': 'f' * 32, 'proposed': 'x' * 400}) + '\n'
+    with (asks_dir / 'proposed.jsonl').open('a') as stream:
+        stream.write(filler * 1000)
+    new = '[{"ask_id":"id1","proposed":"EUR 120","evidence":"x"}]'
+    assert import_proposals(tenants_dir, 'heyzack', new, {'id1'}, source='task-new') == 1
+    with (asks_dir / 'proposed.jsonl').open('a') as stream:
+        stream.write(filler * 1000)
+    assert import_proposals(tenants_dir, 'heyzack', old, {'id1'}, source='task-old') == 0
+    last = [json.loads(line) for line in (asks_dir / 'proposed.jsonl').read_text().splitlines() if '"id1"' in line][-1]
+    assert last['proposed'] == 'EUR 120' and last['source'] == 'task-new'
