@@ -147,6 +147,30 @@ describe('ask stack', () => {
   });
 });
 
+describe('answered asks', () => {
+  it('lists open asks first and shows an answered ask as its answer with hidden controls', () => {
+    const answered = model({id: 'b'.repeat(32), title: 'the segment.', status: 'answered', answer: {value: 'Homeowners'}});
+    const accepted = model({id: 'c'.repeat(32), kind: 'connect', role: 'dispatcher', title: 'Connect drive', answerType: 'yes_no', status: 'answered', answer: {accept: true}});
+    const stack = render([answered, model(), accepted], vi.fn(async () => {}));
+    const titles = stack.all().filter(node => node.className === 'oc-asks-title').map(node => node.textContent);
+    expect(titles).toEqual(['the price.', 'the segment.', 'Connect drive']);
+    const notes = stack.all().filter(node => node.className === 'oc-asks-answer').map(node => node.textContent);
+    expect(notes).toEqual(['Answered: Homeowners', 'Answered: Yes']);
+    const hidden = stack.all().filter(node => (node as unknown as {hidden?: boolean}).hidden === true);
+    expect(hidden).toHaveLength(2);
+  });
+
+  it('reveals the controls when Change answer is pressed', () => {
+    const accepted = model({kind: 'connect', role: 'dispatcher', answerType: 'yes_no', status: 'answered', answer: {accept: false}});
+    const stack = render([accepted], vi.fn(async () => {}));
+    const change = stack.all().find(node => node.textContent === 'Change answer');
+    expect(change).toBeDefined();
+    void change?.onclick?.();
+    expect(stack.all().filter(node => (node as unknown as {hidden?: boolean}).hidden === true)).toHaveLength(0);
+    expect(stack.all().find(node => node.className === 'oc-asks-answer')?.textContent).toBe('Answered: No');
+  });
+});
+
 describe('ask sync and fleet client', () => {
   it('keeps the last good list when a later poll fails', async () => {
     const emit = vi.fn();

@@ -1461,6 +1461,7 @@ details.oc-connection-notes[open] summary::before {
 .oc-asks-title,
 .oc-asks-meta,
 .oc-asks-proposed,
+.oc-asks-answer,
 .oc-asks-error,
 .oc-asks-empty {
   margin: 0;
@@ -1473,6 +1474,8 @@ details.oc-connection-notes[open] summary::before {
 }
 .oc-asks-meta { color: var(--oc-text-muted); font-size: 0.82rem; }
 .oc-asks-proposed { font-weight: 700; }
+.oc-asks-answer { font-weight: 700; color: var(--oc-text-muted); }
+.oc-asks-card [hidden] { display: none; }
 .oc-asks-actions,
 .oc-asks-form {
   display: flex;
