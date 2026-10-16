@@ -1,0 +1,145 @@
+"""Founder asks derived from tenant files: bounded, sensitive-safe, never raising."""
+import json
+from pathlib import Path
+
+import yaml
+
+from lib.tenant_asks import ASK_KINDS, ROLE_FOR_KIND, ask_id, derive_asks, load_proposal
+
+
+def test_ask_kinds_and_roles():
+    assert ASK_KINDS == ('fact', 'decision', 'connect', 'website', 'brand')
+    assert ROLE_FOR_KIND == {
+        'fact': 'librarian',
+        'decision': 'chief-of-staff',
+        'connect': 'dispatcher',
+        'website': 'interpreter',
+        'brand': 'interpreter',
+    }
+
+
+def test_fill_lines_become_fact_asks(tmp_path):
+    t = tmp_path / 'heyzack'
+    (t / 'context').mkdir(parents=True)
+    (t / 'context/offer.md').write_text('# Offer\nFILL: the price.\n')
+    (t / 'context/open-questions.md').write_text('- FILL: the price.\n')
+    asks = derive_asks(tmp_path, 'heyzack')
+    assert [(a['kind'], a['role'], a['title'], a['source'], a['answer_type']) for a in asks] == [
+        ('fact', 'librarian', 'the price.', 'context/offer.md', 'text')]
+    assert asks[0]['id'] == ask_id('heyzack', 'fact', 'context/offer.md|the price.')
+    assert set(asks[0]) == {'id', 'tenant', 'kind', 'role', 'title', 'source', 'answer_type', 'proposed'}
+    assert asks[0]['tenant'] == 'heyzack' and asks[0]['proposed'] is None
+
+
+def test_proposed_value_turns_fact_into_yes_no(tmp_path):
+    t = tmp_path / 'heyzack'
+    (t / 'context').mkdir(parents=True)
+    (t / 'context/offer.md').write_text('FILL: the price.\n')
+    ask = derive_asks(tmp_path, 'heyzack')[0]
+    assert ask['answer_type'] == 'text' and ask['proposed'] is None
+
+    (t / 'asks').mkdir()
+    (t / 'asks/proposed.jsonl').write_text(
+        json.dumps({'ask_id': ask['id'], 'proposed': 'EUR 80'}) + '\n'
+        + json.dumps({'ask_id': ask['id'], 'proposed': 'EUR 99'}) + '\n')
+    asks = derive_asks(tmp_path, 'heyzack')
+    assert len(asks) == 1
+    assert asks[0]['answer_type'] == 'yes_no'
+    assert asks[0]['proposed'] == 'EUR 99'
+
+
+def test_decision_connect_website_brand(tmp_path):
+    tenants = tmp_path / 'tenants'
+    t = tenants / 'heyzack'
+    t.mkdir(parents=True)
+    (t / 'sources.yaml').write_text(yaml.safe_dump({
+        'tenant': 'heyzack',
+        'sources': [{'id': 'drive', 'type': 'gdrive', 'admitted': False}],
+    }))
+    (t / 'enabled.yaml').write_text(yaml.safe_dump({
+        'schema': 'snowgloves.enabled.v1',
+        'tenant': 'heyzack',
+        'agents': [],
+        'modules': [{'id': 'github-mcp', 'category': 'mcp'}],
+    }))
+    (t / 'MANIFEST.yaml').write_text(yaml.safe_dump({
+        'tenant': 'heyzack',
+        'brand': {'domain': 'FILL: confirm'},
+    }))
+
+    data = tmp_path / 'data'
+    spec_dir = data / 'specs' / '006-editorial-steward-integration'
+    spec_dir.mkdir(parents=True)
+    (spec_dir / 'portfolio-map-proposal.json').write_text(json.dumps({
+        'cross_brand_flows': [{
+            'id': 'f1', 'status': 'proposed_not_approved',
+            'participants': ['heyzack'], 'description': 'X',
+        }],
+    }))
+    proposal = load_proposal(data)
+
+    asks = derive_asks(tenants, 'heyzack', proposal)
+    assert [a['kind'] for a in asks] == ['decision', 'connect', 'connect', 'website', 'brand']
+    assert [a['role'] for a in asks] == ['chief-of-staff', 'dispatcher', 'dispatcher', 'interpreter', 'interpreter']
+    assert [a['answer_type'] for a in asks] == ['yes_no', 'yes_no', 'yes_no', 'text', 'yes_no']
+    assert all(a['proposed'] is None for a in asks)
+    expected = [('decision', 'flow|f1'), ('connect', 'source|drive'), ('connect', 'module|github-mcp'),
+                ('website', 'domain'), ('brand', 'meristem')]
+    assert {a['id'] for a in asks} == {ask_id('heyzack', kind, key) for kind, key in expected}
+    assert {a['source'] for a in asks} == {'portfolio-map-proposal.json', 'sources.yaml', 'enabled.yaml', 'MANIFEST.yaml'}
+    assert asks[0]['title'] == 'X'
+
+    (t / 'sources.yaml').write_text(yaml.safe_dump({
+        'tenant': 'heyzack',
+        'sources': [
+            {'id': 'drive', 'type': 'gdrive', 'admitted': False},
+            {'id': 'meristem-research', 'type': 'filesystem', 'admitted': True},
+        ],
+    }))
+    asks = derive_asks(tenants, 'heyzack', proposal)
+    assert not any(a['kind'] == 'brand' for a in asks)
+    assert any(a['kind'] == 'connect' and a['source'] == 'sources.yaml' for a in asks)
+
+
+def test_sensitive_titles_dropped_and_caps(tmp_path):
+    t = tmp_path / 'heyzack'
+    (t / 'context').mkdir(parents=True)
+    (t / 'context/a.md').write_text('FILL: the api key for X\n')
+    (t / 'context/b.md').write_text('FILL: ' + 'x' * 200 + '\n')
+    (t / 'context/c.md').write_text(''.join('FILL: question %d\n' % i for i in range(450)))
+    asks = derive_asks(tmp_path, 'heyzack')
+    assert len(asks) == 400
+    assert all(a['kind'] == 'fact' for a in asks)
+    assert all(len(a['title']) <= 160 for a in asks)
+    assert all('api key' not in a['title'].lower() for a in asks)
+    assert any(len(a['title']) == 160 for a in asks)
+
+
+def test_broken_files_do_not_raise(tmp_path):
+    t = tmp_path / 'heyzack'
+    t.mkdir()
+    (t / 'MANIFEST.yaml').write_text('tenant: [unclosed\n  bad: yaml')
+    (t / 'sources.yaml').write_text('sources: [unclosed')
+    (t / 'enabled.yaml').write_text('modules: [unclosed')
+    assert derive_asks(tmp_path, 'heyzack') == []
+
+    (t / 'context').mkdir()
+    (t / 'context/ok.md').write_text('FILL: fine\n')
+    (t / 'context/big.md').write_bytes(b'FILL: big\n' + b'x' * (256 * 1024))
+    outside = tmp_path / 'outside.md'
+    outside.write_text('FILL: linked\n')
+    (t / 'context/linked.md').symlink_to(outside)
+    assert [a['title'] for a in derive_asks(tmp_path, 'heyzack')] == ['fine']
+
+
+def test_load_proposal_missing_invalid_and_oversize(tmp_path):
+    assert load_proposal(tmp_path) is None
+    spec_dir = tmp_path / 'specs' / '006-editorial-steward-integration'
+    spec_dir.mkdir(parents=True)
+    path = spec_dir / 'portfolio-map-proposal.json'
+    path.write_text('{bad json')
+    assert load_proposal(tmp_path) is None
+    path.write_bytes(b'{"a": ' + b'1' * (512 * 1024) + b'}')
+    assert load_proposal(tmp_path) is None
+    path.write_text(json.dumps({'cross_brand_flows': []}))
+    assert load_proposal(tmp_path) == {'cross_brand_flows': []}
