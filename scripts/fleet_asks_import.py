@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -10,6 +11,8 @@ from pathlib import Path
 
 from lib.tenant_asks import SENSITIVE_RE
 
+# The browser rejects strings with C0 control characters, so never import one.
+CONTROL_CHARS = re.compile(r'[\x00-\x1f\x7f]')
 MAX_PROPOSED = 500
 MAX_EVIDENCE = 500
 MAX_ARTIFACT = 256 * 1024
@@ -63,7 +66,8 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids):
         proposed = entry.get('proposed')
         if not isinstance(ask_id, str) or ask_id not in known_ids:
             continue
-        if not isinstance(proposed, str) or not proposed.strip() or len(proposed) > MAX_PROPOSED:
+        if (not isinstance(proposed, str) or not proposed.strip() or len(proposed) > MAX_PROPOSED
+                or CONTROL_CHARS.search(proposed)):
             continue
         if SENSITIVE_RE.search(proposed):
             continue

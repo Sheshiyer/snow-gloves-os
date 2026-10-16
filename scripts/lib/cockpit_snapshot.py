@@ -324,8 +324,13 @@ def _load_tenants(repo_root: Path, data_root: Optional[Path], filter_tenant: Opt
         app_counts, app_malformed = _load_approvals_counts(app_dir, target_base)
         total_malformed_approvals += app_malformed
 
+        try:
+            cap_map = capability_map(repo_root, entry)
+        except (ValueError, OSError):
+            # One tenant's unsafe identifier must not fail the whole snapshot.
+            cap_map = None
+            t_warnings.append("capability map unavailable")
         tenants.append({
-            "capabilityMap": capability_map(repo_root, entry),
             "slug": slug,
             "name": name,
             "primaryRuntime": primary_runtime,
@@ -337,6 +342,8 @@ def _load_tenants(repo_root: Path, data_root: Optional[Path], filter_tenant: Opt
             "availability": "local" if is_local else "fixture",
             "warnings": t_warnings,
         })
+        if cap_map is not None:
+            tenants[-1]["capabilityMap"] = cap_map
         if is_local:
             try:
                 tenants[-1].update(brand_summary(data_root, entry, sdata if sources_path.exists() and _is_safe_path(target_base, sources_path) else None))

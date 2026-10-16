@@ -4,8 +4,11 @@ import argparse
 import copy
 import json
 import os
+import re
 import sys
 from pathlib import Path
+
+PROJECT_ID = re.compile(r'[a-z0-9][a-z0-9_-]{0,63}')
 
 
 def admit(config, tenants, organization, principal, workers, root=None):
@@ -29,6 +32,13 @@ def admit(config, tenants, organization, principal, workers, root=None):
              and config['workers'][name].get('remote_artifacts') is not True]
     if root is not None and (not isinstance(root, str) or not os.path.isabs(root)):
         raise ValueError('Project root must be an absolute path')
+    # Same invariant load_config() enforces, checked before any config is written.
+    if root is not None and (not os.path.isdir(root) or not os.path.exists(os.path.join(root, '.git'))):
+        raise ValueError('Project root must be an existing Git checkout: %s' % root)
+    # The asks API, proxy and UI route project ids as [a-z0-9][a-z0-9_-]{0,63}.
+    unroutable = [t for t in tenants if not isinstance(t, str) or not PROJECT_ID.fullmatch(t)]
+    if unroutable:
+        raise ValueError('Tenant slug is not a routable project id: %s' % ', '.join(map(str, unroutable)))
     if local and root is None:
         raise ValueError('A project root is required when admitting tenants to local workers: %s' % ', '.join(local))
     result = copy.deepcopy(config)

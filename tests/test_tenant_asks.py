@@ -209,3 +209,12 @@ def test_duplicate_sources_yield_unique_ids(tmp_path):
     assert len(ids) == len(set(ids))
     assert [a['kind'] for a in asks].count('fact') == 1
     assert [a['title'] for a in asks].count('Connect drive') == 1
+
+
+def test_control_character_proposal_keeps_fact_as_text(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True); (t / 'asks').mkdir()
+    (t / 'context/offer.md').write_text('# Offer\nFILL: the price.\n')
+    ident = ask_id('heyzack', 'fact', 'context/offer.md|the price.')
+    (t / 'asks/proposed.jsonl').write_text(json.dumps({'ask_id': ident, 'proposed': 'a\nb'}) + '\n')
+    ask = derive_asks(tmp_path, 'heyzack')[0]
+    assert ask['answer_type'] == 'text' and ask['proposed'] is None

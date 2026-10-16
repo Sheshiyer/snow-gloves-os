@@ -1,5 +1,7 @@
 """Tests for tenant admission, kickoff briefs and proposal import."""
 import json
+import os
+import tempfile
 import stat
 import sys
 from pathlib import Path
@@ -11,6 +13,10 @@ import fleet_kickoff
 from fleet_admit_tenants import admit, _write_config
 from fleet_kickoff import kickoff_brief, _task_body
 from fleet_asks_import import import_proposals, _last_json_array
+
+
+GIT_ROOT = tempfile.mkdtemp(prefix='admit-root-')
+os.makedirs(os.path.join(GIT_ROOT, '.git'), exist_ok=True)
 
 
 def _base_config():
@@ -42,23 +48,23 @@ def _base_config():
 
 def test_admit_keeps_existing_project_mapped_to_tenant():
     config = _base_config()
-    result = admit(config, ['heyzack', 'tryambakam'], 'new-org', 'founder', ['mac-coding-1'], root='/tmp/repo')
+    result = admit(config, ['heyzack', 'tryambakam'], 'new-org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
     assert 'heyzack' not in result['projects']
     assert result['projects']['snowgloves']['tenant'] == 'heyzack'
     assert result['projects']['tryambakam'] == {
-        'tenant': 'tryambakam', 'organization': 'new-org', 'runtimes': ['codex'], 'root': '/tmp/repo'}
+        'tenant': 'tryambakam', 'organization': 'new-org', 'runtimes': ['codex'], 'root': GIT_ROOT}
 
 
 def test_admit_appends_to_principal_and_workers():
     config = _base_config()
-    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
+    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
     assert 'tryambakam' in result['principals']['founder']['projects']
     assert 'tryambakam' in result['workers']['mac-coding-1']['projects']
 
 
 def test_admit_never_adds_write_grants():
     config = _base_config()
-    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
+    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
     project = result['projects']['tryambakam']
     assert 'write' not in project
     assert 'fanout' not in project
@@ -67,14 +73,14 @@ def test_admit_never_adds_write_grants():
 
 def test_admit_is_idempotent():
     config = _base_config()
-    result = admit(config, ['heyzack', 'tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
-    result2 = admit(result, ['heyzack', 'tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
+    result = admit(config, ['heyzack', 'tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
+    result2 = admit(result, ['heyzack', 'tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
     assert result2 == result
 
 
 def test_admit_does_not_mutate_input():
     config = _base_config()
-    admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
+    admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
     assert 'tryambakam' not in config['projects']
     assert config['principals']['founder']['projects'] == ['snowgloves']
 
@@ -198,7 +204,7 @@ def test_import_proposals_count_matches_lines(tmp_path):
 def test_write_config_is_atomic_mode_0600(tmp_path):
     config_path = tmp_path / 'coordinator.json'
     config_path.write_text(json.dumps(_base_config()))
-    result = admit(_base_config(), ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root='/tmp/repo')
+    result = admit(_base_config(), ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
     _write_config(config_path, result)
     mode = stat.S_IMODE(config_path.stat().st_mode)
     assert mode == 0o600
@@ -392,9 +398,9 @@ def test_kickoff_task_body_is_accepted_by_the_coordinator(tmp_path):
 def test_admit_rejects_unknown_principal_or_worker():
     config = _base_config()
     with pytest.raises(ValueError, match='principal'):
-        admit(config, ['tryambakam'], 'org', 'foundr', ['mac-coding-1'], root='/tmp/repo')
+        admit(config, ['tryambakam'], 'org', 'foundr', ['mac-coding-1'], root=GIT_ROOT)
     with pytest.raises(ValueError, match='worker'):
-        admit(config, ['tryambakam'], 'org', 'founder', ['mac-codng-1'], root='/tmp/repo')
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-codng-1'], root=GIT_ROOT)
     with pytest.raises(ValueError, match='worker'):
         admit(config, ['tryambakam'], 'org', 'founder', ['mac-codng-1'])
 
@@ -411,3 +417,27 @@ def test_kickoff_skips_projects_without_open_fact_asks(monkeypatch, capsys, tmp_
                                       '--projects', 'quiet,busy', '--submit'])
     assert fleet_kickoff.main() == 0
     assert submitted == ['busy']
+
+
+def test_admit_requires_existing_git_checkout_root(tmp_path):
+    config = _base_config()
+    with pytest.raises(ValueError, match='Git'):
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=str(tmp_path / 'missing'))
+    plain = tmp_path / 'plain'; plain.mkdir()
+    with pytest.raises(ValueError, match='Git'):
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=str(plain))
+
+
+def test_admit_rejects_unroutable_project_ids():
+    config = _base_config()
+    with pytest.raises(ValueError, match='project id'):
+        admit(config, ['_demo'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
+
+
+def test_import_proposals_rejects_control_characters(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    artifact = '[{"ask_id":"id1","proposed":"line one\\nline two","evidence":"ctx"},{"ask_id":"id2","proposed":"EUR 99","evidence":"ctx"}]'
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}) == 1
+    lines = (tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl').read_text().splitlines()
+    assert [json.loads(line)['ask_id'] for line in lines] == ['id2']

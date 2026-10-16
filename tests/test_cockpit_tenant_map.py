@@ -154,3 +154,14 @@ def test_snapshot_integration_read_only_and_public_catalog_counts(tree):
     assert len(result['availableControlRoles']) == 7
     assert len(result['availableBusinessRoles']) == 19
     assert result['assignedAgents'] == [{'id': 'cto', 'status': 'configured'}]
+
+
+def test_capability_map_failure_is_isolated_to_one_tenant(tree):
+    repo, tenant = tree
+    odd = tenant.parent / 'customer-token'
+    odd.mkdir()
+    snapshot = build_snapshot(repo, data_root=tenant.parents[1], probe=False)
+    by_slug = {t['slug']: t for t in snapshot['tenants']}
+    assert 'capabilityMap' in by_slug['acme']
+    assert 'capabilityMap' not in by_slug['customer-token']
+    assert 'capability map unavailable' in by_slug['customer-token']['warnings']
