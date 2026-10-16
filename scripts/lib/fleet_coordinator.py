@@ -185,6 +185,7 @@ class Coordinator:
         install_asks(self)
         self.asks = Asks(self)
         self.db.commit()
+        self.asks.flush()  # retry journal appends left over from before a restart
 
     @contextmanager
     def transaction(self):

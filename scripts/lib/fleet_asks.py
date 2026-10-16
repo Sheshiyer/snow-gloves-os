@@ -2,7 +2,10 @@
 
 The pure deriver in `tenant_asks` turns tenant files into asks with stable ids.
 This module lists them per project and records founder answers in SQLite plus
-an append-only journal under the tenant's `asks/` directory. Listing needs the
+an append-only journal under the tenant's `asks/` directory. SQLite is the
+authority: each answer commits together with an outbox row, and the journal is
+appended only after that commit; unwritten outbox rows are retried on the next
+answer, listing and coordinator start. Listing needs the
 `read` permission; answering needs `approve`. Writes are fail-closed: answers
 are re-derived at answer time, bounded to 500 characters, filtered for
 sensitive values, and the journal never follows a symlink or resolves outside
@@ -11,12 +14,14 @@ the private tenants directory.
 import json
 import os
 import re
+import uuid
 
 from . import paths
 from .fleet_capabilities import reject
 from .tenant_asks import CONTROL_RE, SENSITIVE_RE, derive_asks, load_proposal
 
 MAX_ANSWER = 500
+MAX_PRINCIPAL = 120  # the client's answered_by limit
 ASK_ID = re.compile(r'[a-f0-9]{32}\Z')
 
 
@@ -26,7 +31,15 @@ def install(coordinator):
         project TEXT NOT NULL, ask_id TEXT NOT NULL, tenant TEXT NOT NULL, kind TEXT NOT NULL,
         answer_json TEXT NOT NULL, answered REAL NOT NULL, answered_by TEXT NOT NULL,
         PRIMARY KEY(project, ask_id));
+      CREATE TABLE IF NOT EXISTS ask_journal_outbox (
+        answer_id TEXT PRIMARY KEY, tenant TEXT NOT NULL, record_json TEXT NOT NULL, created REAL NOT NULL);
     ''')
+
+
+def _display_principal(owner):
+    """The principal name as shown to clients: no control characters, at most 120 code points."""
+    text = ' '.join(CONTROL_RE.sub(' ', owner if isinstance(owner, str) else '').split())
+    return text[:MAX_PRINCIPAL] or 'principal'
 
 
 class Asks:
@@ -120,6 +133,7 @@ class Asks:
     def list(self, owner, principal, project):
         self.c._need(principal, 'read')
         cfg = self.c.capabilities.project(principal, project)
+        self.flush(cfg['tenant'])
         with self.c.lock:
             rows = {row['ask_id']: row for row in self.c.db.execute(
                 'SELECT * FROM ask_answers WHERE project=?', (project,))}
@@ -148,10 +162,12 @@ class Asks:
             if prior is not None:
                 ask = self._reconcile(ask, json.loads(prior['answer_json']))
             answer = self._validated_answer(ask, body)
-            journal_path = self._journal_path(tenant)
+            self._journal_path(tenant)  # refuse up front if the journal can never be written
             now = self.c.clock()
-            record = {'ask_id': ask_id, 'project': project, 'tenant': tenant, 'kind': ask['kind'],
-                      'title': ask['title'], 'answer': answer, 'answered': now, 'answered_by': owner}
+            by = _display_principal(owner)
+            record = {'answer_id': uuid.uuid4().hex, 'ask_id': ask_id, 'project': project, 'tenant': tenant,
+                      'kind': ask['kind'], 'title': ask['title'], 'answer': answer, 'answered': now,
+                      'answered_by': by}
             self.c.db.execute('''
               INSERT INTO ask_answers(project, ask_id, tenant, kind, answer_json, answered, answered_by)
               VALUES(?, ?, ?, ?, ?, ?, ?)
@@ -159,6 +175,25 @@ class Asks:
                 tenant=excluded.tenant, kind=excluded.kind, answer_json=excluded.answer_json,
                 answered=excluded.answered, answered_by=excluded.answered_by
             ''', (project, ask_id, tenant, ask['kind'],
-                  json.dumps(answer, sort_keys=True, separators=(',', ':')), now, owner))
-            self._append_journal(journal_path, record)
-        return {'ask': self._public_ask(ask, project, answer, now, owner)}
+                  json.dumps(answer, sort_keys=True, separators=(',', ':')), now, by))
+            self.c.db.execute('INSERT INTO ask_journal_outbox(answer_id, tenant, record_json, created) VALUES(?, ?, ?, ?)',
+                              (record['answer_id'], tenant, json.dumps(record, sort_keys=True), now))
+        # The answer is durable in SQLite; the journal follows, never precedes, it.
+        self.flush(tenant)
+        return {'ask': self._public_ask(ask, project, answer, now, by)}
+
+    def flush(self, tenant=None):
+        """Append committed outbox records to their journals; a failed append stays queued."""
+        from .fleet_coordinator import Rejected
+        with self.c.lock:
+            query, params = 'SELECT * FROM ask_journal_outbox', ()
+            if tenant is not None:
+                query, params = query + ' WHERE tenant=?', (tenant,)
+            rows = list(self.c.db.execute(query + ' ORDER BY created, answer_id', params))
+        for row in rows:
+            try:
+                self._append_journal(self._journal_path(row['tenant']), json.loads(row['record_json']))
+            except (Rejected, OSError, ValueError):
+                continue
+            with self.c.transaction():
+                self.c.db.execute('DELETE FROM ask_journal_outbox WHERE answer_id=?', (row['answer_id'],))
