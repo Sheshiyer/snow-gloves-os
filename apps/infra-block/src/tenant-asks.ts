@@ -123,7 +123,8 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
     stack.append(empty);
     return stack;
   }
-  for (const ask of asks) {
+  const ordered = [...asks.filter(ask => ask.status === 'open'), ...asks.filter(ask => ask.status !== 'open')];
+  for (const ask of ordered) {
     const card = document.createElement('article');
     card.className = 'oc-asks-card';
     const title = document.createElement('h3');
@@ -133,6 +134,20 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
     meta.className = 'oc-asks-meta';
     meta.textContent = `${ask.kind} · ${ask.role} · ${ask.source}`;
     card.append(title, meta);
+    // An answered ask shows its answer; its controls stay hidden until the founder chooses to change it.
+    const appendControls = (controls: HTMLElement) => {
+      if (ask.status !== 'answered' || !ask.answer) { card.append(controls); return; }
+      const shown = document.createElement('p');
+      shown.className = 'oc-asks-answer';
+      shown.textContent = `Answered: ${'accept' in ask.answer ? (ask.answer.accept ? 'Yes' : 'No') : ask.answer.value}`;
+      const change = document.createElement('button');
+      change.type = 'button';
+      change.className = 'oc-asks-btn';
+      change.textContent = 'Change answer';
+      controls.hidden = true;
+      change.onclick = () => { controls.hidden = false; change.remove(); };
+      card.append(shown, change, controls);
+    };
     if (ask.proposed) {
       const proposed = document.createElement('p');
       proposed.className = 'oc-asks-proposed';
@@ -152,7 +167,7 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
         controls.push(button);
         actions.append(button);
       }
-      card.append(actions);
+      appendControls(actions);
     } else {
       const form = document.createElement('form');
       form.className = 'oc-asks-form';
@@ -173,7 +188,7 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
         if (!value.trim() || value.length > 500) return;
         return submit(card, controls, ask, {value});
       };
-      card.append(form);
+      appendControls(form);
     }
     stack.append(card);
   }
