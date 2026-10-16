@@ -48,6 +48,8 @@ def admit(config, tenants, organization, principal, workers, root=None):
     existing_tenants = {p.get('tenant') for p in projects.values()
                         if isinstance(p, dict) and isinstance(p.get('tenant'), str)}
     for tenant in tenants:
+        if tenant in projects and (not isinstance(projects[tenant], dict) or projects[tenant].get('tenant') != tenant):
+            raise ValueError('Project id %s already maps to a different tenant' % tenant)
         if tenant in projects or tenant in existing_tenants:
             continue
         projects[tenant] = {'tenant': tenant, 'organization': organization, 'runtimes': ['codex']}

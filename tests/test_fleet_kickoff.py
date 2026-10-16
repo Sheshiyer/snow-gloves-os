@@ -457,3 +457,17 @@ def test_import_skips_proposals_already_recorded(tmp_path):
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}) == 1
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}) == 0
     assert len((tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl').read_text().splitlines()) == 1
+
+
+def test_import_ignores_bracketed_text_inside_proposals(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    artifact = 'Done.\n[{"ask_id":"id1","proposed":"EUR 99","evidence":"price list, source [1]"}]'
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}) == 1
+
+
+def test_admit_rejects_project_id_mapped_to_another_tenant():
+    config = _base_config()
+    config['projects']['tryambakam'] = dict(config['projects']['snowgloves'], tenant='other-tenant')
+    with pytest.raises(ValueError, match='tryambakam'):
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)

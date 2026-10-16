@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from lib.tenant_asks import ASK_KINDS, ROLE_FOR_KIND, ask_id, derive_asks, load_proposal
+from lib.tenant_asks import SENSITIVE_RE, ASK_KINDS, ROLE_FOR_KIND, ask_id, derive_asks, load_proposal
 
 
 def test_ask_kinds_and_roles():
@@ -244,3 +244,12 @@ def test_oversized_proposal_journal_keeps_the_newest_tail(tmp_path):
     assert (t / 'asks/proposed.jsonl').stat().st_size > 256 * 1024
     ask = derive_asks(tmp_path, 'heyzack')[0]
     assert ask['answer_type'] == 'yes_no' and ask['proposed'] == 'EUR 99'
+
+
+def test_sensitive_text_is_rechecked_after_normalization(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    (t / 'context/offer.md').write_text('# Offer\nFILL: the api\tkey for billing.\nFILL: the price.\n')
+    (t / 'sources.yaml').write_text('sources:\n- {id: customer-token, type: gdrive, ingest: false}\n- {id: drive, type: gdrive, ingest: false}\n')
+    titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack')]
+    assert 'the price.' in titles and 'Connect drive' in titles
+    assert not any(SENSITIVE_RE.search(title) for title in titles)

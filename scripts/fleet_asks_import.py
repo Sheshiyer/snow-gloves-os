@@ -22,7 +22,7 @@ def _last_json_array(text):
 
     Candidate '[' positions are walked from the end of *text* via rfind and
     ``raw_decode`` is tried at each, stopping at the first that decodes to a
-    list.  At most 200 positions are examined, so the search is bounded even
+    non-empty list of objects carrying ``ask_id``.  At most 200 positions are examined, so the search is bounded even
     when the text contains thousands of '[' characters.
     """
     decoder = json.JSONDecoder()
@@ -36,7 +36,9 @@ def _last_json_array(text):
         except (ValueError, json.JSONDecodeError):
             pos = idx
             continue
-        if isinstance(value, list):
+        # Only a non-empty array of proposal objects counts; an array decoded
+        # from inside a string or a nested value (e.g. "source [1]") does not.
+        if isinstance(value, list) and value and all(isinstance(item, dict) and 'ask_id' in item for item in value):
             return value
         pos = idx
     return None
