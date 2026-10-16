@@ -363,7 +363,8 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
         # Re-check the final text: normalization can join a split sensitive word,
         # and connect titles are built from raw source and module ids.
         if (not ask['title'] or not ask['source'] or ask['id'] in seen
-                or SENSITIVE_RE.search(ask['title']) or SENSITIVE_RE.search(ask['source'])):
+                or SENSITIVE_RE.search(ask['title']) or SENSITIVE_RE.search(ask['source'])
+                or not is_scalar_text(ask['title']) or not is_scalar_text(ask['source'])):
             continue
         seen.add(ask['id'])
         unique.append(ask)

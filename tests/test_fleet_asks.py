@@ -265,3 +265,22 @@ def test_partial_journal_tail_is_repaired_before_append(asks_ctx):
     c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'value': 'EUR 100'})
     lines = journal.read_text().splitlines()
     assert [json.loads(line)['answer']['value'] for line in lines] == ['EUR 99', 'EUR 100']
+
+
+def test_principal_names_with_lone_surrogates_still_journal(asks_ctx):
+    c, config, _, tenant = asks_ctx
+    name = 'appro\ud800ver'
+    config['principals'][name] = {'token': 'odd-token', 'projects': ['snowgloves'], 'permissions': ['read', 'approve']}
+    target = _ask_id(c, config)
+    result = c.asks.answer(name, config['principals'][name], 'snowgloves', target, {'value': 'EUR 99'})
+    result['ask']['answered_by'].encode('utf-8')
+    assert c.db.execute('SELECT count(*) FROM ask_journal_outbox').fetchone()[0] == 0
+    assert len((tenant / 'asks' / 'answers.jsonl').read_text().splitlines()) == 1
+
+
+def test_unencodable_record_never_blocks_the_outbox(asks_ctx):
+    c, config, _, tenant = asks_ctx
+    path = c.asks._journal_path('heyzack')
+    c.asks._append_journal(path, {'answer_id': 'x', 'title': 'bad \ud800'})
+    line = (tenant / 'asks' / 'answers.jsonl').read_text().splitlines()[0]
+    assert json.loads(line)['answer_id'] == 'x'

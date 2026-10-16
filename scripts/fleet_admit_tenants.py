@@ -11,7 +11,7 @@ from pathlib import Path
 PROJECT_ID = re.compile(r'[a-z0-9][a-z0-9_-]{0,63}')
 
 
-def admit(config, tenants, organization, principal, workers, root=None):
+def admit(config, tenants, organization, principal, workers, root=None, remote_roots_staged=False):
     """Return a new config with each tenant admitted as a read-only codex project.
 
     An existing project already mapped to a tenant is left untouched.  New
@@ -37,6 +37,12 @@ def admit(config, tenants, organization, principal, workers, root=None):
         return 'codex' in (entry.get('runtimes') or []) and 'read' in modes
     if not any(can_claim(config['workers'][name]) for name in workers):
         raise ValueError('At least one listed worker must be able to claim read-only codex tasks')
+    # A remote worker resolves each project through its own private project_roots
+    # map on its Mac, which this script cannot edit; the operator confirms it.
+    remote = [name for name in workers if config['workers'][name].get('remote_artifacts') is True]
+    if remote and not remote_roots_staged:
+        raise ValueError('Remote workers need each new project in their own project_roots first '
+                         '(stage it, then pass --remote-roots-staged): %s' % ', '.join(remote))
     local = [name for name in workers
              if isinstance(config.get('workers', {}).get(name), dict)
              and config['workers'][name].get('remote_artifacts') is not True]
@@ -118,13 +124,15 @@ def main():
     parser.add_argument('--principal', required=True)
     parser.add_argument('--workers', required=True)
     parser.add_argument('--root', help='absolute Git checkout for the new projects; required for local workers')
+    parser.add_argument('--remote-roots-staged', action='store_true',
+                        help='confirm every listed remote worker already maps the new projects in its project_roots')
     parser.add_argument('--write', action='store_true')
     args = parser.parse_args()
     config = json.loads(Path(args.config).read_text())
     tenants = [t.strip() for t in args.tenants.split(',') if t.strip()]
     workers = [w.strip() for w in args.workers.split(',') if w.strip()]
     try:
-        new_config = admit(config, tenants, args.organization, args.principal, workers, root=args.root)
+        new_config = admit(config, tenants, args.organization, args.principal, workers, root=args.root, remote_roots_staged=args.remote_roots_staged)
     except ValueError as exc:
         print('error: %s' % exc, file=sys.stderr)
         sys.exit(2)

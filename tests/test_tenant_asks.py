@@ -320,3 +320,12 @@ def test_proposals_with_lone_surrogates_are_ignored(tmp_path):
     (t / 'asks/proposed.jsonl').write_text('{"ask_id": "%s", "proposed": "bad \\ud800"}\n' % ident)
     ask = derive_asks(tmp_path, 'heyzack')[0]
     assert ask['answer_type'] == 'text' and ask['proposed'] is None
+
+
+def test_decision_titles_with_lone_surrogates_are_dropped(tmp_path):
+    (tmp_path / 'heyzack').mkdir()
+    proposal = {'cross_brand_flows': [
+        {'id': 'bad', 'status': 'proposed_not_approved', 'participants': ['heyzack'], 'description': 'bad \ud800 flow'},
+        {'id': 'good', 'status': 'proposed_not_approved', 'participants': ['heyzack'], 'description': 'good flow'}]}
+    titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack', proposal) if a['kind'] == 'decision']
+    assert len(titles) == 1 and 'good flow' in titles[0]

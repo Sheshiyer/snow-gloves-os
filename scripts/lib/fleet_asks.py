@@ -42,7 +42,9 @@ def install(coordinator):
 
 def _display_principal(owner):
     """The principal name as shown to clients: no control characters, at most 120 code points."""
-    text = ' '.join(CONTROL_RE.sub(' ', owner if isinstance(owner, str) else '').split())
+    text = owner if isinstance(owner, str) else ''
+    text = ''.join('\ufffd' if 0xD800 <= ord(ch) <= 0xDFFF else ch for ch in text)  # lone surrogates
+    text = ' '.join(CONTROL_RE.sub(' ', text).split())
     return text[:MAX_PRINCIPAL] or 'principal'
 
 
@@ -130,7 +132,11 @@ class Asks:
         Appends are serialized by the flush lock and this journal has no other
         writer, so bytes after the last newline can only be our own partial line.
         """
-        line = (json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=False) + '\n').encode('utf-8')
+        try:
+            line = (json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=False) + '\n').encode('utf-8')
+        except UnicodeEncodeError:
+            # Never let one unencodable record block the outbox: ASCII escapes are valid JSON.
+            line = (json.dumps(record, sort_keys=True, separators=(',', ':')) + '\n').encode('ascii')
         flags = os.O_RDWR | os.O_CREAT | os.O_APPEND
         if hasattr(os, 'O_NOFOLLOW'):
             flags |= os.O_NOFOLLOW

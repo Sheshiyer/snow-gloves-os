@@ -358,7 +358,9 @@ def test_admit_requires_root_for_local_workers():
 def test_admit_remote_only_workers_need_no_root():
     config = _base_config()
     config['workers']['mac-creative'] = {'token': 'creative-secret-token-x', 'projects': [], 'runtimes': ['codex'], 'remote_artifacts': True}
-    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-creative'])
+    with pytest.raises(ValueError, match='project_roots'):
+        admit(config, ['tryambakam'], 'org', 'founder', ['mac-creative'])
+    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-creative'], remote_roots_staged=True)
     assert 'root' not in result['projects']['tryambakam']
     assert 'tryambakam' in result['workers']['mac-creative']['projects']
 
