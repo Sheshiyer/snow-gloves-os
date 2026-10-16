@@ -29,6 +29,7 @@ ROLE_FOR_KIND: dict[str, str] = {
 
 MAX_ASKS = 400
 MAX_TITLE = 160
+MAX_SOURCE = 240  # the client's source limit
 # Clients reject strings containing C0 control characters (or DEL); every
 # emitted string is checked or normalized against this one pattern.
 CONTROL_RE = re.compile(r'[\x00-\x1f\x7f]')
@@ -305,7 +306,7 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None) ->
     for ask in asks:
         # Ids come from keys, so normalizing display text never moves an answer.
         ask['title'] = _clean_text(ask['title'])[:MAX_TITLE]
-        ask['source'] = _clean_text(ask['source'])
+        ask['source'] = _clean_text(ask['source'])[:MAX_SOURCE]
         # Re-check the final text: normalization can join a split sensitive word,
         # and connect titles are built from raw source and module ids.
         if (not ask['title'] or not ask['source'] or ask['id'] in seen

@@ -13,28 +13,30 @@ DEFAULT_WAVE = '2026-10-16'
 
 
 def kickoff_brief(tenant, asks):
-    """Build a brief listing up to 40 open fact asks for a read-only research task."""
+    """Build a brief listing up to 40 open fact asks for a read-only research task.
+
+    The header and the JSON output instructions are always kept; when the brief
+    would exceed the cap, only whole ask lines are dropped from the end.
+    """
     fact_asks = [a for a in asks if isinstance(a, dict)
                  and a.get('kind') == 'fact' and a.get('status') == 'open']
-    lines = ['- %s: %s (%s)' % (a.get('id', ''), a.get('title', ''), a.get('source', ''))
-             for a in fact_asks[:MAX_ASKS]]
-    brief = (
-        'Research %s\'s open fact asks and propose values.\n\n'
-        'Use only the tenant\'s own context files, public sources and Meristem outputs. '
-        'Do not use credentials, connectors or external paths. Do not write to any file.\n\n'
-        'Open fact asks (up to %d):\n%s\n\n'
-        'Return a JSON array of objects with keys "ask_id", "proposed" and "evidence". '
-        'Omit any ask for which you have no evidence. '
-        'Each proposed value must be 500 characters or fewer.'
-        % (tenant, MAX_ASKS, '\n'.join(lines)))
-    if len(brief) <= MAX_BRIEF:
-        return brief
-    truncated = brief[:MAX_BRIEF]
-    last_nl = truncated.rfind('\n')
-    if last_nl != -1:
-        truncated = truncated[:last_nl]
-    return truncated
-
+    header = ('Research %s\'s open fact asks and propose values.\n\n'
+              'Use only the tenant\'s own context files, public sources and Meristem outputs. '
+              'Do not use credentials, connectors or external paths. Do not write to any file.\n\n'
+              'Open fact asks (up to %d):\n' % (tenant, MAX_ASKS))
+    footer = ('\n\nReturn a JSON array of objects with keys "ask_id", "proposed" and "evidence". '
+              'Omit any ask for which you have no evidence. '
+              'Each proposed value must be 500 characters or fewer.')
+    budget = MAX_BRIEF - len(header) - len(footer)
+    lines = []
+    for a in fact_asks[:MAX_ASKS]:
+        line = '- %s: %s (%s)' % (a.get('id', ''), a.get('title', ''), a.get('source', ''))
+        cost = len(line) + (1 if lines else 0)
+        if cost > budget:
+            break
+        lines.append(line)
+        budget -= cost
+    return header + '\n'.join(lines) + footer
 
 def _task_body(project, tenant, brief, wave):
     return {

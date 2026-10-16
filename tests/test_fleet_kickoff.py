@@ -288,9 +288,10 @@ def test_kickoff_brief_truncates_at_line_boundary():
         ask['source'] = 'S' * 200
     brief = kickoff_brief('heyzack', asks)
     assert len(brief) <= 16000
-    last_line = brief.splitlines()[-1]
-    assert last_line.startswith('- ')
-    assert last_line.endswith(')')
+    assert 'Return a JSON array' in brief and brief.rstrip().endswith('500 characters or fewer.')
+    ask_lines = [line for line in brief.splitlines() if line.startswith('- ')]
+    assert 0 < len(ask_lines) < 40
+    assert all(line.endswith(')') for line in ask_lines)
 
 
 # ---------------------------------------------------------------------------
@@ -471,3 +472,9 @@ def test_admit_rejects_project_id_mapped_to_another_tenant():
     config['projects']['tryambakam'] = dict(config['projects']['snowgloves'], tenant='other-tenant')
     with pytest.raises(ValueError, match='tryambakam'):
         admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
+
+
+def test_admit_requires_at_least_one_worker():
+    config = _base_config()
+    with pytest.raises(ValueError, match='worker'):
+        admit(config, ['tryambakam'], 'org', 'founder', [])

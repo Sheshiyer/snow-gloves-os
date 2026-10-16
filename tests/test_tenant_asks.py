@@ -253,3 +253,11 @@ def test_sensitive_text_is_rechecked_after_normalization(tmp_path):
     titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack')]
     assert 'the price.' in titles and 'Connect drive' in titles
     assert not any(SENSITIVE_RE.search(title) for title in titles)
+
+
+def test_long_context_filename_source_fits_the_client_limit(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    (t / 'context' / (('n' * 245) + '.md')).write_text('# Long\nFILL: the price.\n')
+    asks = derive_asks(tmp_path, 'heyzack')
+    facts = [a for a in asks if a['kind'] == 'fact']
+    assert len(facts) == 1 and len(facts[0]['source']) <= 240

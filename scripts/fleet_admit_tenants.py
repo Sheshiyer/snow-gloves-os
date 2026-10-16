@@ -24,6 +24,8 @@ def admit(config, tenants, organization, principal, workers, root=None):
     """
     if not isinstance(organization, str) or not organization.strip():
         raise ValueError('Project organization must be a non-empty string')
+    if not workers:
+        raise ValueError('At least one worker is required; a project without workers is treated as local and needs a root')
     if not isinstance(config.get('principals', {}).get(principal), dict):
         raise ValueError('Unknown principal: %s' % principal)
     unknown = [name for name in workers if not isinstance(config.get('workers', {}).get(name), dict)]
