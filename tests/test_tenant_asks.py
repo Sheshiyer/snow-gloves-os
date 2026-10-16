@@ -31,6 +31,30 @@ def test_fill_lines_become_fact_asks(tmp_path):
     assert asks[0]['tenant'] == 'heyzack' and asks[0]['proposed'] is None
 
 
+def test_fill_wording_change_rotates_id(tmp_path):
+    t = tmp_path / 'heyzack'
+    (t / 'context').mkdir(parents=True)
+    offer = t / 'context/offer.md'
+    offer.write_text('FILL: the price.\n')
+    old = derive_asks(tmp_path, 'heyzack')[0]
+    offer.write_text('FILL: the final price.\n')
+    new = derive_asks(tmp_path, 'heyzack')[0]
+    assert old['id'] == ask_id('heyzack', 'fact', 'context/offer.md|the price.')
+    assert new['id'] == ask_id('heyzack', 'fact', 'context/offer.md|the final price.')
+    assert old['id'] != new['id']
+    assert [a['id'] for a in derive_asks(tmp_path, 'heyzack')] == [new['id']]
+
+
+def test_context_symlink_yields_no_fact_asks(tmp_path):
+    t = tmp_path / 'heyzack'
+    t.mkdir()
+    real = tmp_path / 'real-context'
+    real.mkdir()
+    (real / 'offer.md').write_text('FILL: the price.\n')
+    (t / 'context').symlink_to(real, target_is_directory=True)
+    assert derive_asks(tmp_path, 'heyzack') == []
+
+
 def test_proposed_value_turns_fact_into_yes_no(tmp_path):
     t = tmp_path / 'heyzack'
     (t / 'context').mkdir(parents=True)
@@ -99,6 +123,28 @@ def test_decision_connect_website_brand(tmp_path):
     asks = derive_asks(tenants, 'heyzack', proposal)
     assert not any(a['kind'] == 'brand' for a in asks)
     assert any(a['kind'] == 'connect' and a['source'] == 'sources.yaml' for a in asks)
+
+
+def test_website_title_uses_fill_wording(tmp_path):
+    t = tmp_path / 'heyzack'
+    t.mkdir()
+    manifest = t / 'MANIFEST.yaml'
+
+    manifest.write_text(yaml.safe_dump({'tenant': 'heyzack', 'brand': {'domain': 'FILL: hey-zack.fr'}}))
+    website = [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'website']
+    assert [a['title'] for a in website] == ['hey-zack.fr']
+
+    manifest.write_text(yaml.safe_dump({'tenant': 'heyzack', 'brand': {'domain': 'FILL:'}}))
+    website = [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'website']
+    assert [a['title'] for a in website] == ['Confirm brand domain']
+
+    manifest.write_text(yaml.safe_dump({'tenant': 'heyzack', 'brand': {'domain': 'FILL: the api key for X'}}))
+    assert [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'website'] == []
+
+    manifest.write_text(yaml.safe_dump({'tenant': 'heyzack', 'brand': {'domain': 'FILL: ' + 'x' * 200}}))
+    website = [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'website']
+    assert len(website) == 1
+    assert len(website[0]['title']) == 160
 
 
 def test_sensitive_titles_dropped_and_caps(tmp_path):
