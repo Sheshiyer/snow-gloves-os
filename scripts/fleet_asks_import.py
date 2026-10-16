@@ -15,29 +15,33 @@ _ARRAY_OF_OBJECTS = re.compile(r'\[\s*\{')
 MAX_PROPOSED = 500
 MAX_EVIDENCE = 500
 MAX_ARTIFACT = 256 * 1024
-_MAX_SCAN_ATTEMPTS = 200
+_MAX_FAILED_DECODES = 2000
 
 
 def _last_json_array(text):
-    """Return the last JSON array of proposal objects found in *text*, or None.
+    """Return the last top-level JSON array of proposal objects in *text*, or None.
 
-    A proposal array must open with ``[`` followed by ``{``, so only those
-    positions are candidates; brackets inside strings such as citation
-    markers ("[1]") never consume an attempt. Candidates are tried from the
-    end with ``raw_decode``, stopping at the first non-empty array of objects
-    carrying ``ask_id``. The text is already capped at MAX_ARTIFACT, and at
-    most _MAX_SCAN_ATTEMPTS candidates are decoded.
+    One forward pass over candidate openers ('[' then '{'). A successfully
+    decoded array is skipped as a whole, so arrays and strings nested inside a
+    proposal are never candidates. The text is capped at MAX_ARTIFACT, and
+    at most _MAX_FAILED_DECODES failed decode attempts are made.
     """
     decoder = json.JSONDecoder()
-    starts = [match.start() for match in _ARRAY_OF_OBJECTS.finditer(text)]
-    for idx in reversed(starts[-_MAX_SCAN_ATTEMPTS:]):
+    found, pos, failures = None, 0, 0
+    while failures < _MAX_FAILED_DECODES:
+        match = _ARRAY_OF_OBJECTS.search(text, pos)
+        if match is None:
+            break
         try:
-            value, _end = decoder.raw_decode(text, idx)
+            value, end = decoder.raw_decode(text, match.start())
         except (ValueError, json.JSONDecodeError):
+            failures += 1
+            pos = match.start() + 1
             continue
         if isinstance(value, list) and value and all(isinstance(item, dict) and 'ask_id' in item for item in value):
-            return value
-    return None
+            found = value
+        pos = end
+    return found
 
 
 def import_proposals(tenants_dir, tenant, artifact_text, known_ids):

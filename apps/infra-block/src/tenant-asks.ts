@@ -199,16 +199,19 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
 export function startAskSync(client: FleetClient, projects: string[], emit: (asks: TenantAsk[] | null) => void, intervalMs = 60000): () => void {
   let stopped = false;
   let generation = 0;
+  // Only ids the asks route accepts are polled; each project fails on its own.
+  const routable = projects.filter(project => /^[a-z0-9][a-z0-9_-]{0,63}$/.test(project));
+  const lastGood = new Map<string, TenantAsk[]>();
   const pull = () => {
     if (stopped) return;
     const epoch = ++generation;
     void (async () => {
-      try {
-        const batches = await Promise.all(projects.map(project => client.asks(project)));
-        if (!stopped && epoch === generation) emit(batches.flat());
-      } catch {
-        // Keep the last good list. Only stop() emits null.
-      }
+      const results = await Promise.allSettled(routable.map(project => client.asks(project)));
+      if (stopped || epoch !== generation) return;
+      // If every poll failed, keep the last good list. Only stop() emits null.
+      if (!results.some(result => result.status === 'fulfilled')) return;
+      results.forEach((result, index) => { if (result.status === 'fulfilled') lastGood.set(routable[index], result.value); });
+      emit(routable.flatMap(project => lastGood.get(project) ?? []));
     })();
   };
   pull();

@@ -499,3 +499,13 @@ def test_admit_requires_a_worker_that_can_claim_read_only_codex_tasks():
     config['workers']['mac-coding-1']['access_modes'] = ['write']
     with pytest.raises(ValueError, match='read-only codex'):
         admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
+
+
+def test_import_ignores_nested_arrays_and_bracket_text_before_the_array(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    prose = 'Notes: ' + '[{ not json ' * 300 + '\n'
+    entries = [{'ask_id': 'id1', 'proposed': 'EUR 99', 'evidence': 'see refs', 'citations': [{'ask_id': 'ref'}]}]
+    assert import_proposals(tenants_dir, 'heyzack', prose + json.dumps(entries), {'id1'}) == 1
+    record = json.loads((tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl').read_text().splitlines()[0])
+    assert record['ask_id'] == 'id1'

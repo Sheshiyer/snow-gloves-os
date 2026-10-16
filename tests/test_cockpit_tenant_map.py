@@ -113,7 +113,7 @@ def test_unsafe_identifiers_and_source_text_not_exposed(tree):
     result = capability_map(repo, tenant)
     assert [m['id'] for m in result['configuredModules']] == ['skill-a']
     assert result['assignedAgents'] == [{'id': 'cto', 'status': 'configured'}, {'id': 'unregistered', 'status': 'held'}]
-    assert result['registeredSources'] == [{'id': 'ok', 'type': 'filesystem', 'admitted': False}]
+    assert result['sourcesState'] == 'held' and result['registeredSources'] == []
     for excluded in ['TOKEN_VALUE', 'token-123', 'https://private', 'foreign', '<img']:
         assert excluded not in json.dumps(result)
 
@@ -179,3 +179,11 @@ def test_catalog_mod_cards_keep_their_category(tree):
     modules = {m['id']: m for m in capability_map(repo, tenant)['configuredModules']}
     assert modules['sg-rail']['category'] == 'mod'
     assert modules['sg-rail']['gate'] == 'catalog_permitted'
+
+
+def test_malformed_source_row_holds_the_source_list(tree):
+    repo, tenant = tree
+    (tenant / 'sources.yaml').write_text(yaml.safe_dump({'schema': 'snowgloves.sources.v1', 'tenant': 'acme', 'sources': [
+        {'id': 'brand-docs', 'type': 'filesystem', 'ingest': True}, {'id': 'odd', 'type': 'carrier-pigeon'}]}))
+    result = capability_map(repo, tenant)
+    assert result['sourcesState'] == 'held' and result['registeredSources'] == []

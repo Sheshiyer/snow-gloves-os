@@ -172,6 +172,23 @@ describe('answered asks', () => {
 });
 
 describe('ask sync and fleet client', () => {
+  it('skips unroutable project ids and keeps other projects when one poll fails', async () => {
+    const emit = vi.fn();
+    const ok = model({project: 'heyzack', tenant: 'heyzack'});
+    const asks = vi.fn(async (project: string) => {
+      if (project === 'broken') throw new Error('500');
+      return [ok];
+    });
+    const client = {asks} as unknown as FleetClient;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(() => 1 as unknown as ReturnType<typeof setInterval>);
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    const stop = startAskSync(client, ['_demo', 'legacy.project', 'heyzack', 'broken'], emit, 60_000);
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(asks.mock.calls.map(call => call[0])).toEqual(['heyzack', 'broken']);
+    expect(emit).toHaveBeenCalledWith([ok]);
+    stop();
+  });
+
   it('keeps the last good list when a later poll fails', async () => {
     const emit = vi.fn();
     const good = [model()];

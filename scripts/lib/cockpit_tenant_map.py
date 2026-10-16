@@ -162,5 +162,9 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
             for source in source_data["sources"]:
                 if isinstance(source, dict) and safe_id(source.get("id")) and isinstance(source.get("type"), str) and source["type"] in SOURCE_TYPES and ("tenant" not in source or source["tenant"] == tenant_dir.name) and ("ingest" not in source or type(source["ingest"]) is bool) and source["id"] not in [s["id"] for s in sources]:
                     sources.append({"id": source["id"], "type": source["type"], "admitted": source.get("ingest") is True})
+                else:
+                    # Fail closed: one malformed row holds the whole source list.
+                    sources, sources_state = [], "held"
+                    break
 
     return {"tenant": tenant_dir.name, "status": "source_config_only", "connectionAuth": "unverified", "catalogState": catalog_state, "templatesState": roles_state, "enabledState": enabled_state, "runtimeState": runtime_state, "runtime": runtime_id, "sourcesState": sources_state, "configuredModules": configured, "assignedAgents": assigned, "availableControlRoles": controls, "availableBusinessRoles": templates, "registeredSources": sources}
