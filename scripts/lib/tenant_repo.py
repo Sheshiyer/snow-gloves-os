@@ -6,11 +6,33 @@ checked out. A tenant root must therefore hold, anywhere in its history, no
 other tenant, no shared instance data and no link that leads out of it.
 """
 import os
+import re
 import subprocess
 
 # Instance data the private checkout keeps beside tenants/ (see scripts/lib/paths.py):
 # fleet inventory, node profiles, audit receipts, planning state and portfolio specs.
 SHARED_INSTANCE_PATHS = frozenset({'fleet.yaml', 'nodes', '_audit', '.planning', 'specs'})
+
+
+# Repository-local Git config a tenant root may carry. Anything else (filter
+# drivers, core.fsmonitor, core.hooksPath, include.path, diff/merge drivers...)
+# can make the worker's own git add, checkout or apply run a command.
+SAFE_CONFIG = re.compile(r'(core\.(repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|precomposeunicode|symlinks)'
+                         r'|extensions\.objectformat|user\.(name|email)'
+                         r'|remote\.[^.\s]+\.(url|fetch)|branch\.[^.\s]+\.(remote|merge))')
+
+
+def _unsafe_config(root, git_path='git'):
+    """Repository-local config keys outside SAFE_CONFIG, or None when the config cannot be read."""
+    config = os.path.join(str(root), '.git', 'config')
+    if not os.path.lexists(config):
+        return []
+    try:
+        names = subprocess.run([git_path, 'config', '--file', config, '--no-includes', '--name-only', '--list'],
+                               capture_output=True, check=True, timeout=30).stdout.decode('utf-8', 'replace').split('\n')
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return sorted({name for name in names if name and not SAFE_CONFIG.fullmatch(name.lower())})
 
 
 def _own_object_store(root):
@@ -90,6 +112,12 @@ def isolation_problem(root, tenant, git_path='git'):
     if layout is None:
         return 'Cannot verify the Git history of project root %s; use a standalone tenant repository' % root
     found, top, links = layout
+    unsafe = _unsafe_config(root, git_path)
+    if unsafe is None:
+        return 'Cannot read the Git config of project root %s; use a standalone tenant repository' % root
+    if unsafe:
+        return ('Project root %s has Git config that could run commands (%s); use a tenant-only repository with default config'
+                % (root, ', '.join(unsafe)))
     if found - {tenant}:
         return 'Project root %s has other tenants in its Git history; use a tenant-only repository' % root
     # A worker checks the tree out, so a tracked link could lead its task out of the root.

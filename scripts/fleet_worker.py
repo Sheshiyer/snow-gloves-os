@@ -595,7 +595,8 @@ class Worker:
         """Compute the patch ourselves (never trust the agent), gate it, then run the allowlisted tests."""
         git = self.config.get('git_path', 'git')
         def run_git(*args):
-            return subprocess.run([git, '-C', str(worktree), *args], check=True, capture_output=True, timeout=60).stdout
+            return subprocess.run([git, '-c', 'core.hooksPath=' + os.devnull, '-C', str(worktree), *args],
+                                  check=True, capture_output=True, timeout=60).stdout
         def snapshot():
             run_git('add', '-A')
             names = sorted(n for n in run_git('diff', '--cached', '--name-only', '-z', '--no-renames').decode('utf-8', 'replace').split('\0') if n)
@@ -725,11 +726,13 @@ class Worker:
                 raise ValueError('Tenant root failed its isolation check')
             worktree = self.state / 'worktrees' / (task['id'] + '-' + task['attempt_id'])
             worktree.parent.mkdir(exist_ok=True, mode=0o700)
-            subprocess.run([self.config.get('git_path', 'git'), '-C', str(root), 'worktree', 'add', '--detach', str(worktree), base],
+            # No repository hook ever runs as the worker: post-checkout fires on worktree add.
+            subprocess.run([self.config.get('git_path', 'git'), '-c', 'core.hooksPath=' + os.devnull, '-C', str(root),
+                            'worktree', 'add', '--detach', str(worktree), base],
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
             if review is not None:
                 patch_bytes = review['patch']['text'].encode('utf-8')
-                subprocess.run([self.config.get('git_path', 'git'), '-C', str(worktree),
+                subprocess.run([self.config.get('git_path', 'git'), '-c', 'core.hooksPath=' + os.devnull, '-C', str(worktree),
                                 'apply', '--check', '--binary', '-'], input=patch_bytes,
                                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
             env = runtime_environment()

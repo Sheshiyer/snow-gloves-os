@@ -819,3 +819,17 @@ def test_admit_refuses_a_root_whose_git_metadata_lives_elsewhere(tmp_path, borro
             (root / '.git' / 'objects' / 'pack' / 'pack-x.pack').symlink_to(other / '.git' / 'HEAD')
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
+
+
+@pytest.mark.parametrize('key, value', [('core.hooksPath', '/elsewhere/hooks'), ('core.fsmonitor', '/bin/sh -c id'),
+                                        ('filter.x.smudge', 'cat /etc/hosts'), ('include.path', '/elsewhere/config')])
+def test_admit_refuses_a_root_whose_git_config_could_run_commands(tmp_path, key, value):
+    config = _base_config()
+    root = tmp_path / 'tenant-a'
+    _git_init(root)
+    subprocess.run(['git', '-C', str(root), 'config', key, value], check=True)
+    with pytest.raises(ValueError, match='Git config that could run commands'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
+    subprocess.run(['git', '-C', str(root), 'config', '--unset', key], check=True)
+    subprocess.run(['git', '-C', str(root), 'config', 'remote.origin.url', '/srv/tenant-a.git'], check=True)
+    assert 'tenant-a' in admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))['projects']

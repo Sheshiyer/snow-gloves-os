@@ -112,6 +112,20 @@ def test_worker_rechecks_admitted_tenant_projects_without_local_config(worker):
     assert reports[-1]['type'] == 'failed'
 
 
+def test_worker_never_runs_repository_hooks_when_creating_a_worktree(worker, tmp_path):
+    w, task = worker
+    root = Path(task['root']).resolve()
+    marker = tmp_path / 'hook-ran'
+    hook = root / '.git' / 'hooks' / 'post-checkout'
+    hook.write_text('#!/bin/sh\ntouch %s\n' % marker)
+    hook.chmod(0o755)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    assert not marker.exists()
+
+
 def test_worker_refuses_tenant_roots_outside_its_allowlist(tmp_path, worker):
     w, _ = worker
     with pytest.raises(ValueError, match='tenant root'):
