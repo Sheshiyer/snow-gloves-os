@@ -44,12 +44,21 @@ def _last_json_array(text):
     return found
 
 
+def _task_time(value):
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and value == value else None
+
+
 def _scan_journal(path):
-    """Full streaming scan: latest proposal per ask id and every imported source."""
-    latest, sources = {}, set()
+    """Full streaming scan: latest (proposal, task time) per ask id and every fully imported source.
+
+    A source counts as imported only once its completion line is on disk, so an
+    import cut short is retried. Lines written before completion lines existed
+    (no ``created`` key) came from one fsynced write and count as complete.
+    """
+    latest, done = {}, set()
     try:
         if path.is_symlink() or not path.is_file():
-            return latest, sources
+            return latest, done
         with path.open('r', encoding='utf-8', errors='replace') as stream:
             for line in stream:
                 try:
@@ -59,28 +68,31 @@ def _scan_journal(path):
                 if not isinstance(record, dict):
                     continue
                 if isinstance(record.get('ask_id'), str) and isinstance(record.get('proposed'), str):
-                    latest[record['ask_id']] = record['proposed']
-                if isinstance(record.get('source'), str):
-                    sources.add(record['source'])
+                    latest[record['ask_id']] = (record['proposed'], _task_time(record.get('created')))
+                if isinstance(record.get('source'), str) and (record.get('complete') is True or 'created' not in record):
+                    done.add(record['source'])
     except OSError:
         pass
-    return latest, sources
+    return latest, done
 
 
-def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None):
+def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None, created=None):
     """Append valid proposals from *artifact_text* to ``asks/proposed.jsonl``.
 
     Only entries whose ``ask_id`` is in *known_ids* and whose ``proposed``
     value is <= 500 characters and passes the sensitive filter are kept.
     ``evidence`` is capped at 500 characters and must also pass the sensitive
-    filter; an entry is dropped if either value matches.  Returns the number
-    of lines written.
+    filter; an entry is dropped if either value matches.  *created* is the
+    source task's creation time: a proposal from a task older than the one
+    that set the current proposal is dropped.  Returns the number of
+    proposal lines written.
     """
     if len(artifact_text) > MAX_ARTIFACT:
         return 0
     array = _last_json_array(artifact_text)
     if not array:
         return 0
+    created = _task_time(created)
     valid = []
     for entry in array:
         if not isinstance(entry, dict):
@@ -103,20 +115,26 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None)
             record['evidence'] = evidence
         valid.append(record)
     # Dedupe against the whole journal, not the bounded display tail, and never
-    # re-import a task: an old artifact must not override a newer proposal.
+    # re-import a finished task: an old artifact must not override a newer proposal.
     recorded, imported = _scan_journal(Path(tenants_dir) / tenant / 'asks' / 'proposed.jsonl')
     if source is not None and source in imported:
         return 0
     latest = {}
     for record in valid:
         latest[record['ask_id']] = record
-    valid = [r for r in latest.values() if recorded.get(r['ask_id']) != r['proposed']]
+
+    def fresh(record):
+        current, current_time = recorded.get(record['ask_id'], (None, None))
+        if current == record['proposed']:
+            return False
+        # A task imported late must not replace a proposal from a newer task.
+        return created is None or current_time is None or created >= current_time
+    valid = [r for r in latest.values() if fresh(r)]
     if source is not None:
-        valid = [dict(r, source=source) for r in valid]
-    # An unchanged task still records its source so it is never re-imported;
-    # load_proposals ignores a line without ask_id and proposed.
-    receipt = source is not None and not valid
-    if not valid and not receipt:
+        valid = [dict(r, source=source, created=created) for r in valid]
+    # Every task ends with a completion line written after its proposals, so an
+    # interrupted import is retried; load_proposals ignores lines without ask_id.
+    if not valid and source is None:
         return 0
     base = Path(tenants_dir).resolve()
     asks_dir = Path(tenants_dir) / tenant / 'asks'
@@ -124,13 +142,18 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None)
         return 0
     asks_dir.mkdir(parents=True, exist_ok=True)
     path = asks_dir / 'proposed.jsonl'
-    flags = os.O_APPEND | os.O_CREAT | os.O_WRONLY
+    flags = os.O_APPEND | os.O_CREAT | os.O_RDWR
     if hasattr(os, 'O_NOFOLLOW'):
         flags |= os.O_NOFOLLOW
     fd = os.open(path, flags, 0o600)
-    with os.fdopen(fd, 'a') as stream:
-        for record in valid or [{'source': source, 'receipt': True}]:
-            stream.write(json.dumps(record) + '\n')
+    with os.fdopen(fd, 'a+b') as stream:
+        size = os.fstat(stream.fileno()).st_size
+        # A torn last line would swallow the first new record; end it first.
+        lines = [b''] if size and os.pread(stream.fileno(), 1, size - 1) != b'\n' else []
+        lines += [json.dumps(record).encode() for record in valid]
+        if source is not None:
+            lines.append(json.dumps({'source': source, 'created': created, 'complete': True}).encode())
+        stream.write(b'\n'.join(lines) + b'\n')
         stream.flush()
         os.fsync(stream.fileno())
     return len(valid)
@@ -180,7 +203,8 @@ def main():
     # Only open asks take proposals; an answered ask keeps the founder's answer.
     known_ids = {ask['id'] for ask in (listing.get('asks') if isinstance(listing, dict) else [])
                  if isinstance(ask, dict) and isinstance(ask.get('id'), str) and ask.get('status') == 'open'}
-    count = import_proposals(tenants_dir, tenant, output, known_ids, source="task:" + args.task)
+    count = import_proposals(tenants_dir, tenant, output, known_ids, source="task:" + args.task,
+                             created=task.get('created'))
     print('Imported %d proposal(s)' % count)
     return 0
 

@@ -91,6 +91,20 @@ def _rows(value):
     return isinstance(value, list) and len(value) <= MAX_ROWS
 
 
+def read_enablement(tenant_dir: Path):
+    """The tenant's enabled.yaml and its state; one unsafe, malformed or duplicate row holds it all."""
+    enabled, state = _tenant_file(tenant_dir, "enabled.yaml", "snowgloves.enabled.v1")
+    if state != "configured":
+        return None, state
+    if not _rows(enabled.get("modules")) or not _rows(enabled.get("agents")):
+        return None, "held"
+    modules = [item.get("id") if isinstance(item, dict) else item for item in enabled["modules"]]
+    for idents in (enabled["agents"], modules):
+        if not all(safe_id(ident) for ident in idents) or len(set(idents)) != len(idents):
+            return None, "held"
+    return enabled, "configured"
+
+
 def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
     """Only IDs, public labels and closed enums leave this source reader."""
     if not safe_id(tenant_dir.name):
@@ -121,23 +135,14 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
     else:
         roles_state = "held"
 
-    enabled, enabled_state = _tenant_file(tenant_dir, "enabled.yaml", "snowgloves.enabled.v1")
-    if enabled_state == "configured" and (not _rows(enabled.get("modules")) or not _rows(enabled.get("agents"))):
-        enabled, enabled_state = None, "held"
+    enabled, enabled_state = read_enablement(tenant_dir)
     configured, assigned = [], []
     known_roles = {r["id"] for r in controls + templates}
     if enabled_state == "configured":
-        malformed = False
         for ident in enabled["agents"]:
-            if not safe_id(ident) or ident in [a["id"] for a in assigned]:
-                malformed = True
-                break
             assigned.append({"id": ident, "status": "configured" if ident in known_roles else "held"})
-        for item in ([] if malformed else enabled["modules"]):
+        for item in enabled["modules"]:
             ident = item.get("id") if isinstance(item, dict) else item
-            if not safe_id(ident) or ident in [m["id"] for m in configured]:
-                malformed = True
-                break
             card = cards.get(ident, {})
             category = card.get("category") if card.get("category") in ("skills", "mcp", "connector", "plugin", "playbook", "mod") else "unknown"
             disposition = card.get("disposition") if card.get("disposition") in ("add", "pointer", "hold", "refuse") else "unknown"
@@ -145,9 +150,6 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
             approval = card.get("approval") if card.get("approval") in ("yes", "no") else "unknown"
             permitted = category != "unknown" and disposition in ("add", "pointer") and risk != "unknown" and approval != "unknown" and card.get("enableable") is True and _rows(card.get("agents")) and all(isinstance(a, str) and a in known_roles for a in card["agents"])
             configured.append({"id": ident, "name": _label(card.get("name"), ident), "category": category, "disposition": disposition, "risk": risk, "approval": approval, "gate": ("approval_required" if approval == "yes" or risk == "high" else "catalog_permitted") if permitted else "held", "roles": sorted({a for a in card.get("agents", []) if isinstance(a, str) and a in known_roles}) if _rows(card.get("agents")) else []})
-        if malformed:
-            # Fail closed: one unsafe, malformed or duplicate row holds the enablement.
-            configured, assigned, enabled_state = [], [], "held"
 
     runtime, runtime_state = _tenant_file(tenant_dir, "runtime.yaml", "snowgloves.runtime.v1")
     runtime_id = None

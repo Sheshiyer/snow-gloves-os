@@ -285,11 +285,27 @@ def test_proposal_read_through_a_linked_directory_is_refused(tmp_path):
 
 def test_module_connect_asks_use_catalog_categories(tmp_path):
     t = tmp_path / 'heyzack'; t.mkdir()
-    (t / 'enabled.yaml').write_text(yaml.safe_dump({'schema': 'snowgloves.enabled.v1', 'tenant': 'heyzack', 'modules': [
+    (t / 'enabled.yaml').write_text(yaml.safe_dump({'schema': 'snowgloves.enabled.v1', 'tenant': 'heyzack', 'agents': [], 'modules': [
         'github-mcp', {'id': 'stale', 'category': 'mcp'}, {'id': 'gmail', 'category': 'skills'}]}))
     catalog = {'github-mcp': 'mcp', 'stale': 'skills', 'gmail': 'connector'}
     titles = sorted(a['title'] for a in derive_asks(tmp_path, 'heyzack', catalog=catalog) if a['kind'] == 'connect')
     assert titles == ['Connect github-mcp', 'Connect gmail']
+
+
+def test_held_enablement_asks_for_no_connector(tmp_path):
+    t = tmp_path / 'heyzack'; t.mkdir()
+    catalog = {'github-mcp': 'mcp', 'gmail': 'connector'}
+    held = [
+        {'schema': 'snowgloves.enabled.v1', 'tenant': 'other', 'agents': [], 'modules': ['github-mcp']},
+        {'schema': 'wrong', 'tenant': 'heyzack', 'agents': [], 'modules': ['github-mcp']},
+        {'schema': 'snowgloves.enabled.v1', 'tenant': 'heyzack', 'agents': [], 'modules': ['github-mcp', 'github-mcp']},
+        {'schema': 'snowgloves.enabled.v1', 'tenant': 'heyzack', 'agents': [], 'modules': ['github-mcp', {'id': 'Bad ID'}]},
+        {'schema': 'snowgloves.enabled.v1', 'tenant': 'heyzack', 'agents': ['librarian', 'librarian'], 'modules': ['gmail']},
+        {'schema': 'snowgloves.enabled.v1', 'tenant': 'heyzack', 'modules': ['gmail']},
+    ]
+    for value in held:
+        (t / 'enabled.yaml').write_text(yaml.safe_dump(value))
+        assert [a for a in derive_asks(tmp_path, 'heyzack', catalog=catalog) if a['kind'] == 'connect'] == [], value
 
 
 def test_load_catalog_maps_ids_to_categories(tmp_path):

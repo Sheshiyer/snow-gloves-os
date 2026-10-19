@@ -19,6 +19,8 @@ from pathlib import Path
 
 import yaml
 
+from .cockpit_tenant_map import read_enablement
+
 ASK_KINDS: tuple[str, ...] = ('fact', 'decision', 'connect', 'website', 'brand')
 ROLE_FOR_KIND: dict[str, str] = {
     'fact': 'librarian',
@@ -344,7 +346,8 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
         return []
     proposals = load_proposals(tenant_dir)
     sources_value = _read_yaml(tenant_dir / 'sources.yaml')
-    enabled_value = _read_yaml(tenant_dir / 'enabled.yaml')
+    # Share the capability view's fail-closed parser: held enablement asks for no connector.
+    enabled_value, _ = read_enablement(tenant_dir)
     manifest = _read_yaml(tenant_dir / 'MANIFEST.yaml')
     # Decision, connect, website and brand asks are few and actionable; derive
     # them first so a long run of FILL lines can only spend the remaining budget.

@@ -577,3 +577,42 @@ def test_unchanged_task_still_records_its_source(tmp_path):
     assert any(json.loads(l).get('source') == 'task-b' for l in journal.read_text().splitlines())
     # the receipt keeps task-b from being re-imported, even with a changed value
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 5"}]', {'id1'}, source='task-b') == 0
+
+
+def test_interrupted_import_is_retried_until_complete(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    asks_dir.mkdir(parents=True)
+    # One row reached disk before the import stopped: no completion line, and a torn tail.
+    (asks_dir / 'proposed.jsonl').write_text(
+        json.dumps({'ask_id': 'id1', 'proposed': 'EUR 99', 'source': 'task-a', 'created': 10.0}) + '\n{"ask_id": "id2", "pro')
+    artifact = '[{"ask_id":"id1","proposed":"EUR 99"},{"ask_id":"id2","proposed":"EUR 5"}]'
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}, source='task-a', created=10.0) == 1
+    records = [json.loads(line) for line in (asks_dir / 'proposed.jsonl').read_text().splitlines()[2:]]
+    assert records == [{'ask_id': 'id2', 'proposed': 'EUR 5', 'source': 'task-a', 'created': 10.0},
+                       {'source': 'task-a', 'created': 10.0, 'complete': True}]
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}, source='task-a', created=10.0) == 0
+
+
+def test_older_task_imported_late_keeps_the_newer_proposal(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    new = '[{"ask_id":"id1","proposed":"EUR 120"},{"ask_id":"id2","proposed":"yes"}]'
+    old = '[{"ask_id":"id1","proposed":"EUR 99"},{"ask_id":"id3","proposed":"no"}]'
+    assert import_proposals(tenants_dir, 'heyzack', new, {'id1', 'id2', 'id3'}, source='task-new', created=200.0) == 2
+    # The older task still fills asks the newer one left open.
+    assert import_proposals(tenants_dir, 'heyzack', old, {'id1', 'id2', 'id3'}, source='task-old', created=100.0) == 1
+    from lib.tenant_asks import load_proposals
+    assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 120', 'id2': 'yes', 'id3': 'no'}
+
+
+def test_journal_lines_from_before_completion_lines_count_as_imported(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    asks_dir.mkdir(parents=True)
+    (asks_dir / 'proposed.jsonl').write_text(
+        json.dumps({'ask_id': 'id1', 'proposed': 'EUR 120', 'source': 'task-new'}) + '\n'
+        + json.dumps({'source': 'task-same', 'receipt': True}) + '\n')
+    artifact = '[{"ask_id":"id1","proposed":"EUR 99"}]'
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-new', created=1.0) == 0
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-same', created=1.0) == 0
