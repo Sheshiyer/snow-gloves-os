@@ -64,15 +64,15 @@ def is_scalar_text(value) -> bool:
 
 
 def load_proposal(data_root: Path) -> dict | None:
-    path = Path(data_root) / PROPOSAL_REL
+    # Every component, the file and its parent directories included, is opened without
+    # following links, so a link placed before or after any check is never read through.
+    raw, _ = read_raw(Path(data_root) / PROPOSAL_REL, PROPOSAL_MAX_BYTES)
+    if raw is None:
+        return None
     try:
-        # A linked parent directory must not pull in a file from outside the data root.
-        if (path.is_symlink() or not path.is_file() or path.stat().st_size > PROPOSAL_MAX_BYTES
-                or not path.resolve().is_relative_to(Path(data_root).resolve())):
-            return None
-        value = json.loads(path.read_bytes().decode('utf-8'))
+        value = json.loads(raw.decode('utf-8'))
         return value if isinstance(value, dict) else None
-    except (OSError, UnicodeError, ValueError, RecursionError):
+    except (UnicodeError, ValueError, RecursionError):
         return None
 
 

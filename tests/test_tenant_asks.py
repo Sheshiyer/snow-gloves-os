@@ -458,3 +458,16 @@ def test_a_context_file_swapped_for_a_link_is_never_read(tmp_path):
     shutil.rmtree(t / 'context')
     (t / 'context').symlink_to(other / 'context', target_is_directory=True)
     assert [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact'] == []
+
+
+def test_a_proposal_file_swapped_for_a_link_is_never_read(tmp_path):
+    data = tmp_path / 'data'
+    spec = data / 'specs' / '006-editorial-steward-integration'
+    spec.mkdir(parents=True)
+    outside = tmp_path / 'private.json'
+    outside.write_text(json.dumps({'cross_brand_flows': [{'id': 'leak'}]}))
+    (spec / 'portfolio-map-proposal.json').symlink_to(outside)
+    assert load_proposal(data) is None
+    (spec / 'portfolio-map-proposal.json').unlink()
+    (spec / 'portfolio-map-proposal.json').write_text(json.dumps({'cross_brand_flows': []}))
+    assert load_proposal(data) == {'cross_brand_flows': []}
