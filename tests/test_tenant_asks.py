@@ -310,8 +310,13 @@ def test_held_enablement_asks_for_no_connector(tmp_path):
 
 def test_load_catalog_maps_ids_to_categories(tmp_path):
     (tmp_path / 'catalog').mkdir()
+    ok = {'disposition': 'add', 'enableable': True}
     (tmp_path / 'catalog' / 'modules.json').write_text(json.dumps({'cards': [
-        {'id': 'github-mcp', 'category': 'mcp'}, {'id': 'x', 'category': 'skills'}, {'nope': 1}]}))
+        {'id': 'github-mcp', 'category': 'mcp', **ok}, {'id': 'x', 'category': 'skills', 'disposition': 'pointer', 'enableable': True},
+        {'id': 'lazyweb', 'category': 'mcp', 'disposition': 'hold', 'enableable': False},
+        {'id': 'awesome', 'category': 'mcp', 'disposition': 'refuse', 'enableable': True},
+        {'id': 'draft', 'category': 'connector', 'disposition': 'add'}, {'nope': 1}]}))
+    # Held, refused and non-enableable cards never become connector asks.
     assert load_catalog(tmp_path) == {'github-mcp': 'mcp', 'x': 'skills'}
     assert load_catalog(tmp_path / 'missing') == {}
 

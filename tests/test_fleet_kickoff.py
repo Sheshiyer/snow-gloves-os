@@ -642,3 +642,21 @@ def test_imports_for_one_tenant_wait_for_the_journal_lock(tmp_path):
     assert result == [0]
     from lib.tenant_asks import load_proposals
     assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 130'}
+
+
+def test_admit_refuses_templates_that_resolve_to_one_root(tmp_path):
+    config = _base_config()
+    os.makedirs(tmp_path / '.git')
+    for name in ('tenant-a', 'tenant-b'):
+        os.makedirs(tmp_path / name / '.git')
+    with pytest.raises(ValueError, match='overlaps'):
+        admit(config, ['tenant-a', 'tenant-b'], 'org', 'founder', ['mac-coding-1'], root=str(tmp_path / '{tenant}' / '..'))
+
+
+def test_admit_refuses_a_root_an_existing_project_already_uses(tmp_path):
+    config = _base_config()
+    os.makedirs(tmp_path / 'tenant-a' / '.git')
+    config['projects']['taken'] = {'tenant': 'taken', 'organization': 'org', 'runtimes': ['codex'],
+                                   'root': str(tmp_path / 'tenant-a')}
+    with pytest.raises(ValueError, match='overlaps the root of taken'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(tmp_path / '{tenant}'))

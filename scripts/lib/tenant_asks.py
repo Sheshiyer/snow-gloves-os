@@ -255,7 +255,7 @@ def _source_connect_asks(tenant: str, sources_value) -> list[dict]:
 
 
 def load_catalog(code_root: Path) -> dict[str, str]:
-    """Module id -> category from the platform catalog, which owns module metadata."""
+    """Module id -> category for catalog cards a tenant may enable; held and refused cards are left out."""
     path = Path(code_root) / 'catalog' / 'modules.json'
     try:
         if path.is_symlink() or not path.is_file() or path.stat().st_size > 8 * 1024 * 1024:
@@ -265,7 +265,8 @@ def load_catalog(code_root: Path) -> dict[str, str]:
         return {}
     cards = value.get('cards') if isinstance(value, dict) else None
     return {card['id']: card['category'] for card in cards or []
-            if isinstance(card, dict) and isinstance(card.get('id'), str) and isinstance(card.get('category'), str)}
+            if isinstance(card, dict) and isinstance(card.get('id'), str) and isinstance(card.get('category'), str)
+            and card.get('disposition') in ('add', 'pointer') and card.get('enableable') is True}
 
 
 def _module_connect_asks(tenant: str, enabled_value, catalog: dict[str, str] | None = None) -> list[dict]:

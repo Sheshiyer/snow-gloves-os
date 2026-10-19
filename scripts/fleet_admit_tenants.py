@@ -67,7 +67,16 @@ def admit(config, tenants, organization, principal, workers, root=None, remote_r
         if os.path.isdir(holder) and any(name != tenant for name in os.listdir(holder)
                                          if os.path.isdir(os.path.join(holder, name))):
             raise ValueError('Project root %s holds other tenants; use a tenant-scoped checkout' % candidate)
+        # The coordinator resolves roots, so compare resolved paths: a template like
+        # /srv/{tenant}/.. would otherwise give every tenant the same checkout.
         roots[tenant] = candidate
+    taken = {os.path.realpath(p['root']): pid for pid, p in current.items()
+             if isinstance(p, dict) and isinstance(p.get('root'), str)}
+    resolved_roots = {tenant: os.path.realpath(path) for tenant, path in roots.items()}
+    for tenant, resolved in resolved_roots.items():
+        for other, owner in [*taken.items(), *((r, t) for t, r in resolved_roots.items() if t != tenant)]:
+            if resolved == other or resolved.startswith(other + os.sep) or other.startswith(resolved + os.sep):
+                raise ValueError('Project root for %s overlaps the root of %s: %s' % (tenant, owner, resolved))
     # The asks API, proxy and UI route project ids as [a-z0-9][a-z0-9_-]{0,63}.
     unroutable = [t for t in tenants if not isinstance(t, str) or not PROJECT_ID.fullmatch(t)]
     if unroutable:
