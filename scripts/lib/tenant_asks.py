@@ -19,7 +19,7 @@ from pathlib import Path
 
 import yaml
 
-from .cockpit_tenant_map import read_enablement
+from .cockpit_tenant_map import read_enablement, read_sources
 
 ASK_KINDS: tuple[str, ...] = ('fact', 'decision', 'connect', 'website', 'brand')
 ROLE_FOR_KIND: dict[str, str] = {
@@ -346,7 +346,8 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
     if tenant_dir is None:
         return []
     proposals = load_proposals(tenant_dir)
-    sources_value = _read_yaml(tenant_dir / 'sources.yaml')
+    # Source and brand asks come only from a sources.yaml the tenant view accepts.
+    sources_value, _ = read_sources(tenant_dir)
     # Share the capability view's fail-closed parser: held enablement asks for no connector.
     enabled_value, _ = read_enablement(tenant_dir)
     manifest = _read_yaml(tenant_dir / 'MANIFEST.yaml')

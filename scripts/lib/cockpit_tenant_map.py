@@ -91,6 +91,23 @@ def _rows(value):
     return isinstance(value, list) and len(value) <= MAX_ROWS
 
 
+def read_sources(tenant_dir: Path):
+    """The tenant's sources.yaml and its state; a foreign tenant or one malformed row holds it all."""
+    data, state = _tenant_file(tenant_dir, "sources.yaml")
+    if state != "configured":
+        return None, state
+    if not _rows(data.get("sources")):
+        return None, "held"
+    seen = set()
+    for source in data["sources"]:
+        if not (isinstance(source, dict) and safe_id(source.get("id")) and isinstance(source.get("type"), str)
+                and source["type"] in SOURCE_TYPES and ("tenant" not in source or source["tenant"] == tenant_dir.name)
+                and ("ingest" not in source or type(source["ingest"]) is bool) and source["id"] not in seen):
+            return None, "held"
+        seen.add(source["id"])
+    return data, "configured"
+
+
 def read_enablement(tenant_dir: Path):
     """The tenant's enabled.yaml and its state; one unsafe, malformed or duplicate row holds it all."""
     enabled, state = _tenant_file(tenant_dir, "enabled.yaml", "snowgloves.enabled.v1")
@@ -162,18 +179,8 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
         else:
             runtime_state = "held"
 
-    source_data, sources_state = _tenant_file(tenant_dir, "sources.yaml")
-    sources = []
-    if sources_state == "configured":
-        if not _rows(source_data.get("sources")):
-            sources_state = "held"
-        else:
-            for source in source_data["sources"]:
-                if isinstance(source, dict) and safe_id(source.get("id")) and isinstance(source.get("type"), str) and source["type"] in SOURCE_TYPES and ("tenant" not in source or source["tenant"] == tenant_dir.name) and ("ingest" not in source or type(source["ingest"]) is bool) and source["id"] not in [s["id"] for s in sources]:
-                    sources.append({"id": source["id"], "type": source["type"], "admitted": source.get("ingest") is True})
-                else:
-                    # Fail closed: one malformed row holds the whole source list.
-                    sources, sources_state = [], "held"
-                    break
+    source_data, sources_state = read_sources(tenant_dir)
+    sources = [{"id": source["id"], "type": source["type"], "admitted": source.get("ingest") is True}
+               for source in source_data["sources"]] if sources_state == "configured" else []
 
     return {"tenant": tenant_dir.name, "status": "source_config_only", "connectionAuth": "unverified", "catalogState": catalog_state, "templatesState": roles_state, "enabledState": enabled_state, "runtimeState": runtime_state, "runtime": runtime_id, "sourcesState": sources_state, "configuredModules": configured, "assignedAgents": assigned, "availableControlRoles": controls, "availableBusinessRoles": templates, "registeredSources": sources}

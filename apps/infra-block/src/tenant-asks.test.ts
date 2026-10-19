@@ -263,6 +263,28 @@ describe('ask sync and fleet client', () => {
     sync();
   });
 
+  it('publishes a poll slower than the interval instead of discarding it', async () => {
+    const emit = vi.fn();
+    const good = [model()];
+    let release: (value: TenantAsk[]) => void = () => {};
+    const asks = vi.fn(() => new Promise<TenantAsk[]>(resolve => { release = resolve; }));
+    const client = {asks} as unknown as FleetClient;
+    let poll: (() => void) | undefined;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(handler => { poll = handler as () => void; return 1 as unknown as ReturnType<typeof setInterval>; });
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    const stop = startAskSync(client, ['heyzack'], emit, 60_000);
+    // Two ticks pass while the first request is still out: no overlapping pull starts.
+    poll?.();
+    poll?.();
+    expect(asks).toHaveBeenCalledTimes(1);
+    release(good);
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(emit).toHaveBeenCalledWith(good);
+    poll?.();
+    expect(asks).toHaveBeenCalledTimes(2);
+    stop();
+  });
+
   it('keeps the last good list when a later poll fails', async () => {
     const emit = vi.fn();
     const good = [model()];

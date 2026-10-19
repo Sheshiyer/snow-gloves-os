@@ -272,16 +272,24 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
   const routable = projects.filter(project => /^[a-z0-9][a-z0-9_-]{0,63}$/.test(project));
   const lastGood = new Map<string, TenantAsk[]>();
   const publish = () => emit(routable.flatMap(project => lastGood.get(project) ?? []));
+  let inFlight = false;
   const pull = () => {
-    if (stopped) return;
+    // Pulls never overlap: a slow batch finishes and publishes instead of being
+    // superseded by the next tick. Only an answer or stop() invalidates it.
+    if (stopped || inFlight) return;
+    inFlight = true;
     const epoch = ++generation;
     void (async () => {
-      const results = await Promise.allSettled(routable.map(project => client.asks(project)));
-      if (stopped || epoch !== generation) return;
-      // If every poll failed, keep the last good list. Only stop() emits null.
-      if (!results.some(result => result.status === 'fulfilled')) return;
-      results.forEach((result, index) => { if (result.status === 'fulfilled') lastGood.set(routable[index], result.value); });
-      publish();
+      try {
+        const results = await Promise.allSettled(routable.map(project => client.asks(project)));
+        if (stopped || epoch !== generation) return;
+        // If every poll failed, keep the last good list. Only stop() emits null.
+        if (!results.some(result => result.status === 'fulfilled')) return;
+        results.forEach((result, index) => { if (result.status === 'fulfilled') lastGood.set(routable[index], result.value); });
+        publish();
+      } finally {
+        inFlight = false;
+      }
     })();
   };
   pull();

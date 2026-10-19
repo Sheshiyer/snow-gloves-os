@@ -204,12 +204,13 @@ def test_empty_proposal_keeps_fact_as_text(tmp_path):
 def test_duplicate_sources_yield_unique_ids(tmp_path):
     t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
     (t / 'context/offer.md').write_text('# Offer\nFILL: the price.\nFILL: the price.\n')
-    (t / 'sources.yaml').write_text('sources:\n- {id: drive, type: gdrive, ingest: false}\n- {id: drive, type: gdrive, ingest: false}\n')
+    (t / 'sources.yaml').write_text('tenant: heyzack\nsources:\n- {id: drive, type: gdrive, ingest: false}\n- {id: drive, type: gdrive, ingest: false}\n')
     asks = derive_asks(tmp_path, 'heyzack')
     ids = [a['id'] for a in asks]
     assert len(ids) == len(set(ids))
     assert [a['kind'] for a in asks].count('fact') == 1
-    assert [a['title'] for a in asks].count('Connect drive') == 1
+    # The tenant view holds a source list with a repeated id, so it asks for no connection.
+    assert [a['title'] for a in asks].count('Connect drive') == 0
 
 
 def test_control_character_proposal_keeps_fact_as_text(tmp_path):
@@ -249,10 +250,25 @@ def test_oversized_proposal_journal_keeps_the_newest_tail(tmp_path):
 def test_sensitive_text_is_rechecked_after_normalization(tmp_path):
     t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
     (t / 'context/offer.md').write_text('# Offer\nFILL: the api\tkey for billing.\nFILL: the price.\n')
-    (t / 'sources.yaml').write_text('sources:\n- {id: customer-token, type: gdrive, ingest: false}\n- {id: drive, type: gdrive, ingest: false}\n')
+    (t / 'sources.yaml').write_text('tenant: heyzack\nsources:\n- {id: drive, type: gdrive, ingest: false}\n')
     titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack')]
     assert 'the price.' in titles and 'Connect drive' in titles
     assert not any(SENSITIVE_RE.search(title) for title in titles)
+
+
+def test_held_source_lists_ask_for_no_connection_or_brand_handoff(tmp_path):
+    t = tmp_path / 'heyzack'; t.mkdir()
+    held = [
+        {'tenant': 'other', 'sources': [{'id': 'drive', 'type': 'gdrive', 'ingest': False}]},
+        {'sources': [{'id': 'drive', 'type': 'gdrive', 'ingest': False}]},
+        {'tenant': 'heyzack', 'sources': [{'id': 'drive', 'type': 'gdrive', 'tenant': 'other', 'ingest': False}]},
+        {'tenant': 'heyzack', 'sources': [{'id': 'customer-token', 'type': 'gdrive', 'ingest': False},
+                                          {'id': 'drive', 'type': 'gdrive', 'ingest': False}]},
+        {'tenant': 'heyzack', 'sources': [{'id': 'drive', 'type': 'carrier-pigeon', 'ingest': False}]},
+    ]
+    for value in held:
+        (t / 'sources.yaml').write_text(yaml.safe_dump(value))
+        assert [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] in ('connect', 'brand')] == [], value
 
 
 def test_long_context_filename_source_fits_the_client_limit(tmp_path):
