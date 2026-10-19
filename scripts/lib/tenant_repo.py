@@ -9,12 +9,13 @@ import os
 import re
 import subprocess
 
+from .cockpit_tenant_map import strict_yaml
+
 # Instance data the private checkout keeps beside tenants/ (see scripts/lib/paths.py):
 # fleet inventory, node profiles, audit receipts, planning state and portfolio specs.
 SHARED_INSTANCE_PATHS = frozenset({'fleet.yaml', 'nodes', '_audit', '.planning', 'specs'})
 # What a tenant folder holds (tenants/<slug>/ in the private checkout), plus a README
 # and an optional tenants/<slug>/ wrapper. Anything else at a tenant root is refused.
-MANIFEST_TENANT = re.compile(r'''(?m)^tenant:[ \t]*["']?([A-Za-z0-9_.-]+)["']?[ \t]*(?:#.*)?$''')
 MAX_MANIFEST = 256 * 1024
 TENANT_LAYOUT = frozenset({'MANIFEST.yaml', 'README.md', '.gitignore', 'context', 'meristem', 'sources.yaml',
                            'enabled.yaml', 'runtime.yaml', 'ingest-plan.json', 'asks', 'wiki', 'history',
@@ -26,7 +27,7 @@ TENANT_LAYOUT = frozenset({'MANIFEST.yaml', 'README.md', '.gitignore', 'context'
 # can make the worker's own git add, checkout or apply run a command.
 SAFE_CONFIG = re.compile(r'(core\.(repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|precomposeunicode|symlinks)'
                          r'|extensions\.objectformat|user\.(name|email)'
-                         r'|remote\.[^.\s]+\.(url|fetch)|branch\.[^.\s]+\.(remote|merge))')
+                         r'|remote\.[^.\s]+\.(url|fetch|tagopt)|branch\.[^.\s]+\.(remote|merge))')
 
 
 def _unsafe_config(root, git_path='git'):
@@ -40,6 +41,19 @@ def _unsafe_config(root, git_path='git'):
     except (OSError, subprocess.SubprocessError):
         return None
     return sorted({name for name in names if name and not SAFE_CONFIG.fullmatch(name.lower())})
+
+
+def _manifest_tenant(raw):
+    """The tenant a MANIFEST.yaml names, parsed with the strict reader (no duplicate keys
+    or aliases), or None when it is too large, malformed or names no tenant."""
+    if len(raw) > MAX_MANIFEST:
+        return None
+    try:
+        value = strict_yaml(raw)
+    except Exception:  # any parse failure means the commit's owner is unknown
+        return None
+    tenant = value.get('tenant') if isinstance(value, dict) else None
+    return tenant if isinstance(tenant, str) else None
 
 
 def _own_object_store(root):
@@ -83,6 +97,11 @@ def git_layout(root, git_path='git'):
         return subprocess.run([git_path, '-C', str(root), *args], input=data, capture_output=True, check=True, timeout=300).stdout
     try:
         width = 32 if git('rev-parse', '--show-object-format').strip() == b'sha256' else 20
+        # A clone transfers every ref; one naming a tag, tree or blob would carry objects
+        # (a tag message, a tagged blob) that the commit-tree checks below never inspect.
+        ref_types = git('for-each-ref', '--format=%(objecttype)').split()
+        if any(kind != b'commit' for kind in ref_types):
+            return None
         listing = git('cat-file', '--batch-all-objects', '--batch-check=%(objecttype) %(objectname)')
         wanted = [line.split()[1] for line in listing.splitlines() if line.startswith((b'tree ', b'commit '))]
         raw = git('cat-file', '--batch', data=b''.join(oid + b'\n' for oid in wanted)) if wanted else b''
@@ -136,8 +155,7 @@ def git_layout(root, git_path='git'):
             name, kind, size = raw[pos:header_end].split()
             body = raw[header_end + 1:header_end + 1 + int(size)]
             pos = header_end + 1 + int(size) + 1
-            match = MANIFEST_TENANT.search(body[:MAX_MANIFEST].decode('utf-8', 'replace')) if len(body) <= MAX_MANIFEST else None
-            owners.add(match.group(1) if match else None)
+            owners.add(_manifest_tenant(body))
     return tenants, top, links, names, owners
 
 

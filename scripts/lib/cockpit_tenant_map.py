@@ -66,16 +66,17 @@ def _read(path: Path, limit=MAX_BYTES):
     if raw is None:
         return None, state
     try:
-        if path.suffix == ".json":
-            value = json.loads(raw, object_pairs_hook=_unique_pairs)
-        else:
-            # Disallow YAML aliases and duplicate keys, rather than accepting ambiguous config.
-            if any(isinstance(t, (yaml.tokens.AliasToken, yaml.tokens.AnchorToken)) for t in yaml.scan(raw)):
-                return None, "held"
-            value = yaml.load(raw, Loader=_UniqueLoader)
+        value = json.loads(raw, object_pairs_hook=_unique_pairs) if path.suffix == ".json" else strict_yaml(raw)
         return value, "configured"
     except (ValueError, TypeError, UnicodeError, yaml.YAMLError, RecursionError):
         return None, "held"
+
+
+def strict_yaml(raw):
+    """Parse YAML refusing aliases, anchors and duplicate keys, rather than accepting ambiguous config."""
+    if any(isinstance(t, (yaml.tokens.AliasToken, yaml.tokens.AnchorToken)) for t in yaml.scan(raw)):
+        raise ValueError("YAML aliases are not accepted")
+    return yaml.load(raw, Loader=_UniqueLoader)
 
 
 def _unique_pairs(pairs):

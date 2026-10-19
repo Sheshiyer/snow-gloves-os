@@ -888,3 +888,37 @@ def test_admit_refuses_a_root_level_repository_reused_from_another_tenant(tmp_pa
     _git_commit_all(repo, 'now tenant-a')
     with pytest.raises(ValueError, match='MANIFEST.yaml does not name tenant-a'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def _tenant_repo(tmp_path, manifest='tenant: tenant-a\n'):
+    repo = tmp_path / 'tenant-a'
+    _git_init(repo)
+    (repo / 'MANIFEST.yaml').write_text(manifest)
+    (repo / 'context').mkdir()
+    (repo / 'context' / 'offer.md').write_text('FILL: the price.')
+    _git_commit_all(repo)
+    return repo
+
+
+@pytest.mark.parametrize('tag', ['blob', 'annotated'])
+def test_admit_refuses_refs_that_are_not_commits(tmp_path, tag):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    if tag == 'blob':
+        blob = subprocess.run(['git', '-C', str(repo), 'hash-object', '-w', '--stdin'], input=b'tenant-b private plan',
+                              check=True, capture_output=True).stdout.decode().strip()
+        subprocess.run(['git', '-C', str(repo), 'tag', 'stash', blob], check=True)
+    else:
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t', '-c', 'user.email=t@example.invalid',
+                        'tag', '-a', 'v1', '-m', 'tenant-b private plan'], check=True)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+@pytest.mark.parametrize('manifest', ['tenant: tenant-a\ntenant: tenant-b\n', 'base: &t tenant-a\ntenant: *t\n',
+                                      'tenant: [tenant-a\n'])
+def test_admit_refuses_ambiguous_or_malformed_manifests(tmp_path, manifest):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path, manifest)
+    with pytest.raises(ValueError, match='MANIFEST.yaml does not name tenant-a'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
