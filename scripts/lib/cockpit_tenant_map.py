@@ -112,6 +112,29 @@ def read_catalog(repo_root: Path):
     return catalog, cards, controls, catalog_state
 
 
+def read_templates(repo_root: Path):
+    """Preparation-only business role templates and their state."""
+    roles, roles_state = _read(repo_root / "catalog" / "business-roles.json")
+    templates = []
+    if _rows(roles):
+        for role in roles:
+            if isinstance(role, dict) and safe_id(role.get("id")) and safe_id(role.get("desk")) and safe_id(role.get("control_owner")) and role["control_owner"] in CONTROL_ROLES and role.get("preparation_only") is True and role["id"] not in [r["id"] for r in templates]:
+                templates.append({"id": role["id"], "name": _label(role.get("name"), role["id"]), "desk": role["desk"], "controlOwner": role["control_owner"], "preparationOnly": True})
+    else:
+        roles_state = "held"
+    return templates, roles_state
+
+
+def card_gate(card, known_roles):
+    """A card's closed-enum category, disposition, risk and approval, and whether a tenant may use it."""
+    category = card.get("category") if card.get("category") in ("skills", "mcp", "connector", "plugin", "playbook", "mod") else "unknown"
+    disposition = card.get("disposition") if card.get("disposition") in ("add", "pointer", "hold", "refuse") else "unknown"
+    risk = card.get("risk") if card.get("risk") in ("low", "medium", "high") else "unknown"
+    approval = card.get("approval") if card.get("approval") in ("yes", "no") else "unknown"
+    permitted = category != "unknown" and disposition in ("add", "pointer") and risk != "unknown" and approval != "unknown" and card.get("enableable") is True and _rows(card.get("agents")) and all(isinstance(a, str) and a in known_roles for a in card["agents"])
+    return category, disposition, risk, approval, permitted
+
+
 def read_manifest(tenant_dir: Path):
     """The tenant's MANIFEST.yaml and its state; a manifest naming another tenant is held."""
     return _tenant_file(tenant_dir, "MANIFEST.yaml")
@@ -154,14 +177,7 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
         raise ValueError("invalid tenant")
     catalog, cards, controls, catalog_state = read_catalog(repo_root)
 
-    roles, roles_state = _read(repo_root / "catalog" / "business-roles.json")
-    templates = []
-    if _rows(roles):
-        for role in roles:
-            if isinstance(role, dict) and safe_id(role.get("id")) and safe_id(role.get("desk")) and safe_id(role.get("control_owner")) and role["control_owner"] in CONTROL_ROLES and role.get("preparation_only") is True and role["id"] not in [r["id"] for r in templates]:
-                templates.append({"id": role["id"], "name": _label(role.get("name"), role["id"]), "desk": role["desk"], "controlOwner": role["control_owner"], "preparationOnly": True})
-    else:
-        roles_state = "held"
+    templates, roles_state = read_templates(repo_root)
 
     enabled, enabled_state = read_enablement(tenant_dir)
     configured, assigned = [], []
@@ -172,11 +188,7 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
         for item in enabled["modules"]:
             ident = item.get("id") if isinstance(item, dict) else item
             card = cards.get(ident, {})
-            category = card.get("category") if card.get("category") in ("skills", "mcp", "connector", "plugin", "playbook", "mod") else "unknown"
-            disposition = card.get("disposition") if card.get("disposition") in ("add", "pointer", "hold", "refuse") else "unknown"
-            risk = card.get("risk") if card.get("risk") in ("low", "medium", "high") else "unknown"
-            approval = card.get("approval") if card.get("approval") in ("yes", "no") else "unknown"
-            permitted = category != "unknown" and disposition in ("add", "pointer") and risk != "unknown" and approval != "unknown" and card.get("enableable") is True and _rows(card.get("agents")) and all(isinstance(a, str) and a in known_roles for a in card["agents"])
+            category, disposition, risk, approval, permitted = card_gate(card, known_roles)
             configured.append({"id": ident, "name": _label(card.get("name"), ident), "category": category, "disposition": disposition, "risk": risk, "approval": approval, "gate": ("approval_required" if approval == "yes" or risk == "high" else "catalog_permitted") if permitted else "held", "roles": sorted({a for a in card.get("agents", []) if isinstance(a, str) and a in known_roles}) if _rows(card.get("agents")) else []})
 
     runtime, runtime_state = _tenant_file(tenant_dir, "runtime.yaml", "snowgloves.runtime.v1")

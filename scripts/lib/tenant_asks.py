@@ -17,7 +17,7 @@ import os
 import re
 from pathlib import Path
 
-from .cockpit_tenant_map import read_catalog, read_enablement, read_manifest, read_sources
+from .cockpit_tenant_map import card_gate, read_catalog, read_enablement, read_manifest, read_sources, read_templates
 
 ASK_KINDS: tuple[str, ...] = ('fact', 'decision', 'connect', 'website', 'brand')
 ROLE_FOR_KIND: dict[str, str] = {
@@ -37,6 +37,8 @@ MAX_CONTEXT_ENTRIES = 1024  # directory entries considered in context/
 CONTROL_RE = re.compile(r'[\x00-\x1f\x7f]')
 MAX_PROPOSED = 500
 MAX_FILE_BYTES = 256 * 1024
+MAX_PROPOSAL_LINE = 64 * 1024  # one journal record; the importer writes far less
+MAX_PROPOSAL_IDS = MAX_ASKS * 4  # distinct ask ids kept from the journal, with headroom over MAX_ASKS
 PROPOSAL_MAX_BYTES = 512 * 1024
 PROPOSAL_REL = Path('specs') / '006-editorial-steward-integration' / 'portfolio-map-proposal.json'
 
@@ -105,7 +107,12 @@ def _read_text(path: Path) -> str | None:
 
 
 def load_proposals(tenant_dir: Path) -> dict[str, str]:
-    """Latest valid proposal per ask id from the bounded newest tail of the journal."""
+    """Latest valid proposal per ask id, streamed over the whole journal.
+
+    The importer appends a proposal only once per value, so an ask's only record
+    can sit anywhere in the file. Memory stays bounded: lines over the line cap
+    are skipped and at most MAX_PROPOSAL_IDS distinct ask ids are kept.
+    """
     asks_dir = tenant_dir / 'asks'
     path = asks_dir / 'proposed.jsonl'
     proposals: dict[str, str] = {}
@@ -115,32 +122,30 @@ def load_proposals(tenant_dir: Path) -> dict[str, str]:
         if (asks_dir.is_symlink() or path.is_symlink() or not path.is_file()
                 or not path.resolve().is_relative_to(tenant_dir.resolve())):
             return proposals
-        size = path.stat().st_size
         with path.open('rb') as stream:
-            if size > MAX_FILE_BYTES:
-                stream.seek(size - MAX_FILE_BYTES)
-            raw = stream.read(MAX_FILE_BYTES)
-        text = raw.decode('utf-8', errors='replace')
-        if size > MAX_FILE_BYTES:
-            # Drop the partial first line of an append-only journal's tail.
-            text = text.split('\n', 1)[1] if '\n' in text else ''
-        for line in text.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-            except (ValueError, TypeError):
-                continue
-            if not isinstance(record, dict):
-                continue
-            proposed, ask = record.get('proposed'), record.get('ask_id')
-            if not isinstance(ask, str) or not isinstance(proposed, str):
-                continue
-            if (not proposed.strip() or len(proposed) > MAX_PROPOSED or SENSITIVE_RE.search(proposed)
-                    or CONTROL_RE.search(proposed) or not is_scalar_text(proposed)):
-                continue
-            proposals[ask] = proposed
+            while True:
+                raw = stream.readline(MAX_PROPOSAL_LINE + 1)
+                if not raw:
+                    break
+                if len(raw) > MAX_PROPOSAL_LINE:
+                    # Skip the rest of an oversized line without holding it.
+                    while raw and not raw.endswith(b'\n'):
+                        raw = stream.readline(MAX_PROPOSAL_LINE)
+                    continue
+                try:
+                    record = json.loads(raw.decode('utf-8', errors='replace'))
+                except (ValueError, TypeError):
+                    continue
+                if not isinstance(record, dict):
+                    continue
+                proposed, ask = record.get('proposed'), record.get('ask_id')
+                if not isinstance(ask, str) or not isinstance(proposed, str):
+                    continue
+                if (not proposed.strip() or len(proposed) > MAX_PROPOSED or SENSITIVE_RE.search(proposed)
+                        or CONTROL_RE.search(proposed) or not is_scalar_text(proposed)):
+                    continue
+                if ask in proposals or len(proposals) < MAX_PROPOSAL_IDS:
+                    proposals[ask] = proposed
     except (OSError, UnicodeError):
         pass
     return proposals
@@ -243,17 +248,18 @@ def _source_connect_asks(tenant: str, sources_value) -> list[dict]:
 
 
 def load_catalog(code_root: Path) -> dict[str, str]:
-    """Module id -> category for catalog cards a tenant may enable; held and refused cards are left out.
+    """Module id -> category for catalog cards the tenant view permits; every held card is left out.
 
     The catalog is read through the capability view's reader, so a catalog the
     tenant view holds (too large, wrong schema, malformed) yields no connector asks.
     """
-    _, cards, _, state = read_catalog(Path(code_root))
+    _, cards, controls, state = read_catalog(Path(code_root))
     if state != 'configured':
         return {}
-    return {ident: card['category'] for ident, card in cards.items()
-            if isinstance(card.get('category'), str)
-            and card.get('disposition') in ('add', 'pointer') and card.get('enableable') is True}
+    templates, _ = read_templates(Path(code_root))
+    known_roles = {role['id'] for role in controls + templates}
+    # The tenant view's own gate: a card it shows as held never becomes an ask.
+    return {ident: card['category'] for ident, card in cards.items() if card_gate(card, known_roles)[4]}
 
 
 def _module_connect_asks(tenant: str, enabled_value, catalog: dict[str, str] | None = None) -> list[dict]:

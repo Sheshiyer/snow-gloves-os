@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from lib.tenant_asks import SENSITIVE_RE, load_catalog, ASK_KINDS, ROLE_FOR_KIND, ask_id, derive_asks, load_proposal
+from lib.tenant_asks import SENSITIVE_RE, load_catalog, load_proposals, ASK_KINDS, ROLE_FOR_KIND, ask_id, derive_asks, load_proposal
 
 
 def test_ask_kinds_and_roles():
@@ -326,14 +326,18 @@ def test_held_enablement_asks_for_no_connector(tmp_path):
 
 def test_load_catalog_maps_ids_to_categories(tmp_path):
     (tmp_path / 'catalog').mkdir()
-    ok = {'disposition': 'add', 'enableable': True}
-    catalog = {'schema': 'snowgloves.modules.v1', 'agents': [], 'cards': [
-        {'id': 'github-mcp', 'category': 'mcp', **ok}, {'id': 'x', 'category': 'skills', 'disposition': 'pointer', 'enableable': True},
-        {'id': 'lazyweb', 'category': 'mcp', 'disposition': 'hold', 'enableable': False},
-        {'id': 'awesome', 'category': 'mcp', 'disposition': 'refuse', 'enableable': True},
-        {'id': 'draft', 'category': 'connector', 'disposition': 'add'}, {'nope': 1}]}
+    ok = {'disposition': 'add', 'enableable': True, 'risk': 'low', 'approval': 'no', 'agents': ['librarian']}
+    catalog = {'schema': 'snowgloves.modules.v1', 'agents': [{'slug': 'librarian', 'role': 'Librarian'}], 'cards': [
+        {'id': 'github-mcp', 'category': 'mcp', **ok}, {'id': 'x', 'category': 'skills', **ok, 'disposition': 'pointer'},
+        {'id': 'lazyweb', 'category': 'mcp', **ok, 'disposition': 'hold', 'enableable': False},
+        {'id': 'awesome', 'category': 'mcp', **ok, 'disposition': 'refuse'},
+        {'id': 'draft', 'category': 'connector', **ok, 'enableable': None},
+        {'id': 'no-risk', 'category': 'mcp', **{k: v for k, v in ok.items() if k != 'risk'}},
+        {'id': 'no-approval', 'category': 'mcp', **ok, 'approval': 'maybe'},
+        {'id': 'stranger', 'category': 'connector', **ok, 'agents': ['ghost']},
+        {'nope': 1}]}
     (tmp_path / 'catalog' / 'modules.json').write_text(json.dumps(catalog))
-    # Held, refused and non-enableable cards never become connector asks.
+    # Every card the tenant view gates as held stays out of connector asks.
     assert load_catalog(tmp_path) == {'github-mcp': 'mcp', 'x': 'skills'}
     assert load_catalog(tmp_path / 'missing') == {}
     # A catalog the tenant view holds (wrong schema, or over its 1 MiB limit) asks for nothing.
@@ -397,3 +401,16 @@ def test_fill_lines_cannot_starve_other_asks(tmp_path):
     assert kinds[0] == 'fact'
     assert 'decision' in kinds and 'connect' in kinds and 'website' in kinds and 'brand' in kinds
     assert kinds.count('fact') == 400 - (len(asks) - kinds.count('fact'))
+
+
+def test_a_proposal_far_behind_the_journal_end_still_counts(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'asks').mkdir(parents=True)
+    filler = json.dumps({'ask_id': 'f' * 32, 'proposed': 'x' * 400}) + '\n'
+    (t / 'asks' / 'proposed.jsonl').write_text(
+        json.dumps({'ask_id': 'a' * 32, 'proposed': 'EUR 99'}) + '\n' + filler * 2000
+        + '{"ask_id": "' + 'b' * 32 + '", "proposed": "' + 'y' * 70000 + '"}\n'
+        + json.dumps({'ask_id': 'c' * 32, 'proposed': 'yes'}) + '\n')
+    assert (t / 'asks' / 'proposed.jsonl').stat().st_size > 256 * 1024
+    proposals = load_proposals(t)
+    # The early record survives, an oversized line is skipped whole, and the next line still parses.
+    assert proposals['a' * 32] == 'EUR 99' and proposals['c' * 32] == 'yes' and 'b' * 32 not in proposals
