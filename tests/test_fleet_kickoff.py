@@ -565,3 +565,15 @@ def test_reimporting_the_same_task_is_a_no_op_beyond_the_tail(tmp_path):
     assert import_proposals(tenants_dir, 'heyzack', old, {'id1'}, source='task-old') == 0
     last = [json.loads(line) for line in (asks_dir / 'proposed.jsonl').read_text().splitlines() if '"id1"' in line][-1]
     assert last['proposed'] == 'EUR 120' and last['source'] == 'task-new'
+
+
+def test_unchanged_task_still_records_its_source(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True)
+    artifact = '[{"ask_id":"id1","proposed":"EUR 99"}]'
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-a') == 1
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-b') == 0
+    journal = tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl'
+    assert any(json.loads(l).get('source') == 'task-b' for l in journal.read_text().splitlines())
+    # the receipt keeps task-b from being re-imported, even with a changed value
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 5"}]', {'id1'}, source='task-b') == 0

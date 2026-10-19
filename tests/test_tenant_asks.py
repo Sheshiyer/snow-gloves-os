@@ -329,3 +329,16 @@ def test_decision_titles_with_lone_surrogates_are_dropped(tmp_path):
         {'id': 'good', 'status': 'proposed_not_approved', 'participants': ['heyzack'], 'description': 'good flow'}]}
     titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack', proposal) if a['kind'] == 'decision']
     assert len(titles) == 1 and 'good flow' in titles[0]
+
+
+def test_fill_lines_cannot_starve_other_asks(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    (t / 'context' / 'big.md').write_text(''.join('FILL: item %d\n' % i for i in range(450)))
+    (t / 'sources.yaml').write_text(yaml.safe_dump({
+        'tenant': 'heyzack', 'sources': [{'id': 'drive', 'type': 'gdrive', 'admitted': False}]}))
+    (t / 'MANIFEST.yaml').write_text(yaml.safe_dump({'tenant': 'heyzack', 'brand': {'domain': 'FILL: confirm'}}))
+    asks = derive_asks(tmp_path, 'heyzack')
+    kinds = [a['kind'] for a in asks]
+    assert len(asks) == 400
+    assert 'connect' in kinds and 'website' in kinds and 'brand' in kinds
+    assert kinds.count('fact') == 400 - (len(asks) - kinds.count('fact'))

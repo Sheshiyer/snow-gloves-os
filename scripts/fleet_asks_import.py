@@ -113,7 +113,10 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None)
     valid = [r for r in latest.values() if recorded.get(r['ask_id']) != r['proposed']]
     if source is not None:
         valid = [dict(r, source=source) for r in valid]
-    if not valid:
+    # An unchanged task still records its source so it is never re-imported;
+    # load_proposals ignores a line without ask_id and proposed.
+    receipt = source is not None and not valid
+    if not valid and not receipt:
         return 0
     base = Path(tenants_dir).resolve()
     asks_dir = Path(tenants_dir) / tenant / 'asks'
@@ -126,7 +129,7 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None)
         flags |= os.O_NOFOLLOW
     fd = os.open(path, flags, 0o600)
     with os.fdopen(fd, 'a') as stream:
-        for record in valid:
+        for record in valid or [{'source': source, 'receipt': True}]:
             stream.write(json.dumps(record) + '\n')
         stream.flush()
         os.fsync(stream.fileno())

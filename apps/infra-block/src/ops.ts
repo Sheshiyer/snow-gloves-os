@@ -426,7 +426,7 @@ export function mountCockpit(
       return;
     }
     isOpen = false;
-    fleetBoard.pause(true);
+    fleetBoard.pause();
     rootEl.setAttribute('hidden', '');
     isFetching = false;
     isPlanning = false;

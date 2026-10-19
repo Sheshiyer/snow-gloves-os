@@ -346,26 +346,34 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
     sources_value = _read_yaml(tenant_dir / 'sources.yaml')
     enabled_value = _read_yaml(tenant_dir / 'enabled.yaml')
     manifest = _read_yaml(tenant_dir / 'MANIFEST.yaml')
-    asks: list[dict] = []
-    asks += _fact_asks(tenant_dir, tenant, proposals)
-    asks += _decision_asks(tenant, proposal)
-    asks += _source_connect_asks(tenant, sources_value)
-    asks += _module_connect_asks(tenant, enabled_value, catalog)
-    asks += _website_ask(tenant, manifest)
-    asks += _brand_ask(tenant, sources_value)
-    # A repeated FILL line, flow, source or module would repeat a stable id;
-    # clients reject duplicate ids, so keep the first occurrence only.
-    seen, unique = set(), []
-    for ask in asks:
-        # Ids come from keys, so normalizing display text never moves an answer.
-        ask['title'] = _clean_text(ask['title'])[:MAX_TITLE]
-        ask['source'] = _clean_text(ask['source'])[:MAX_SOURCE]
-        # Re-check the final text: normalization can join a split sensitive word,
-        # and connect titles are built from raw source and module ids.
-        if (not ask['title'] or not ask['source'] or ask['id'] in seen
-                or SENSITIVE_RE.search(ask['title']) or SENSITIVE_RE.search(ask['source'])
-                or not is_scalar_text(ask['title']) or not is_scalar_text(ask['source'])):
-            continue
-        seen.add(ask['id'])
-        unique.append(ask)
-    return unique[:MAX_ASKS]
+    # Decision, connect, website and brand asks are few and actionable; derive
+    # them first so a long run of FILL lines can only spend the remaining budget.
+    others: list[dict] = []
+    others += _decision_asks(tenant, proposal)
+    others += _source_connect_asks(tenant, sources_value)
+    others += _module_connect_asks(tenant, enabled_value, catalog)
+    others += _website_ask(tenant, manifest)
+    others += _brand_ask(tenant, sources_value)
+    seen: set[str] = set()
+
+    def keep(asks: list[dict]) -> list[dict]:
+        # A repeated FILL line, flow, source or module would repeat a stable id;
+        # clients reject duplicate ids, so keep the first occurrence only.
+        unique = []
+        for ask in asks:
+            # Ids come from keys, so normalizing display text never moves an answer.
+            ask['title'] = _clean_text(ask['title'])[:MAX_TITLE]
+            ask['source'] = _clean_text(ask['source'])[:MAX_SOURCE]
+            # Re-check the final text: normalization can join a split sensitive word,
+            # and connect titles are built from raw source and module ids.
+            if (not ask['title'] or not ask['source'] or ask['id'] in seen
+                    or SENSITIVE_RE.search(ask['title']) or SENSITIVE_RE.search(ask['source'])
+                    or not is_scalar_text(ask['title']) or not is_scalar_text(ask['source'])):
+                continue
+            seen.add(ask['id'])
+            unique.append(ask)
+        return unique
+
+    others = keep(others)[:MAX_ASKS]
+    facts = keep(_fact_asks(tenant_dir, tenant, proposals))[:MAX_ASKS - len(others)]
+    return facts + others
