@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -19,6 +20,9 @@ MAX_ARTIFACT = 256 * 1024
 MAX_JOURNAL_LINE = 64 * 1024  # one journal record; the importer writes far less
 JOURNAL = 'proposed.jsonl'
 COMPACT_AT = 4 * 1024 * 1024  # past this, the journal is rewritten to its live records
+MAX_COMPACT_BYTES = 64 * 1024 * 1024
+MAX_COMPACT_RECORDS = 1_000_000
+COMPACT_SECONDS = 30
 _MAX_FAILED_DECODES = 2000
 
 
@@ -127,16 +131,53 @@ def _locked_journal(asks):
         os.close(fd)
 
 
+def _compacted_size(asks):
+    """The journal size right after the last compaction, from a small marker file (0 if none)."""
+    try:
+        fd = os.open(JOURNAL + '.compacted', os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0), dir_fd=asks)
+    except OSError:
+        return 0
+    try:
+        value = os.read(fd, 32).strip()
+        return int(value) if value.isdigit() else 0
+    finally:
+        os.close(fd)
+
+
+def _record_compacted_size(asks, size):
+    fd = os.open(JOURNAL + '.compacted', os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0), 0o600, dir_fd=asks)
+    try:
+        os.write(fd, str(size).encode())
+    finally:
+        os.close(fd)
+
+
 def _compact(stream, asks):
     """Rewrite a large journal to the latest proposal per ask plus one completion line per
     imported source, so every later scan (each ask listing reads it) stays small.
 
     Runs under the journal lock; the new file replaces the old atomically, and waiting
-    importers notice the replacement and reopen.
+    importers notice the replacement and reopen. Reading is capped in bytes, records,
+    line length and time; past any cap the journal is left unchanged. Returns whether
+    it compacted.
     """
     latest, done = {}, {}
     stream.seek(0)
-    for line in stream:
+    deadline, scanned, records = time.monotonic() + COMPACT_SECONDS, 0, 0
+    while True:
+        line = stream.readline(MAX_JOURNAL_LINE + 1)
+        if not line:
+            break
+        scanned += len(line)
+        records += 1
+        # Fail safe: past any budget, keep the journal as it is rather than hold it all.
+        if scanned > MAX_COMPACT_BYTES or records > MAX_COMPACT_RECORDS or time.monotonic() > deadline:
+            return False
+        if len(line) > MAX_JOURNAL_LINE:
+            while line and not line.endswith(b'\n'):
+                line = stream.readline(MAX_JOURNAL_LINE)
+                scanned += len(line)
+            continue
         try:
             record = json.loads(line.decode('utf-8', errors='replace'))
         except ValueError:
@@ -166,6 +207,7 @@ def _compact(stream, asks):
         os.close(fd)
     os.replace(temp, JOURNAL, src_dir_fd=asks, dst_dir_fd=asks)
     os.fsync(asks)
+    return True
 
 
 def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None, created=None):
@@ -256,9 +298,13 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
             stream.write(b'\n'.join(lines) + b'\n')
             stream.flush()
             os.fsync(stream.fileno())
-            if os.fstat(stream.fileno()).st_size > COMPACT_AT:
+            # Compact only once the journal has doubled since its last compaction: live records
+            # (one completion line per task) can keep it above COMPACT_AT, and re-reading it on
+            # every import would make each import slower than the last.
+            if os.fstat(stream.fileno()).st_size > max(COMPACT_AT, 2 * _compacted_size(asks)):
                 try:
-                    _compact(stream, asks)
+                    if _compact(stream, asks):
+                        _record_compacted_size(asks, os.stat(JOURNAL, dir_fd=asks, follow_symlinks=False).st_size)
                 except OSError:
                     pass  # the appended journal is intact; compaction retries on the next import
     finally:

@@ -1036,3 +1036,52 @@ def test_admit_refuses_a_root_without_an_owned_commit(tmp_path, history):
                         'commit', '-q', '--allow-empty', '-m', 'empty'], check=True)
     with pytest.raises(ValueError, match='Cannot verify|does not name tenant-a'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_compaction_waits_for_the_journal_to_double_and_gives_up_past_its_budget(tmp_path, monkeypatch):
+    import fleet_asks_import
+    from lib.tenant_asks import load_proposals
+    monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 500)
+    tenants_dir = tmp_path / 'tenants'
+    journal = tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl'
+    marker = journal.parent / 'proposed.jsonl.compacted'
+    calls = []
+    real = fleet_asks_import._compact
+    monkeypatch.setattr(fleet_asks_import, '_compact', lambda stream, asks: calls.append(1) or real(stream, asks))
+    for n in range(40):
+        artifact = json.dumps([{'ask_id': 'id%d' % n, 'proposed': 'yes'}])
+        import_proposals(tenants_dir, 'heyzack', artifact, {'id%d' % n}, source='task-%d' % n, created=float(n))
+    # Every task leaves a live completion line, so the journal stays above COMPACT_AT; compaction
+    # must not run on every import once that happens.
+    assert marker.exists() and 0 < len(calls) < 15
+    assert len(load_proposals(tenants_dir / 'heyzack')) == 40
+    # Past its byte budget a compaction leaves the journal untouched.
+    before = journal.read_bytes()
+    monkeypatch.setattr(fleet_asks_import, 'MAX_COMPACT_BYTES', 10)
+    with open(journal, 'rb') as stream:
+        assert real(stream, None) is False
+    assert journal.read_bytes() == before
+
+
+def test_admit_refuses_replacement_refs(tmp_path):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    good = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'], check=True, capture_output=True, text=True).stdout.strip()
+    (repo / 'MANIFEST.yaml').write_text('tenant: tenant-b\n')
+    _git_commit_all(repo, 'tenant-b history')
+    foreign = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'], check=True, capture_output=True, text=True).stdout.strip()
+    # Make Git show the allowed commit wherever the foreign one is asked for.
+    subprocess.run(['git', '-C', str(repo), 'replace', foreign, good], check=True)
+    with pytest.raises(ValueError, match='Cannot verify|does not name tenant-a'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_admit_fails_closed_past_the_ref_budget(tmp_path, monkeypatch):
+    from lib import tenant_repo
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    for name in ('a', 'b', 'c'):
+        subprocess.run(['git', '-C', str(repo), 'branch', name], check=True)
+    monkeypatch.setattr(tenant_repo, 'MAX_REFS', 2)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))

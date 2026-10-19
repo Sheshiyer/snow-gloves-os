@@ -25,6 +25,7 @@ MAX_MANIFEST = 256 * 1024
 MAX_OBJECTS = 200_000
 MAX_METADATA_BYTES = 64 * 1024 * 1024  # all commit and tree bodies together
 SCAN_SECONDS = 120
+MAX_REFS = 10_000
 MAX_GIT_ENTRIES = 2 * MAX_OBJECTS + 10_000  # files and directories under .git, loose objects included
 TENANT_LAYOUT = frozenset({'MANIFEST.yaml', 'README.md', '.gitignore', 'context', 'meristem', 'sources.yaml',
                            'enabled.yaml', 'runtime.yaml', 'ingest-plan.json', 'asks', 'wiki', 'history',
@@ -111,7 +112,7 @@ def _watchdog(process, deadline):
 def _batch(git_path, root, oids, deadline):
     """Stream (oid, type, body) for *oids* from one cat-file --batch, never buffering the
     whole output; the input is fed from a thread so neither pipe can fill and stall."""
-    process = subprocess.Popen([git_path, '-C', str(root), 'cat-file', '--batch'],
+    process = subprocess.Popen([git_path, '--no-replace-objects', '-C', str(root), 'cat-file', '--batch'],
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     watchdog = _watchdog(process, deadline)
     def feed():
@@ -140,6 +141,25 @@ def _batch(git_path, root, oids, deadline):
         writer.join(1)
 
 
+def _refs_are_plain_commits(git_path, root, deadline):
+    """True when every ref names a commit and none is a replacement ref, streamed under
+    MAX_REFS and the scan deadline so a huge packed-refs file fails closed."""
+    process = subprocess.Popen([git_path, '--no-replace-objects', '-C', str(root), 'for-each-ref',
+                                '--format=%(objecttype) %(refname)'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    watchdog = _watchdog(process, deadline)
+    try:
+        for count, line in enumerate(process.stdout, 1):
+            kind, _, name = line.rstrip(b'\n').partition(b' ')
+            # A replace ref makes Git show a different object than the clone receives.
+            if count > MAX_REFS or kind != b'commit' or name.startswith(b'refs/replace/') or time.monotonic() > deadline:
+                return False
+    finally:
+        watchdog.cancel()
+        process.kill()
+        process.wait()
+    return process.returncode in (0, -9) and time.monotonic() <= deadline
+
+
 def git_layout(root, git_path='git'):
     """Tenant names under any tenants/ tree, every top-level name any commit has held,
     whether any tree records a symlink or submodule (either can reach outside the root),
@@ -157,20 +177,20 @@ def git_layout(root, git_path='git'):
     if not _own_object_store(root, deadline):
         return None
     def git(*args):
-        return subprocess.run([git_path, '-C', str(root), *args], capture_output=True, check=True, timeout=SCAN_SECONDS).stdout
+        return subprocess.run([git_path, '--no-replace-objects', '-C', str(root), *args], capture_output=True, check=True, timeout=SCAN_SECONDS).stdout
     try:
         width = 32 if git('rev-parse', '--show-object-format').strip() == b'sha256' else 20
         # A clone transfers every ref; one naming a tag, tree or blob would carry objects
         # (a tag message, a tagged blob) that the commit-tree checks below never inspect.
-        ref_types = git('for-each-ref', '--format=%(objecttype)').split()
-        if any(kind != b'commit' for kind in ref_types):
+        # Every command runs with replacements off, so the scan sees what a clone receives.
+        if not _refs_are_plain_commits(git_path, root, deadline):
             return None
         # A task checks HEAD out; a root without a commit at HEAD has nothing to verify.
-        if subprocess.run([git_path, '-C', str(root), 'rev-parse', '--verify', '--quiet', 'HEAD^{commit}'],
+        if subprocess.run([git_path, '--no-replace-objects', '-C', str(root), 'rev-parse', '--verify', '--quiet', 'HEAD^{commit}'],
                           capture_output=True, timeout=SCAN_SECONDS).returncode:
             return None
         wanted, sizes, count, metadata = [], {}, 0, 0
-        listing = subprocess.Popen([git_path, '-C', str(root), 'cat-file', '--batch-all-objects',
+        listing = subprocess.Popen([git_path, '--no-replace-objects', '-C', str(root), 'cat-file', '--batch-all-objects',
                                     '--batch-check=%(objecttype) %(objectname) %(objectsize)'],
                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         watchdog = _watchdog(listing, deadline)
