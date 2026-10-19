@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Import agent research proposals into a tenant's ask proposal journal."""
 import argparse
+import fcntl
 import json
 import os
 import re
@@ -114,26 +115,6 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
                 continue
             record['evidence'] = evidence
         valid.append(record)
-    # Dedupe against the whole journal, not the bounded display tail, and never
-    # re-import a finished task: an old artifact must not override a newer proposal.
-    recorded, imported = _scan_journal(Path(tenants_dir) / tenant / 'asks' / 'proposed.jsonl')
-    if source is not None and source in imported:
-        return 0
-    latest = {}
-    for record in valid:
-        latest[record['ask_id']] = record
-
-    def fresh(record):
-        current, current_time = recorded.get(record['ask_id'], (None, None))
-        if current == record['proposed']:
-            return False
-        # A task imported late must not replace a proposal from a newer task.
-        return created is None or current_time is None or created >= current_time
-    valid = [r for r in latest.values() if fresh(r)]
-    if source is not None:
-        valid = [dict(r, source=source, created=created) for r in valid]
-    # Every task ends with a completion line written after its proposals, so an
-    # interrupted import is retried; load_proposals ignores lines without ask_id.
     if not valid and source is None:
         return 0
     base = Path(tenants_dir).resolve()
@@ -147,16 +128,41 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
         flags |= os.O_NOFOLLOW
     fd = os.open(path, flags, 0o600)
     with os.fdopen(fd, 'a+b') as stream:
+        # Concurrent imports for one tenant scan and append under one lock, so
+        # task order and completion checks see every earlier write.
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        # Dedupe against the whole journal, not the bounded display tail, and never
+        # re-import a finished task: an old artifact must not override a newer proposal.
+        recorded, imported = _scan_journal(path)
+        if source is not None and source in imported:
+            return 0
+        latest = {}
+        for record in valid:
+            latest[record['ask_id']] = record
+
+        def fresh(record):
+            current, current_time = recorded.get(record['ask_id'], (None, None))
+            if current == record['proposed']:
+                return False
+            # A task imported late must not replace a proposal from a newer task.
+            return created is None or current_time is None or created >= current_time
+        rows = [r for r in latest.values() if fresh(r)]
+        if source is not None:
+            rows = [dict(r, source=source, created=created) for r in rows]
+        elif not rows:
+            return 0
         size = os.fstat(stream.fileno()).st_size
         # A torn last line would swallow the first new record; end it first.
         lines = [b''] if size and os.pread(stream.fileno(), 1, size - 1) != b'\n' else []
-        lines += [json.dumps(record).encode() for record in valid]
+        lines += [json.dumps(record).encode() for record in rows]
+        # Every task ends with a completion line written after its proposals, so an
+        # interrupted import is retried; load_proposals ignores lines without ask_id.
         if source is not None:
             lines.append(json.dumps({'source': source, 'created': created, 'complete': True}).encode())
         stream.write(b'\n'.join(lines) + b'\n')
         stream.flush()
         os.fsync(stream.fileno())
-    return len(valid)
+    return len(rows)
 
 
 def _get(coordinator, token, path):

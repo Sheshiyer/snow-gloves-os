@@ -616,3 +616,29 @@ def test_journal_lines_from_before_completion_lines_count_as_imported(tmp_path):
     artifact = '[{"ask_id":"id1","proposed":"EUR 99"}]'
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-new', created=1.0) == 0
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-same', created=1.0) == 0
+
+
+def test_imports_for_one_tenant_wait_for_the_journal_lock(tmp_path):
+    import fcntl
+    import threading
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    asks_dir.mkdir(parents=True)
+    journal = asks_dir / 'proposed.jsonl'
+    journal.write_text(json.dumps({'ask_id': 'id1', 'proposed': 'EUR 120', 'source': 'task-new', 'created': 200.0}) + '\n')
+    result = []
+    with journal.open('a') as held:
+        fcntl.flock(held.fileno(), fcntl.LOCK_EX)
+        worker = threading.Thread(target=lambda: result.append(import_proposals(
+            tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}, source='task-old', created=100.0)))
+        worker.start()
+        worker.join(0.3)
+        assert worker.is_alive() and journal.read_text().count('\n') == 1
+        # A newer task lands while the older import waits; the older one must see it.
+        held.write(json.dumps({'ask_id': 'id1', 'proposed': 'EUR 130', 'source': 'task-newest', 'created': 300.0}) + '\n')
+        held.flush()
+        fcntl.flock(held.fileno(), fcntl.LOCK_UN)
+    worker.join(5)
+    assert result == [0]
+    from lib.tenant_asks import load_proposals
+    assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 130'}

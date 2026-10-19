@@ -250,3 +250,15 @@ def test_remote_fanout_keeps_local_root_mapping_and_verified_context(fleet, tmp_
         assert c._artifact_payload(stored)[1]
         outputs.append(output)
     assert claim(c, conf) is None
+
+
+@pytest.mark.parametrize('project', ['acme.prod', 'Acme', '-acme', 'a' * 65])
+def test_config_rejects_project_ids_the_ask_routes_cannot_address(tmp_path, project):
+    path = _config(tmp_path, dict(OBSERVER))
+    config = json.loads(path.read_text())
+    config['projects'] = {project: config['projects']['snowgloves']}
+    config['principals']['founder']['projects'] = [project]
+    config['principals']['gary']['projects'] = [project]
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match='Invalid project id'):
+        load_config(path)

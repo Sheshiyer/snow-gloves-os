@@ -33,6 +33,8 @@ MAX_CHILDREN = 7
 PERMISSIONS = ('read','submit','cancel')  # legacy defaults never grant approval authority
 VALID_PERMISSIONS = (*PERMISSIONS, 'approve')
 MAX_ATTEMPTS = 3  # original plus two retries per role chain
+PROJECT_ID = r'[a-z0-9][a-z0-9_-]{0,63}'  # the ask routes and the browser share this pattern
+PROJECT_ID_RE = re.compile(PROJECT_ID)
 NO_NEW_CHILDREN = ('cancelled','cancel_requested','failed','interrupted')
 MAX_HTTP_BODY_BYTES = 64 * 1024
 MAX_REMOTE_ARTIFACT_BYTES = 24 * 1024
@@ -1259,6 +1261,9 @@ def load_config(path):
         if isinstance(projects, list) and all(isinstance(project, str) for project in projects):
             (remote_projects if remote else local_projects).update(projects)
     for project_id, project in config['projects'].items():
+        # Ask routes and the browser address projects by this pattern.
+        if not isinstance(project_id, str) or not PROJECT_ID_RE.fullmatch(project_id):
+            raise ValueError('Invalid project id')
         if not all(isinstance(project.get(key),str) and project[key] for key in ('tenant','organization')) or not isinstance(project.get('runtimes'),list):
             raise ValueError('Invalid project configuration')
         # A project served only by explicitly enrolled remote workers has no
@@ -1385,9 +1390,9 @@ def server(coordinator, port=4101):
                 elif not worker_route and re.fullmatch(r'/v1/approvals/[a-f0-9]{32}/(?:approve|reject)', path) and self.command == 'POST':
                     parts = path.split('/')
                     result = coordinator.capabilities.decide(name, principal, parts[3], 'approved' if parts[4] == 'approve' else 'rejected', body)
-                elif not worker_route and re.fullmatch(r'/v1/asks/[a-z0-9][a-z0-9_-]{0,63}', path) and self.command == 'GET':
+                elif not worker_route and re.fullmatch(r'/v1/asks/' + PROJECT_ID, path) and self.command == 'GET':
                     result = coordinator.asks.list(name, principal, path.split('/')[3])
-                elif not worker_route and re.fullmatch(r'/v1/asks/[a-z0-9][a-z0-9_-]{0,63}/[a-f0-9]{32}/answer', path) and self.command == 'POST':
+                elif not worker_route and re.fullmatch(r'/v1/asks/' + PROJECT_ID + r'/[a-f0-9]{32}/answer', path) and self.command == 'POST':
                     parts = path.split('/')
                     result = coordinator.asks.answer(name, principal, parts[3], parts[4], body)
                 elif not worker_route and re.fullmatch(r'/v1/tasks/[a-f0-9]{32}/artifact', path) and self.command == 'GET':
