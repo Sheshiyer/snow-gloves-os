@@ -142,15 +142,16 @@ class Asks:
     def _open_journal(path):
         """Open tenants/<tenant>/asks/answers.jsonl one component at a time.
 
-        Each directory is opened with O_NOFOLLOW and the next name is resolved
-        relative to the held descriptor, so swapping the tenant or asks
-        directory for a link after validation cannot redirect the append.
+        Only the data root is opened by path. tenants/, the tenant and asks
+        directories are each opened with O_NOFOLLOW relative to the held
+        parent, so swapping any of them for a link after validation cannot
+        redirect the append.
         """
         nofollow = getattr(os, 'O_NOFOLLOW', 0)
         directory = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | nofollow
-        handles = [os.open(path.parents[2], os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))]
+        handles = [os.open(path.parents[3], os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))]
         try:
-            for name in (path.parents[1].name, path.parent.name):
+            for name in (path.parents[2].name, path.parents[1].name, path.parent.name):
                 handles.append(os.open(name, directory, dir_fd=handles[-1]))
             return os.open(path.name, os.O_RDWR | os.O_CREAT | os.O_APPEND | nofollow, 0o600, dir_fd=handles[-1])
         finally:

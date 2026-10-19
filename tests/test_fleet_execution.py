@@ -126,6 +126,24 @@ def test_worker_never_runs_repository_hooks_when_creating_a_worktree(worker, tmp
     assert not marker.exists()
 
 
+def test_tenant_tasks_run_in_a_private_clone_that_later_fetches_never_reach(worker):
+    w, task = worker
+    root = Path(task['root']).resolve()
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(dict(task, tenant='tenant-a', tenant_isolated=True))
+    assert reports[-1]['type'] == 'succeeded'
+    clone = w.state / 'worktrees' / 'task1-attempt1'
+    common = subprocess.run(['git', '-C', str(clone), 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+                            check=True, capture_output=True, text=True).stdout.strip()
+    assert Path(common).resolve() == (clone / '.git').resolve()
+    # An object fetched into the root afterwards does not exist in the task's clone.
+    blob = subprocess.run(['git', '-C', str(root), 'hash-object', '-w', '--stdin'], input=b'other tenant',
+                          check=True, capture_output=True).stdout.decode().strip()
+    assert subprocess.run(['git', '-C', str(clone), 'cat-file', '-e', blob], capture_output=True).returncode != 0
+    assert not (root / '.git' / 'worktrees').exists()
+
+
 def test_worker_refuses_tenant_roots_outside_its_allowlist(tmp_path, worker):
     w, _ = worker
     with pytest.raises(ValueError, match='tenant root'):

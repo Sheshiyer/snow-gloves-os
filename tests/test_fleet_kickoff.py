@@ -833,3 +833,13 @@ def test_admit_refuses_a_root_whose_git_config_could_run_commands(tmp_path, key,
     subprocess.run(['git', '-C', str(root), 'config', '--unset', key], check=True)
     subprocess.run(['git', '-C', str(root), 'config', 'remote.origin.url', '/srv/tenant-a.git'], check=True)
     assert 'tenant-a' in admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))['projects']
+
+
+def test_import_never_follows_a_linked_tenants_directory(tmp_path):
+    real = tmp_path / 'outside'
+    (real / 'heyzack' / 'asks').mkdir(parents=True)
+    data = tmp_path / 'data'
+    data.mkdir()
+    (data / 'tenants').symlink_to(real, target_is_directory=True)
+    assert import_proposals(data / 'tenants', 'heyzack', '[{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}, source='t') == 0
+    assert not (real / 'heyzack' / 'asks' / 'proposed.jsonl').exists()

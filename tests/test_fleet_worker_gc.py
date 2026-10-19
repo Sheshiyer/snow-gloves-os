@@ -198,3 +198,16 @@ def test_detached_unretained_commit_is_preserved_until_history_is_saved(world):
     remove(path)
     assert not path.exists()
     assert subprocess.run(['git', '-C', str(repo), 'show', 'saved-recovery:later.md'], check=True, capture_output=True, text=True).stdout == 'new committed work\n'
+
+
+def test_remove_deletes_a_tenant_tasks_private_clone(world):
+    repo, state, artifacts, _ = world
+    path = state / 'worktrees' / 'task9-attempt9'
+    subprocess.run(['git', '-c', 'core.hooksPath=' + os.devnull, 'clone', '-q', '--no-checkout', 'file://' + str(repo), str(path)], check=True)
+    subprocess.run(['git', '-C', str(path), 'checkout', '-q', '--detach', 'HEAD'], check=True)
+    (artifacts / (path.name + '.json')).write_text('{}')
+    assert clean_worktree(path)
+    remove(path)
+    assert not path.exists()
+    # The source repository is untouched.
+    assert subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'], capture_output=True).returncode == 0

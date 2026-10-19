@@ -726,10 +726,20 @@ class Worker:
                 raise ValueError('Tenant root failed its isolation check')
             worktree = self.state / 'worktrees' / (task['id'] + '-' + task['attempt_id'])
             worktree.parent.mkdir(exist_ok=True, mode=0o700)
-            # No repository hook ever runs as the worker: post-checkout fires on worktree add.
-            subprocess.run([self.config.get('git_path', 'git'), '-c', 'core.hooksPath=' + os.devnull, '-C', str(root),
-                            'worktree', 'add', '--detach', str(worktree), base],
-                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+            git = [self.config.get('git_path', 'git'), '-c', 'core.hooksPath=' + os.devnull]  # never run repository hooks
+            if tenant is not None:
+                # A tenant task gets its own clone holding only objects reachable from the
+                # root's refs, checked after cloning: later fetches into the root never reach
+                # it, and it shares no object database with the root while the task runs.
+                subprocess.run([*git, 'clone', '--quiet', '--no-checkout', 'file://' + str(root), str(worktree)],
+                               check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+                if isolation_problem(worktree, tenant, git[0]):
+                    raise ValueError('Tenant task clone failed its isolation check')
+                subprocess.run([*git, '-C', str(worktree), 'checkout', '--quiet', '--detach', base],
+                               check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+            else:
+                subprocess.run([*git, '-C', str(root), 'worktree', 'add', '--detach', str(worktree), base],
+                               check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
             if review is not None:
                 patch_bytes = review['patch']['text'].encode('utf-8')
                 subprocess.run([self.config.get('git_path', 'git'), '-c', 'core.hooksPath=' + os.devnull, '-C', str(worktree),

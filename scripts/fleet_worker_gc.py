@@ -11,6 +11,7 @@ Worktrees younger than --min-age-hours are always kept. --include-failed never b
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -97,6 +98,10 @@ def remove(tree, state=None):
     if common.returncode:
         raise RuntimeError('not a git worktree: %s' % tree)
     repo = Path(common.stdout.strip()).parent
+    if repo.resolve() == tree.resolve():
+        # A tenant task's private clone owns its object database; nothing else refers to it.
+        shutil.rmtree(tree)
+        return
     subprocess.run(['git', '-C', str(repo), 'worktree', 'remove', str(tree)], check=True, capture_output=True, timeout=60)
     subprocess.run(['git', '-C', str(repo), 'worktree', 'prune'], check=True, capture_output=True, timeout=30)
 

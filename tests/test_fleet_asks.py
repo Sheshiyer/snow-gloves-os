@@ -314,3 +314,19 @@ def test_journal_append_never_follows_a_swapped_asks_directory(asks_ctx, tmp_pat
     with pytest.raises(Rejected):
         c.asks._append_journal(path, {'answer_id': 'x', 'ask_id': target})
     assert not (elsewhere / 'answers.jsonl').exists()
+
+
+def test_journal_append_never_follows_a_swapped_tenants_directory(asks_ctx, tmp_path):
+    c, config, _, tenant = asks_ctx
+    path = c.asks._journal_path(tenant.name)
+    tenants = tenant.parent
+    moved = tmp_path / 'moved-tenants'
+    tenants.rename(moved)
+    tenants.symlink_to(moved, target_is_directory=True)
+    try:
+        with pytest.raises(Rejected):
+            c.asks._append_journal(path, {'answer_id': 'x'})
+        assert not (moved / tenant.name / 'asks' / 'answers.jsonl').exists()
+    finally:
+        tenants.unlink()
+        moved.rename(tenants)
