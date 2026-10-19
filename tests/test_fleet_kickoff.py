@@ -939,3 +939,14 @@ def test_admit_accepts_the_wrapped_tenant_layout(tmp_path):
     _git_commit_all(repo, 'relabel')
     with pytest.raises(ValueError, match='MANIFEST.yaml does not name tenant-a'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+@pytest.mark.parametrize('limit', ['MAX_OBJECTS', 'MAX_METADATA_BYTES'])
+def test_admit_fails_closed_on_a_repository_larger_than_the_scan_limits(tmp_path, monkeypatch, limit):
+    from lib import tenant_repo
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    assert 'tenant-a' in admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))['projects']
+    monkeypatch.setattr(tenant_repo, limit, 2)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))

@@ -8,6 +8,8 @@ other tenant, no shared instance data and no link that leads out of it.
 import os
 import re
 import subprocess
+import threading
+import time
 
 from .cockpit_tenant_map import strict_yaml
 
@@ -17,6 +19,11 @@ SHARED_INSTANCE_PATHS = frozenset({'fleet.yaml', 'nodes', '_audit', '.planning',
 # What a tenant folder holds (tenants/<slug>/ in the private checkout), plus a README
 # and an optional tenants/<slug>/ wrapper. Anything else at a tenant root is refused.
 MAX_MANIFEST = 256 * 1024
+# A tenant repository is small; anything past these fails the check closed rather than
+# letting a pre-task scan exhaust the worker's memory or time.
+MAX_OBJECTS = 200_000
+MAX_METADATA_BYTES = 64 * 1024 * 1024  # all commit and tree bodies together
+SCAN_SECONDS = 120
 TENANT_LAYOUT = frozenset({'MANIFEST.yaml', 'README.md', '.gitignore', 'context', 'meristem', 'sources.yaml',
                            'enabled.yaml', 'runtime.yaml', 'ingest-plan.json', 'asks', 'wiki', 'history',
                            'documents', 'data', 'audit', 'tenants'})
@@ -81,6 +88,36 @@ def _own_object_store(root):
     return True
 
 
+def _batch(git_path, root, oids, deadline):
+    """Stream (oid, type, body) for *oids* from one cat-file --batch, never buffering the
+    whole output; the input is fed from a thread so neither pipe can fill and stall."""
+    process = subprocess.Popen([git_path, '-C', str(root), 'cat-file', '--batch'],
+                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    def feed():
+        try:
+            for oid in oids:
+                process.stdin.write(oid + b'\n')
+            process.stdin.close()
+        except OSError:
+            pass
+    writer = threading.Thread(target=feed, daemon=True)
+    writer.start()
+    try:
+        for _ in oids:
+            if time.monotonic() > deadline:
+                raise subprocess.TimeoutExpired('git cat-file', SCAN_SECONDS)
+            header = process.stdout.readline().split()
+            if len(header) != 3:
+                raise subprocess.SubprocessError('unexpected cat-file output')
+            body = process.stdout.read(int(header[2]))
+            process.stdout.read(1)
+            yield header[0], header[1], body
+    finally:
+        process.kill()
+        process.wait()
+        writer.join(1)
+
+
 def git_layout(root, git_path='git'):
     """Tenant names under any tenants/ tree, every top-level name any commit has held,
     whether any tree records a symlink or submodule (either can reach outside the root),
@@ -90,12 +127,15 @@ def git_layout(root, git_path='git'):
 
     Workers get a linked worktree of this repository, so any object in it is
     readable (git show, cat-file), not just the checked-out files. Returns None
-    when the database cannot be fully enumerated or borrows objects elsewhere.
+    when the database cannot be fully enumerated, borrows objects elsewhere, or is
+    larger than a tenant repository may be (MAX_OBJECTS, MAX_METADATA_BYTES): the
+    check then fails closed instead of exhausting the worker.
     """
     if not _own_object_store(root):
         return None
-    def git(*args, data=None):
-        return subprocess.run([git_path, '-C', str(root), *args], input=data, capture_output=True, check=True, timeout=300).stdout
+    deadline = time.monotonic() + SCAN_SECONDS
+    def git(*args):
+        return subprocess.run([git_path, '-C', str(root), *args], capture_output=True, check=True, timeout=SCAN_SECONDS).stdout
     try:
         width = 32 if git('rev-parse', '--show-object-format').strip() == b'sha256' else 20
         # A clone transfers every ref; one naming a tag, tree or blob would carry objects
@@ -103,28 +143,41 @@ def git_layout(root, git_path='git'):
         ref_types = git('for-each-ref', '--format=%(objecttype)').split()
         if any(kind != b'commit' for kind in ref_types):
             return None
-        listing = git('cat-file', '--batch-all-objects', '--batch-check=%(objecttype) %(objectname)')
-        wanted = [line.split()[1] for line in listing.splitlines() if line.startswith((b'tree ', b'commit '))]
-        raw = git('cat-file', '--batch', data=b''.join(oid + b'\n' for oid in wanted)) if wanted else b''
-    except (OSError, subprocess.SubprocessError):
+        wanted, sizes, count, metadata = [], {}, 0, 0
+        listing = subprocess.Popen([git_path, '-C', str(root), 'cat-file', '--batch-all-objects',
+                                    '--batch-check=%(objecttype) %(objectname) %(objectsize)'],
+                                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        try:
+            for line in listing.stdout:
+                count += 1
+                kind, oid, size = line.split()
+                if kind in (b'tree', b'commit'):
+                    wanted.append(oid)
+                    metadata += int(size)
+                elif kind == b'blob':
+                    sizes[oid] = int(size)
+                if count > MAX_OBJECTS or metadata > MAX_METADATA_BYTES or time.monotonic() > deadline:
+                    return None
+        finally:
+            listing.kill()
+            listing.wait()
+        if listing.returncode not in (0, -9):
+            return None
+        entries, roots = {}, set()
+        for name, kind, body in _batch(git_path, root, wanted, deadline):
+            if kind == b'commit':
+                if body.startswith(b'tree '):
+                    roots.add(body[5:body.index(b'\n')])
+                continue
+            children, cursor = {}, 0
+            while cursor < len(body):
+                space = body.index(b' ', cursor)
+                nul = body.index(b'\0', space)
+                children[body[space + 1:nul]] = (body[cursor:space], body[nul + 1:nul + 1 + width].hex().encode())
+                cursor = nul + 1 + width
+            entries[name] = children
+    except (OSError, ValueError, subprocess.SubprocessError):
         return None
-    entries, roots, pos = {}, set(), 0
-    while pos < len(raw):
-        header_end = raw.index(b'\n', pos)
-        name, kind, size = raw[pos:header_end].split()
-        body = raw[header_end + 1:header_end + 1 + int(size)]
-        pos = header_end + 1 + int(size) + 1
-        if kind == b'commit':
-            if body.startswith(b'tree '):
-                roots.add(body[5:body.index(b'\n')])
-            continue
-        children, cursor = {}, 0
-        while cursor < len(body):
-            space = body.index(b' ', cursor)
-            nul = body.index(b'\0', space)
-            children[body[space + 1:nul]] = (body[cursor:space], body[nul + 1:nul + 1 + width].hex().encode())
-            cursor = nul + 1 + width
-        entries[name] = children
     tenants = set()
     for children in entries.values():
         mode, oid = children.get(b'tenants', (None, None))
@@ -135,7 +188,7 @@ def git_layout(root, git_path='git'):
     names = {child.decode('utf-8', 'replace') for children in entries.values() for child in children}
     # Who each commit belongs to: the tenant named by its root MANIFEST.yaml, or None when
     # a commit with content has no readable manifest (it could be another tenant's).
-    owners, blobs = set(), {}
+    owners, blobs = set(), []
     for root_tree in roots:
         children = entries.get(root_tree, {})
         if not children:
@@ -147,22 +200,16 @@ def git_layout(root, git_path='git'):
             (inner_mode, inner), = entries[wrapper].values()
             if inner_mode == b'40000':
                 mode, oid = entries.get(inner, {}).get(b'MANIFEST.yaml', (None, None))
-        if mode not in (b'100644', b'100755'):
+        # An oversized manifest is never fetched; its owner is unknown.
+        if mode not in (b'100644', b'100755') or sizes.get(oid, MAX_MANIFEST + 1) > MAX_MANIFEST:
             owners.add(None)
-        else:
-            blobs[oid] = None
-    if blobs:
-        try:
-            raw = git('cat-file', '--batch', data=b''.join(oid + b'\n' for oid in blobs))
-        except (OSError, subprocess.SubprocessError):
-            return None
-        pos = 0
-        while pos < len(raw):
-            header_end = raw.index(b'\n', pos)
-            name, kind, size = raw[pos:header_end].split()
-            body = raw[header_end + 1:header_end + 1 + int(size)]
-            pos = header_end + 1 + int(size) + 1
+        elif oid not in blobs:
+            blobs.append(oid)
+    try:
+        for _, _, body in _batch(git_path, root, blobs, deadline):
             owners.add(_manifest_tenant(body))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
     return tenants, top, links, names, owners
 
 
