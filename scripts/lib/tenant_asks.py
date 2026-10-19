@@ -133,9 +133,10 @@ def load_proposals(tenant_dir: Path, wanted: set[str] | None = None) -> dict[str
                 if not raw or scanned > MAX_PROPOSAL_SCAN_BYTES:
                     break
                 if len(raw) > MAX_PROPOSAL_LINE:
-                    # Skip the rest of an oversized line without holding it.
-                    while raw and not raw.endswith(b'\n'):
+                    # Skip the rest of an oversized line without holding it, inside the same budget.
+                    while raw and not raw.endswith(b'\n') and scanned <= MAX_PROPOSAL_SCAN_BYTES:
                         raw = stream.readline(MAX_PROPOSAL_LINE)
+                        scanned += len(raw)
                     continue
                 try:
                     record = json.loads(raw.decode('utf-8', errors='replace'))
@@ -395,4 +396,5 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
     # Budget by priority, then show decisions first as before.
     others = sorted(keep(others)[:MAX_ASKS], key=lambda ask: ask['kind'] != 'decision')
     facts = keep(fact_asks)[:MAX_ASKS - len(others)]
-    return facts + others
+    # Decisions first, then connection, website and brand asks, then facts.
+    return others + facts

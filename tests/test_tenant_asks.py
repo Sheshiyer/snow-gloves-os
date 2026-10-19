@@ -398,7 +398,8 @@ def test_fill_lines_cannot_starve_other_asks(tmp_path):
     asks = derive_asks(tmp_path, 'heyzack', proposal)
     kinds = [a['kind'] for a in asks]
     assert len(asks) == 400
-    assert kinds[0] == 'fact'
+    # Decisions lead, then connection, website and brand asks, then the facts.
+    assert kinds[0] == 'decision' and kinds[1:4] == ['connect', 'website', 'brand'] and set(kinds[4:]) == {'fact'}
     assert 'decision' in kinds and 'connect' in kinds and 'website' in kinds and 'brand' in kinds
     assert kinds.count('fact') == 400 - (len(asks) - kinds.count('fact'))
 
@@ -481,3 +482,13 @@ def test_proposal_scan_stops_at_its_total_budget(tmp_path, monkeypatch):
     monkeypatch.setattr(ta, 'MAX_PROPOSAL_SCAN_BYTES', 1000)
     loaded = load_proposals(t)
     assert 0 < len(loaded) < 100
+
+
+def test_journal_scan_budget_also_covers_an_oversized_line(tmp_path, monkeypatch):
+    import lib.tenant_asks as ta
+    t = tmp_path / 'heyzack'; (t / 'asks').mkdir(parents=True)
+    (t / 'asks' / 'proposed.jsonl').write_text('{"ask_id": "' + 'x' * 500000 + '\n'
+                                              + json.dumps({'ask_id': 'a' * 32, 'proposed': 'late'}) + '\n')
+    monkeypatch.setattr(ta, 'MAX_PROPOSAL_SCAN_BYTES', 200000)
+    # The skip of the long line stops at the budget instead of reading the whole line.
+    assert load_proposals(t) == {}

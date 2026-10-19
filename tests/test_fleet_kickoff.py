@@ -1085,3 +1085,15 @@ def test_admit_fails_closed_past_the_ref_budget(tmp_path, monkeypatch):
     monkeypatch.setattr(tenant_repo, 'MAX_REFS', 2)
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_import_refuses_when_the_journal_cannot_be_scanned_in_budget(tmp_path, monkeypatch):
+    import fleet_asks_import
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    asks_dir.mkdir(parents=True)
+    (asks_dir / 'proposed.jsonl').write_text('{"ask_id": "' + 'x' * 300000 + '\n')
+    monkeypatch.setattr(fleet_asks_import, 'MAX_COMPACT_BYTES', 100000)
+    before = (asks_dir / 'proposed.jsonl').read_bytes()
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}, source='t', created=1.0) == 0
+    assert (asks_dir / 'proposed.jsonl').read_bytes() == before

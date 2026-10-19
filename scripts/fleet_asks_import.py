@@ -63,19 +63,27 @@ def _scan_journal(stream, ask_ids, source):
     Only those ids are kept and lines longer than MAX_JOURNAL_LINE are skipped
     whole, so an old or damaged journal never grows memory. A source counts as
     imported only once its completion line is on disk, so an import cut short is
-    retried. Lines written before completion lines existed (no ``created`` key)
+    retried. Returns None past the byte or time budget (an unscannable journal). Lines written before completion lines existed (no ``created`` key)
     came from one fsynced write and count as complete.
     """
     latest, done = {}, False
     stream.seek(0)
+    deadline, scanned = time.monotonic() + COMPACT_SECONDS, 0
     while True:
         line = stream.readline(MAX_JOURNAL_LINE + 1)
+        scanned += len(line)
         if not line:
             break
         if len(line) > MAX_JOURNAL_LINE:
             while line and not line.endswith(b'\n'):
                 line = stream.readline(MAX_JOURNAL_LINE)
+                scanned += len(line)
+                if scanned > MAX_COMPACT_BYTES or time.monotonic() > deadline:
+                    return None
             continue
+        # Past the budget the dedupe state is unknown: refuse the import rather than guess.
+        if scanned > MAX_COMPACT_BYTES or time.monotonic() > deadline:
+            return None
         try:
             record = json.loads(line.decode('utf-8', errors='replace'))
         except ValueError:
@@ -269,7 +277,10 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
         with os.fdopen(fd, 'a+b') as stream:
             # Dedupe against the whole journal, not the bounded display tail, and never
             # re-import a finished task: an old artifact must not override a newer proposal.
-            recorded, imported = _scan_journal(stream, {record['ask_id'] for record in valid}, source)
+            scan = _scan_journal(stream, {record['ask_id'] for record in valid}, source)
+            if scan is None:
+                return 0
+            recorded, imported = scan
             if imported:
                 return 0
             latest = {}
