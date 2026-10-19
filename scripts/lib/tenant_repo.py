@@ -12,6 +12,11 @@ import subprocess
 # Instance data the private checkout keeps beside tenants/ (see scripts/lib/paths.py):
 # fleet inventory, node profiles, audit receipts, planning state and portfolio specs.
 SHARED_INSTANCE_PATHS = frozenset({'fleet.yaml', 'nodes', '_audit', '.planning', 'specs'})
+# What a tenant folder holds (tenants/<slug>/ in the private checkout), plus a README
+# and an optional tenants/<slug>/ wrapper. Anything else at a tenant root is refused.
+TENANT_LAYOUT = frozenset({'MANIFEST.yaml', 'README.md', '.gitignore', 'context', 'meristem', 'sources.yaml',
+                           'enabled.yaml', 'runtime.yaml', 'ingest-plan.json', 'asks', 'wiki', 'history',
+                           'documents', 'data', 'audit', 'tenants'})
 
 
 # Repository-local Git config a tenant root may carry. Anything else (filter
@@ -62,7 +67,8 @@ def _own_object_store(root):
 
 def git_layout(root, git_path='git'):
     """Tenant names under any tenants/ tree, every top-level name any commit has held,
-    and whether any tree records a symlink or submodule (either can reach outside the root).
+    whether any tree records a symlink or submodule (either can reach outside the root),
+    and every entry name at any depth of any tree.
 
     Workers get a linked worktree of this repository, so any object in it is
     readable (git show, cat-file), not just the checked-out files. Returns None
@@ -103,7 +109,8 @@ def git_layout(root, git_path='git'):
             tenants.update(child.decode('utf-8', 'replace') for child in entries.get(oid, {}))
     top = {child.decode('utf-8', 'replace') for root_tree in roots for child in entries.get(root_tree, {})}
     links = any(mode in (b'120000', b'160000') for children in entries.values() for mode, _ in children.values())
-    return tenants, top, links
+    names = {child.decode('utf-8', 'replace') for children in entries.values() for child in children}
+    return tenants, top, links, names
 
 
 def isolation_problem(root, tenant, git_path='git'):
@@ -111,7 +118,7 @@ def isolation_problem(root, tenant, git_path='git'):
     layout = git_layout(root, git_path)
     if layout is None:
         return 'Cannot verify the Git history of project root %s; use a standalone tenant repository' % root
-    found, top, links = layout
+    found, top, links, names = layout
     unsafe = _unsafe_config(root, git_path)
     if unsafe is None:
         return 'Cannot read the Git config of project root %s; use a standalone tenant repository' % root
@@ -123,8 +130,16 @@ def isolation_problem(root, tenant, git_path='git'):
     # A worker checks the tree out, so a tracked link could lead its task out of the root.
     if links:
         return 'Project root %s tracks a symlink or submodule; use a tenant-only repository without links' % root
-    # Fleet, node, audit, planning and spec files hold every tenant's state.
-    shared = sorted((top | set(os.listdir(root))) & SHARED_INSTANCE_PATHS)
+    checked_out = set(os.listdir(root)) - {'.git'}
+    # Fleet, node, audit, planning and spec files hold every tenant's state, at any depth
+    # (backup/fleet.yaml is as readable as fleet.yaml).
+    shared = sorted((names | checked_out) & SHARED_INSTANCE_PATHS)
     if shared:
         return 'Project root %s holds shared instance data (%s); use a tenant-only repository' % (root, ', '.join(shared))
+    # The top level must look like one tenant's folder, so renamed copies of shared
+    # state cannot sit beside it unnoticed.
+    unexpected = sorted((top | checked_out) - TENANT_LAYOUT)
+    if unexpected:
+        return ('Project root %s has entries outside the tenant layout (%s); use a tenant-only repository'
+                % (root, ', '.join(unexpected)))
     return None

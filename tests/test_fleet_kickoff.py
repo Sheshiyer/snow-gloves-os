@@ -664,7 +664,8 @@ def test_admit_refuses_templates_that_resolve_to_one_root(tmp_path):
     _git_init(tmp_path)
     for name in ('tenant-a', 'tenant-b'):
         _git_init(tmp_path / name)
-    with pytest.raises(ValueError, match='overlaps'):
+    # The shared parent is refused by its layout before the overlap check is even reached.
+    with pytest.raises(ValueError, match='overlaps|outside the tenant layout'):
         admit(config, ['tenant-a', 'tenant-b'], 'org', 'founder', ['mac-coding-1'], root=str(tmp_path / '{tenant}' / '..'))
 
 
@@ -843,3 +844,28 @@ def test_import_never_follows_a_linked_tenants_directory(tmp_path):
     (data / 'tenants').symlink_to(real, target_is_directory=True)
     assert import_proposals(data / 'tenants', 'heyzack', '[{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}, source='t') == 0
     assert not (real / 'heyzack' / 'asks' / 'proposed.jsonl').exists()
+
+
+@pytest.mark.parametrize('nested', ['backup/fleet.yaml', 'archive/nodes/mac-coding-1/node.yaml', 'context/old/specs/x.json'])
+def test_admit_refuses_shared_instance_data_at_any_depth(tmp_path, nested):
+    config = _base_config()
+    root = tmp_path / 'tenant-a'
+    _git_init(root)
+    target = root / nested
+    os.makedirs(target.parent, exist_ok=True)
+    target.write_text('every tenant')
+    _git_commit_all(root)
+    with pytest.raises(ValueError, match='shared instance data'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
+
+
+def test_admit_refuses_entries_outside_the_tenant_layout(tmp_path):
+    config = _base_config()
+    root = tmp_path / 'tenant-a'
+    _git_init(root)
+    (root / 'context').mkdir()
+    (root / 'context' / 'offer.md').write_text('FILL: the price.')
+    (root / 'portfolio-dump.json').write_text('{}')
+    _git_commit_all(root)
+    with pytest.raises(ValueError, match='outside the tenant layout'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
