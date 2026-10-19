@@ -792,7 +792,7 @@ def test_import_scan_skips_an_oversized_line_and_still_sees_completion(tmp_path)
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-b', created=6.0) == 0
 
 
-@pytest.mark.parametrize('borrow', ['git-link', 'objects-link', 'commondir'])
+@pytest.mark.parametrize('borrow', ['git-link', 'objects-link', 'commondir', 'shard-link', 'pack-link'])
 def test_admit_refuses_a_root_whose_git_metadata_lives_elsewhere(tmp_path, borrow):
     config = _base_config()
     other = tmp_path / 'other-repo'
@@ -807,7 +807,15 @@ def test_admit_refuses_a_root_whose_git_metadata_lives_elsewhere(tmp_path, borro
             import shutil
             shutil.rmtree(root / '.git' / 'objects')
             (root / '.git' / 'objects').symlink_to(other / '.git' / 'objects', target_is_directory=True)
-        else:
+        elif borrow == 'commondir':
             (root / '.git' / 'commondir').write_text(str(other / '.git') + '\n')
+        elif borrow == 'shard-link':
+            # Git follows a linked loose-object shard into the other repository.
+            (other / 'blob.txt').write_text('other tenant')
+            subprocess.run(['git', '-C', str(other), 'add', 'blob.txt'], check=True)
+            shard = next(p for p in (other / '.git' / 'objects').iterdir() if len(p.name) == 2)
+            (root / '.git' / 'objects' / shard.name).symlink_to(shard, target_is_directory=True)
+        else:
+            (root / '.git' / 'objects' / 'pack' / 'pack-x.pack').symlink_to(other / '.git' / 'HEAD')
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))

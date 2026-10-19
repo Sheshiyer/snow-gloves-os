@@ -16,8 +16,9 @@ SHARED_INSTANCE_PATHS = frozenset({'fleet.yaml', 'nodes', '_audit', '.planning',
 def _own_object_store(root):
     """True when .git and its object store are real directories inside *root*.
 
-    A .git file or link, a linked objects directory, a commondir file or an
-    alternates list would all let this root read another repository's objects.
+    A .git file or link, any link inside .git (objects, shards, packs), a
+    commondir file or an alternates list would all let this root read another
+    repository's objects.
     """
     root = os.path.realpath(str(root))
     git_dir = os.path.join(root, '.git')
@@ -27,7 +28,14 @@ def _own_object_store(root):
             return False
     if os.path.lexists(os.path.join(git_dir, 'commondir')) or os.path.lexists(os.path.join(objects, 'info', 'alternates')):
         return False
-    return os.path.realpath(objects) == objects and os.path.dirname(os.path.realpath(git_dir)) == root
+    if os.path.realpath(objects) != objects or os.path.dirname(os.path.realpath(git_dir)) != root:
+        return False
+    # Git follows a link anywhere in its metadata (a loose-object shard, a pack
+    # file), so one link inside .git is enough to borrow foreign objects.
+    for directory, subdirs, files in os.walk(git_dir, followlinks=False):
+        if any(os.path.islink(os.path.join(directory, name)) for name in subdirs + files):
+            return False
+    return True
 
 
 def git_layout(root, git_path='git'):
