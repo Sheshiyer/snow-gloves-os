@@ -16,6 +16,7 @@ _ARRAY_OF_OBJECTS = re.compile(r'\[\s*\{')
 MAX_PROPOSED = 500
 MAX_EVIDENCE = 500
 MAX_ARTIFACT = 256 * 1024
+MAX_JOURNAL_LINE = 64 * 1024  # one journal record; the importer writes far less
 _MAX_FAILED_DECODES = 2000
 
 
@@ -49,32 +50,61 @@ def _task_time(value):
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and value == value else None
 
 
-def _scan_journal(path):
-    """Full streaming scan: latest (proposal, task time) per ask id and every fully imported source.
+def _scan_journal(stream, ask_ids, source):
+    """Bounded streaming scan of the held journal: the latest (proposal, task time) for
+    each of *ask_ids*, and whether *source* has fully imported.
 
-    A source counts as imported only once its completion line is on disk, so an
-    import cut short is retried. Lines written before completion lines existed
-    (no ``created`` key) came from one fsynced write and count as complete.
+    Only those ids are kept and lines longer than MAX_JOURNAL_LINE are skipped
+    whole, so an old or damaged journal never grows memory. A source counts as
+    imported only once its completion line is on disk, so an import cut short is
+    retried. Lines written before completion lines existed (no ``created`` key)
+    came from one fsynced write and count as complete.
     """
-    latest, done = {}, set()
-    try:
-        if path.is_symlink() or not path.is_file():
-            return latest, done
-        with path.open('r', encoding='utf-8', errors='replace') as stream:
-            for line in stream:
-                try:
-                    record = json.loads(line)
-                except ValueError:
-                    continue
-                if not isinstance(record, dict):
-                    continue
-                if isinstance(record.get('ask_id'), str) and isinstance(record.get('proposed'), str):
-                    latest[record['ask_id']] = (record['proposed'], _task_time(record.get('created')))
-                if isinstance(record.get('source'), str) and (record.get('complete') is True or 'created' not in record):
-                    done.add(record['source'])
-    except OSError:
-        pass
+    latest, done = {}, False
+    stream.seek(0)
+    while True:
+        line = stream.readline(MAX_JOURNAL_LINE + 1)
+        if not line:
+            break
+        if len(line) > MAX_JOURNAL_LINE:
+            while line and not line.endswith(b'\n'):
+                line = stream.readline(MAX_JOURNAL_LINE)
+            continue
+        try:
+            record = json.loads(line.decode('utf-8', errors='replace'))
+        except ValueError:
+            continue
+        if not isinstance(record, dict):
+            continue
+        if record.get('ask_id') in ask_ids and isinstance(record.get('proposed'), str):
+            latest[record['ask_id']] = (record['proposed'], _task_time(record.get('created')))
+        if source is not None and record.get('source') == source and (record.get('complete') is True or 'created' not in record):
+            done = True
     return latest, done
+
+
+def _open_journal(tenants_dir, tenant):
+    """Open tenants/<tenant>/asks/proposed.jsonl one component at a time.
+
+    The tenant and asks directories are created if missing, then opened with
+    O_NOFOLLOW relative to the held parent, so a link at either (placed before
+    or after any check) can never redirect the append to another tenant.
+    """
+    nofollow = getattr(os, 'O_NOFOLLOW', 0)
+    directory = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0)
+    Path(tenants_dir).mkdir(parents=True, exist_ok=True)
+    handles = [os.open(tenants_dir, directory)]
+    try:
+        for name in (tenant, 'asks'):
+            try:
+                os.mkdir(name, 0o700, dir_fd=handles[-1])
+            except FileExistsError:
+                pass
+            handles.append(os.open(name, directory | nofollow, dir_fd=handles[-1]))
+        return os.open('proposed.jsonl', os.O_APPEND | os.O_CREAT | os.O_RDWR | nofollow, 0o600, dir_fd=handles[-1])
+    finally:
+        for handle in handles:
+            os.close(handle)
 
 
 def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None, created=None):
@@ -121,30 +151,18 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
     # directly under tenants/, never a link to another tenant, and so is asks/.
     if not isinstance(tenant, str) or not tenant or tenant in ('.', '..') or '/' in tenant or '\\' in tenant or '\0' in tenant:
         return 0
-    base = Path(tenants_dir).resolve()
-    tenant_dir = Path(tenants_dir) / tenant
-    asks_dir = tenant_dir / 'asks'
-    if tenant_dir.is_symlink() or (tenant_dir.exists() and not tenant_dir.is_dir()):
+    try:
+        fd = _open_journal(tenants_dir, tenant)
+    except OSError:
         return 0
-    tenant_dir.mkdir(parents=True, exist_ok=True)
-    if asks_dir.is_symlink() or tenant_dir.resolve().parent != base:
-        return 0
-    asks_dir.mkdir(exist_ok=True)
-    if asks_dir.is_symlink() or asks_dir.resolve().parent != tenant_dir.resolve():
-        return 0
-    path = asks_dir / 'proposed.jsonl'
-    flags = os.O_APPEND | os.O_CREAT | os.O_RDWR
-    if hasattr(os, 'O_NOFOLLOW'):
-        flags |= os.O_NOFOLLOW
-    fd = os.open(path, flags, 0o600)
     with os.fdopen(fd, 'a+b') as stream:
         # Concurrent imports for one tenant scan and append under one lock, so
         # task order and completion checks see every earlier write.
         fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
         # Dedupe against the whole journal, not the bounded display tail, and never
         # re-import a finished task: an old artifact must not override a newer proposal.
-        recorded, imported = _scan_journal(path)
-        if source is not None and source in imported:
+        recorded, imported = _scan_journal(stream, {record['ask_id'] for record in valid}, source)
+        if imported:
             return 0
         latest = {}
         for record in valid:

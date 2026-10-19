@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 from lib.fleet_coordinator import (MAX_CHILDREN, MAX_HTTP_BODY_BYTES, MAX_REMOTE_ARTIFACT_BYTES,
                                    MAX_SOURCE_OUTPUT_BYTES, ROLES, STAGES, redact)
 from lib.fleet_write_review import ReviewEvidenceError, validate_evidence
+from lib.tenant_repo import isolation_problem
 from lib.fleet_business import (
     COMMERCIAL_PREPARATION_CATEGORY,
     BusinessContextError,
@@ -183,6 +184,18 @@ class Worker:
                 if root not in allowlisted:
                     raise ValueError('Remote project mapping is outside allowed_roots')
                 self.project_roots[project] = root
+        # Tenant-only roots (root -> tenant) are re-checked before every task, so a
+        # later fetch cannot bring another tenant's objects into a task's worktree.
+        tenant_roots = config.get('tenant_roots', {})
+        if not isinstance(tenant_roots, dict):
+            raise ValueError('tenant_roots must map project roots to tenants')
+        allowed_roots = {Path(path).resolve() for path in config.get('allowed_roots', []) if isinstance(path, str)}
+        self.tenant_roots = {}
+        for path, tenant in tenant_roots.items():
+            if (not isinstance(path, str) or not Path(path).is_absolute() or not isinstance(tenant, str)
+                    or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', tenant) or Path(path).resolve() not in allowed_roots):
+                raise ValueError('Invalid tenant root')
+            self.tenant_roots[Path(path).resolve()] = tenant
         if not loopback_endpoint(config['endpoint']):
             raise ValueError('Pilot coordinator must use loopback')
         if config.get('gateway_url') != 'http://127.0.0.1:20128/v1':
@@ -700,6 +713,9 @@ class Worker:
                     raise ValueError('Review patch base is unavailable')
             else:
                 base = 'HEAD'
+            tenant = self.tenant_roots.get(root)
+            if tenant is not None and isolation_problem(root, tenant, self.config.get('git_path', 'git')):
+                raise ValueError('Tenant root failed its isolation check')
             worktree = self.state / 'worktrees' / (task['id'] + '-' + task['attempt_id'])
             worktree.parent.mkdir(exist_ok=True, mode=0o700)
             subprocess.run([self.config.get('git_path', 'git'), '-C', str(root), 'worktree', 'add', '--detach', str(worktree), base],

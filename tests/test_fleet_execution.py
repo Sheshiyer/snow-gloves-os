@@ -69,6 +69,35 @@ def test_worker_rejects_root_without_starting(worker):
     assert not (w.state/'worktrees').exists()
 
 
+def test_worker_rechecks_a_tenant_root_before_every_task(worker):
+    w, task = worker
+    root = Path(task['root']).resolve()
+    w.tenant_roots = {root: 'tenant-a'}
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    # A later fetch brings another tenant's tree into the object database.
+    os.makedirs(root / 'tenants' / 'other-tenant')
+    (root / 'tenants' / 'other-tenant' / 'MANIFEST.yaml').write_text('tenant: other-tenant')
+    subprocess.run(['git', '-C', str(root), 'add', '-A'], check=True, capture_output=True)
+    subprocess.run(['git', '-C', str(root), '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+                    'commit', '-m', 'fetched'], check=True, capture_output=True)
+    task = dict(task, id='task2', attempt_id='attempt2')
+    w.execute(task)
+    # Refused before any worktree exists; the reason stays in private worker state.
+    assert reports[-1]['type'] == 'failed'
+    assert not (w.state / 'worktrees' / 'task2-attempt2').exists()
+
+
+def test_worker_refuses_tenant_roots_outside_its_allowlist(tmp_path, worker):
+    w, _ = worker
+    with pytest.raises(ValueError, match='tenant root'):
+        Worker(dict(w.config, tenant_roots={str(tmp_path / 'elsewhere'): 'tenant-a'}))
+    with pytest.raises(ValueError, match='tenant root'):
+        Worker(dict(w.config, tenant_roots={w.config['allowed_roots'][0]: 'Not A Tenant'}))
+
+
 def test_terminal_retry_never_reexecutes(worker):
     w, task = worker
     def offline(route, body):

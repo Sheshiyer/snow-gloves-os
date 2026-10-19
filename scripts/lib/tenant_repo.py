@@ -1,0 +1,79 @@
+"""Tenant-only Git repositories: the isolation check run at admission and before every task.
+
+A worker gives each task a linked worktree of the project root, so every object
+in the root's database is readable (git show, cat-file), not just the files
+checked out. A tenant root must therefore hold, anywhere in its history, no
+other tenant, no shared instance data and no link that leads out of it.
+"""
+import os
+import subprocess
+
+# Instance data the private checkout keeps beside tenants/ (see scripts/lib/paths.py):
+# fleet inventory, node profiles, audit receipts, planning state and portfolio specs.
+SHARED_INSTANCE_PATHS = frozenset({'fleet.yaml', 'nodes', '_audit', '.planning', 'specs'})
+
+
+def git_layout(root, git_path='git'):
+    """Tenant names under any tenants/ tree, every top-level name any commit has held,
+    and whether any tree records a symlink or submodule (either can reach outside the root).
+
+    Workers get a linked worktree of this repository, so any object in it is
+    readable (git show, cat-file), not just the checked-out files. Returns None
+    when the database cannot be fully enumerated or borrows objects elsewhere.
+    """
+    git_dir = os.path.join(str(root), '.git')
+    # A .git file points at another repository's objects; alternates borrow them.
+    if not os.path.isdir(git_dir) or os.path.exists(os.path.join(git_dir, 'objects', 'info', 'alternates')):
+        return None
+    def git(*args, data=None):
+        return subprocess.run([git_path, '-C', str(root), *args], input=data, capture_output=True, check=True, timeout=300).stdout
+    try:
+        width = 32 if git('rev-parse', '--show-object-format').strip() == b'sha256' else 20
+        listing = git('cat-file', '--batch-all-objects', '--batch-check=%(objecttype) %(objectname)')
+        wanted = [line.split()[1] for line in listing.splitlines() if line.startswith((b'tree ', b'commit '))]
+        raw = git('cat-file', '--batch', data=b''.join(oid + b'\n' for oid in wanted)) if wanted else b''
+    except (OSError, subprocess.SubprocessError):
+        return None
+    entries, roots, pos = {}, set(), 0
+    while pos < len(raw):
+        header_end = raw.index(b'\n', pos)
+        name, kind, size = raw[pos:header_end].split()
+        body = raw[header_end + 1:header_end + 1 + int(size)]
+        pos = header_end + 1 + int(size) + 1
+        if kind == b'commit':
+            if body.startswith(b'tree '):
+                roots.add(body[5:body.index(b'\n')])
+            continue
+        children, cursor = {}, 0
+        while cursor < len(body):
+            space = body.index(b' ', cursor)
+            nul = body.index(b'\0', space)
+            children[body[space + 1:nul]] = (body[cursor:space], body[nul + 1:nul + 1 + width].hex().encode())
+            cursor = nul + 1 + width
+        entries[name] = children
+    tenants = set()
+    for children in entries.values():
+        mode, oid = children.get(b'tenants', (None, None))
+        if mode == b'40000':
+            tenants.update(child.decode('utf-8', 'replace') for child in entries.get(oid, {}))
+    top = {child.decode('utf-8', 'replace') for root_tree in roots for child in entries.get(root_tree, {})}
+    links = any(mode in (b'120000', b'160000') for children in entries.values() for mode, _ in children.values())
+    return tenants, top, links
+
+
+def isolation_problem(root, tenant, git_path='git'):
+    """Why *root* is not a tenant-only repository for *tenant*, or None when it is."""
+    layout = git_layout(root, git_path)
+    if layout is None:
+        return 'Cannot verify the Git history of project root %s; use a standalone tenant repository' % root
+    found, top, links = layout
+    if found - {tenant}:
+        return 'Project root %s has other tenants in its Git history; use a tenant-only repository' % root
+    # A worker checks the tree out, so a tracked link could lead its task out of the root.
+    if links:
+        return 'Project root %s tracks a symlink or submodule; use a tenant-only repository without links' % root
+    # Fleet, node, audit, planning and spec files hold every tenant's state.
+    shared = sorted((top | set(os.listdir(root))) & SHARED_INSTANCE_PATHS)
+    if shared:
+        return 'Project root %s holds shared instance data (%s); use a tenant-only repository' % (root, ', '.join(shared))
+    return None

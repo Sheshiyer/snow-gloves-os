@@ -766,3 +766,26 @@ def test_admit_refuses_a_root_that_tracks_a_symlink(tmp_path, remove_after):
         _git_commit_all(root, 'drop link')
     with pytest.raises(ValueError, match='symlink'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
+
+
+def test_import_never_follows_an_asks_directory_link(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'victim' / 'asks').mkdir(parents=True)
+    (tenants_dir / 'intruder').mkdir()
+    (tenants_dir / 'intruder' / 'asks').symlink_to(tenants_dir / 'victim' / 'asks', target_is_directory=True)
+    assert import_proposals(tenants_dir, 'intruder', '[{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}, source='task-x') == 0
+    assert not (tenants_dir / 'victim' / 'asks' / 'proposed.jsonl').exists()
+
+
+def test_import_scan_skips_an_oversized_line_and_still_sees_completion(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    asks_dir.mkdir(parents=True)
+    (asks_dir / 'proposed.jsonl').write_text(
+        '{"ask_id": "id9", "proposed": "' + 'x' * 200000 + '"}\n'
+        + json.dumps({'ask_id': 'id1', 'proposed': 'EUR 99', 'source': 'task-a', 'created': 5.0}) + '\n'
+        + json.dumps({'source': 'task-a', 'created': 5.0, 'complete': True}) + '\n')
+    artifact = '[{"ask_id":"id1","proposed":"EUR 99"}]'
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-a', created=5.0) == 0
+    # A new task with the same value is deduped against the line after the oversized one.
+    assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-b', created=6.0) == 0
