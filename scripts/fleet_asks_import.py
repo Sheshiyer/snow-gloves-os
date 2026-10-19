@@ -17,6 +17,8 @@ MAX_PROPOSED = 500
 MAX_EVIDENCE = 500
 MAX_ARTIFACT = 256 * 1024
 MAX_JOURNAL_LINE = 64 * 1024  # one journal record; the importer writes far less
+JOURNAL = 'proposed.jsonl'
+COMPACT_AT = 4 * 1024 * 1024  # past this, the journal is rewritten to its live records
 _MAX_FAILED_DECODES = 2000
 
 
@@ -84,7 +86,7 @@ def _scan_journal(stream, ask_ids, source):
 
 
 def _open_journal(tenants_dir, tenant):
-    """Open tenants/<tenant>/asks/proposed.jsonl one component at a time.
+    """Hold tenants/<tenant>/asks/, opening one component at a time.
 
     Only the data root (tenants/'s parent) is opened by path. tenants/ is then
     opened with O_NOFOLLOW, and the tenant and asks directories are created if
@@ -103,10 +105,67 @@ def _open_journal(tenants_dir, tenant):
             except FileExistsError:
                 pass
             handles.append(os.open(name, directory | nofollow, dir_fd=handles[-1]))
-        return os.open('proposed.jsonl', os.O_APPEND | os.O_CREAT | os.O_RDWR | nofollow, 0o600, dir_fd=handles[-1])
+        asks = os.dup(handles[-1])
     finally:
         for handle in handles:
             os.close(handle)
+    return asks
+
+
+def _locked_journal(asks):
+    """The journal opened in the held asks directory and locked, retrying if compaction
+    replaced the file between our open and our lock."""
+    nofollow = getattr(os, 'O_NOFOLLOW', 0)
+    while True:
+        fd = os.open(JOURNAL, os.O_APPEND | os.O_CREAT | os.O_RDWR | nofollow, 0o600, dir_fd=asks)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            if os.fstat(fd).st_ino == os.stat(JOURNAL, dir_fd=asks, follow_symlinks=False).st_ino:
+                return fd
+        except FileNotFoundError:
+            pass
+        os.close(fd)
+
+
+def _compact(stream, asks):
+    """Rewrite a large journal to the latest proposal per ask plus one completion line per
+    imported source, so every later scan (each ask listing reads it) stays small.
+
+    Runs under the journal lock; the new file replaces the old atomically, and waiting
+    importers notice the replacement and reopen.
+    """
+    latest, done = {}, {}
+    stream.seek(0)
+    for line in stream:
+        try:
+            record = json.loads(line.decode('utf-8', errors='replace'))
+        except ValueError:
+            continue
+        if not isinstance(record, dict):
+            continue
+        if isinstance(record.get('ask_id'), str) and isinstance(record.get('proposed'), str):
+            latest.pop(record['ask_id'], None)
+            latest[record['ask_id']] = record
+        if isinstance(record.get('source'), str) and (record.get('complete') is True or 'created' not in record):
+            done[record['source']] = _task_time(record.get('created'))
+    body = b''.join(json.dumps(record).encode() + b'\n' for record in latest.values())
+    body += b''.join(json.dumps({'source': source, 'created': when, 'complete': True}).encode() + b'\n'
+                     for source, when in done.items())
+    temp = JOURNAL + '.compact'
+    try:
+        os.unlink(temp, dir_fd=asks)
+    except FileNotFoundError:
+        pass
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0), 0o600, dir_fd=asks)
+    try:
+        view = memoryview(body)
+        while view:
+            view = view[os.write(fd, view):]
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.replace(temp, JOURNAL, src_dir_fd=asks, dst_dir_fd=asks)
+    os.fsync(asks)
 
 
 def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None, created=None):
@@ -154,44 +213,56 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
     if not isinstance(tenant, str) or not tenant or tenant in ('.', '..') or '/' in tenant or '\\' in tenant or '\0' in tenant:
         return 0
     try:
-        fd = _open_journal(tenants_dir, tenant)
+        asks = _open_journal(tenants_dir, tenant)
     except OSError:
         return 0
-    with os.fdopen(fd, 'a+b') as stream:
+    try:
         # Concurrent imports for one tenant scan and append under one lock, so
         # task order and completion checks see every earlier write.
-        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
-        # Dedupe against the whole journal, not the bounded display tail, and never
-        # re-import a finished task: an old artifact must not override a newer proposal.
-        recorded, imported = _scan_journal(stream, {record['ask_id'] for record in valid}, source)
-        if imported:
-            return 0
-        latest = {}
-        for record in valid:
-            latest[record['ask_id']] = record
+        fd = _locked_journal(asks)
+    except OSError:
+        os.close(asks)
+        return 0
+    try:
+        with os.fdopen(fd, 'a+b') as stream:
+            # Dedupe against the whole journal, not the bounded display tail, and never
+            # re-import a finished task: an old artifact must not override a newer proposal.
+            recorded, imported = _scan_journal(stream, {record['ask_id'] for record in valid}, source)
+            if imported:
+                return 0
+            latest = {}
+            for record in valid:
+                latest[record['ask_id']] = record
 
-        def fresh(record):
-            current, current_time = recorded.get(record['ask_id'], (None, None))
-            if current == record['proposed']:
-                return False
-            # A task imported late must not replace a proposal from a newer task.
-            return created is None or current_time is None or created >= current_time
-        rows = [r for r in latest.values() if fresh(r)]
-        if source is not None:
-            rows = [dict(r, source=source, created=created) for r in rows]
-        elif not rows:
-            return 0
-        size = os.fstat(stream.fileno()).st_size
-        # A torn last line would swallow the first new record; end it first.
-        lines = [b''] if size and os.pread(stream.fileno(), 1, size - 1) != b'\n' else []
-        lines += [json.dumps(record).encode() for record in rows]
-        # Every task ends with a completion line written after its proposals, so an
-        # interrupted import is retried; load_proposals ignores lines without ask_id.
-        if source is not None:
-            lines.append(json.dumps({'source': source, 'created': created, 'complete': True}).encode())
-        stream.write(b'\n'.join(lines) + b'\n')
-        stream.flush()
-        os.fsync(stream.fileno())
+            def fresh(record):
+                current, current_time = recorded.get(record['ask_id'], (None, None))
+                if current == record['proposed']:
+                    return False
+                # A task imported late must not replace a proposal from a newer task.
+                return created is None or current_time is None or created >= current_time
+            rows = [r for r in latest.values() if fresh(r)]
+            if source is not None:
+                rows = [dict(r, source=source, created=created) for r in rows]
+            elif not rows:
+                return 0
+            size = os.fstat(stream.fileno()).st_size
+            # A torn last line would swallow the first new record; end it first.
+            lines = [b''] if size and os.pread(stream.fileno(), 1, size - 1) != b'\n' else []
+            lines += [json.dumps(record).encode() for record in rows]
+            # Every task ends with a completion line written after its proposals, so an
+            # interrupted import is retried; load_proposals ignores lines without ask_id.
+            if source is not None:
+                lines.append(json.dumps({'source': source, 'created': created, 'complete': True}).encode())
+            stream.write(b'\n'.join(lines) + b'\n')
+            stream.flush()
+            os.fsync(stream.fileno())
+            if os.fstat(stream.fileno()).st_size > COMPACT_AT:
+                try:
+                    _compact(stream, asks)
+                except OSError:
+                    pass  # the appended journal is intact; compaction retries on the next import
+    finally:
+        os.close(asks)
     return len(rows)
 
 

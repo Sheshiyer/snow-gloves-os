@@ -95,6 +95,13 @@ def admit(config, tenants, organization, principal, workers, root=None, remote_r
     for tenant in tenants:
         if tenant in projects and (not isinstance(projects[tenant], dict) or projects[tenant].get('tenant') != tenant):
             raise ValueError('Project id %s already maps to a different tenant' % tenant)
+        # Re-admitting is a no-op only for a project an earlier admission verified; a legacy
+        # mapping (often a shared checkout) would otherwise keep serving the tenant unchecked.
+        legacy = sorted(pid for pid, p in projects.items()
+                        if isinstance(p, dict) and p.get('tenant') == tenant and p.get('tenant_isolated') is not True)
+        if legacy:
+            raise ValueError('Tenant %s is already served by project %s without tenant isolation; retire that '
+                             'mapping or leave the tenant out' % (tenant, ', '.join(legacy)))
         if tenant in projects or tenant in existing_tenants:
             continue
         # tenant_isolated makes every worker re-verify the tenant-only root before each task.

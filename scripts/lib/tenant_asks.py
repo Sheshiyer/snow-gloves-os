@@ -39,6 +39,7 @@ CONTROL_RE = re.compile(r'[\x00-\x1f\x7f]')
 MAX_PROPOSED = 500
 MAX_FILE_BYTES = 256 * 1024
 MAX_PROPOSAL_LINE = 64 * 1024  # one journal record; the importer writes far less
+MAX_PROPOSAL_SCAN_BYTES = 32 * 1024 * 1024  # total read per listing
 MAX_PROPOSAL_IDS = MAX_ASKS * 4  # distinct ask ids kept from the journal, with headroom over MAX_ASKS
 PROPOSAL_MAX_BYTES = 512 * 1024
 PROPOSAL_REL = Path('specs') / '006-editorial-steward-integration' / 'portfolio-map-proposal.json'
@@ -123,9 +124,13 @@ def load_proposals(tenant_dir: Path, wanted: set[str] | None = None) -> dict[str
                 or not path.resolve().is_relative_to(tenant_dir.resolve())):
             return proposals
         with os.fdopen(open_nofollow(path), 'rb') as stream:
+            scanned = 0
             while True:
                 raw = stream.readline(MAX_PROPOSAL_LINE + 1)
-                if not raw:
+                scanned += len(raw)
+                # The importer compacts the journal past a few MiB, so this hard budget only
+                # stops a journal it never got to compact from stalling every ask listing.
+                if not raw or scanned > MAX_PROPOSAL_SCAN_BYTES:
                     break
                 if len(raw) > MAX_PROPOSAL_LINE:
                     # Skip the rest of an oversized line without holding it.

@@ -60,14 +60,20 @@ def _base_config():
 # admit
 # ---------------------------------------------------------------------------
 
-def test_admit_keeps_existing_project_mapped_to_tenant():
+def test_admit_refuses_a_tenant_served_by_an_unisolated_project():
     config = _base_config()
-    result = admit(config, ['heyzack', 'tryambakam'], 'new-org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
-    assert 'heyzack' not in result['projects']
-    assert result['projects']['snowgloves']['tenant'] == 'heyzack'
-    assert result['projects']['tryambakam'] == {
+    # snowgloves serves heyzack from a shared checkout and was never verified as tenant-only.
+    with pytest.raises(ValueError, match='heyzack is already served by project snowgloves without tenant isolation'):
+        admit(config, ['heyzack', 'tryambakam'], 'new-org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
+
+
+def test_readmitting_an_isolated_project_is_a_no_op():
+    config = _base_config()
+    first = admit(config, ['tryambakam'], 'new-org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
+    assert first['projects']['tryambakam'] == {
         'tenant': 'tryambakam', 'organization': 'new-org', 'runtimes': ['codex'], 'root': GIT_ROOT,
         'tenant_isolated': True}
+    assert admit(first, ['tryambakam'], 'new-org', 'founder', ['mac-coding-1'], root=GIT_ROOT) == first
 
 
 def test_admit_appends_to_principal_and_workers():
@@ -88,8 +94,8 @@ def test_admit_never_adds_write_grants():
 
 def test_admit_is_idempotent():
     config = _base_config()
-    result = admit(config, ['heyzack', 'tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
-    result2 = admit(result, ['heyzack', 'tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
+    result = admit(config, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
+    result2 = admit(result, ['tryambakam'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
     assert result2 == result
 
 
@@ -986,3 +992,25 @@ def test_a_git_directory_past_the_entry_budget_fails_closed(tmp_path, monkeypatc
     monkeypatch.setattr(tenant_repo, 'MAX_GIT_ENTRIES', 10**9)
     import time as clock
     assert tenant_repo._own_object_store(repo, deadline=clock.monotonic() - 1) is False
+
+
+def test_large_journals_are_compacted_to_live_records(tmp_path, monkeypatch):
+    import fleet_asks_import
+    from lib.tenant_asks import load_proposals
+    monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 2000)
+    tenants_dir = tmp_path / 'tenants'
+    journal = tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl'
+    for n in range(30):
+        artifact = json.dumps([{'ask_id': 'id1', 'proposed': 'EUR %d' % n, 'evidence': 'x' * 50},
+                               {'ask_id': 'id%d' % (n + 2), 'proposed': 'yes'}])
+        assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'} | {'id%d' % (n + 2)},
+                                source='task-%d' % n, created=float(n)) == 2
+    # 30 imports wrote 30 values for id1; compaction keeps only the latest (plus any written since).
+    assert sum('"id1"' in line for line in journal.read_text().splitlines()) <= 2
+    proposals = load_proposals(tenants_dir / 'heyzack')
+    assert proposals['id1'] == 'EUR 29' and proposals['id2'] == 'yes' and len(proposals) == 31
+    # Completed tasks stay completed and an older task still cannot override the newest value.
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 0"}]', {'id1'}, source='task-0', created=0.0) == 0
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 5"}]', {'id1'}, source='task-old', created=5.0) == 0
+    assert load_proposals(tenants_dir / 'heyzack')['id1'] == 'EUR 29'
+    assert not (journal.parent / 'proposed.jsonl.compact').exists()

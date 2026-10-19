@@ -471,3 +471,13 @@ def test_a_proposal_file_swapped_for_a_link_is_never_read(tmp_path):
     (spec / 'portfolio-map-proposal.json').unlink()
     (spec / 'portfolio-map-proposal.json').write_text(json.dumps({'cross_brand_flows': []}))
     assert load_proposal(data) == {'cross_brand_flows': []}
+
+
+def test_proposal_scan_stops_at_its_total_budget(tmp_path, monkeypatch):
+    import lib.tenant_asks as ta
+    t = tmp_path / 'heyzack'; (t / 'asks').mkdir(parents=True)
+    rows = ''.join(json.dumps({'ask_id': '%032x' % n, 'proposed': 'p%d' % n}) + '\n' for n in range(100))
+    (t / 'asks' / 'proposed.jsonl').write_text(rows)
+    monkeypatch.setattr(ta, 'MAX_PROPOSAL_SCAN_BYTES', 1000)
+    loaded = load_proposals(t)
+    assert 0 < len(loaded) < 100
