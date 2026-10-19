@@ -90,6 +90,28 @@ def test_worker_rechecks_a_tenant_root_before_every_task(worker):
     assert not (w.state / 'worktrees' / 'task2-attempt2').exists()
 
 
+def test_worker_rechecks_admitted_tenant_projects_without_local_config(worker):
+    w, task = worker
+    root = Path(task['root']).resolve()
+    assert w.tenant_roots == {}
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(dict(task, tenant='tenant-a', tenant_isolated=True))
+    assert reports[-1]['type'] == 'succeeded'
+    (root / 'fleet.yaml').write_text('every tenant')
+    subprocess.run(['git', '-C', str(root), 'add', '-A'], check=True, capture_output=True)
+    subprocess.run(['git', '-C', str(root), '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+                    'commit', '-m', 'fetched'], check=True, capture_output=True)
+    w.execute(dict(task, id='task2', attempt_id='attempt2', tenant='tenant-a', tenant_isolated=True))
+    assert reports[-1]['type'] == 'failed'
+    assert not (w.state / 'worktrees' / 'task2-attempt2').exists()
+    # A local tenant_roots entry that names a different tenant refuses the assignment.
+    (root / 'fleet.yaml').unlink()
+    w.tenant_roots = {root: 'tenant-b'}
+    w.execute(dict(task, id='task3', attempt_id='attempt3', tenant='tenant-a', tenant_isolated=True))
+    assert reports[-1]['type'] == 'failed'
+
+
 def test_worker_refuses_tenant_roots_outside_its_allowlist(tmp_path, worker):
     w, _ = worker
     with pytest.raises(ValueError, match='tenant root'):

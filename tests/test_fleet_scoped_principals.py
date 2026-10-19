@@ -262,3 +262,16 @@ def test_config_rejects_project_ids_the_ask_routes_cannot_address(tmp_path, proj
     path.write_text(json.dumps(config))
     with pytest.raises(ValueError, match='Invalid project id'):
         load_config(path)
+
+
+@pytest.mark.parametrize('value', [False, 'yes', 1])
+def test_config_accepts_tenant_isolated_only_as_true(tmp_path, value):
+    path = _config(tmp_path, dict(OBSERVER))
+    config = json.loads(path.read_text())
+    config['projects']['snowgloves']['tenant_isolated'] = value
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match='tenant_isolated'):
+        load_config(path)
+    config['projects']['snowgloves']['tenant_isolated'] = True
+    path.write_text(json.dumps(config))
+    assert load_config(path)['projects']['snowgloves']['tenant_isolated'] is True

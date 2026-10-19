@@ -184,8 +184,8 @@ class Worker:
                 if root not in allowlisted:
                     raise ValueError('Remote project mapping is outside allowed_roots')
                 self.project_roots[project] = root
-        # Tenant-only roots (root -> tenant) are re-checked before every task, so a
-        # later fetch cannot bring another tenant's objects into a task's worktree.
+        # Optional extra tenant-only roots (root -> tenant) to re-check before every task,
+        # beyond the projects the coordinator marks tenant_isolated.
         tenant_roots = config.get('tenant_roots', {})
         if not isinstance(tenant_roots, dict):
             raise ValueError('tenant_roots must map project roots to tenants')
@@ -713,7 +713,14 @@ class Worker:
                     raise ValueError('Review patch base is unavailable')
             else:
                 base = 'HEAD'
+            # An admitted tenant project (tenant_isolated from the coordinator) or a root this
+            # worker lists in tenant_roots is re-verified before every task; a fetch since
+            # admission must not bring another tenant's objects into the worktree.
             tenant = self.tenant_roots.get(root)
+            if task.get('tenant_isolated') is True:
+                if not isinstance(task.get('tenant'), str) or tenant not in (None, task['tenant']):
+                    raise ValueError('Tenant assignment does not match this root')
+                tenant = task['tenant']
             if tenant is not None and isolation_problem(root, tenant, self.config.get('git_path', 'git')):
                 raise ValueError('Tenant root failed its isolation check')
             worktree = self.state / 'worktrees' / (task['id'] + '-' + task['attempt_id'])

@@ -1077,6 +1077,9 @@ class Coordinator:
                 project = self.config['projects'][row['project']]
                 result = self._public(self.db.execute('SELECT * FROM tasks WHERE id=?',(row['id'],)).fetchone())
                 result.update(tenant=project['tenant'],organization=project['organization'],lease_token=token)
+                if project.get('tenant_isolated') is True:
+                    # Admitted tenant roots: the worker re-verifies the repository before every task.
+                    result['tenant_isolated'] = True
                 if worker.get('remote_artifacts') is True:
                     # A remote worker receives a project identity, not a coordinator
                     # filesystem path. It resolves that identity through its own
@@ -1273,6 +1276,8 @@ def load_config(path):
             root=Path(project.get('root',''))
             if not root.is_absolute() or not root.is_dir() or not (root/'.git').exists():
                 raise ValueError('Project roots must name existing Git repositories')
+        if 'tenant_isolated' in project and project['tenant_isolated'] is not True:
+            raise ValueError('tenant_isolated may only be true')
         if 'fanout' in project and not isinstance(project['fanout'], bool):
             raise ValueError('Invalid project fanout configuration')
         if 'artifact_context' in project and not isinstance(project['artifact_context'], bool):

@@ -97,7 +97,8 @@ def admit(config, tenants, organization, principal, workers, root=None, remote_r
             raise ValueError('Project id %s already maps to a different tenant' % tenant)
         if tenant in projects or tenant in existing_tenants:
             continue
-        projects[tenant] = {'tenant': tenant, 'organization': organization, 'runtimes': ['codex']}
+        # tenant_isolated makes every worker re-verify the tenant-only root before each task.
+        projects[tenant] = {'tenant': tenant, 'organization': organization, 'runtimes': ['codex'], 'tenant_isolated': True}
         if tenant in roots:
             projects[tenant]['root'] = roots[tenant]
         principal_entry = result.get('principals', {}).get(principal)

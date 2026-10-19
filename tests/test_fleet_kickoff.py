@@ -66,7 +66,8 @@ def test_admit_keeps_existing_project_mapped_to_tenant():
     assert 'heyzack' not in result['projects']
     assert result['projects']['snowgloves']['tenant'] == 'heyzack'
     assert result['projects']['tryambakam'] == {
-        'tenant': 'tryambakam', 'organization': 'new-org', 'runtimes': ['codex'], 'root': GIT_ROOT}
+        'tenant': 'tryambakam', 'organization': 'new-org', 'runtimes': ['codex'], 'root': GIT_ROOT,
+        'tenant_isolated': True}
 
 
 def test_admit_appends_to_principal_and_workers():
