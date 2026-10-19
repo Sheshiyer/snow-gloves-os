@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from pathlib import Path
 
 from .cockpit_tenant_map import (card_gate, open_nofollow, read_catalog, read_enablement, read_manifest, read_raw,
@@ -33,6 +34,8 @@ MAX_ASKS = 400
 MAX_TITLE = 160
 MAX_SOURCE = 240  # the client's source limit
 MAX_CONTEXT_ENTRIES = 1024  # directory entries considered in context/
+MAX_CONTEXT_BYTES = 8 * 1024 * 1024  # all context files read for one derivation
+MAX_CONTEXT_SECONDS = 2
 # Clients reject strings containing C0 control characters (or DEL); every
 # emitted string is checked or normalized against this one pattern.
 CONTROL_RE = re.compile(r'[\x00-\x1f\x7f]')
@@ -180,13 +183,17 @@ def _fact_asks(tenant_dir: Path, tenant: str, proposals: dict[str, str]) -> list
     except OSError:
         return asks
     seen: set[str] = set()
+    # One budget for the whole scan: listings repeat it and answers run it under the
+    # coordinator lock, so many large files must not add up to a long stall.
+    read, deadline = 0, time.monotonic() + MAX_CONTEXT_SECONDS
     for name in sorted(names):
-        if len(asks) >= MAX_ASKS:
+        if len(asks) >= MAX_ASKS or read >= MAX_CONTEXT_BYTES or time.monotonic() > deadline:
             break
         path = context / name
         text = _read_text(path)
         if text is None:
             continue
+        read += len(text)
         source = f"context/{path.name}"
         for line in text.splitlines():
             match = FILL_RE.match(line)

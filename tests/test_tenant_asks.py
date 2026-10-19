@@ -500,3 +500,14 @@ def test_repeated_fill_lines_do_not_spend_the_fact_budget(tmp_path):
     (t / 'context' / 'b.md').write_text('FILL: the launch date.\n')
     titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact']
     assert titles == ['the price.', 'the offer window.', 'the launch date.']
+
+
+def test_context_scan_stops_at_its_byte_budget(tmp_path, monkeypatch):
+    import lib.tenant_asks as ta
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    for n in range(5):
+        (t / 'context' / ('%02d.md' % n)).write_text('# notes\n' + 'x' * 1000 + '\nFILL: question %d.\n' % n)
+    monkeypatch.setattr(ta, 'MAX_CONTEXT_BYTES', 2500)
+    titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact']
+    # Files are read in order until the shared budget is spent; the rest wait.
+    assert titles == ['question 0.', 'question 1.', 'question 2.']
