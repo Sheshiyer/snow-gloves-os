@@ -208,7 +208,10 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
 
 /** What a rendered ask stack shows; an unchanged key means a poll can leave the stack alone. */
 export function askStackKey(asks: TenantAsk[]): string {
-  return JSON.stringify(asks.map(ask => [ask.id, ask.status, ask.answer ?? null, ask.proposed ?? null]));
+  return JSON.stringify(asks.map(ask => [
+    ask.id, ask.project, ask.tenant, ask.kind, ask.role, ask.title, ask.source, ask.answerType,
+    ask.status, ask.answer ?? null, ask.proposed ?? null,
+  ]));
 }
 
 /** Unsent answer text and the focused answer box, keyed by ask id. */

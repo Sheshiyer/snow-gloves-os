@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {FleetClient} from './fleet-tasks';
-import {parseAsks, renderAskStack, startAskSync, summarizeAsks, type TenantAsk} from './tenant-asks';
+import {askStackKey, parseAsks, renderAskStack, startAskSync, summarizeAsks, type TenantAsk} from './tenant-asks';
 
 const id = 'a'.repeat(32);
 const signal = () => new AbortController().signal;
@@ -173,6 +173,17 @@ describe('ask stack', () => {
     await yes()?.onclick?.();
     expect(onAnswer).toHaveBeenCalledTimes(2);
     expect(onAnswer).toHaveBeenNthCalledWith(2, ask, {accept: true});
+  });
+});
+
+describe('ask stack key', () => {
+  it('changes when a rendered field changes under the same id', () => {
+    const base = askStackKey([model()]);
+    expect(askStackKey([model()])).toBe(base);
+    for (const over of [{title: 'Revised question'}, {source: 'tenants/acme/CONTEXT.md'}, {kind: 'decision' as const},
+      {role: 'dispatcher' as const}, {answerType: 'yes_no' as const}]) {
+      expect(askStackKey([model(over)])).not.toBe(base);
+    }
   });
 });
 
