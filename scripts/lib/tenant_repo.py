@@ -221,7 +221,12 @@ def git_layout(root, git_path='git'):
             while cursor < len(body):
                 space = body.index(b' ', cursor)
                 nul = body.index(b'\0', space)
-                children[body[space + 1:nul]] = (body[cursor:space], body[nul + 1:nul + 1 + width].hex().encode())
+                name_bytes = body[space + 1:nul]
+                # A malformed tree naming an entry twice would hide one copy from this scan
+                # while a clone still carries both; refuse it.
+                if name_bytes in children:
+                    return None
+                children[name_bytes] = (body[cursor:space], body[nul + 1:nul + 1 + width].hex().encode())
                 cursor = nul + 1 + width
             entries[name] = children
     except (OSError, ValueError, subprocess.SubprocessError):

@@ -918,7 +918,7 @@ export function mountCockpit(
       note.textContent = 'Connect the Hermes board to see asks';
       section.append(note);
     } else {
-      section.append(renderAskStack(townAsks.filter(ask => ask.tenant === slug), (ask, answer) => submitTenantAsk(ask.project, ask.id, answer)));
+      section.append(renderAskStack(townAsks.filter(ask => ask.tenant === slug), (ask, answer) => submitTenantAsk(ask.project, ask.id, answer, ask.proposed)));
     }
     return section;
   }

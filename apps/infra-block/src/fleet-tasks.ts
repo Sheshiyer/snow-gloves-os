@@ -181,7 +181,7 @@ export class FleetClient {
   async asks(project: string, signal: AbortSignal = new AbortController().signal): Promise<TenantAsk[]> {
     return parseAsks(await this.request(`/asks/${project}`, signal), project);
   }
-  async answerAsk(project: string, id: string, answer: {value: string} | {accept: boolean}): Promise<TenantAsk> {
+  async answerAsk(project: string, id: string, answer: {value: string} | {accept: boolean; proposed?: string | null}): Promise<TenantAsk> {
     const raw = await this.request(`/asks/${project}/${id}/answer`, new AbortController().signal, answer);
     if (!record(raw) || !Object.hasOwn(raw, 'ask')) throw new Error('Invalid tenant asks.');
     const [ask] = parseAsks({asks: [raw.ask]}, project);
@@ -464,7 +464,7 @@ export function createFleetBoard(): FleetBoard {
   requestApproval.onclick = () => capabilityOperation(true);
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
     document.addEventListener('tenant-ask-answer', event => {
-      const detail = (event as CustomEvent<{project?: string; id?: string; answer?: {value: string} | {accept: boolean}; done?: (error?: Error) => void}>).detail;
+      const detail = (event as CustomEvent<{project?: string; id?: string; answer?: {value: string} | {accept: boolean; proposed?: string | null}; done?: (error?: Error) => void}>).detail;
       if (!detail || typeof detail.done !== 'function' || typeof detail.project !== 'string' || typeof detail.id !== 'string' || !detail.answer) return;
       event.preventDefault();
       const current = client;
@@ -480,7 +480,9 @@ export function createFleetBoard(): FleetBoard {
 }
 
 /** Hands an answer to the connected Hermes board. Rejects when the board has no token. */
-export function submitTenantAsk(project: string, id: string, answer: {value: string} | {accept: boolean}): Promise<void> {
+/** Send an answer; a yes/no answer carries the proposal it was given on, so a changed one is refused. */
+export function submitTenantAsk(project: string, id: string, answer: {value: string} | {accept: boolean}, proposed: string | null = null): Promise<void> {
+  const sent = 'accept' in answer ? {...answer, proposed} : answer;
   return new Promise((resolve, reject) => {
     let settled = false;
     const done = (error?: Error) => { if (settled) return; settled = true; if (error) reject(error); else resolve(); };
@@ -488,7 +490,7 @@ export function submitTenantAsk(project: string, id: string, answer: {value: str
       done(new Error('Connect the Hermes board to see asks.'));
       return;
     }
-    const event = new CustomEvent('tenant-ask-answer', {cancelable: true, detail: {project, id, answer, done}});
+    const event = new CustomEvent('tenant-ask-answer', {cancelable: true, detail: {project, id, answer: sent, done}});
     document.dispatchEvent(event);
     if (!event.defaultPrevented) done(new Error('Connect the Hermes board to see asks.'));
   });

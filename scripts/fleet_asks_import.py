@@ -2,9 +2,11 @@
 """Import agent research proposals into a tenant's ask proposal journal."""
 import argparse
 import fcntl
+import hashlib
 import json
 import os
 import re
+import stat
 import sys
 import time
 import urllib.error
@@ -19,7 +21,7 @@ MAX_EVIDENCE = 500
 MAX_ARTIFACT = 256 * 1024
 MAX_JOURNAL_LINE = 64 * 1024  # one journal record; the importer writes far less
 JOURNAL = 'proposed.jsonl'
-SOURCES = 'proposed.sources.jsonl'  # completion lines: which tasks finished importing
+IMPORTED = 'imported'  # asks/imported/<sha256(source)>: tasks that finished importing
 COMPACT_AT = 4 * 1024 * 1024  # past this, the journal is rewritten to its live records
 MAX_COMPACT_BYTES = 64 * 1024 * 1024
 MAX_COMPACT_RECORDS = 1_000_000
@@ -143,50 +145,49 @@ def _locked_journal(asks):
         os.close(fd)
 
 
-def _append_line(asks, name, data):
-    """Append *data* (whole lines) to *name* in the held asks directory, ending any torn
-    last line first, and fsync it."""
-    fd = os.open(name, os.O_APPEND | os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600, dir_fd=asks)
-    try:
-        size = os.fstat(fd).st_size
-        if size and os.pread(fd, 1, size - 1) != b'\n':
-            data = b'\n' + data
-        view = memoryview(data)
-        while view:
-            view = view[os.write(fd, view):]
-        os.fsync(fd)
-    finally:
-        os.close(fd)
+def _marker(source):
+    return hashlib.sha256(source.encode('utf-8', 'surrogatepass')).hexdigest()
 
 
-def _source_done(asks, source, deadline):
-    """Whether the sources file records *source* as fully imported; None past the budget."""
+def _imported_dir(asks, create=False):
+    """The held asks/imported/ directory (one marker file per fully imported source)."""
+    directory = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | getattr(os, 'O_NOFOLLOW', 0)
+    if create:
+        try:
+            os.mkdir(IMPORTED, 0o700, dir_fd=asks)
+        except FileExistsError:
+            pass
+    return os.open(IMPORTED, directory, dir_fd=asks)
+
+
+def _source_done(asks, source):
+    """Whether *source* has a completion marker: one stat, however many tasks came before."""
     try:
-        fd = os.open(SOURCES, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0), dir_fd=asks)
+        held = _imported_dir(asks)
     except FileNotFoundError:
         return False
-    with os.fdopen(fd, 'rb') as stream:
-        scanned = 0
-        while True:
-            line = stream.readline(MAX_JOURNAL_LINE + 1)
-            scanned += len(line)
-            if not line:
-                return False
-            if scanned > MAX_COMPACT_BYTES or time.monotonic() > deadline:
-                return None
-            if len(line) > MAX_JOURNAL_LINE:
-                while line and not line.endswith(b'\n'):
-                    line = stream.readline(MAX_JOURNAL_LINE)
-                    scanned += len(line)
-                    if scanned > MAX_COMPACT_BYTES or time.monotonic() > deadline:
-                        return None
-                continue
+    try:
+        return stat.S_ISREG(os.stat(_marker(source), dir_fd=held, follow_symlinks=False).st_mode)
+    except FileNotFoundError:
+        return False
+    finally:
+        os.close(held)
+
+
+def _mark_imported(asks, sources):
+    """Record each of *sources* ({source: created}) as fully imported, durably."""
+    held = _imported_dir(asks, create=True)
+    try:
+        for source, when in sources.items():
+            fd = os.open(_marker(source), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0), 0o600, dir_fd=held)
             try:
-                record = json.loads(line.decode('utf-8', errors='replace'))
-            except ValueError:
-                continue
-            if isinstance(record, dict) and record.get('source') == source and record.get('complete') is True:
-                return True
+                os.write(fd, json.dumps({'source': source, 'created': when, 'complete': True}).encode())
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        os.fsync(held)
+    finally:
+        os.close(held)
 
 
 def _compacted_size(asks):
@@ -248,12 +249,11 @@ def _compact(stream, asks):
         if isinstance(record.get('source'), str) and (record.get('complete') is True or 'created' not in record):
             done[record['source']] = _task_time(record.get('created'))
     body = b''.join(json.dumps(record).encode() + b'\n' for record in latest.values())
-    # Completion lines move to the sources file first, so the journal keeps only live
+    # Completion lines move to per-source markers first, so the journal keeps only live
     # proposals and every listing reads them within its budget. A crash in between leaves
     # duplicate completion lines, which are harmless.
     if done:
-        _append_line(asks, SOURCES, b''.join(json.dumps({'source': source, 'created': when, 'complete': True}).encode() + b'\n'
-                                             for source, when in done.items()))
+        _mark_imported(asks, done)
     temp = JOURNAL + '.compact'
     try:
         os.unlink(temp, dir_fd=asks)
@@ -336,9 +336,7 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
                 return 0
             recorded, imported = scan
             if not imported and source is not None:
-                imported = _source_done(asks, source, time.monotonic() + COMPACT_SECONDS)
-                if imported is None:
-                    return 0
+                imported = _source_done(asks, source)
             if imported:
                 return 0
             latest = {}
@@ -364,10 +362,10 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
                 stream.write(b'\n'.join(lines) + b'\n')
                 stream.flush()
                 os.fsync(stream.fileno())
-            # Every task ends with a completion line in the sources file, written after its
-            # proposals, so an interrupted import is retried; listings never read that file.
+            # Every task ends with a completion marker, written after its proposals reached
+            # disk, so an interrupted import is retried; listings never read the markers.
             if source is not None:
-                _append_line(asks, SOURCES, json.dumps({'source': source, 'created': created, 'complete': True}).encode() + b'\n')
+                _mark_imported(asks, {source: created})
             # Compact only once the journal has doubled since its last compaction: live records
             # (one completion line per task) can keep it above COMPACT_AT, and re-reading it on
             # every import would make each import slower than the last.

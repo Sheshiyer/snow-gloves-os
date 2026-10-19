@@ -604,8 +604,8 @@ def test_unchanged_task_still_records_its_source(tmp_path):
     artifact = '[{"ask_id":"id1","proposed":"EUR 99"}]'
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-a') == 1
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-b') == 0
-    sources = tenants_dir / 'heyzack' / 'asks' / 'proposed.sources.jsonl'
-    assert any(json.loads(l).get('source') == 'task-b' for l in sources.read_text().splitlines())
+    imported = tenants_dir / 'heyzack' / 'asks' / 'imported'
+    assert any(json.loads(p.read_text()).get('source') == 'task-b' for p in imported.iterdir())
     # the receipt keeps task-b from being re-imported, even with a changed value
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 5"}]', {'id1'}, source='task-b') == 0
 
@@ -621,8 +621,8 @@ def test_interrupted_import_is_retried_until_complete(tmp_path):
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}, source='task-a', created=10.0) == 1
     records = [json.loads(line) for line in (asks_dir / 'proposed.jsonl').read_text().splitlines()[2:]]
     assert records == [{'ask_id': 'id2', 'proposed': 'EUR 5', 'source': 'task-a', 'created': 10.0}]
-    # The completion line lands in the sources file, after the proposals reached disk.
-    assert [json.loads(line) for line in (asks_dir / 'proposed.sources.jsonl').read_text().splitlines()] == [
+    # The completion marker is written after the proposals reached disk.
+    assert [json.loads(p.read_text()) for p in (asks_dir / 'imported').iterdir()] == [
         {'source': 'task-a', 'created': 10.0, 'complete': True}]
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}, source='task-a', created=10.0) == 0
 
@@ -1018,7 +1018,7 @@ def test_large_journals_are_compacted_to_live_records(tmp_path, monkeypatch):
         assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'} | {'id%d' % (n + 2)},
                                 source='task-%d' % n, created=float(n)) == 2
     # 30 imports wrote 30 values for id1; compaction dropped the superseded ones, and the
-    # journal holds proposals only (completion lines live in the sources file).
+    # journal holds proposals only (completions are per-source marker files).
     lines = journal.read_text().splitlines()
     assert sum('"id1"' in line for line in lines) < 15
     assert not any('"complete"' in line for line in lines)
@@ -1120,3 +1120,33 @@ def test_completion_history_never_pushes_proposals_past_the_listing_budget(tmp_p
     assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 99'}
     # Old tasks are still known as imported.
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='task-7', created=7.0) == 0
+
+
+def test_admit_refuses_a_tree_that_names_an_entry_twice(tmp_path):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    foreign = subprocess.run(['git', '-C', str(repo), 'hash-object', '-w', '--stdin'], input=b'tenant: tenant-b\n',
+                             check=True, capture_output=True).stdout.decode().strip()
+    own = subprocess.run(['git', '-C', str(repo), 'hash-object', '-w', '--stdin'], input=b'tenant: tenant-a\n',
+                         check=True, capture_output=True).stdout.decode().strip()
+    # git mktree refuses duplicates, so write the malformed tree object directly.
+    body = b'100644 MANIFEST.yaml\0' + bytes.fromhex(foreign) + b'100644 MANIFEST.yaml\0' + bytes.fromhex(own)
+    tree = subprocess.run(['git', '-C', str(repo), 'hash-object', '-t', 'tree', '-w', '--literally', '--stdin'], input=body,
+                          check=True, capture_output=True).stdout.decode().strip()
+    commit = subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t', '-c', 'user.email=t@example.invalid',
+                             'commit-tree', tree, '-m', 'dup', '-p', 'HEAD'], check=True, capture_output=True).stdout.decode().strip()
+    subprocess.run(['git', '-C', str(repo), 'update-ref', 'refs/heads/dup', commit], check=True)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_completion_markers_keep_imports_open_however_many_tasks_finished(tmp_path):
+    import fleet_asks_import
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    asks_dir.mkdir(parents=True)
+    fleet_asks_import._mark_imported(asks_fd := os.open(asks_dir, os.O_RDONLY), {'task-%d' % n: float(n) for n in range(5000)})
+    os.close(asks_fd)
+    # A new task still imports; a finished one is still recognised.
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}, source='task-new', created=9e9) == 1
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='task-42', created=42.0) == 0

@@ -95,11 +95,15 @@ class Asks:
             if SENSITIVE_RE.search(value) or CONTROL_RE.search(value) or not is_scalar_text(value):
                 reject(400, 'Invalid answer')
             return {'value': value}
-        if set(body) != {'accept'}:
+        if set(body) not in ({'accept'}, {'accept', 'proposed'}):
             reject(400, 'Invalid answer')
         accept = body['accept']
         if not isinstance(accept, bool):
             reject(400, 'Invalid answer')
+        # A yes/no answer accepts or rejects the value the founder saw: if the proposal
+        # changed since, refuse rather than record a verdict on an unseen value.
+        if body.get('proposed') != ask['proposed']:
+            reject(409, 'The proposal changed; review it again')
         return {'accept': accept}
 
     def _derive_ask(self, tenant, ask_id):

@@ -772,7 +772,7 @@ function disposeNavigation(): void {
         ticketAsksKey = key;
         const drafts = rememberAskDrafts(asksHost, ticketDrafts);
         asksHost.replaceChildren(...(roleAsks
-          ? [renderAskStack(roleAsks, (ask, answer) => submitTenantAsk(ask.project, ask.id, answer))]
+          ? [renderAskStack(roleAsks, (ask, answer) => submitTenantAsk(ask.project, ask.id, answer, ask.proposed))]
           : []));
         restoreAskDrafts(asksHost, drafts);
       }

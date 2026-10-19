@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {createBrandMarkers, type BrandTenant} from './brand-atlas';
 import {mountHome} from './home';
 import {mountCockpit} from './ops';
+import {submitTenantAsk} from './fleet-tasks';
 import type {TenantAsk} from './tenant-asks';
 
 // Record each Field Kit board's pause arguments; the real board still runs.
@@ -616,6 +617,22 @@ describe('tenant asks in the town', () => {
     expect(carried?.value).toBe('EUR 9');
     expect(document.activeElement).toBe(carried);
     home.dispose();
+  });
+
+  it('sends the proposal the founder saw with a yes/no answer', async () => {
+    restoreDom = installDom();
+    const sent: unknown[] = [];
+    const listener = (event: Event) => {
+      const detail = (event as CustomEvent<{answer: unknown; done: () => void}>).detail;
+      event.preventDefault();
+      sent.push(detail.answer);
+      detail.done();
+    };
+    document.addEventListener('tenant-ask-answer', listener);
+    await submitTenantAsk('heyzack', 'a'.repeat(32), {accept: true}, 'EUR 99');
+    await submitTenantAsk('heyzack', 'a'.repeat(32), {value: 'EUR 5'}, 'EUR 99');
+    document.removeEventListener('tenant-ask-answer', listener);
+    expect(sent).toEqual([{accept: true, proposed: 'EUR 99'}, {value: 'EUR 5'}]);
   });
 
   it('keeps a crew ticket draft when the founder opens another resident and comes back', () => {

@@ -240,7 +240,7 @@ def test_yes_no_answer_keeps_the_proposal_it_answered(asks_ctx):
     target = _ask_id(c, config)
     (tenant / 'asks').mkdir(exist_ok=True)
     (tenant / 'asks' / 'proposed.jsonl').write_text(json.dumps({'ask_id': target, 'proposed': 'EUR 99'}) + '\n')
-    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'accept': True})
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'accept': True, 'proposed': 'EUR 99'})
     (tenant / 'asks' / 'proposed.jsonl').write_text('')
     listed = {a['id']: a for a in c.asks.list('founder', config['principals']['founder'], 'snowgloves')['asks']}
     assert listed[target]['answer_type'] == 'yes_no' and listed[target]['proposed'] == 'EUR 99'
@@ -367,3 +367,17 @@ def test_journal_path_never_follows_a_linked_tenants_directory(asks_ctx, tmp_pat
     finally:
         tenants.unlink()
         moved.rename(tenants)
+
+
+def test_yes_no_answer_is_refused_when_the_proposal_changed(asks_ctx):
+    c, config, clock, tenant = asks_ctx
+    target = _ask_id(c, config)
+    (tenant / 'asks').mkdir(exist_ok=True)
+    (tenant / 'asks' / 'proposed.jsonl').write_text(json.dumps({'ask_id': target, 'proposed': 'EUR 120'}) + '\n')
+    # The founder saw EUR 99; a newer import replaced it before the click.
+    for body in ({'accept': True, 'proposed': 'EUR 99'}, {'accept': True}):
+        with pytest.raises(Rejected) as exc:
+            c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, body)
+        assert exc.value.status == 409
+    assert not (tenant / 'asks' / 'answers.jsonl').exists() or (tenant / 'asks' / 'answers.jsonl').read_text() == ''
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'accept': False, 'proposed': 'EUR 120'})
