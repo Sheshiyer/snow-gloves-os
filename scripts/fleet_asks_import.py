@@ -117,11 +117,21 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
         valid.append(record)
     if not valid and source is None:
         return 0
-    base = Path(tenants_dir).resolve()
-    asks_dir = Path(tenants_dir) / tenant / 'asks'
-    if asks_dir.is_symlink() or not asks_dir.resolve().is_relative_to(base):
+    # Same rule derive_asks() applies: the tenant directory is a real directory
+    # directly under tenants/, never a link to another tenant, and so is asks/.
+    if not isinstance(tenant, str) or not tenant or tenant in ('.', '..') or '/' in tenant or '\\' in tenant or '\0' in tenant:
         return 0
-    asks_dir.mkdir(parents=True, exist_ok=True)
+    base = Path(tenants_dir).resolve()
+    tenant_dir = Path(tenants_dir) / tenant
+    asks_dir = tenant_dir / 'asks'
+    if tenant_dir.is_symlink() or (tenant_dir.exists() and not tenant_dir.is_dir()):
+        return 0
+    tenant_dir.mkdir(parents=True, exist_ok=True)
+    if asks_dir.is_symlink() or tenant_dir.resolve().parent != base:
+        return 0
+    asks_dir.mkdir(exist_ok=True)
+    if asks_dir.is_symlink() or asks_dir.resolve().parent != tenant_dir.resolve():
+        return 0
     path = asks_dir / 'proposed.jsonl'
     flags = os.O_APPEND | os.O_CREAT | os.O_RDWR
     if hasattr(os, 'O_NOFOLLOW'):

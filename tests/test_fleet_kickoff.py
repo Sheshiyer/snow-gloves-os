@@ -714,3 +714,38 @@ def test_admit_accepts_a_tenant_only_repository(tmp_path):
     (repo / 'context' / 'offer.md').write_text('FILL: the price.')
     _git_commit_all(repo)
     assert admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))['projects']['tenant-a']['root'] == str(repo)
+
+
+@pytest.mark.parametrize('shared', ['fleet.yaml', 'nodes/mac-coding-1/node.yaml', '_audit/receipt.json',
+                                    '.planning/STATE.md', 'specs/006-editorial-steward-integration/portfolio-map-proposal.json'])
+def test_admit_refuses_a_root_carrying_shared_instance_data(tmp_path, shared):
+    config = _base_config()
+    root = tmp_path / 'tenant-a'
+    _git_init(root)
+    os.makedirs(root / 'tenants' / 'tenant-a')
+    (root / 'tenants' / 'tenant-a' / 'MANIFEST.yaml').write_text('tenant: tenant-a')
+    target = root / shared
+    os.makedirs(target.parent, exist_ok=True)
+    target.write_text('every tenant')
+    _git_commit_all(root)
+    with pytest.raises(ValueError, match='shared instance data'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
+    # Deleting it from the checkout is not enough while history still holds it.
+    import shutil
+    top = root / shared.split('/')[0]
+    shutil.rmtree(top) if top.is_dir() else top.unlink()
+    _git_commit_all(root, 'drop shared data')
+    with pytest.raises(ValueError, match='shared instance data'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
+
+
+def test_import_refuses_a_tenant_directory_that_links_to_another_tenant(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'victim' / 'asks').mkdir(parents=True)
+    (tenants_dir / 'intruder').symlink_to(tenants_dir / 'victim', target_is_directory=True)
+    artifact = '[{"ask_id":"id1","proposed":"EUR 99"}]'
+    assert import_proposals(tenants_dir, 'intruder', artifact, {'id1'}, source='task-x') == 0
+    assert not (tenants_dir / 'victim' / 'asks' / 'proposed.jsonl').exists()
+    for bad in ('..', '.', '', 'a/b'):
+        assert import_proposals(tenants_dir, bad, artifact, {'id1'}, source='task-y') == 0
+    assert not (tmp_path / 'asks').exists()

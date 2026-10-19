@@ -12,8 +12,13 @@ from pathlib import Path
 PROJECT_ID = re.compile(r'[a-z0-9][a-z0-9_-]{0,63}')
 
 
-def _git_tenants(root):
-    """Every tenants/<name> directory recorded anywhere in the root's Git object database.
+# Instance data the private checkout keeps beside tenants/ (see scripts/lib/paths.py):
+# fleet inventory, node profiles, audit receipts, planning state and portfolio specs.
+SHARED_INSTANCE_PATHS = frozenset({'fleet.yaml', 'nodes', '_audit', '.planning', 'specs'})
+
+
+def _git_layout(root):
+    """Tenant names under any tenants/ tree, and every top-level name any commit has held.
 
     Workers get a linked worktree of this repository, so any object in it is
     readable (git show, cat-file), not just the checked-out files. Returns None
@@ -28,16 +33,20 @@ def _git_tenants(root):
     try:
         width = 32 if git('rev-parse', '--show-object-format').strip() == b'sha256' else 20
         listing = git('cat-file', '--batch-all-objects', '--batch-check=%(objecttype) %(objectname)')
-        trees = [line.split()[1] for line in listing.splitlines() if line.startswith(b'tree ')]
-        raw = git('cat-file', '--batch', data=b''.join(tree + b'\n' for tree in trees)) if trees else b''
+        wanted = [line.split()[1] for line in listing.splitlines() if line.startswith((b'tree ', b'commit '))]
+        raw = git('cat-file', '--batch', data=b''.join(oid + b'\n' for oid in wanted)) if wanted else b''
     except (OSError, subprocess.SubprocessError):
         return None
-    entries, pos = {}, 0
+    entries, roots, pos = {}, set(), 0
     while pos < len(raw):
         header_end = raw.index(b'\n', pos)
         name, kind, size = raw[pos:header_end].split()
         body = raw[header_end + 1:header_end + 1 + int(size)]
         pos = header_end + 1 + int(size) + 1
+        if kind == b'commit':
+            if body.startswith(b'tree '):
+                roots.add(body[5:body.index(b'\n')])
+            continue
         children, cursor = {}, 0
         while cursor < len(body):
             space = body.index(b' ', cursor)
@@ -45,12 +54,13 @@ def _git_tenants(root):
             children[body[space + 1:nul]] = (body[cursor:space], body[nul + 1:nul + 1 + width].hex().encode())
             cursor = nul + 1 + width
         entries[name] = children
-    found = set()
+    tenants = set()
     for children in entries.values():
         mode, oid = children.get(b'tenants', (None, None))
         if mode == b'40000':
-            found.update(child.decode('utf-8', 'replace') for child in entries.get(oid, {}))
-    return found
+            tenants.update(child.decode('utf-8', 'replace') for child in entries.get(oid, {}))
+    top = {child.decode('utf-8', 'replace') for root_tree in roots for child in entries.get(root_tree, {})}
+    return tenants, top
 
 
 def admit(config, tenants, organization, principal, workers, root=None, remote_roots_staged=False):
@@ -111,11 +121,17 @@ def admit(config, tenants, organization, principal, workers, root=None, remote_r
             raise ValueError('Project root %s holds other tenants; use a tenant-scoped checkout' % candidate)
         # The coordinator resolves roots, so compare resolved paths: a template like
         # /srv/{tenant}/.. would otherwise give every tenant the same checkout.
-        found = _git_tenants(candidate)
-        if found is None:
+        layout = _git_layout(candidate)
+        if layout is None:
             raise ValueError('Cannot verify the Git history of project root %s; use a standalone tenant repository' % candidate)
+        found, top = layout
         if found - {tenant}:
             raise ValueError('Project root %s has other tenants in its Git history; use a tenant-only repository' % candidate)
+        # Fleet, node, audit, planning and spec files hold every tenant's state.
+        shared = sorted((top | set(os.listdir(candidate))) & SHARED_INSTANCE_PATHS)
+        if shared:
+            raise ValueError('Project root %s holds shared instance data (%s); use a tenant-only repository'
+                             % (candidate, ', '.join(shared)))
         roots[tenant] = candidate
     taken = {os.path.realpath(p['root']): pid for pid, p in current.items()
              if isinstance(p, dict) and isinstance(p.get('root'), str)}
