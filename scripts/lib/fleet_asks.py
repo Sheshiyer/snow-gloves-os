@@ -16,6 +16,7 @@ import os
 import re
 import threading
 import uuid
+from pathlib import Path
 
 from . import paths
 from .fleet_capabilities import reject
@@ -137,6 +138,25 @@ class Asks:
             offset = start
         return 0
 
+    @staticmethod
+    def _open_journal(path):
+        """Open tenants/<tenant>/asks/answers.jsonl one component at a time.
+
+        Each directory is opened with O_NOFOLLOW and the next name is resolved
+        relative to the held descriptor, so swapping the tenant or asks
+        directory for a link after validation cannot redirect the append.
+        """
+        nofollow = getattr(os, 'O_NOFOLLOW', 0)
+        directory = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | nofollow
+        handles = [os.open(path.parents[2], os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))]
+        try:
+            for name in (path.parents[1].name, path.parent.name):
+                handles.append(os.open(name, directory, dir_fd=handles[-1]))
+            return os.open(path.name, os.O_RDWR | os.O_CREAT | os.O_APPEND | nofollow, 0o600, dir_fd=handles[-1])
+        finally:
+            for handle in handles:
+                os.close(handle)
+
     @classmethod
     def _append_journal(cls, path, record):
         """Append one JSON line, first truncating any incomplete tail a failed write left.
@@ -151,11 +171,8 @@ class Asks:
         except UnicodeEncodeError:
             # Never let one unencodable record block the outbox: ASCII escapes are valid JSON.
             line = (json.dumps(record, sort_keys=True, separators=(',', ':')) + '\n').encode('ascii')
-        flags = os.O_RDWR | os.O_CREAT | os.O_APPEND
-        if hasattr(os, 'O_NOFOLLOW'):
-            flags |= os.O_NOFOLLOW
         try:
-            fd = os.open(path, flags, 0o600)
+            fd = cls._open_journal(Path(path))
         except OSError:
             reject(503, 'Ask journal unavailable')
         try:

@@ -299,3 +299,18 @@ def test_retry_after_a_crash_between_append_and_delete_appends_once(asks_ctx):
     c.asks.flush()
     assert [json.loads(line)['answer_id'] for line in journal.read_text().splitlines()] == [record['answer_id']]
     assert c.db.execute('SELECT count(*) FROM ask_journal_outbox').fetchone()[0] == 0
+
+
+def test_journal_append_never_follows_a_swapped_asks_directory(asks_ctx, tmp_path):
+    c, config, _, tenant = asks_ctx
+    target = _ask_id(c, config)
+    path = c.asks._journal_path(tenant.name)  # validated while still a real directory
+    # Another process swaps asks/ for a link to somewhere else after validation.
+    elsewhere = tmp_path / 'elsewhere'
+    elsewhere.mkdir()
+    import shutil
+    shutil.rmtree(tenant / 'asks')
+    (tenant / 'asks').symlink_to(elsewhere, target_is_directory=True)
+    with pytest.raises(Rejected):
+        c.asks._append_journal(path, {'answer_id': 'x', 'ask_id': target})
+    assert not (elsewhere / 'answers.jsonl').exists()

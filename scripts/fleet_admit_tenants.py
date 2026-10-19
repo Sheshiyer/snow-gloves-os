@@ -18,7 +18,8 @@ SHARED_INSTANCE_PATHS = frozenset({'fleet.yaml', 'nodes', '_audit', '.planning',
 
 
 def _git_layout(root):
-    """Tenant names under any tenants/ tree, and every top-level name any commit has held.
+    """Tenant names under any tenants/ tree, every top-level name any commit has held,
+    and whether any tree records a symlink or submodule (either can reach outside the root).
 
     Workers get a linked worktree of this repository, so any object in it is
     readable (git show, cat-file), not just the checked-out files. Returns None
@@ -60,7 +61,8 @@ def _git_layout(root):
         if mode == b'40000':
             tenants.update(child.decode('utf-8', 'replace') for child in entries.get(oid, {}))
     top = {child.decode('utf-8', 'replace') for root_tree in roots for child in entries.get(root_tree, {})}
-    return tenants, top
+    links = any(mode in (b'120000', b'160000') for children in entries.values() for mode, _ in children.values())
+    return tenants, top, links
 
 
 def admit(config, tenants, organization, principal, workers, root=None, remote_roots_staged=False):
@@ -124,7 +126,10 @@ def admit(config, tenants, organization, principal, workers, root=None, remote_r
         layout = _git_layout(candidate)
         if layout is None:
             raise ValueError('Cannot verify the Git history of project root %s; use a standalone tenant repository' % candidate)
-        found, top = layout
+        found, top, links = layout
+        # A worker checks the tree out, so a tracked link could lead its task out of the root.
+        if links:
+            raise ValueError('Project root %s tracks a symlink or submodule; use a tenant-only repository without links' % candidate)
         if found - {tenant}:
             raise ValueError('Project root %s has other tenants in its Git history; use a tenant-only repository' % candidate)
         # Fleet, node, audit, planning and spec files hold every tenant's state.

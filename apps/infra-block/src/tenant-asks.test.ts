@@ -305,6 +305,32 @@ describe('ask sync and fleet client', () => {
     stop();
   });
 
+  it('keeps a duplicated ask on the project that first showed it after the other recovers', async () => {
+    const emit = vi.fn();
+    const open = model({project: 'heyzack'});
+    let firstUp = false;
+    let backup = {...open, project: 'heyzack-ops'};
+    const asks = vi.fn(async (project: string) => {
+      if (project === 'heyzack') { if (!firstUp) throw new Error('500'); return [open]; }
+      return [backup];
+    });
+    const client = {asks} as unknown as FleetClient;
+    let poll: (() => void) | undefined;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(handler => { poll = handler as () => void; return 1 as unknown as ReturnType<typeof setInterval>; });
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    const sync = startAskSync(client, ['heyzack', 'heyzack-ops'], emit, 60_000);
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(emit).toHaveBeenLastCalledWith([backup]);
+    // The founder answers the copy they were shown, then the first project recovers still open.
+    backup = {...backup, status: 'answered', answer: {value: 'EUR 99'}};
+    sync.applyAnswer(backup);
+    firstUp = true;
+    poll?.();
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(emit).toHaveBeenLastCalledWith([backup]);
+    sync();
+  });
+
   it('keeps the last good list when a later poll fails', async () => {
     const emit = vi.fn();
     const good = [model()];

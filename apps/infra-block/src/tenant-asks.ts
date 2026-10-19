@@ -273,10 +273,25 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
   const routable = projects.filter(project => /^[a-z0-9][a-z0-9_-]{0,63}$/.test(project));
   const lastGood = new Map<string, TenantAsk[]>();
   // Two projects mapped to one tenant derive the same stable ask ids; show each ask once,
-  // from the first project in config order, so badges count it once and one answer settles it.
+  // from one project that stays bound to it across polls, so badges count it once and an
+  // answer is never hidden by the other project's still-open copy. The binding moves
+  // only when the bound project no longer lists the ask.
+  const owner = new Map<string, string>();
   const publish = () => {
-    const seen = new Set<string>();
-    emit(routable.flatMap(project => lastGood.get(project) ?? []).filter(ask => !seen.has(ask.id) && seen.add(ask.id)));
+    const listed = new Map(routable.map(project => [project, new Set((lastGood.get(project) ?? []).map(ask => ask.id))]));
+    const shown = new Set<string>();
+    const out: TenantAsk[] = [];
+    for (const project of routable) {
+      for (const ask of lastGood.get(project) ?? []) {
+        if (shown.has(ask.id)) continue;
+        const bound = owner.get(ask.id);
+        if (bound === undefined || !listed.get(bound)?.has(ask.id)) owner.set(ask.id, project);
+        if (owner.get(ask.id) !== project) continue;
+        shown.add(ask.id);
+        out.push(ask);
+      }
+    }
+    emit(out);
   };
   let inFlight = false;
   const pull = () => {

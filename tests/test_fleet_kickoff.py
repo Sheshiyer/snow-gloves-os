@@ -749,3 +749,20 @@ def test_import_refuses_a_tenant_directory_that_links_to_another_tenant(tmp_path
     for bad in ('..', '.', '', 'a/b'):
         assert import_proposals(tenants_dir, bad, artifact, {'id1'}, source='task-y') == 0
     assert not (tmp_path / 'asks').exists()
+
+
+@pytest.mark.parametrize('remove_after', [False, True])
+def test_admit_refuses_a_root_that_tracks_a_symlink(tmp_path, remove_after):
+    config = _base_config()
+    root = tmp_path / 'tenant-a'
+    _git_init(root)
+    (root / 'context').mkdir()
+    (root / 'context' / 'offer.md').write_text('FILL: the price.')
+    (root / 'shared').symlink_to(tmp_path)
+    _git_commit_all(root)
+    if remove_after:
+        # History alone is enough: any worker can check the old commit out.
+        (root / 'shared').unlink()
+        _git_commit_all(root, 'drop link')
+    with pytest.raises(ValueError, match='symlink'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
