@@ -330,3 +330,23 @@ def test_journal_append_never_follows_a_swapped_tenants_directory(asks_ctx, tmp_
     finally:
         tenants.unlink()
         moved.rename(tenants)
+
+
+def test_asks_directory_is_never_created_through_a_linked_tenant(asks_ctx, tmp_path):
+    c, config, _, tenant = asks_ctx
+    import shutil
+    shutil.rmtree(tenant / 'asks', ignore_errors=True)
+    outside = tmp_path / 'outside-tenant'
+    outside.mkdir()
+    moved = tmp_path / 'real-tenant'
+    tenant.rename(moved)
+    tenant.symlink_to(outside, target_is_directory=True)
+    try:
+        with pytest.raises(Rejected):
+            c.asks._journal_path(tenant.name)
+        with pytest.raises(OSError):
+            c.asks._hold_asks(tenant / 'asks' / 'answers.jsonl')
+        assert not (outside / 'asks').exists()
+    finally:
+        tenant.unlink()
+        moved.rename(tenant)

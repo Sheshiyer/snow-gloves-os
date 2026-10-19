@@ -973,3 +973,16 @@ def test_isolation_scan_is_killed_at_its_deadline(tmp_path, monkeypatch):
     assert tenant_repo.git_layout(repo, str(slow)) is None
     elapsed = clock.monotonic() - started
     assert 0.9 < elapsed < 10
+
+
+def test_a_git_directory_past_the_entry_budget_fails_closed(tmp_path, monkeypatch):
+    from lib import tenant_repo
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    monkeypatch.setattr(tenant_repo, 'MAX_GIT_ENTRIES', 5)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+    # An already-passed deadline stops the walk before it starts.
+    monkeypatch.setattr(tenant_repo, 'MAX_GIT_ENTRIES', 10**9)
+    import time as clock
+    assert tenant_repo._own_object_store(repo, deadline=clock.monotonic() - 1) is False

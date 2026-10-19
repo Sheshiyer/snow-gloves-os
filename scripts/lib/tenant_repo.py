@@ -25,6 +25,7 @@ MAX_MANIFEST = 256 * 1024
 MAX_OBJECTS = 200_000
 MAX_METADATA_BYTES = 64 * 1024 * 1024  # all commit and tree bodies together
 SCAN_SECONDS = 120
+MAX_GIT_ENTRIES = 2 * MAX_OBJECTS + 10_000  # files and directories under .git, loose objects included
 TENANT_LAYOUT = frozenset({'MANIFEST.yaml', 'README.md', '.gitignore', 'context', 'meristem', 'sources.yaml',
                            'enabled.yaml', 'runtime.yaml', 'ingest-plan.json', 'asks', 'wiki', 'history',
                            'documents', 'data', 'audit', 'tenants'})
@@ -64,7 +65,7 @@ def _manifest_tenant(raw):
     return tenant if isinstance(tenant, str) else None
 
 
-def _own_object_store(root):
+def _own_object_store(root, deadline=None):
     """True when .git and its object store are real directories inside *root*.
 
     A .git file or link, any link or special file inside .git (objects, shards,
@@ -84,9 +85,15 @@ def _own_object_store(root):
     # Git follows a link anywhere in its metadata (a loose-object shard, a pack
     # file), so one link inside .git is enough to borrow foreign objects.
     # Only real directories and regular files: a FIFO, socket or device inside .git
-    # could block or redirect Git's reads during the scan and the task.
+    # could block or redirect Git's reads during the scan and the task. The walk shares
+    # the scan's deadline and is capped in entries, so a huge .git fails closed.
+    deadline = time.monotonic() + SCAN_SECONDS if deadline is None else deadline
+    seen = 0
     for directory, subdirs, files in os.walk(git_dir, followlinks=False):
         for name in subdirs + files:
+            seen += 1
+            if seen > MAX_GIT_ENTRIES or time.monotonic() > deadline:
+                return False
             mode = os.lstat(os.path.join(directory, name)).st_mode
             if not (stat.S_ISDIR(mode) or stat.S_ISREG(mode)):
                 return False
@@ -146,9 +153,9 @@ def git_layout(root, git_path='git'):
     larger than a tenant repository may be (MAX_OBJECTS, MAX_METADATA_BYTES): the
     check then fails closed instead of exhausting the worker.
     """
-    if not _own_object_store(root):
-        return None
     deadline = time.monotonic() + SCAN_SECONDS
+    if not _own_object_store(root, deadline):
+        return None
     def git(*args):
         return subprocess.run([git_path, '-C', str(root), *args], capture_output=True, check=True, timeout=SCAN_SECONDS).stdout
     try:

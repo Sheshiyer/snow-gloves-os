@@ -114,17 +114,14 @@ class Asks:
         tenant_dir = tenants_dir / tenant
         if tenant_dir.is_symlink() or not tenant_dir.is_dir():
             reject(503, 'Ask journal unavailable')
-        asks_dir = tenant_dir / 'asks'
-        if asks_dir.is_symlink():
+        path = tenant_dir / 'asks' / 'answers.jsonl'
+        # Creating asks/ happens only through held no-follow descriptors, so a tenant
+        # directory swapped for a link can never get an asks/ made outside the checkout.
+        try:
+            os.close(self._hold_asks(path))
+        except OSError:
             reject(503, 'Ask journal unavailable')
-        if not asks_dir.exists():
-            try:
-                asks_dir.mkdir(mode=0o700)
-            except OSError:
-                reject(503, 'Ask journal unavailable')
-        if not asks_dir.resolve().is_relative_to(tenants_dir):
-            reject(503, 'Ask journal unavailable')
-        return asks_dir / 'answers.jsonl'
+        return path
 
     @staticmethod
     def _last_newline(fd, end):
@@ -147,13 +144,31 @@ class Asks:
         parent, so swapping any of them for a link after validation cannot
         redirect the append.
         """
+        asks = Asks._hold_asks(path)
+        try:
+            return os.open(path.name, os.O_RDWR | os.O_CREAT | os.O_APPEND | getattr(os, 'O_NOFOLLOW', 0), 0o600, dir_fd=asks)
+        finally:
+            os.close(asks)
+
+    @staticmethod
+    def _hold_asks(path):
+        """A descriptor for tenants/<tenant>/asks, creating asks/ if missing.
+
+        The data root is the only component opened by path; tenants/ and the tenant
+        directory are opened with O_NOFOLLOW relative to the held parent, and asks/ is
+        created and opened relative to the held tenant directory.
+        """
         nofollow = getattr(os, 'O_NOFOLLOW', 0)
         directory = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | nofollow
         handles = [os.open(path.parents[3], os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))]
         try:
-            for name in (path.parents[2].name, path.parents[1].name, path.parent.name):
+            for name in (path.parents[2].name, path.parents[1].name):
                 handles.append(os.open(name, directory, dir_fd=handles[-1]))
-            return os.open(path.name, os.O_RDWR | os.O_CREAT | os.O_APPEND | nofollow, 0o600, dir_fd=handles[-1])
+            try:
+                os.mkdir(path.parent.name, 0o700, dir_fd=handles[-1])
+            except FileExistsError:
+                pass
+            return os.open(path.parent.name, directory, dir_fd=handles[-1])
         finally:
             for handle in handles:
                 os.close(handle)
