@@ -356,6 +356,22 @@ describe('ask sync and fleet client', () => {
     stop();
   });
 
+  it('shows the answered copy when a fresh sync sees both projects', async () => {
+    const emit = vi.fn();
+    const open = model({project: 'heyzack'});
+    const answered = {...open, project: 'heyzack-ops', status: 'answered' as const, answer: {value: 'EUR 99'}};
+    const asks = vi.fn(async (project: string) => project === 'heyzack' ? [open] : [answered]);
+    const client = {asks} as unknown as FleetClient;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(() => 1 as unknown as ReturnType<typeof setInterval>);
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    // A reconnect starts with no memory of which project showed the ask before.
+    const stop = startAskSync(client, ['heyzack', 'heyzack-ops'], emit, 60_000);
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(emit).toHaveBeenLastCalledWith([answered]);
+    expect(summarizeAsks(emit.mock.lastCall![0]).byTenant.heyzack ?? 0).toBe(0);
+    stop();
+  });
+
   it('keeps the last good list when a later poll fails', async () => {
     const emit = vi.fn();
     const good = [model()];

@@ -274,23 +274,28 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
   const routable = projects.filter(project => /^[a-z0-9][a-z0-9_-]{0,63}$/.test(project));
   const lastGood = new Map<string, TenantAsk[]>();
   // Two projects mapped to one tenant derive the same stable ask ids; show each ask once,
-  // from one project that stays bound to it across polls, so badges count it once and an
-  // answer is never hidden by the other project's still-open copy. The binding moves
-  // only when the bound project no longer lists the ask.
+  // so badges count it once. An answered copy always wins over an open one, which holds
+  // across polls and across a fresh sync after reconnecting; otherwise the copy stays with
+  // the project that first showed it until that project stops listing the ask.
   const owner = new Map<string, string>();
   const publish = () => {
-    const listed = new Map(routable.map(project => [project, new Set((lastGood.get(project) ?? []).map(ask => ask.id))]));
-    const shown = new Set<string>();
-    const out: TenantAsk[] = [];
+    const copies = new Map<string, Map<string, TenantAsk>>();
     for (const project of routable) {
       for (const ask of lastGood.get(project) ?? []) {
-        if (shown.has(ask.id)) continue;
-        const bound = owner.get(ask.id);
-        if (bound === undefined || !listed.get(bound)?.has(ask.id)) owner.set(ask.id, project);
-        if (owner.get(ask.id) !== project) continue;
-        shown.add(ask.id);
-        out.push(ask);
+        if (!copies.has(ask.id)) copies.set(ask.id, new Map());
+        if (!copies.get(ask.id)!.has(project)) copies.get(ask.id)!.set(project, ask);
       }
+    }
+    const out: TenantAsk[] = [];
+    for (const [id, byProject] of copies) {
+      const bound = owner.get(id);
+      const answered = [...byProject].find(([, ask]) => ask.status === 'answered');
+      const pick = bound !== undefined && byProject.get(bound)?.status === 'answered' ? bound
+        : answered ? answered[0]
+        : bound !== undefined && byProject.has(bound) ? bound
+        : byProject.keys().next().value!;
+      owner.set(id, pick);
+      out.push(byProject.get(pick)!);
     }
     emit(out);
   };

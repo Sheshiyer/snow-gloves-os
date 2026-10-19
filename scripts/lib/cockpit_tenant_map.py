@@ -25,24 +25,47 @@ def _label(value, fallback):
     return value if isinstance(value, str) and 0 < len(value) <= 96 and re.fullmatch(r"[A-Za-z0-9 &(),.'+/-]+", value) and not SENSITIVE_RE.search(value) else fallback
 
 
-def _read(path: Path, limit=MAX_BYTES):
-    """Open every path component without following links, including ancestor dirs."""
-    handles = []
+def open_nofollow(path: Path) -> int:
+    """A read-only descriptor for *path*, opening every component without following links."""
+    absolute = Path(path).absolute()
+    if ".." in absolute.parts:
+        raise OSError("relative component in path")
+    handles = [os.open(absolute.anchor, os.O_RDONLY | os.O_DIRECTORY)]
     try:
-        absolute = path.absolute()
-        if ".." in absolute.parts:
-            return None, "held"
-        handles.append(os.open(absolute.anchor, os.O_RDONLY | os.O_DIRECTORY))
         for part in absolute.parts[1:-1]:
             handles.append(os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=handles[-1]))
-        fd = os.open(absolute.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=handles[-1])
-        handles.append(fd)
+        return os.open(absolute.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=handles[-1])
+    finally:
+        for fd in reversed(handles):
+            os.close(fd)
+
+
+def read_raw(path: Path, limit=MAX_BYTES):
+    """A regular file's bytes and state ("configured", "missing" or "held"), read without following links."""
+    try:
+        fd = open_nofollow(path)
+    except FileNotFoundError:
+        return None, "missing"
+    except OSError:
+        return None, "held"
+    try:
         import stat
         if not stat.S_ISREG(os.fstat(fd).st_mode) or os.fstat(fd).st_size > limit:
             return None, "held"
         raw = os.read(fd, limit + 1)
-        if len(raw) > limit:
-            return None, "held"
+        return (None, "held") if len(raw) > limit else (raw, "configured")
+    except OSError:
+        return None, "held"
+    finally:
+        os.close(fd)
+
+
+def _read(path: Path, limit=MAX_BYTES):
+    """Open every path component without following links, including ancestor dirs."""
+    raw, state = read_raw(path, limit)
+    if raw is None:
+        return None, state
+    try:
         if path.suffix == ".json":
             value = json.loads(raw, object_pairs_hook=_unique_pairs)
         else:
@@ -51,13 +74,8 @@ def _read(path: Path, limit=MAX_BYTES):
                 return None, "held"
             value = yaml.load(raw, Loader=_UniqueLoader)
         return value, "configured"
-    except FileNotFoundError:
-        return None, "missing"
-    except (OSError, ValueError, TypeError, UnicodeError, yaml.YAMLError, RecursionError):
+    except (ValueError, TypeError, UnicodeError, yaml.YAMLError, RecursionError):
         return None, "held"
-    finally:
-        for fd in reversed(handles):
-            os.close(fd)
 
 
 def _unique_pairs(pairs):

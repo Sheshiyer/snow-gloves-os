@@ -17,7 +17,8 @@ import os
 import re
 from pathlib import Path
 
-from .cockpit_tenant_map import card_gate, read_catalog, read_enablement, read_manifest, read_sources, read_templates
+from .cockpit_tenant_map import (card_gate, open_nofollow, read_catalog, read_enablement, read_manifest, read_raw,
+                                 read_sources, read_templates)
 
 ASK_KINDS: tuple[str, ...] = ('fact', 'decision', 'connect', 'website', 'brand')
 ROLE_FOR_KIND: dict[str, str] = {
@@ -88,12 +89,9 @@ def _tenant_dir(tenants_dir: Path, tenant: str) -> Path | None:
 
 
 def _read_bytes(path: Path) -> bytes | None:
-    try:
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_FILE_BYTES:
-            return None
-        return path.read_bytes()
-    except OSError:
-        return None
+    # Every component is opened without following links, so a file or directory
+    # swapped for a link after any check cannot pull in another tenant's text.
+    return read_raw(path, MAX_FILE_BYTES)[0]
 
 
 def _read_text(path: Path) -> str | None:
@@ -124,7 +122,7 @@ def load_proposals(tenant_dir: Path, wanted: set[str] | None = None) -> dict[str
         if (asks_dir.is_symlink() or path.is_symlink() or not path.is_file()
                 or not path.resolve().is_relative_to(tenant_dir.resolve())):
             return proposals
-        with path.open('rb') as stream:
+        with os.fdopen(open_nofollow(path), 'rb') as stream:
             while True:
                 raw = stream.readline(MAX_PROPOSAL_LINE + 1)
                 if not raw:

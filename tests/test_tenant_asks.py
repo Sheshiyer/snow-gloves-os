@@ -443,3 +443,18 @@ def test_a_huge_portfolio_proposal_cannot_crowd_out_connection_and_brand_asks(tm
     assert {'connect', 'website', 'brand'} <= set(kinds) and kinds.count('decision') == MAX_ASKS - 3
     # Decisions still lead the list.
     assert kinds[0] == 'decision' and kinds[-3:] == ['connect', 'website', 'brand']
+
+
+def test_a_context_file_swapped_for_a_link_is_never_read(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    other = tmp_path / 'other'; (other / 'context').mkdir(parents=True)
+    (other / 'context' / 'offer.md').write_text('# Offer\nFILL: other tenant secret plan.\n')
+    (t / 'context' / 'offer.md').symlink_to(other / 'context' / 'offer.md')
+    (t / 'context' / 'own.md').write_text('# Own\nFILL: the price.\n')
+    titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact']
+    assert titles == ['the price.']
+    # A linked context directory is not followed either.
+    import shutil
+    shutil.rmtree(t / 'context')
+    (t / 'context').symlink_to(other / 'context', target_is_directory=True)
+    assert [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact'] == []
