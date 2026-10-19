@@ -1150,3 +1150,17 @@ def test_completion_markers_keep_imports_open_however_many_tasks_finished(tmp_pa
     # A new task still imports; a finished one is still recognised.
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}, source='task-new', created=9e9) == 1
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='task-42', created=42.0) == 0
+
+
+def test_manifest_owner_pass_stops_at_the_scan_deadline(tmp_path, monkeypatch):
+    import time as clock
+    from lib import tenant_repo
+    repo = _tenant_repo(tmp_path)
+    real = clock.monotonic
+    calls = {'n': 0}
+    # Let the git phases finish, then jump past the deadline once owners are being collected.
+    def later():
+        calls['n'] += 1
+        return real() + (10_000 if calls['n'] > 40 else 0)
+    monkeypatch.setattr(tenant_repo.time, 'monotonic', later)
+    assert tenant_repo.git_layout(repo) is None

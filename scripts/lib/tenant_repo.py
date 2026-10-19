@@ -241,8 +241,10 @@ def git_layout(root, git_path='git'):
     names = {child.decode('utf-8', 'replace') for children in entries.values() for child in children}
     # Who each commit belongs to: the tenant named by its root MANIFEST.yaml, or None when
     # a commit with content has no readable manifest (it could be another tenant's).
-    owners, blobs = set(), []
+    owners, blobs = set(), {}  # dict: O(1) dedupe, insertion order kept for the batch
     for root_tree in roots:
+        if time.monotonic() > deadline:
+            return None
         children = entries.get(root_tree, {})
         if not children:
             continue
@@ -256,10 +258,10 @@ def git_layout(root, git_path='git'):
         # An oversized manifest is never fetched; its owner is unknown.
         if mode not in (b'100644', b'100755') or sizes.get(oid, MAX_MANIFEST + 1) > MAX_MANIFEST:
             owners.add(None)
-        elif oid not in blobs:
-            blobs.append(oid)
+        else:
+            blobs[oid] = None
     try:
-        for _, _, body in _batch(git_path, root, blobs, deadline):
+        for _, _, body in _batch(git_path, root, list(blobs), deadline):
             owners.add(_manifest_tenant(body))
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
