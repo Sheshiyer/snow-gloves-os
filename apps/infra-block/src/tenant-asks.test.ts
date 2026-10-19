@@ -18,7 +18,7 @@ function model(over: Partial<TenantAsk> = {}): TenantAsk {
   return {
     id, project: 'heyzack', tenant: 'heyzack', kind: 'fact', role: 'librarian',
     title: 'the price.', source: 'context/offer.md', answerType: 'text',
-    proposed: null, status: 'open', answer: null, ...over,
+    proposed: null, status: 'open', answer: null, answeredAt: null, ...over,
   };
 }
 
@@ -369,6 +369,20 @@ describe('ask sync and fleet client', () => {
     for (let i = 0; i < 8; i++) await Promise.resolve();
     expect(emit).toHaveBeenLastCalledWith([answered]);
     expect(summarizeAsks(emit.mock.lastCall![0]).byTenant.heyzack ?? 0).toBe(0);
+    stop();
+  });
+
+  it('shows the most recently answered copy across projects', async () => {
+    const emit = vi.fn();
+    const older = model({project: 'heyzack', status: 'answered', answer: {value: 'EUR 90'}, answeredAt: 100});
+    const newer = {...older, project: 'heyzack-ops', answer: {value: 'EUR 99'}, answeredAt: 200};
+    const asks = vi.fn(async (project: string) => project === 'heyzack' ? [older] : [newer]);
+    const client = {asks} as unknown as FleetClient;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(() => 1 as unknown as ReturnType<typeof setInterval>);
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    const stop = startAskSync(client, ['heyzack', 'heyzack-ops'], emit, 60_000);
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(emit).toHaveBeenLastCalledWith([newer]);
     stop();
   });
 

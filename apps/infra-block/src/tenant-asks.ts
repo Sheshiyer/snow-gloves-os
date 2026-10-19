@@ -14,6 +14,8 @@ export interface TenantAsk {
   proposed: string | null;
   status: 'open' | 'answered';
   answer: {value: string} | {accept: boolean} | null;
+  /** When the coordinator recorded the answer (seconds); orders copies across projects. */
+  answeredAt?: number | null;
 }
 
 const KINDS = ['fact', 'decision', 'connect', 'website', 'brand'] as const;
@@ -80,6 +82,7 @@ function parseAsk(raw: unknown, project: string): TenantAsk {
   return {
     id, project, tenant, kind, role, title: plain(raw.title, 160, 'title'), source: plain(raw.source, 240, 'source'),
     answerType: raw.answer_type, proposed, status: raw.status, answer: parseAnswer(raw.answer, raw.answer_type, raw.status),
+    answeredAt: typeof raw.answered === 'number' ? raw.answered : null,
   };
 }
 export function parseAsks(raw: unknown, project: string): TenantAsk[] {
@@ -274,9 +277,10 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
   const routable = projects.filter(project => /^[a-z0-9][a-z0-9_-]{0,63}$/.test(project));
   const lastGood = new Map<string, TenantAsk[]>();
   // Two projects mapped to one tenant derive the same stable ask ids; show each ask once,
-  // so badges count it once. An answered copy always wins over an open one, which holds
-  // across polls and across a fresh sync after reconnecting; otherwise the copy stays with
-  // the project that first showed it until that project stops listing the ask.
+  // so badges count it once. An answered copy always wins over an open one, and the most
+  // recently answered copy over older ones, which holds across polls and across a fresh
+  // sync after reconnecting; otherwise the copy stays with the project that first showed
+  // it until that project stops listing the ask.
   const owner = new Map<string, string>();
   const publish = () => {
     const copies = new Map<string, Map<string, TenantAsk>>();
@@ -289,9 +293,16 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
     const out: TenantAsk[] = [];
     for (const [id, byProject] of copies) {
       const bound = owner.get(id);
-      const answered = [...byProject].find(([, ask]) => ask.status === 'answered');
-      const pick = bound !== undefined && byProject.get(bound)?.status === 'answered' ? bound
-        : answered ? answered[0]
+      // The most recently answered copy wins, so a newer decision recorded through
+      // another project is never hidden by an older one.
+      let answered: [string, TenantAsk] | undefined;
+      for (const entry of byProject) {
+        if (entry[1].status !== 'answered') continue;
+        const time = entry[1].answeredAt ?? -Infinity;
+        const best = answered ? answered[1].answeredAt ?? -Infinity : -Infinity;
+        if (!answered || time > best || (time === best && entry[0] === bound)) answered = entry;
+      }
+      const pick = answered ? answered[0]
         : bound !== undefined && byProject.has(bound) ? bound
         : byProject.keys().next().value!;
       owner.set(id, pick);
