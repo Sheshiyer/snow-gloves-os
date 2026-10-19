@@ -1193,9 +1193,16 @@ def test_admit_refuses_an_oversized_git_config(tmp_path, monkeypatch):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
 
 
-def test_deeply_nested_artifact_json_is_ignored_not_fatal(tmp_path):
+def test_deeply_nested_artifact_json_is_ignored_not_fatal(tmp_path, monkeypatch):
+    # CPython's C decoder only overflows near a million levels (beyond MAX_ARTIFACT), but other
+    # decoders give up far sooner; simulate that RecursionError for the nested candidate.
+    real = json.JSONDecoder.raw_decode
+    def shallow(self, text, index=0):
+        if text.startswith('[{"ask_id":"id1","proposed":[[', index):
+            raise RecursionError('maximum recursion depth exceeded')
+        return real(self, text, index)
+    monkeypatch.setattr(json.JSONDecoder, 'raw_decode', shallow)
     tenants_dir = tmp_path / 'tenants'
-    deep = '[{"ask_id":"id1","proposed":' + '[' * 100000 + ']' * 100000 + '}]'
+    deep = '[{"ask_id":"id1","proposed":' + '[' * 50 + ']' * 50 + '}]'
     assert import_proposals(tenants_dir, 'heyzack', deep, {'id1'}) == 0
-    good = deep + ' [{"ask_id":"id1","proposed":"EUR 99"}]'
-    assert import_proposals(tenants_dir, 'heyzack', good, {'id1'}) == 1
+    assert import_proposals(tenants_dir, 'heyzack', deep + ' [{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}) == 1
