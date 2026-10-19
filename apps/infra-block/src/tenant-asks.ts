@@ -186,6 +186,7 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
       // 500 code points can take up to 1000 UTF-16 units; the code-point limit is checked on submit.
       input.maxLength = 1000;
       input.setAttribute('maxlength', '1000');
+      input.setAttribute('data-ask-id', ask.id);
       const send = document.createElement('button');
       send.type = 'submit';
       send.className = 'oc-asks-btn';
@@ -203,6 +204,43 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
     stack.append(card);
   }
   return stack;
+}
+
+/** What a rendered ask stack shows; an unchanged key means a poll can leave the stack alone. */
+export function askStackKey(asks: TenantAsk[]): string {
+  return JSON.stringify(asks.map(ask => [ask.id, ask.status, ask.answer ?? null, ask.proposed ?? null]));
+}
+
+/** Unsent answer text and the focused answer box, keyed by ask id. */
+export interface AskDrafts {values: Map<string, string>; focusId: string | null; selection: [number, number] | null}
+
+export function captureAskDrafts(root: ParentNode): AskDrafts {
+  const drafts: AskDrafts = {values: new Map(), focusId: null, selection: null};
+  for (const input of Array.from(root.querySelectorAll<HTMLInputElement>('.oc-asks-input'))) {
+    const id = input.getAttribute('data-ask-id');
+    if (!id) continue;
+    if (input.value) drafts.values.set(id, input.value);
+    if (document.activeElement === input) {
+      drafts.focusId = id;
+      try {
+        if (typeof input.selectionStart === 'number' && typeof input.selectionEnd === 'number') drafts.selection = [input.selectionStart, input.selectionEnd];
+      } catch {}
+    }
+  }
+  return drafts;
+}
+
+export function restoreAskDrafts(root: ParentNode, drafts: AskDrafts): void {
+  for (const input of Array.from(root.querySelectorAll<HTMLInputElement>('.oc-asks-input'))) {
+    const id = input.getAttribute('data-ask-id');
+    if (!id) continue;
+    const value = drafts.values.get(id);
+    if (value !== undefined && !input.value) input.value = value;
+    if (id === drafts.focusId) {
+      input.focus();
+      try { if (drafts.selection) input.setSelectionRange(...drafts.selection); } catch {}
+    }
+  }
 }
 
 /** Poll open asks for the connected projects. A failed poll keeps the last list. The stop function clears them. */

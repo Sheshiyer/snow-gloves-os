@@ -2,7 +2,7 @@ import { renderBrandPassport, brandDisplayName } from './brand-summary';
 import { renderTenantCapabilityMap, tenantCapabilityCountLabels } from './tenant-map';
 import './ops.css';
 import { createFleetBoard, submitTenantAsk } from './fleet-tasks';
-import { renderAskStack, type TenantAsk } from './tenant-asks';
+import { askStackKey, captureAskDrafts, renderAskStack, restoreAskDrafts, type TenantAsk } from './tenant-asks';
 import { loadSnapshot, loadDocument, previewPlan, validateSnapshot } from './ops-client';
 import type { OpsSnapshot, OpsDocument, PlanRequest, PlanPreview } from './ops-contracts';
 import { fleetNodes, fleetActivity } from './fleet-model';
@@ -922,10 +922,15 @@ export function mountCockpit(
     return section;
   }
 
+  // What the open tenant's Waiting on you stack shows; a poll that leaves it unchanged skips the rebuild.
+  const waitingKey = (): string => townAsks
+    ? `${selectedTenantScope}|${askStackKey(townAsks.filter(ask => ask.tenant === selectedTenantScope))}`
+    : '';
   const onTownAsks = (event: Event): void => {
     const detail = (event as CustomEvent<TenantAsk[] | null>).detail;
+    const before = waitingKey();
     townAsks = Array.isArray(detail) ? detail : null;
-    if (isOpen && currentSection === 'Tenants') render();
+    if (isOpen && currentSection === 'Tenants' && waitingKey() !== before) render();
   };
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
     document.addEventListener('tenant-asks', onTownAsks);
@@ -966,6 +971,8 @@ export function mountCockpit(
     const prevScrollTop = renderedSection === currentSection && prevContent ? prevContent.scrollTop : 0;
     renderedSection = currentSection;
 
+    // Every rebuild (snapshot polls included) keeps unsent ask answers and their focus.
+    const askDrafts = captureAskDrafts(rootEl);
     rootEl.innerHTML = '';
 
     // Top Brand Header
@@ -1313,6 +1320,8 @@ export function mountCockpit(
         }
       }
     }
+    // Answer boxes are matched by ask id, not position, so a reordered stack keeps the draft in place.
+    restoreAskDrafts(rootEl, askDrafts);
   }
 
   function getSectionCount(sec: SectionName): number | null {

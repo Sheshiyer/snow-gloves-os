@@ -591,4 +591,55 @@ describe('tenant asks in the town', () => {
     // pause(true) would clear the client and stop ask sync; only Disconnect clears it.
     expect(boardPauses.every(args => args[0] !== true)).toBe(true);
   });
+
+  it('keeps a typed draft and its focus in a crew ticket across ask polls', () => {
+    restoreDom = installDom();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const home = mountHome(host as unknown as HTMLElement, homeCallbacks);
+    const poll = (asks: TenantAsk[]) => document.dispatchEvent(new CustomEvent('tenant-asks', {detail: asks}));
+    poll([ask(), ask({id: 'b'.repeat(32), title: 'the offer window.'})]);
+    home.selectResident('librarian');
+    const input = host.querySelector('#ih-ticket-asks .oc-asks-input') as unknown as HTMLInputElement;
+    input.value = 'EUR 9';
+    input.focus();
+    // The same asks come back as fresh objects on every poll.
+    poll([ask(), ask({id: 'b'.repeat(32), title: 'the offer window.'})]);
+    expect(host.querySelector('#ih-ticket-asks .oc-asks-input')).toBe(input);
+    expect(input.value).toBe('EUR 9');
+    expect(document.activeElement).toBe(input);
+    // A changed list rebuilds the stack but carries the draft and focus by ask id.
+    poll([ask({id: 'c'.repeat(32), title: 'the launch date.'}), ask(), ask({id: 'b'.repeat(32), title: 'the offer window.', status: 'answered', answer: {value: 'May'}})]);
+    const carried = Array.from(host.querySelectorAll<HTMLInputElement>('#ih-ticket-asks .oc-asks-input')).find(el => el.getAttribute('data-ask-id') === 'a'.repeat(32));
+    expect(carried).toBeDefined();
+    expect(carried).not.toBe(input);
+    expect(carried?.value).toBe('EUR 9');
+    expect(document.activeElement).toBe(carried);
+    home.dispose();
+  });
+
+  it('keeps a typed draft and its focus in the tenant view across ask polls', () => {
+    restoreDom = installDom();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const cockpit = mountCockpit(host as unknown as HTMLElement, () => {});
+    const poll = (asks: TenantAsk[]) => document.dispatchEvent(new CustomEvent('tenant-asks', {detail: asks}));
+    poll([ask(), ask({id: 'b'.repeat(32), title: 'the offer window.'})]);
+    cockpit.openTenant('heyzack');
+    const input = host.querySelector('.oc-waiting .oc-asks-input') as unknown as HTMLInputElement;
+    input.value = 'EUR 9';
+    input.focus();
+    poll([ask(), ask({id: 'b'.repeat(32), title: 'the offer window.'})]);
+    expect(host.querySelector('.oc-waiting .oc-asks-input')).toBe(input);
+    expect(input.value).toBe('EUR 9');
+    expect(document.activeElement).toBe(input);
+    poll([ask({id: 'c'.repeat(32), title: 'the launch date.'}), ask(), ask({id: 'b'.repeat(32), title: 'the offer window.'})]);
+    const carried = Array.from(host.querySelectorAll<HTMLInputElement>('.oc-waiting .oc-asks-input')).find(el => el.getAttribute('data-ask-id') === 'a'.repeat(32));
+    expect(carried).toBeDefined();
+    expect(carried).not.toBe(input);
+    expect(carried?.value).toBe('EUR 9');
+    expect(document.activeElement).toBe(carried);
+    (host.querySelector('#oc-btn-return') as DomElement | null)?.click();
+  });
 });
+
