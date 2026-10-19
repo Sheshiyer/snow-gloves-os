@@ -1181,3 +1181,13 @@ def test_compaction_drops_proposals_for_asks_that_no_longer_exist(tmp_path, monk
                      source='final', created=99.0, current_ids={'now', 'old9'})
     assert set(load_proposals(tenants_dir / 'heyzack')) <= {'now', 'old9'}
     assert load_proposals(tenants_dir / 'heyzack')['now'] == 'EUR 99'
+
+
+def test_admit_refuses_an_oversized_git_config(tmp_path, monkeypatch):
+    from lib import tenant_repo
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    assert 'tenant-a' in admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))['projects']
+    monkeypatch.setattr(tenant_repo, 'MAX_CONFIG_BYTES', 50)
+    with pytest.raises(ValueError, match='Cannot read the Git config'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))

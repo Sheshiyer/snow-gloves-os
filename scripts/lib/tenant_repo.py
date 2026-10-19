@@ -26,6 +26,7 @@ MAX_OBJECTS = 200_000
 MAX_METADATA_BYTES = 64 * 1024 * 1024  # all commit and tree bodies together
 SCAN_SECONDS = 120
 MAX_REFS = 10_000
+MAX_CONFIG_BYTES = 64 * 1024  # .git/config of a tenant repository
 MAX_GIT_ENTRIES = 2 * MAX_OBJECTS + 10_000  # files and directories under .git, loose objects included
 TENANT_LAYOUT = frozenset({'MANIFEST.yaml', 'README.md', '.gitignore', 'context', 'meristem', 'sources.yaml',
                            'enabled.yaml', 'runtime.yaml', 'ingest-plan.json', 'asks', 'wiki', 'history',
@@ -45,12 +46,22 @@ def _unsafe_config(root, git_path='git'):
     config = os.path.join(str(root), '.git', 'config')
     if not os.path.lexists(config):
         return []
+    # A tenant repository's config is a few hundred bytes; a larger one is refused before
+    # Git reads it, so its listing (bounded by the file) can never flood the worker.
+    try:
+        info = os.lstat(config)
+    except OSError:
+        return None
+    if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_CONFIG_BYTES:
+        return None
     try:
         names = subprocess.run([git_path, 'config', '--file', config, '--no-includes', '--name-only', '--list'],
-                               capture_output=True, check=True, timeout=30).stdout.decode('utf-8', 'replace').split('\n')
+                               capture_output=True, check=True, timeout=30).stdout
     except (OSError, subprocess.SubprocessError):
         return None
-    return sorted({name for name in names if name and not SAFE_CONFIG.fullmatch(name.lower())})
+    if len(names) > MAX_CONFIG_BYTES:
+        return None
+    return sorted({name for name in names.decode('utf-8', 'replace').split('\n') if name and not SAFE_CONFIG.fullmatch(name.lower())})
 
 
 def _manifest_tenant(raw):
