@@ -165,6 +165,10 @@ def git_layout(root, git_path='git'):
         ref_types = git('for-each-ref', '--format=%(objecttype)').split()
         if any(kind != b'commit' for kind in ref_types):
             return None
+        # A task checks HEAD out; a root without a commit at HEAD has nothing to verify.
+        if subprocess.run([git_path, '-C', str(root), 'rev-parse', '--verify', '--quiet', 'HEAD^{commit}'],
+                          capture_output=True, timeout=SCAN_SECONDS).returncode:
+            return None
         wanted, sizes, count, metadata = [], {}, 0, 0
         listing = subprocess.Popen([git_path, '-C', str(root), 'cat-file', '--batch-all-objects',
                                     '--batch-check=%(objecttype) %(objectname) %(objectsize)'],
@@ -266,9 +270,10 @@ def isolation_problem(root, tenant, git_path='git'):
     if unexpected:
         return ('Project root %s has entries outside the tenant layout (%s); use a tenant-only repository'
                 % (root, ', '.join(unexpected)))
-    # Every commit with content must be this tenant's: a repository reused from another
-    # tenant keeps that tenant's files readable through its history.
-    if owners - {tenant}:
-        return ('Project root %s has commits whose MANIFEST.yaml does not name %s; use a repository with only this tenant\'s history'
-                % (root, tenant))
+    # Every commit with content must be this tenant's (a repository reused from another
+    # tenant keeps that tenant's files readable through its history), and at least one
+    # must be: empty commits alone carry no tenant manifest or context at all.
+    if owners - {tenant} or tenant not in owners:
+        return ('Project root %s has commits whose MANIFEST.yaml does not name %s, or none that does; use a repository '
+                'with only this tenant\'s history' % (root, tenant))
     return None

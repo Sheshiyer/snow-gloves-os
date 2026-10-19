@@ -57,6 +57,10 @@ def admit(config, tenants, organization, principal, workers, root=None, remote_r
     new_tenants = [t for t in tenants if t not in current and t not in mapped]
     if root is not None and len(new_tenants) > 1 and '{tenant}' not in root:
         raise ValueError('Admitting several tenants needs a tenant-scoped root template containing {tenant}')
+    # The asks API, proxy and UI route project ids as [a-z0-9][a-z0-9_-]{0,63}.
+    unroutable = [t for t in tenants if not isinstance(t, str) or not PROJECT_ID.fullmatch(t)]
+    if unroutable:
+        raise ValueError('Tenant slug is not a routable project id: %s' % ', '.join(map(str, unroutable)))
     roots = {}
     for tenant in new_tenants:
         if root is None:
@@ -82,10 +86,6 @@ def admit(config, tenants, organization, principal, workers, root=None, remote_r
         for other, owner in [*taken.items(), *((r, t) for t, r in resolved_roots.items() if t != tenant)]:
             if resolved == other or resolved.startswith(other + os.sep) or other.startswith(resolved + os.sep):
                 raise ValueError('Project root for %s overlaps the root of %s: %s' % (tenant, owner, resolved))
-    # The asks API, proxy and UI route project ids as [a-z0-9][a-z0-9_-]{0,63}.
-    unroutable = [t for t in tenants if not isinstance(t, str) or not PROJECT_ID.fullmatch(t)]
-    if unroutable:
-        raise ValueError('Tenant slug is not a routable project id: %s' % ', '.join(map(str, unroutable)))
     if local and root is None:
         raise ValueError('A project root is required when admitting tenants to local workers: %s' % ', '.join(local))
     result = copy.deepcopy(config)

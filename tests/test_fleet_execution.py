@@ -20,7 +20,10 @@ def worker(tmp_path):
     root = tmp_path / 'repo'
     root.mkdir()
     subprocess.run(['git','init',str(root)],check=True,capture_output=True)
-    subprocess.run(['git','-C',str(root),'-c','user.name=Test','-c','user.email=test@example.invalid','commit','--allow-empty','-m','initial'],check=True,capture_output=True)
+    # Owned by tenant-a, so the tenant-isolated cases below have a verifiable history.
+    (root / 'MANIFEST.yaml').write_text('tenant: tenant-a\n')
+    subprocess.run(['git','-C',str(root),'add','MANIFEST.yaml'],check=True,capture_output=True)
+    subprocess.run(['git','-C',str(root),'-c','user.name=Test','-c','user.email=test@example.invalid','commit','-m','initial'],check=True,capture_output=True)
     key = tmp_path / 'key'
     key.write_text('gateway-secret')
     key.chmod(0o600)

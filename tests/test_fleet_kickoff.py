@@ -29,8 +29,18 @@ def _git_commit_all(path, message='snapshot'):
     subprocess.run(['git', '-C', str(path), 'commit', '-q', '-m', message], check=True, env=env)
 
 
+def _owned_repo(path, tenant):
+    """A tenant-only repository whose one commit's MANIFEST.yaml names *tenant*."""
+    _git_init(path)
+    Path(path, 'MANIFEST.yaml').write_text('tenant: %s\n' % tenant)
+    _git_commit_all(path)
+
+
 GIT_ROOT = tempfile.mkdtemp(prefix='admit-root-')
 _git_init(GIT_ROOT)
+# Most admission tests admit tryambakam here; the root holds one commit that tenant owns.
+Path(GIT_ROOT, 'MANIFEST.yaml').write_text('tenant: tryambakam\n')
+_git_commit_all(GIT_ROOT)
 
 
 def _base_config():
@@ -554,7 +564,7 @@ def test_admit_refuses_a_shared_root_for_several_tenants(tmp_path):
     with pytest.raises(ValueError, match='tenant'):
         admit(config, ['tenant-a', 'tenant-b'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
     for name in ('tenant-a', 'tenant-b'):
-        _git_init(tmp_path / name)
+        _owned_repo(tmp_path / name, name)
     result = admit(config, ['tenant-a', 'tenant-b'], 'org', 'founder', ['mac-coding-1'], root=str(tmp_path / '{tenant}'))
     assert result['projects']['tenant-a']['root'] == str(tmp_path / 'tenant-a')
     assert result['projects']['tenant-b']['root'] == str(tmp_path / 'tenant-b')
@@ -671,13 +681,13 @@ def test_admit_refuses_templates_that_resolve_to_one_root(tmp_path):
     for name in ('tenant-a', 'tenant-b'):
         _git_init(tmp_path / name)
     # The shared parent is refused by its layout before the overlap check is even reached.
-    with pytest.raises(ValueError, match='overlaps|outside the tenant layout'):
+    with pytest.raises(ValueError, match='overlaps|outside the tenant layout|Cannot verify'):
         admit(config, ['tenant-a', 'tenant-b'], 'org', 'founder', ['mac-coding-1'], root=str(tmp_path / '{tenant}' / '..'))
 
 
 def test_admit_refuses_a_root_an_existing_project_already_uses(tmp_path):
     config = _base_config()
-    _git_init(tmp_path / 'tenant-a')
+    _owned_repo(tmp_path / 'tenant-a', 'tenant-a')
     config['projects']['taken'] = {'tenant': 'taken', 'organization': 'org', 'runtimes': ['codex'],
                                    'root': str(tmp_path / 'tenant-a')}
     with pytest.raises(ValueError, match='overlaps the root of taken'):
@@ -834,7 +844,7 @@ def test_admit_refuses_a_root_whose_git_metadata_lives_elsewhere(tmp_path, borro
 def test_admit_refuses_a_root_whose_git_config_could_run_commands(tmp_path, key, value):
     config = _base_config()
     root = tmp_path / 'tenant-a'
-    _git_init(root)
+    _owned_repo(root, 'tenant-a')
     subprocess.run(['git', '-C', str(root), 'config', key, value], check=True)
     with pytest.raises(ValueError, match='Git config that could run commands'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
@@ -1014,3 +1024,15 @@ def test_large_journals_are_compacted_to_live_records(tmp_path, monkeypatch):
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 5"}]', {'id1'}, source='task-old', created=5.0) == 0
     assert load_proposals(tenants_dir / 'heyzack')['id1'] == 'EUR 29'
     assert not (journal.parent / 'proposed.jsonl.compact').exists()
+
+
+@pytest.mark.parametrize('history', ['none', 'empty-commit'])
+def test_admit_refuses_a_root_without_an_owned_commit(tmp_path, history):
+    config = _base_config()
+    repo = tmp_path / 'tenant-a'
+    _git_init(repo)
+    if history == 'empty-commit':
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t', '-c', 'user.email=t@example.invalid',
+                        'commit', '-q', '--allow-empty', '-m', 'empty'], check=True)
+    with pytest.raises(ValueError, match='Cannot verify|does not name tenant-a'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
