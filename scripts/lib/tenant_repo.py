@@ -85,7 +85,8 @@ def git_layout(root, git_path='git'):
     """Tenant names under any tenants/ tree, every top-level name any commit has held,
     whether any tree records a symlink or submodule (either can reach outside the root),
     every entry name at any depth of any tree, and the tenant each commit's root
-    MANIFEST.yaml names (None for a commit with content but no readable manifest).
+    MANIFEST.yaml (or the sole tenants/<slug>/MANIFEST.yaml) names (None for a commit
+    with content but no readable manifest).
 
     Workers get a linked worktree of this repository, so any object in it is
     readable (git show, cat-file), not just the checked-out files. Returns None
@@ -137,9 +138,15 @@ def git_layout(root, git_path='git'):
     owners, blobs = set(), {}
     for root_tree in roots:
         children = entries.get(root_tree, {})
-        mode, oid = children.get(b'MANIFEST.yaml', (None, None))
         if not children:
             continue
+        mode, oid = children.get(b'MANIFEST.yaml', (None, None))
+        wrapper_mode, wrapper = children.get(b'tenants', (None, None))
+        if mode is None and wrapper_mode == b'40000' and len(entries.get(wrapper, {})) == 1:
+            # The tenants/<slug>/ layout: the sole wrapped folder's manifest names the owner.
+            (inner_mode, inner), = entries[wrapper].values()
+            if inner_mode == b'40000':
+                mode, oid = entries.get(inner, {}).get(b'MANIFEST.yaml', (None, None))
         if mode not in (b'100644', b'100755'):
             owners.add(None)
         else:

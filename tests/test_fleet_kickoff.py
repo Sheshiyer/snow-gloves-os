@@ -922,3 +922,20 @@ def test_admit_refuses_ambiguous_or_malformed_manifests(tmp_path, manifest):
     repo = _tenant_repo(tmp_path, manifest)
     with pytest.raises(ValueError, match='MANIFEST.yaml does not name tenant-a'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_admit_accepts_the_wrapped_tenant_layout(tmp_path):
+    config = _base_config()
+    repo = tmp_path / 'tenant-a'
+    _git_init(repo)
+    os.makedirs(repo / 'tenants' / 'tenant-a' / 'context')
+    (repo / 'tenants' / 'tenant-a' / 'MANIFEST.yaml').write_text('tenant: tenant-a\n')
+    (repo / 'tenants' / 'tenant-a' / 'context' / 'offer.md').write_text('FILL: the price.')
+    (repo / 'README.md').write_text('tenant-a')
+    _git_commit_all(repo)
+    assert 'tenant-a' in admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))['projects']
+    # A wrapped manifest naming someone else still fails.
+    (repo / 'tenants' / 'tenant-a' / 'MANIFEST.yaml').write_text('tenant: tenant-b\n')
+    _git_commit_all(repo, 'relabel')
+    with pytest.raises(ValueError, match='MANIFEST.yaml does not name tenant-a'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
