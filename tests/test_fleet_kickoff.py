@@ -3,6 +3,7 @@ import json
 import os
 import tempfile
 import stat
+import subprocess
 import sys
 from pathlib import Path
 
@@ -15,8 +16,21 @@ from fleet_kickoff import kickoff_brief, _task_body
 from fleet_asks_import import import_proposals, _last_json_array
 
 
+def _git_init(path):
+    """A real, empty Git repository: admission enumerates its object database."""
+    os.makedirs(path, exist_ok=True)
+    subprocess.run(['git', 'init', '-q', str(path)], check=True)
+
+
+def _git_commit_all(path, message='snapshot'):
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@example.invalid',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@example.invalid'}
+    subprocess.run(['git', '-C', str(path), 'add', '-A'], check=True, env=env)
+    subprocess.run(['git', '-C', str(path), 'commit', '-q', '-m', message], check=True, env=env)
+
+
 GIT_ROOT = tempfile.mkdtemp(prefix='admit-root-')
-os.makedirs(os.path.join(GIT_ROOT, '.git'), exist_ok=True)
+_git_init(GIT_ROOT)
 
 
 def _base_config():
@@ -533,7 +547,7 @@ def test_admit_refuses_a_shared_root_for_several_tenants(tmp_path):
     with pytest.raises(ValueError, match='tenant'):
         admit(config, ['tenant-a', 'tenant-b'], 'org', 'founder', ['mac-coding-1'], root=GIT_ROOT)
     for name in ('tenant-a', 'tenant-b'):
-        os.makedirs(tmp_path / name / '.git')
+        _git_init(tmp_path / name)
     result = admit(config, ['tenant-a', 'tenant-b'], 'org', 'founder', ['mac-coding-1'], root=str(tmp_path / '{tenant}'))
     assert result['projects']['tenant-a']['root'] == str(tmp_path / 'tenant-a')
     assert result['projects']['tenant-b']['root'] == str(tmp_path / 'tenant-b')
@@ -542,7 +556,7 @@ def test_admit_refuses_a_shared_root_for_several_tenants(tmp_path):
 def test_admit_refuses_a_root_holding_other_tenants(tmp_path):
     config = _base_config()
     shared = tmp_path / 'ops'
-    os.makedirs(shared / '.git')
+    _git_init(shared)
     os.makedirs(shared / 'tenants' / 'tenant-a')
     os.makedirs(shared / 'tenants' / 'other-tenant')
     with pytest.raises(ValueError, match='other tenants'):
@@ -646,17 +660,57 @@ def test_imports_for_one_tenant_wait_for_the_journal_lock(tmp_path):
 
 def test_admit_refuses_templates_that_resolve_to_one_root(tmp_path):
     config = _base_config()
-    os.makedirs(tmp_path / '.git')
+    _git_init(tmp_path)
     for name in ('tenant-a', 'tenant-b'):
-        os.makedirs(tmp_path / name / '.git')
+        _git_init(tmp_path / name)
     with pytest.raises(ValueError, match='overlaps'):
         admit(config, ['tenant-a', 'tenant-b'], 'org', 'founder', ['mac-coding-1'], root=str(tmp_path / '{tenant}' / '..'))
 
 
 def test_admit_refuses_a_root_an_existing_project_already_uses(tmp_path):
     config = _base_config()
-    os.makedirs(tmp_path / 'tenant-a' / '.git')
+    _git_init(tmp_path / 'tenant-a')
     config['projects']['taken'] = {'tenant': 'taken', 'organization': 'org', 'runtimes': ['codex'],
                                    'root': str(tmp_path / 'tenant-a')}
     with pytest.raises(ValueError, match='overlaps the root of taken'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(tmp_path / '{tenant}'))
+
+
+def test_admit_refuses_a_root_whose_git_history_holds_other_tenants(tmp_path):
+    config = _base_config()
+    clone = tmp_path / 'tenant-a'
+    _git_init(clone)
+    for name in ('tenant-a', 'other-tenant'):
+        os.makedirs(clone / 'tenants' / name)
+        (clone / 'tenants' / name / 'context.md').write_text(name)
+    _git_commit_all(clone)
+    # Only tenant-a is checked out now, but the other tenant's tree is still in .git.
+    import shutil
+    shutil.rmtree(clone / 'tenants' / 'other-tenant')
+    _git_commit_all(clone, 'drop other tenant')
+    with pytest.raises(ValueError, match='other tenants in its Git history'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(clone))
+
+
+def test_admit_refuses_roots_whose_objects_live_elsewhere(tmp_path):
+    config = _base_config()
+    borrowed = tmp_path / 'tenant-a'
+    _git_init(borrowed)
+    (borrowed / '.git' / 'objects' / 'info' / 'alternates').write_text('/elsewhere/objects\n')
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(borrowed))
+    linked = tmp_path / 'tenant-b'
+    linked.mkdir()
+    (linked / '.git').write_text('gitdir: /elsewhere/.git/worktrees/x\n')
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-b'], 'org', 'founder', ['mac-coding-1'], root=str(linked))
+
+
+def test_admit_accepts_a_tenant_only_repository(tmp_path):
+    config = _base_config()
+    repo = tmp_path / 'tenant-a'
+    _git_init(repo)
+    (repo / 'context').mkdir()
+    (repo / 'context' / 'offer.md').write_text('FILL: the price.')
+    _git_commit_all(repo)
+    assert admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))['projects']['tenant-a']['root'] == str(repo)

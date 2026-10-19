@@ -360,12 +360,15 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
     manifest, _ = read_manifest(tenant_dir)
     # Decision, connect, website and brand asks are few and actionable; derive
     # them first so a long run of FILL lines can only spend the remaining budget.
+    # Within them, connection, website and brand asks are bounded (source and module
+    # rows are capped by the tenant view's readers) and come before decisions, so a
+    # long portfolio proposal can only spend what they leave.
     others: list[dict] = []
-    others += _decision_asks(tenant, proposal)
     others += _source_connect_asks(tenant, sources_value)
     others += _module_connect_asks(tenant, enabled_value, catalog)
     others += _website_ask(tenant, manifest)
     others += _brand_ask(tenant, sources_value)
+    others += _decision_asks(tenant, proposal)
     seen: set[str] = set()
 
     def keep(asks: list[dict]) -> list[dict]:
@@ -386,6 +389,7 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
             unique.append(ask)
         return unique
 
-    others = keep(others)[:MAX_ASKS]
+    # Budget by priority, then show decisions first as before.
+    others = sorted(keep(others)[:MAX_ASKS], key=lambda ask: ask['kind'] != 'decision')
     facts = keep(fact_asks)[:MAX_ASKS - len(others)]
     return facts + others

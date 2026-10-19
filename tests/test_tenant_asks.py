@@ -428,3 +428,18 @@ def test_journal_history_never_crowds_out_a_current_asks_proposal(tmp_path):
     # Without a wanted set the newest ids win, so a new ask is never locked out.
     loaded = load_proposals(t)
     assert len(loaded) == MAX_PROPOSAL_IDS and loaded[target] == 'EUR 99' and '%032x' % 0 not in loaded
+
+
+def test_a_huge_portfolio_proposal_cannot_crowd_out_connection_and_brand_asks(tmp_path):
+    from lib.tenant_asks import MAX_ASKS
+    t = tmp_path / 'heyzack'; t.mkdir()
+    (t / 'sources.yaml').write_text(yaml.safe_dump({'tenant': 'heyzack', 'sources': [{'id': 'drive', 'type': 'gdrive', 'ingest': False}]}))
+    (t / 'MANIFEST.yaml').write_text(yaml.safe_dump({'tenant': 'heyzack', 'brand': {'domain': 'FILL: confirm the domain'}}))
+    proposal = {'cross_brand_flows': [{'id': 'flow-%d' % n, 'participants': ['heyzack', 'sunfeed'], 'status': 'proposed',
+                                       'description': 'Flow %d' % n} for n in range(MAX_ASKS + 50)]}
+    asks = derive_asks(tmp_path, 'heyzack', proposal)
+    kinds = [a['kind'] for a in asks]
+    assert len(asks) == MAX_ASKS
+    assert {'connect', 'website', 'brand'} <= set(kinds) and kinds.count('decision') == MAX_ASKS - 3
+    # Decisions still lead the list.
+    assert kinds[0] == 'decision' and kinds[-3:] == ['connect', 'website', 'brand']
