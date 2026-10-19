@@ -5,6 +5,18 @@ import {mountHome} from './home';
 import {mountCockpit} from './ops';
 import type {TenantAsk} from './tenant-asks';
 
+// Record each Field Kit board's pause arguments; the real board still runs.
+const boardPauses: unknown[][] = [];
+vi.mock('./fleet-tasks', async importOriginal => {
+  const actual = await importOriginal<typeof import('./fleet-tasks')>();
+  return {...actual, createFleetBoard: () => {
+    const board = actual.createFleetBoard();
+    const pause = board.pause.bind(board);
+    board.pause = (...args: Parameters<typeof pause>) => { boardPauses.push(args); return pause(...args); };
+    return board;
+  }};
+});
+
 const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
 
 class DomStyle {
@@ -565,5 +577,18 @@ describe('tenant asks in the town', () => {
     expect(host.querySelector('.oc-waiting')?.textContent).toContain('Connect the Hermes board to see asks');
     expect(host.querySelector('.oc-waiting')?.textContent).not.toContain('the price.');
     (host.querySelector('#oc-btn-return') as DomElement | null)?.click();
+  });
+
+  it('keeps the Hermes board connected when the Field Kit is packed away', () => {
+    restoreDom = installDom();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const cockpit = mountCockpit(host as unknown as HTMLElement, () => {});
+    cockpit.open();
+    boardPauses.length = 0;
+    (host.querySelector('#oc-btn-return') as DomElement | null)?.click();
+    expect(boardPauses.length).toBeGreaterThan(0);
+    // pause(true) would clear the client and stop ask sync; only Disconnect clears it.
+    expect(boardPauses.every(args => args[0] !== true)).toBe(true);
   });
 });

@@ -337,8 +337,11 @@ def test_fill_lines_cannot_starve_other_asks(tmp_path):
     (t / 'sources.yaml').write_text(yaml.safe_dump({
         'tenant': 'heyzack', 'sources': [{'id': 'drive', 'type': 'gdrive', 'admitted': False}]}))
     (t / 'MANIFEST.yaml').write_text(yaml.safe_dump({'tenant': 'heyzack', 'brand': {'domain': 'FILL: confirm'}}))
-    asks = derive_asks(tmp_path, 'heyzack')
+    proposal = {'cross_brand_flows': [{'id': 'f1', 'status': 'proposed_not_approved', 'participants': ['heyzack'],
+                                       'description': 'share leads'}]}
+    asks = derive_asks(tmp_path, 'heyzack', proposal)
     kinds = [a['kind'] for a in asks]
     assert len(asks) == 400
-    assert 'connect' in kinds and 'website' in kinds and 'brand' in kinds
+    assert kinds[0] == 'fact'
+    assert 'decision' in kinds and 'connect' in kinds and 'website' in kinds and 'brand' in kinds
     assert kinds.count('fact') == 400 - (len(asks) - kinds.count('fact'))
