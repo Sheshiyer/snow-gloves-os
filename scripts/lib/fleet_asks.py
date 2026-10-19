@@ -110,8 +110,9 @@ class Asks:
         reject(404, 'Ask not found')
 
     def _journal_path(self, tenant):
-        tenants_dir = paths.tenants_dir().resolve()
-        tenant_dir = tenants_dir / tenant
+        # Only the configured data root is taken as given; tenants/ and below are opened
+        # without following links by _hold_asks(), so this path must not be resolved first.
+        tenant_dir = paths.data_root() / 'tenants' / tenant
         if tenant_dir.is_symlink() or not tenant_dir.is_dir():
             reject(503, 'Ask journal unavailable')
         path = tenant_dir / 'asks' / 'answers.jsonl'

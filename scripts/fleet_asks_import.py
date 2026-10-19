@@ -19,10 +19,14 @@ MAX_EVIDENCE = 500
 MAX_ARTIFACT = 256 * 1024
 MAX_JOURNAL_LINE = 64 * 1024  # one journal record; the importer writes far less
 JOURNAL = 'proposed.jsonl'
+SOURCES = 'proposed.sources.jsonl'  # completion lines: which tasks finished importing
 COMPACT_AT = 4 * 1024 * 1024  # past this, the journal is rewritten to its live records
 MAX_COMPACT_BYTES = 64 * 1024 * 1024
 MAX_COMPACT_RECORDS = 1_000_000
 COMPACT_SECONDS = 30
+# Compaction never waits past this size, half the listing's scan budget, so live
+# proposals always stay readable by every ask listing.
+MAX_COMPACT_TRIGGER = 16 * 1024 * 1024
 _MAX_FAILED_DECODES = 2000
 
 
@@ -139,6 +143,52 @@ def _locked_journal(asks):
         os.close(fd)
 
 
+def _append_line(asks, name, data):
+    """Append *data* (whole lines) to *name* in the held asks directory, ending any torn
+    last line first, and fsync it."""
+    fd = os.open(name, os.O_APPEND | os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600, dir_fd=asks)
+    try:
+        size = os.fstat(fd).st_size
+        if size and os.pread(fd, 1, size - 1) != b'\n':
+            data = b'\n' + data
+        view = memoryview(data)
+        while view:
+            view = view[os.write(fd, view):]
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _source_done(asks, source, deadline):
+    """Whether the sources file records *source* as fully imported; None past the budget."""
+    try:
+        fd = os.open(SOURCES, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0), dir_fd=asks)
+    except FileNotFoundError:
+        return False
+    with os.fdopen(fd, 'rb') as stream:
+        scanned = 0
+        while True:
+            line = stream.readline(MAX_JOURNAL_LINE + 1)
+            scanned += len(line)
+            if not line:
+                return False
+            if scanned > MAX_COMPACT_BYTES or time.monotonic() > deadline:
+                return None
+            if len(line) > MAX_JOURNAL_LINE:
+                while line and not line.endswith(b'\n'):
+                    line = stream.readline(MAX_JOURNAL_LINE)
+                    scanned += len(line)
+                    if scanned > MAX_COMPACT_BYTES or time.monotonic() > deadline:
+                        return None
+                continue
+            try:
+                record = json.loads(line.decode('utf-8', errors='replace'))
+            except ValueError:
+                continue
+            if isinstance(record, dict) and record.get('source') == source and record.get('complete') is True:
+                return True
+
+
 def _compacted_size(asks):
     """The journal size right after the last compaction, from a small marker file (0 if none)."""
     try:
@@ -198,8 +248,12 @@ def _compact(stream, asks):
         if isinstance(record.get('source'), str) and (record.get('complete') is True or 'created' not in record):
             done[record['source']] = _task_time(record.get('created'))
     body = b''.join(json.dumps(record).encode() + b'\n' for record in latest.values())
-    body += b''.join(json.dumps({'source': source, 'created': when, 'complete': True}).encode() + b'\n'
-                     for source, when in done.items())
+    # Completion lines move to the sources file first, so the journal keeps only live
+    # proposals and every listing reads them within its budget. A crash in between leaves
+    # duplicate completion lines, which are harmless.
+    if done:
+        _append_line(asks, SOURCES, b''.join(json.dumps({'source': source, 'created': when, 'complete': True}).encode() + b'\n'
+                                             for source, when in done.items()))
     temp = JOURNAL + '.compact'
     try:
         os.unlink(temp, dir_fd=asks)
@@ -281,6 +335,10 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
             if scan is None:
                 return 0
             recorded, imported = scan
+            if not imported and source is not None:
+                imported = _source_done(asks, source, time.monotonic() + COMPACT_SECONDS)
+                if imported is None:
+                    return 0
             if imported:
                 return 0
             latest = {}
@@ -298,21 +356,22 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
                 rows = [dict(r, source=source, created=created) for r in rows]
             elif not rows:
                 return 0
-            size = os.fstat(stream.fileno()).st_size
-            # A torn last line would swallow the first new record; end it first.
-            lines = [b''] if size and os.pread(stream.fileno(), 1, size - 1) != b'\n' else []
-            lines += [json.dumps(record).encode() for record in rows]
-            # Every task ends with a completion line written after its proposals, so an
-            # interrupted import is retried; load_proposals ignores lines without ask_id.
+            if rows:
+                size = os.fstat(stream.fileno()).st_size
+                # A torn last line would swallow the first new record; end it first.
+                lines = [b''] if size and os.pread(stream.fileno(), 1, size - 1) != b'\n' else []
+                lines += [json.dumps(record).encode() for record in rows]
+                stream.write(b'\n'.join(lines) + b'\n')
+                stream.flush()
+                os.fsync(stream.fileno())
+            # Every task ends with a completion line in the sources file, written after its
+            # proposals, so an interrupted import is retried; listings never read that file.
             if source is not None:
-                lines.append(json.dumps({'source': source, 'created': created, 'complete': True}).encode())
-            stream.write(b'\n'.join(lines) + b'\n')
-            stream.flush()
-            os.fsync(stream.fileno())
+                _append_line(asks, SOURCES, json.dumps({'source': source, 'created': created, 'complete': True}).encode() + b'\n')
             # Compact only once the journal has doubled since its last compaction: live records
             # (one completion line per task) can keep it above COMPACT_AT, and re-reading it on
             # every import would make each import slower than the last.
-            if os.fstat(stream.fileno()).st_size > max(COMPACT_AT, 2 * _compacted_size(asks)):
+            if os.fstat(stream.fileno()).st_size > max(COMPACT_AT, min(2 * _compacted_size(asks), MAX_COMPACT_TRIGGER)):
                 try:
                     if _compact(stream, asks):
                         _record_compacted_size(asks, os.stat(JOURNAL, dir_fd=asks, follow_symlinks=False).st_size)

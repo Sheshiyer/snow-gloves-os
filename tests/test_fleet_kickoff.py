@@ -604,8 +604,8 @@ def test_unchanged_task_still_records_its_source(tmp_path):
     artifact = '[{"ask_id":"id1","proposed":"EUR 99"}]'
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-a') == 1
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-b') == 0
-    journal = tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl'
-    assert any(json.loads(l).get('source') == 'task-b' for l in journal.read_text().splitlines())
+    sources = tenants_dir / 'heyzack' / 'asks' / 'proposed.sources.jsonl'
+    assert any(json.loads(l).get('source') == 'task-b' for l in sources.read_text().splitlines())
     # the receipt keeps task-b from being re-imported, even with a changed value
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 5"}]', {'id1'}, source='task-b') == 0
 
@@ -620,8 +620,10 @@ def test_interrupted_import_is_retried_until_complete(tmp_path):
     artifact = '[{"ask_id":"id1","proposed":"EUR 99"},{"ask_id":"id2","proposed":"EUR 5"}]'
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}, source='task-a', created=10.0) == 1
     records = [json.loads(line) for line in (asks_dir / 'proposed.jsonl').read_text().splitlines()[2:]]
-    assert records == [{'ask_id': 'id2', 'proposed': 'EUR 5', 'source': 'task-a', 'created': 10.0},
-                       {'source': 'task-a', 'created': 10.0, 'complete': True}]
+    assert records == [{'ask_id': 'id2', 'proposed': 'EUR 5', 'source': 'task-a', 'created': 10.0}]
+    # The completion line lands in the sources file, after the proposals reached disk.
+    assert [json.loads(line) for line in (asks_dir / 'proposed.sources.jsonl').read_text().splitlines()] == [
+        {'source': 'task-a', 'created': 10.0, 'complete': True}]
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1', 'id2'}, source='task-a', created=10.0) == 0
 
 
@@ -1015,8 +1017,11 @@ def test_large_journals_are_compacted_to_live_records(tmp_path, monkeypatch):
                                {'ask_id': 'id%d' % (n + 2), 'proposed': 'yes'}])
         assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'} | {'id%d' % (n + 2)},
                                 source='task-%d' % n, created=float(n)) == 2
-    # 30 imports wrote 30 values for id1; compaction keeps only the latest (plus any written since).
-    assert sum('"id1"' in line for line in journal.read_text().splitlines()) <= 2
+    # 30 imports wrote 30 values for id1; compaction dropped the superseded ones, and the
+    # journal holds proposals only (completion lines live in the sources file).
+    lines = journal.read_text().splitlines()
+    assert sum('"id1"' in line for line in lines) < 15
+    assert not any('"complete"' in line for line in lines)
     proposals = load_proposals(tenants_dir / 'heyzack')
     assert proposals['id1'] == 'EUR 29' and proposals['id2'] == 'yes' and len(proposals) == 31
     # Completed tasks stay completed and an older task still cannot override the newest value.
@@ -1097,3 +1102,21 @@ def test_import_refuses_when_the_journal_cannot_be_scanned_in_budget(tmp_path, m
     before = (asks_dir / 'proposed.jsonl').read_bytes()
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}, source='t', created=1.0) == 0
     assert (asks_dir / 'proposed.jsonl').read_bytes() == before
+
+
+def test_completion_history_never_pushes_proposals_past_the_listing_budget(tmp_path, monkeypatch):
+    import fleet_asks_import
+    from lib.tenant_asks import load_proposals
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    asks_dir.mkdir(parents=True)
+    # Years of finished tasks: a large legacy journal of completion lines and no proposals.
+    (asks_dir / 'proposed.jsonl').write_text(''.join(json.dumps({'source': 'task-%d' % n, 'created': float(n), 'complete': True}) + '\n'
+                                                     for n in range(3000)))
+    monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 1000)
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}, source='new', created=5000.0) == 1
+    # Compaction moved the history out; the journal is just the live proposal.
+    assert (asks_dir / 'proposed.jsonl').read_text().count('\n') == 1
+    assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 99'}
+    # Old tasks are still known as imported.
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='task-7', created=7.0) == 0

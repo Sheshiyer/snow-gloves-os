@@ -350,3 +350,20 @@ def test_asks_directory_is_never_created_through_a_linked_tenant(asks_ctx, tmp_p
     finally:
         tenant.unlink()
         moved.rename(tenant)
+
+
+def test_journal_path_never_follows_a_linked_tenants_directory(asks_ctx, tmp_path):
+    c, config, _, tenant = asks_ctx
+    tenants = tenant.parent
+    moved = tmp_path / 'moved'
+    tenants.rename(moved)
+    outside = tmp_path / 'outside'
+    (outside / tenant.name).mkdir(parents=True)
+    tenants.symlink_to(outside, target_is_directory=True)
+    try:
+        with pytest.raises(Rejected):
+            c.asks._journal_path(tenant.name)
+        assert not (outside / tenant.name / 'asks').exists()
+    finally:
+        tenants.unlink()
+        moved.rename(tenants)
