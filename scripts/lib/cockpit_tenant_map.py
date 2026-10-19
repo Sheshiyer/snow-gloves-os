@@ -91,6 +91,32 @@ def _rows(value):
     return isinstance(value, list) and len(value) <= MAX_ROWS
 
 
+def read_catalog(repo_root: Path):
+    """The catalog, its cards by id, control roles and its state; every reader shares this contract."""
+    catalog, catalog_state = _read(repo_root / "catalog" / "modules.json", 1048576)
+    cards, controls = {}, []
+    if isinstance(catalog, dict) and catalog.get("schema") == "snowgloves.modules.v1" and isinstance(catalog.get("cards"), list) and len(catalog["cards"]) <= 4096 and _rows(catalog.get("agents")):
+        duplicate_ids = set()
+        for card in catalog["cards"]:
+            if isinstance(card, dict) and safe_id(card.get("id")):
+                if card["id"] in cards:
+                    duplicate_ids.add(card["id"])
+                cards[card["id"]] = card
+        for ident in duplicate_ids:
+            cards.pop(ident, None)
+        for agent in catalog["agents"]:
+            if isinstance(agent, dict) and safe_id(agent.get("slug")) and agent["slug"] in CONTROL_ROLES and agent["slug"] not in [a["id"] for a in controls]:
+                controls.append({"id": agent["slug"], "name": _label(agent.get("role"), agent["slug"])})
+    else:
+        catalog_state = "held"
+    return catalog, cards, controls, catalog_state
+
+
+def read_manifest(tenant_dir: Path):
+    """The tenant's MANIFEST.yaml and its state; a manifest naming another tenant is held."""
+    return _tenant_file(tenant_dir, "MANIFEST.yaml")
+
+
 def read_sources(tenant_dir: Path):
     """The tenant's sources.yaml and its state; a foreign tenant or one malformed row holds it all."""
     data, state = _tenant_file(tenant_dir, "sources.yaml")
@@ -126,22 +152,7 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
     """Only IDs, public labels and closed enums leave this source reader."""
     if not safe_id(tenant_dir.name):
         raise ValueError("invalid tenant")
-    catalog, catalog_state = _read(repo_root / "catalog" / "modules.json", 1048576)
-    cards, controls = {}, []
-    if isinstance(catalog, dict) and catalog.get("schema") == "snowgloves.modules.v1" and isinstance(catalog.get("cards"), list) and len(catalog["cards"]) <= 4096 and _rows(catalog.get("agents")):
-        duplicate_ids = set()
-        for card in catalog["cards"]:
-            if isinstance(card, dict) and safe_id(card.get("id")):
-                if card["id"] in cards:
-                    duplicate_ids.add(card["id"])
-                cards[card["id"]] = card
-        for ident in duplicate_ids:
-            cards.pop(ident, None)
-        for agent in catalog["agents"]:
-            if isinstance(agent, dict) and safe_id(agent.get("slug")) and agent["slug"] in CONTROL_ROLES and agent["slug"] not in [a["id"] for a in controls]:
-                controls.append({"id": agent["slug"], "name": _label(agent.get("role"), agent["slug"])})
-    else:
-        catalog_state = "held"
+    catalog, cards, controls, catalog_state = read_catalog(repo_root)
 
     roles, roles_state = _read(repo_root / "catalog" / "business-roles.json")
     templates = []

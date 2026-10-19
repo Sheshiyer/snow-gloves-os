@@ -17,9 +17,7 @@ import os
 import re
 from pathlib import Path
 
-import yaml
-
-from .cockpit_tenant_map import read_enablement, read_sources
+from .cockpit_tenant_map import read_catalog, read_enablement, read_manifest, read_sources
 
 ASK_KINDS: tuple[str, ...] = ('fact', 'decision', 'connect', 'website', 'brand')
 ROLE_FOR_KIND: dict[str, str] = {
@@ -93,16 +91,6 @@ def _read_bytes(path: Path) -> bytes | None:
             return None
         return path.read_bytes()
     except OSError:
-        return None
-
-
-def _read_yaml(path: Path):
-    raw = _read_bytes(path)
-    if raw is None:
-        return None
-    try:
-        return yaml.safe_load(raw.decode('utf-8'))
-    except (OSError, ValueError, UnicodeError, yaml.YAMLError, RecursionError):
         return None
 
 
@@ -255,17 +243,16 @@ def _source_connect_asks(tenant: str, sources_value) -> list[dict]:
 
 
 def load_catalog(code_root: Path) -> dict[str, str]:
-    """Module id -> category for catalog cards a tenant may enable; held and refused cards are left out."""
-    path = Path(code_root) / 'catalog' / 'modules.json'
-    try:
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > 8 * 1024 * 1024:
-            return {}
-        value = json.loads(path.read_bytes().decode('utf-8'))
-    except (OSError, UnicodeError, ValueError, RecursionError):
+    """Module id -> category for catalog cards a tenant may enable; held and refused cards are left out.
+
+    The catalog is read through the capability view's reader, so a catalog the
+    tenant view holds (too large, wrong schema, malformed) yields no connector asks.
+    """
+    _, cards, _, state = read_catalog(Path(code_root))
+    if state != 'configured':
         return {}
-    cards = value.get('cards') if isinstance(value, dict) else None
-    return {card['id']: card['category'] for card in cards or []
-            if isinstance(card, dict) and isinstance(card.get('id'), str) and isinstance(card.get('category'), str)
+    return {ident: card['category'] for ident, card in cards.items()
+            if isinstance(card.get('category'), str)
             and card.get('disposition') in ('add', 'pointer') and card.get('enableable') is True}
 
 
@@ -350,7 +337,7 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
     sources_value, _ = read_sources(tenant_dir)
     # Share the capability view's fail-closed parser: held enablement asks for no connector.
     enabled_value, _ = read_enablement(tenant_dir)
-    manifest = _read_yaml(tenant_dir / 'MANIFEST.yaml')
+    manifest, _ = read_manifest(tenant_dir)
     # Decision, connect, website and brand asks are few and actionable; derive
     # them first so a long run of FILL lines can only spend the remaining budget.
     others: list[dict] = []

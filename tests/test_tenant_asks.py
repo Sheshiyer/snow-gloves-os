@@ -327,14 +327,29 @@ def test_held_enablement_asks_for_no_connector(tmp_path):
 def test_load_catalog_maps_ids_to_categories(tmp_path):
     (tmp_path / 'catalog').mkdir()
     ok = {'disposition': 'add', 'enableable': True}
-    (tmp_path / 'catalog' / 'modules.json').write_text(json.dumps({'cards': [
+    catalog = {'schema': 'snowgloves.modules.v1', 'agents': [], 'cards': [
         {'id': 'github-mcp', 'category': 'mcp', **ok}, {'id': 'x', 'category': 'skills', 'disposition': 'pointer', 'enableable': True},
         {'id': 'lazyweb', 'category': 'mcp', 'disposition': 'hold', 'enableable': False},
         {'id': 'awesome', 'category': 'mcp', 'disposition': 'refuse', 'enableable': True},
-        {'id': 'draft', 'category': 'connector', 'disposition': 'add'}, {'nope': 1}]}))
+        {'id': 'draft', 'category': 'connector', 'disposition': 'add'}, {'nope': 1}]}
+    (tmp_path / 'catalog' / 'modules.json').write_text(json.dumps(catalog))
     # Held, refused and non-enableable cards never become connector asks.
     assert load_catalog(tmp_path) == {'github-mcp': 'mcp', 'x': 'skills'}
     assert load_catalog(tmp_path / 'missing') == {}
+    # A catalog the tenant view holds (wrong schema, or over its 1 MiB limit) asks for nothing.
+    (tmp_path / 'catalog' / 'modules.json').write_text(json.dumps({**catalog, 'schema': 'other'}))
+    assert load_catalog(tmp_path) == {}
+    (tmp_path / 'catalog' / 'modules.json').write_text(json.dumps({**catalog, 'padding': 'x' * (1024 * 1024)}))
+    assert load_catalog(tmp_path) == {}
+
+
+def test_a_manifest_naming_another_tenant_asks_for_no_website(tmp_path):
+    t = tmp_path / 'heyzack'; t.mkdir()
+    for value, expected in (({'tenant': 'heyzack', 'brand': {'domain': 'FILL: confirm'}}, 1),
+                            ({'tenant': 'other', 'brand': {'domain': 'FILL: confirm'}}, 0),
+                            ({'brand': {'domain': 'FILL: confirm'}}, 0)):
+        (t / 'MANIFEST.yaml').write_text(yaml.safe_dump(value))
+        assert len([a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'website']) == expected, value
 
 
 def test_fact_derivation_stops_at_the_cap(tmp_path, monkeypatch):

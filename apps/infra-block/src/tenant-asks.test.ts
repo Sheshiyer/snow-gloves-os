@@ -285,6 +285,20 @@ describe('ask sync and fleet client', () => {
     stop();
   });
 
+  it('shows an ask once when two projects share its tenant', async () => {
+    const emit = vi.fn();
+    const shared = model({project: 'heyzack'});
+    const asks = vi.fn(async (project: string) => [{...shared, project}]);
+    const client = {asks} as unknown as FleetClient;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(() => 1 as unknown as ReturnType<typeof setInterval>);
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    const stop = startAskSync(client, ['heyzack', 'heyzack-ops'], emit, 60_000);
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(emit).toHaveBeenLastCalledWith([shared]);
+    expect(summarizeAsks(emit.mock.lastCall![0]).byTenant.heyzack).toBe(1);
+    stop();
+  });
+
   it('keeps the last good list when a later poll fails', async () => {
     const emit = vi.fn();
     const good = [model()];

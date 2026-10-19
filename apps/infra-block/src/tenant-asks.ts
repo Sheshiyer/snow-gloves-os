@@ -271,7 +271,12 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
   // Only ids the asks route accepts are polled; each project fails on its own.
   const routable = projects.filter(project => /^[a-z0-9][a-z0-9_-]{0,63}$/.test(project));
   const lastGood = new Map<string, TenantAsk[]>();
-  const publish = () => emit(routable.flatMap(project => lastGood.get(project) ?? []));
+  // Two projects mapped to one tenant derive the same stable ask ids; show each ask once,
+  // from the first project in config order, so badges count it once and one answer settles it.
+  const publish = () => {
+    const seen = new Set<string>();
+    emit(routable.flatMap(project => lastGood.get(project) ?? []).filter(ask => !seen.has(ask.id) && seen.add(ask.id)));
+  };
   let inFlight = false;
   const pull = () => {
     // Pulls never overlap: a slow batch finishes and publishes instead of being
