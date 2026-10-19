@@ -142,6 +142,11 @@ def test_tenant_tasks_run_in_a_private_clone_that_later_fetches_never_reach(work
                           check=True, capture_output=True).stdout.decode().strip()
     assert subprocess.run(['git', '-C', str(clone), 'cat-file', '-e', blob], capture_output=True).returncode != 0
     assert not (root / '.git' / 'worktrees').exists()
+    # The clone keeps no remote, and so no path back to the source repository.
+    assert subprocess.run(['git', '-C', str(clone), 'remote'], check=True, capture_output=True, text=True).stdout == ''
+    for path in (clone / '.git').rglob('*'):
+        if path.is_file():
+            assert str(root).encode() not in path.read_bytes(), path
 
 
 def test_worker_refuses_tenant_roots_outside_its_allowlist(tmp_path, worker):

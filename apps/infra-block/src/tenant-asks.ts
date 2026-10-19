@@ -266,7 +266,8 @@ export function restoreAskDrafts(root: ParentNode, drafts: AskDrafts): void {
 /** Stop function for an ask sync; `applyAnswer` folds a successful answer into the poll cache. */
 export type AskSync = (() => void) & {applyAnswer(ask: TenantAsk): void};
 
-export function startAskSync(client: FleetClient, projects: string[], emit: (asks: TenantAsk[] | null) => void, intervalMs = 60000): AskSync {
+export function startAskSync(client: FleetClient, projects: string[], emit: (asks: TenantAsk[] | null) => void, intervalMs = 60000,
+                             timeoutMs = Math.min(intervalMs, 30000)): AskSync {
   let stopped = false;
   let generation = 0;
   // Only ids the asks route accepts are polled; each project fails on its own.
@@ -293,23 +294,31 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
     }
     emit(out);
   };
-  let inFlight = false;
+  let inFlight: AbortController | null = null;
   const pull = () => {
     // Pulls never overlap: a slow batch finishes and publishes instead of being
-    // superseded by the next tick. Only an answer or stop() invalidates it.
+    // superseded by the next tick. Only an answer or stop() invalidates it, and a
+    // request that never settles is aborted at timeoutMs so the next tick can retry.
     if (stopped || inFlight) return;
-    inFlight = true;
+    const controller = new AbortController();
+    inFlight = controller;
     const epoch = ++generation;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const timed = (project: string) => new Promise<TenantAsk[]>((resolve, reject) => {
+      controller.signal.addEventListener('abort', () => reject(new Error('Ask poll timed out.')), {once: true});
+      client.asks(project, controller.signal).then(resolve, reject);
+    });
     void (async () => {
       try {
-        const results = await Promise.allSettled(routable.map(project => client.asks(project)));
+        const results = await Promise.allSettled(routable.map(timed));
         if (stopped || epoch !== generation) return;
         // If every poll failed, keep the last good list. Only stop() emits null.
         if (!results.some(result => result.status === 'fulfilled')) return;
         results.forEach((result, index) => { if (result.status === 'fulfilled') lastGood.set(routable[index], result.value); });
         publish();
       } finally {
-        inFlight = false;
+        clearTimeout(timeout);
+        inFlight = null;
       }
     })();
   };
@@ -319,6 +328,7 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
     if (stopped) return;
     stopped = true;
     clearInterval(timer);
+    inFlight?.abort();
     emit(null);
   }) as AskSync;
   stop.applyAnswer = (next: TenantAsk) => {

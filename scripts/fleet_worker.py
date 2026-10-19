@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import subprocess
 import time
@@ -737,6 +738,14 @@ class Worker:
                     raise ValueError('Tenant task clone failed its isolation check')
                 subprocess.run([*git, '-C', str(worktree), 'checkout', '--quiet', '--detach', base],
                                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+                # Keep no pointer back to the mutable source: pin the base on a local ref
+                # (so cleanup still sees it retained), then drop origin and its URL.
+                subprocess.run([*git, '-C', str(worktree), 'update-ref', 'refs/heads/task-base', 'HEAD'],
+                               check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+                subprocess.run([*git, '-C', str(worktree), 'remote', 'remove', 'origin'],
+                               check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+                # Reflogs record "clone: from file://<root>"; they hold nothing the task needs.
+                shutil.rmtree(worktree / '.git' / 'logs', ignore_errors=True)
             else:
                 subprocess.run([*git, '-C', str(root), 'worktree', 'add', '--detach', str(worktree), base],
                                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)

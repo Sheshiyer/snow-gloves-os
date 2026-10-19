@@ -331,6 +331,31 @@ describe('ask sync and fleet client', () => {
     sync();
   });
 
+  it('aborts a poll that never settles so the next tick can retry', async () => {
+    const emit = vi.fn();
+    const good = [model()];
+    const signals: AbortSignal[] = [];
+    let hang = true;
+    // The first request never settles on its own; it only reacts to its abort signal.
+    const asks = vi.fn((project: string, signal: AbortSignal) => {
+      signals.push(signal);
+      return hang ? new Promise<TenantAsk[]>(() => {}) : Promise.resolve(good);
+    });
+    const client = {asks} as unknown as FleetClient;
+    let poll: (() => void) | undefined;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(handler => { poll = handler as () => void; return 1 as unknown as ReturnType<typeof setInterval>; });
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    const stop = startAskSync(client, ['heyzack'], emit, 60_000, 20);
+    await new Promise(resolve => setTimeout(resolve, 40));
+    expect(signals[0].aborted).toBe(true);
+    hang = false;
+    poll?.();
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(asks).toHaveBeenCalledTimes(2);
+    expect(emit).toHaveBeenLastCalledWith(good);
+    stop();
+  });
+
   it('keeps the last good list when a later poll fails', async () => {
     const emit = vi.fn();
     const good = [model()];

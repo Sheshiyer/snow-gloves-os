@@ -178,8 +178,8 @@ export class FleetClient {
     if (!TASK_ID.test(id)) throw new Error('Fanout requires a 32-character lowercase hex task id.');
     return validateFanoutPlan(await this.request(`/tasks/${id}/fanout`, signal, {}), id);
   }
-  async asks(project: string): Promise<TenantAsk[]> {
-    return parseAsks(await this.request(`/asks/${project}`, new AbortController().signal), project);
+  async asks(project: string, signal: AbortSignal = new AbortController().signal): Promise<TenantAsk[]> {
+    return parseAsks(await this.request(`/asks/${project}`, signal), project);
   }
   async answerAsk(project: string, id: string, answer: {value: string} | {accept: boolean}): Promise<TenantAsk> {
     const raw = await this.request(`/asks/${project}/${id}/answer`, new AbortController().signal, answer);
