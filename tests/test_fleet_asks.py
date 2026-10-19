@@ -381,3 +381,14 @@ def test_yes_no_answer_is_refused_when_the_proposal_changed(asks_ctx):
         assert exc.value.status == 409
     assert not (tenant / 'asks' / 'answers.jsonl').exists() or (tenant / 'asks' / 'answers.jsonl').read_text() == ''
     c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'accept': False, 'proposed': 'EUR 120'})
+
+
+def test_a_damaged_journal_tail_is_refused_without_a_full_backward_scan(asks_ctx):
+    c, config, _, tenant = asks_ctx
+    target = _ask_id(c, config)
+    path = c.asks._journal_path(tenant.name)
+    path.write_bytes(b'{"answer_id":"old"}\n' + b'x' * (200 * 1024))
+    with pytest.raises(Rejected):
+        c.asks._append_journal(path, {'answer_id': 'new', 'ask_id': target})
+    # Nothing was cut or appended; the outbox keeps the answer for repair.
+    assert path.read_bytes().endswith(b'x' * 1024) and b'"new"' not in path.read_bytes()

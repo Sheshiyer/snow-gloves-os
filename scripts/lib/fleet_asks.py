@@ -24,6 +24,7 @@ from .tenant_asks import CONTROL_RE, SENSITIVE_RE, derive_asks, is_scalar_text, 
 
 MAX_ANSWER = 500
 MAX_PRINCIPAL = 120  # the client's answered_by limit
+MAX_RECORD_BYTES = 64 * 1024  # far above any answer record; bounds every backward scan
 ASK_ID = re.compile(r'[a-f0-9]{32}\Z')
 
 
@@ -130,15 +131,18 @@ class Asks:
 
     @staticmethod
     def _last_newline(fd, end):
-        """Offset just past the last newline before *end*, or 0 when there is none."""
+        """Offset just past the last newline before *end*, 0 when the file has none, or None
+        when none lies within MAX_RECORD_BYTES: no record is that long, so the tail is damaged
+        and is never scanned further back."""
+        floor = max(0, end - MAX_RECORD_BYTES)
         offset = end
-        while offset > 0:
-            start = max(0, offset - 65536)
+        while offset > floor:
+            start = max(floor, offset - 65536)
             index = os.pread(fd, offset - start, start).rfind(b'\n')
             if index != -1:
                 return start + index + 1
             offset = start
-        return 0
+        return 0 if floor == 0 else None
 
     @staticmethod
     def _open_journal(path):
@@ -200,11 +204,15 @@ class Asks:
             size = os.fstat(fd).st_size
             if size:
                 keep = cls._last_newline(fd, size)
+                if keep is None:
+                    # An unterminated tail longer than any record: refuse rather than scan or
+                    # cut it; the outbox keeps the answer queued for an operator to repair.
+                    raise OSError('damaged answer journal tail')
                 if keep != size:
                     os.ftruncate(fd, keep)
                 if keep:
                     start = cls._last_newline(fd, keep - 1)
-                    if keep - start <= 1024 * 1024:
+                    if start is not None:
                         try:
                             last = json.loads(os.pread(fd, keep - start, start))
                         except ValueError:

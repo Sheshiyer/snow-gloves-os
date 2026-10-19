@@ -48,7 +48,8 @@ def _last_json_array(text):
             break
         try:
             value, end = decoder.raw_decode(text, match.start())
-        except (ValueError, json.JSONDecodeError):
+        except (ValueError, json.JSONDecodeError, RecursionError):
+            # A candidate nested too deep for the decoder is skipped like any malformed one.
             failures += 1
             pos = match.start() + 1
             continue

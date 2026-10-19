@@ -1191,3 +1191,11 @@ def test_admit_refuses_an_oversized_git_config(tmp_path, monkeypatch):
     monkeypatch.setattr(tenant_repo, 'MAX_CONFIG_BYTES', 50)
     with pytest.raises(ValueError, match='Cannot read the Git config'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_deeply_nested_artifact_json_is_ignored_not_fatal(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    deep = '[{"ask_id":"id1","proposed":' + '[' * 100000 + ']' * 100000 + '}]'
+    assert import_proposals(tenants_dir, 'heyzack', deep, {'id1'}) == 0
+    good = deep + ' [{"ask_id":"id1","proposed":"EUR 99"}]'
+    assert import_proposals(tenants_dir, 'heyzack', good, {'id1'}) == 1
