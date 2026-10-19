@@ -2,7 +2,7 @@ import { renderBrandPassport, brandDisplayName } from './brand-summary';
 import { renderTenantCapabilityMap, tenantCapabilityCountLabels } from './tenant-map';
 import './ops.css';
 import { createFleetBoard, submitTenantAsk } from './fleet-tasks';
-import { askStackKey, captureAskDrafts, renderAskStack, restoreAskDrafts, type TenantAsk } from './tenant-asks';
+import { askStackKey, rememberAskDrafts, renderAskStack, restoreAskDrafts, type TenantAsk } from './tenant-asks';
 import { loadSnapshot, loadDocument, previewPlan, validateSnapshot } from './ops-client';
 import type { OpsSnapshot, OpsDocument, PlanRequest, PlanPreview } from './ops-contracts';
 import { fleetNodes, fleetActivity } from './fleet-model';
@@ -333,6 +333,7 @@ export function mountCockpit(
 
   let snapshot: OpsSnapshot | null = null;
   let townAsks: TenantAsk[] | null = null;
+  const askDraftStore = new Map<string, string>();
   let isFetching = false;
   let isStale = false;
   let lastLoadedSource: 'api' | 'fixture' | null = null;
@@ -971,8 +972,8 @@ export function mountCockpit(
     const prevScrollTop = renderedSection === currentSection && prevContent ? prevContent.scrollTop : 0;
     renderedSection = currentSection;
 
-    // Every rebuild (snapshot polls included) keeps unsent ask answers and their focus.
-    const askDrafts = captureAskDrafts(rootEl);
+    // Every rebuild (snapshot polls and tenant switches included) keeps unsent ask answers and their focus.
+    const askDrafts = rememberAskDrafts(rootEl, askDraftStore);
     rootEl.innerHTML = '';
 
     // Top Brand Header

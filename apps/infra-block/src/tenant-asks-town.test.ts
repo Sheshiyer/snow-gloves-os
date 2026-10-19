@@ -618,6 +618,32 @@ describe('tenant asks in the town', () => {
     home.dispose();
   });
 
+  it('keeps a crew ticket draft when the founder opens another resident and comes back', () => {
+    restoreDom = installDom();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const home = mountHome(host as unknown as HTMLElement, homeCallbacks);
+    document.dispatchEvent(new CustomEvent('tenant-asks', {detail: [
+      ask(), ask({id: 'd'.repeat(32), kind: 'website', role: 'interpreter', title: 'confirm the domain', source: 'MANIFEST.yaml'}),
+    ]}));
+    home.selectResident('librarian');
+    const input = host.querySelector('#ih-ticket-asks .oc-asks-input') as unknown as HTMLInputElement;
+    input.value = 'EUR 9';
+    home.selectResident('interpreter');
+    expect(Array.from(host.querySelectorAll<HTMLInputElement>('#ih-ticket-asks .oc-asks-input'))
+      .map(el => el.getAttribute('data-ask-id'))).toEqual(['d'.repeat(32)]);
+    home.selectResident('librarian');
+    const back = host.querySelector('#ih-ticket-asks .oc-asks-input') as unknown as HTMLInputElement;
+    expect(back.getAttribute('data-ask-id')).toBe('a'.repeat(32));
+    expect(back.value).toBe('EUR 9');
+    // Clearing the box drops the draft for good.
+    back.value = '';
+    home.selectResident('interpreter');
+    home.selectResident('librarian');
+    expect((host.querySelector('#ih-ticket-asks .oc-asks-input') as unknown as HTMLInputElement).value).toBe('');
+    home.dispose();
+  });
+
   it('keeps a typed draft and its focus in the tenant view across ask polls', () => {
     restoreDom = installDom();
     const host = document.createElement('div');

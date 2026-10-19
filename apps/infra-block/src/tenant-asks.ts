@@ -233,6 +233,21 @@ export function captureAskDrafts(root: ParentNode): AskDrafts {
   return drafts;
 }
 
+/**
+ * Capture drafts into a store that outlives one rebuild, so switching to another
+ * crew ticket or tenant and back keeps them. An emptied box drops its draft.
+ */
+export function rememberAskDrafts(root: ParentNode, store: Map<string, string>): AskDrafts {
+  const drafts = captureAskDrafts(root);
+  for (const input of Array.from(root.querySelectorAll<HTMLInputElement>('.oc-asks-input'))) {
+    const id = input.getAttribute('data-ask-id');
+    if (!id) continue;
+    if (input.value) store.set(id, input.value);
+    else store.delete(id);
+  }
+  return {...drafts, values: store};
+}
+
 export function restoreAskDrafts(root: ParentNode, drafts: AskDrafts): void {
   for (const input of Array.from(root.querySelectorAll<HTMLInputElement>('.oc-asks-input'))) {
     const id = input.getAttribute('data-ask-id');

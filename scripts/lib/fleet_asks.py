@@ -126,11 +126,25 @@ class Asks:
         return asks_dir / 'answers.jsonl'
 
     @staticmethod
-    def _append_journal(path, record):
+    def _last_newline(fd, end):
+        """Offset just past the last newline before *end*, or 0 when there is none."""
+        offset = end
+        while offset > 0:
+            start = max(0, offset - 65536)
+            index = os.pread(fd, offset - start, start).rfind(b'\n')
+            if index != -1:
+                return start + index + 1
+            offset = start
+        return 0
+
+    @classmethod
+    def _append_journal(cls, path, record):
         """Append one JSON line, first truncating any incomplete tail a failed write left.
 
         Appends are serialized by the flush lock and this journal has no other
         writer, so bytes after the last newline can only be our own partial line.
+        A crash after the fsync but before the outbox row is deleted leaves this
+        record as the last line, so a retry that finds it there appends nothing.
         """
         try:
             line = (json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=False) + '\n').encode('utf-8')
@@ -147,17 +161,18 @@ class Asks:
         try:
             size = os.fstat(fd).st_size
             if size:
-                keep, offset = 0, size
-                while offset > 0:
-                    start = max(0, offset - 65536)
-                    chunk = os.pread(fd, offset - start, start)
-                    index = chunk.rfind(b'\n')
-                    if index != -1:
-                        keep = start + index + 1
-                        break
-                    offset = start
+                keep = cls._last_newline(fd, size)
                 if keep != size:
                     os.ftruncate(fd, keep)
+                if keep:
+                    start = cls._last_newline(fd, keep - 1)
+                    if keep - start <= 1024 * 1024:
+                        try:
+                            last = json.loads(os.pread(fd, keep - start, start))
+                        except ValueError:
+                            last = None
+                        if isinstance(last, dict) and last.get('answer_id') == record.get('answer_id'):
+                            return
             view = memoryview(line)
             while view:
                 view = view[os.write(fd, view):]

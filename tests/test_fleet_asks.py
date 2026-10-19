@@ -284,3 +284,18 @@ def test_unencodable_record_never_blocks_the_outbox(asks_ctx):
     c.asks._append_journal(path, {'answer_id': 'x', 'title': 'bad \ud800'})
     line = (tenant / 'asks' / 'answers.jsonl').read_text().splitlines()[0]
     assert json.loads(line)['answer_id'] == 'x'
+
+
+def test_retry_after_a_crash_between_append_and_delete_appends_once(asks_ctx):
+    c, config, _, tenant = asks_ctx
+    target = _ask_id(c, config)
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'value': 'EUR 99'})
+    journal = tenant / 'asks' / 'answers.jsonl'
+    record = json.loads(journal.read_text().splitlines()[-1])
+    # The record reached the journal, but the process died before its outbox row was deleted.
+    with c.transaction():
+        c.db.execute('INSERT INTO ask_journal_outbox(answer_id, tenant, record_json, created) VALUES(?, ?, ?, ?)',
+                     (record['answer_id'], record['tenant'], json.dumps(record, sort_keys=True), record['answered']))
+    c.asks.flush()
+    assert [json.loads(line)['answer_id'] for line in journal.read_text().splitlines()] == [record['answer_id']]
+    assert c.db.execute('SELECT count(*) FROM ask_journal_outbox').fetchone()[0] == 0

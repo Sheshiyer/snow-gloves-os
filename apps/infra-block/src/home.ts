@@ -10,7 +10,7 @@ import type { OpsSnapshot } from './ops-contracts';
 import { loadSnapshot, validateSnapshot } from './ops-client';
 import { FLEET_LAYOUT, fleetActivity, fleetNodes, type FleetProjection } from './fleet-model';
 import { submitTenantAsk } from './fleet-tasks';
-import { askStackKey, captureAskDrafts, renderAskStack, restoreAskDrafts, summarizeAsks, type TenantAsk } from './tenant-asks';
+import { askStackKey, rememberAskDrafts, renderAskStack, restoreAskDrafts, summarizeAsks, type TenantAsk } from './tenant-asks';
 
 export interface HomeNavigation { slug: string | null; x: number; z: number; moving: boolean; nearbySlug: string | null; }
 
@@ -710,6 +710,7 @@ function disposeNavigation(): void {
   }
 
   let ticketAsksKey = '';
+  const ticketDrafts = new Map<string, string>();
   function openDialogue(slug: ResidentSlug): void {
     clearManualInput();
     const activeControl = host.contains(document.activeElement) ? (document.activeElement as HTMLElement).id : '';
@@ -763,12 +764,13 @@ function disposeNavigation(): void {
     const asksHost = host.querySelector('#ih-ticket-asks');
     if (asksHost) {
       // Polls and presence updates reopen the ticket; leave an unchanged stack alone so
-      // a half-typed answer keeps its text and focus, and carry drafts when it changes.
+      // a half-typed answer keeps its text and focus, and carry drafts by ask id when it
+      // changes, including across switches to another resident's ticket.
       const roleAsks = townAsks ? townAsks.filter(ask => ask.role === slug) : null;
       const key = roleAsks ? `${slug}|${askStackKey(roleAsks)}` : '';
       if (key !== ticketAsksKey) {
         ticketAsksKey = key;
-        const drafts = captureAskDrafts(asksHost);
+        const drafts = rememberAskDrafts(asksHost, ticketDrafts);
         asksHost.replaceChildren(...(roleAsks
           ? [renderAskStack(roleAsks, (ask, answer) => submitTenantAsk(ask.project, ask.id, answer))]
           : []));
