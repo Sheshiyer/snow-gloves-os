@@ -211,14 +211,15 @@ def _record_compacted_size(asks, size):
         os.close(fd)
 
 
-def _compact(stream, asks):
+def _compact(stream, asks, current_ids=None):
     """Rewrite a large journal to the latest proposal per ask plus one completion line per
     imported source, so every later scan (each ask listing reads it) stays small.
 
     Runs under the journal lock; the new file replaces the old atomically, and waiting
     importers notice the replacement and reopen. Reading is capped in bytes, records,
     line length and time; past any cap the journal is left unchanged. Returns whether
-    it compacted.
+    it compacted. With *current_ids* (every ask the tenant has now) only their
+    proposals are kept.
     """
     latest, done = {}, {}
     stream.seek(0)
@@ -245,7 +246,10 @@ def _compact(stream, asks):
             continue
         if isinstance(record.get('ask_id'), str) and isinstance(record.get('proposed'), str):
             latest.pop(record['ask_id'], None)
-            latest[record['ask_id']] = record
+            # Proposals for asks that no longer exist are dropped, so the journal tracks the
+            # tenant's current asks rather than every id it ever had.
+            if current_ids is None or record['ask_id'] in current_ids:
+                latest[record['ask_id']] = record
         if isinstance(record.get('source'), str) and (record.get('complete') is True or 'created' not in record):
             done[record['source']] = _task_time(record.get('created'))
     body = b''.join(json.dumps(record).encode() + b'\n' for record in latest.values())
@@ -272,7 +276,7 @@ def _compact(stream, asks):
     return True
 
 
-def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None, created=None):
+def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None, created=None, current_ids=None):
     """Append valid proposals from *artifact_text* to ``asks/proposed.jsonl``.
 
     Only entries whose ``ask_id`` is in *known_ids* and whose ``proposed``
@@ -371,7 +375,8 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
             # every import would make each import slower than the last.
             if os.fstat(stream.fileno()).st_size > max(COMPACT_AT, min(2 * _compacted_size(asks), MAX_COMPACT_TRIGGER)):
                 try:
-                    if _compact(stream, asks):
+                    # An empty current set means the listing failed: never drop on that.
+                    if _compact(stream, asks, current_ids or None):
                         _record_compacted_size(asks, os.stat(JOURNAL, dir_fd=asks, follow_symlinks=False).st_size)
                 except OSError:
                     pass  # the appended journal is intact; compaction retries on the next import
@@ -421,11 +426,12 @@ def main():
         return 1
     tenants_dir = paths.tenants_dir()
     listing = _get(args.coordinator, token, '/v1/asks/' + project)
+    asks = [ask for ask in (listing.get('asks') if isinstance(listing, dict) else [])
+            if isinstance(ask, dict) and isinstance(ask.get('id'), str)]
     # Only open asks take proposals; an answered ask keeps the founder's answer.
-    known_ids = {ask['id'] for ask in (listing.get('asks') if isinstance(listing, dict) else [])
-                 if isinstance(ask, dict) and isinstance(ask.get('id'), str) and ask.get('status') == 'open'}
+    known_ids = {ask['id'] for ask in asks if ask.get('status') == 'open'}
     count = import_proposals(tenants_dir, tenant, output, known_ids, source="task:" + args.task,
-                             created=task.get('created'))
+                             created=task.get('created'), current_ids={ask['id'] for ask in asks})
     print('Imported %d proposal(s)' % count)
     return 0
 

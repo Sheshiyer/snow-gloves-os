@@ -492,3 +492,11 @@ def test_journal_scan_budget_also_covers_an_oversized_line(tmp_path, monkeypatch
     monkeypatch.setattr(ta, 'MAX_PROPOSAL_SCAN_BYTES', 200000)
     # The skip of the long line stops at the budget instead of reading the whole line.
     assert load_proposals(t) == {}
+
+
+def test_repeated_fill_lines_do_not_spend_the_fact_budget(tmp_path):
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    (t / 'context' / 'a.md').write_text('FILL: the price.\n' * 500 + 'FILL: the offer window.\n')
+    (t / 'context' / 'b.md').write_text('FILL: the launch date.\n')
+    titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact']
+    assert titles == ['the price.', 'the offer window.', 'the launch date.']

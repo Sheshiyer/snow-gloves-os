@@ -179,6 +179,7 @@ def _fact_asks(tenant_dir: Path, tenant: str, proposals: dict[str, str]) -> list
                     names.append(entry.name)
     except OSError:
         return asks
+    seen: set[str] = set()
     for name in sorted(names):
         if len(asks) >= MAX_ASKS:
             break
@@ -195,8 +196,13 @@ def _fact_asks(tenant_dir: Path, tenant: str, proposals: dict[str, str]) -> list
             if not value or SENSITIVE_RE.search(value):
                 continue
             key = f"{source}|{value}"
-            proposed = proposals.get(ask_id(tenant, 'fact', key))
-            asks.append({'id': ask_id(tenant, 'fact', key), 'tenant': tenant, 'kind': 'fact',
+            identity = ask_id(tenant, 'fact', key)
+            # A repeated FILL line is one ask; never let copies spend the budget.
+            if identity in seen:
+                continue
+            seen.add(identity)
+            proposed = proposals.get(identity)
+            asks.append({'id': identity, 'tenant': tenant, 'kind': 'fact',
                          'role': ROLE_FOR_KIND['fact'], 'title': value[:MAX_TITLE], 'source': source,
                          'answer_type': 'yes_no' if proposed is not None else 'text', 'proposed': proposed})
             if len(asks) >= MAX_ASKS:

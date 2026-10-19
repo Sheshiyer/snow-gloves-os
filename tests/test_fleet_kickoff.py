@@ -1052,7 +1052,7 @@ def test_compaction_waits_for_the_journal_to_double_and_gives_up_past_its_budget
     marker = journal.parent / 'proposed.jsonl.compacted'
     calls = []
     real = fleet_asks_import._compact
-    monkeypatch.setattr(fleet_asks_import, '_compact', lambda stream, asks: calls.append(1) or real(stream, asks))
+    monkeypatch.setattr(fleet_asks_import, '_compact', lambda stream, asks, *rest: calls.append(1) or real(stream, asks, *rest))
     for n in range(40):
         artifact = json.dumps([{'ask_id': 'id%d' % n, 'proposed': 'yes'}])
         import_proposals(tenants_dir, 'heyzack', artifact, {'id%d' % n}, source='task-%d' % n, created=float(n))
@@ -1164,3 +1164,20 @@ def test_manifest_owner_pass_stops_at_the_scan_deadline(tmp_path, monkeypatch):
         return real() + (10_000 if calls['n'] > 40 else 0)
     monkeypatch.setattr(tenant_repo.time, 'monotonic', later)
     assert tenant_repo.git_layout(repo) is None
+
+
+def test_compaction_drops_proposals_for_asks_that_no_longer_exist(tmp_path, monkeypatch):
+    import fleet_asks_import
+    from lib.tenant_asks import load_proposals
+    monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 300)
+    tenants_dir = tmp_path / 'tenants'
+    for n in range(10):
+        import_proposals(tenants_dir, 'heyzack', json.dumps([{'ask_id': 'old%d' % n, 'proposed': 'x' * 40}]), {'old%d' % n},
+                         source='s%d' % n, created=float(n), current_ids={'old%d' % n})
+    # Make this import compact whatever the journal size and the doubling rule say.
+    (tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl.compacted').unlink(missing_ok=True)
+    monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 1)
+    import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"now","proposed":"EUR 99"}]', {'now'},
+                     source='final', created=99.0, current_ids={'now', 'old9'})
+    assert set(load_proposals(tenants_dir / 'heyzack')) <= {'now', 'old9'}
+    assert load_proposals(tenants_dir / 'heyzack')['now'] == 'EUR 99'

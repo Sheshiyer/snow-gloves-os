@@ -34,7 +34,6 @@ PERMISSIONS = ('read','submit','cancel')  # legacy defaults never grant approval
 VALID_PERMISSIONS = (*PERMISSIONS, 'approve')
 MAX_ATTEMPTS = 3  # original plus two retries per role chain
 PROJECT_ID = r'[a-z0-9][a-z0-9_-]{0,63}'  # the ask routes and the browser share this pattern
-PROJECT_ID_RE = re.compile(PROJECT_ID)
 NO_NEW_CHILDREN = ('cancelled','cancel_requested','failed','interrupted')
 MAX_HTTP_BODY_BYTES = 64 * 1024
 MAX_REMOTE_ARTIFACT_BYTES = 24 * 1024
@@ -1264,8 +1263,10 @@ def load_config(path):
         if isinstance(projects, list) and all(isinstance(project, str) for project in projects):
             (remote_projects if remote else local_projects).update(projects)
     for project_id, project in config['projects'].items():
-        # Ask routes and the browser address projects by this pattern.
-        if not isinstance(project_id, str) or not PROJECT_ID_RE.fullmatch(project_id):
+        # Ask routes and the browser address projects by PROJECT_ID; an older project id
+        # outside it (such as client.prod) still loads and keeps its task routes, it just
+        # has no asks. New tenants are admitted with routable ids only.
+        if not isinstance(project_id, str) or not project_id:
             raise ValueError('Invalid project id')
         if not all(isinstance(project.get(key),str) and project[key] for key in ('tenant','organization')) or not isinstance(project.get('runtimes'),list):
             raise ValueError('Invalid project configuration')
