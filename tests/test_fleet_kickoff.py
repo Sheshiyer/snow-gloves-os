@@ -712,6 +712,7 @@ def test_admit_accepts_a_tenant_only_repository(tmp_path):
     config = _base_config()
     repo = tmp_path / 'tenant-a'
     _git_init(repo)
+    (repo / 'MANIFEST.yaml').write_text('schema: snowgloves.manifest.v1\ntenant: tenant-a\n')
     (repo / 'context').mkdir()
     (repo / 'context' / 'offer.md').write_text('FILL: the price.')
     _git_commit_all(repo)
@@ -869,3 +870,21 @@ def test_admit_refuses_entries_outside_the_tenant_layout(tmp_path):
     _git_commit_all(root)
     with pytest.raises(ValueError, match='outside the tenant layout'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
+
+
+@pytest.mark.parametrize('earlier', ['tenant: tenant-b\n', None])
+def test_admit_refuses_a_root_level_repository_reused_from_another_tenant(tmp_path, earlier):
+    config = _base_config()
+    repo = tmp_path / 'tenant-a'
+    _git_init(repo)
+    (repo / 'context').mkdir()
+    (repo / 'context' / 'offer.md').write_text('FILL: tenant-b private plan.')
+    if earlier is not None:
+        (repo / 'MANIFEST.yaml').write_text(earlier)
+    _git_commit_all(repo)
+    # The current commit is tenant-a's, but the earlier one is still readable via git show.
+    (repo / 'MANIFEST.yaml').write_text('tenant: tenant-a\n')
+    (repo / 'context' / 'offer.md').write_text('FILL: the price.')
+    _git_commit_all(repo, 'now tenant-a')
+    with pytest.raises(ValueError, match='MANIFEST.yaml does not name tenant-a'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))

@@ -14,6 +14,8 @@ import subprocess
 SHARED_INSTANCE_PATHS = frozenset({'fleet.yaml', 'nodes', '_audit', '.planning', 'specs'})
 # What a tenant folder holds (tenants/<slug>/ in the private checkout), plus a README
 # and an optional tenants/<slug>/ wrapper. Anything else at a tenant root is refused.
+MANIFEST_TENANT = re.compile(r'''(?m)^tenant:[ \t]*["']?([A-Za-z0-9_.-]+)["']?[ \t]*(?:#.*)?$''')
+MAX_MANIFEST = 256 * 1024
 TENANT_LAYOUT = frozenset({'MANIFEST.yaml', 'README.md', '.gitignore', 'context', 'meristem', 'sources.yaml',
                            'enabled.yaml', 'runtime.yaml', 'ingest-plan.json', 'asks', 'wiki', 'history',
                            'documents', 'data', 'audit', 'tenants'})
@@ -68,7 +70,8 @@ def _own_object_store(root):
 def git_layout(root, git_path='git'):
     """Tenant names under any tenants/ tree, every top-level name any commit has held,
     whether any tree records a symlink or submodule (either can reach outside the root),
-    and every entry name at any depth of any tree.
+    every entry name at any depth of any tree, and the tenant each commit's root
+    MANIFEST.yaml names (None for a commit with content but no readable manifest).
 
     Workers get a linked worktree of this repository, so any object in it is
     readable (git show, cat-file), not just the checked-out files. Returns None
@@ -110,7 +113,32 @@ def git_layout(root, git_path='git'):
     top = {child.decode('utf-8', 'replace') for root_tree in roots for child in entries.get(root_tree, {})}
     links = any(mode in (b'120000', b'160000') for children in entries.values() for mode, _ in children.values())
     names = {child.decode('utf-8', 'replace') for children in entries.values() for child in children}
-    return tenants, top, links, names
+    # Who each commit belongs to: the tenant named by its root MANIFEST.yaml, or None when
+    # a commit with content has no readable manifest (it could be another tenant's).
+    owners, blobs = set(), {}
+    for root_tree in roots:
+        children = entries.get(root_tree, {})
+        mode, oid = children.get(b'MANIFEST.yaml', (None, None))
+        if not children:
+            continue
+        if mode not in (b'100644', b'100755'):
+            owners.add(None)
+        else:
+            blobs[oid] = None
+    if blobs:
+        try:
+            raw = git('cat-file', '--batch', data=b''.join(oid + b'\n' for oid in blobs))
+        except (OSError, subprocess.SubprocessError):
+            return None
+        pos = 0
+        while pos < len(raw):
+            header_end = raw.index(b'\n', pos)
+            name, kind, size = raw[pos:header_end].split()
+            body = raw[header_end + 1:header_end + 1 + int(size)]
+            pos = header_end + 1 + int(size) + 1
+            match = MANIFEST_TENANT.search(body[:MAX_MANIFEST].decode('utf-8', 'replace')) if len(body) <= MAX_MANIFEST else None
+            owners.add(match.group(1) if match else None)
+    return tenants, top, links, names, owners
 
 
 def isolation_problem(root, tenant, git_path='git'):
@@ -118,7 +146,7 @@ def isolation_problem(root, tenant, git_path='git'):
     layout = git_layout(root, git_path)
     if layout is None:
         return 'Cannot verify the Git history of project root %s; use a standalone tenant repository' % root
-    found, top, links, names = layout
+    found, top, links, names, owners = layout
     unsafe = _unsafe_config(root, git_path)
     if unsafe is None:
         return 'Cannot read the Git config of project root %s; use a standalone tenant repository' % root
@@ -142,4 +170,9 @@ def isolation_problem(root, tenant, git_path='git'):
     if unexpected:
         return ('Project root %s has entries outside the tenant layout (%s); use a tenant-only repository'
                 % (root, ', '.join(unexpected)))
+    # Every commit with content must be this tenant's: a repository reused from another
+    # tenant keeps that tenant's files readable through its history.
+    if owners - {tenant}:
+        return ('Project root %s has commits whose MANIFEST.yaml does not name %s; use a repository with only this tenant\'s history'
+                % (root, tenant))
     return None
