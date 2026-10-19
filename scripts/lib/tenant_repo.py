@@ -13,6 +13,23 @@ import subprocess
 SHARED_INSTANCE_PATHS = frozenset({'fleet.yaml', 'nodes', '_audit', '.planning', 'specs'})
 
 
+def _own_object_store(root):
+    """True when .git and its object store are real directories inside *root*.
+
+    A .git file or link, a linked objects directory, a commondir file or an
+    alternates list would all let this root read another repository's objects.
+    """
+    root = os.path.realpath(str(root))
+    git_dir = os.path.join(root, '.git')
+    objects = os.path.join(git_dir, 'objects')
+    for path in (git_dir, objects, os.path.join(objects, 'pack'), os.path.join(objects, 'info')):
+        if os.path.islink(path) or (path in (git_dir, objects) and not os.path.isdir(path)):
+            return False
+    if os.path.lexists(os.path.join(git_dir, 'commondir')) or os.path.lexists(os.path.join(objects, 'info', 'alternates')):
+        return False
+    return os.path.realpath(objects) == objects and os.path.dirname(os.path.realpath(git_dir)) == root
+
+
 def git_layout(root, git_path='git'):
     """Tenant names under any tenants/ tree, every top-level name any commit has held,
     and whether any tree records a symlink or submodule (either can reach outside the root).
@@ -21,9 +38,7 @@ def git_layout(root, git_path='git'):
     readable (git show, cat-file), not just the checked-out files. Returns None
     when the database cannot be fully enumerated or borrows objects elsewhere.
     """
-    git_dir = os.path.join(str(root), '.git')
-    # A .git file points at another repository's objects; alternates borrow them.
-    if not os.path.isdir(git_dir) or os.path.exists(os.path.join(git_dir, 'objects', 'info', 'alternates')):
+    if not _own_object_store(root):
         return None
     def git(*args, data=None):
         return subprocess.run([git_path, '-C', str(root), *args], input=data, capture_output=True, check=True, timeout=300).stdout

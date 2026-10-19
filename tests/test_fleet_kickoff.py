@@ -790,3 +790,24 @@ def test_import_scan_skips_an_oversized_line_and_still_sees_completion(tmp_path)
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-a', created=5.0) == 0
     # A new task with the same value is deduped against the line after the oversized one.
     assert import_proposals(tenants_dir, 'heyzack', artifact, {'id1'}, source='task-b', created=6.0) == 0
+
+
+@pytest.mark.parametrize('borrow', ['git-link', 'objects-link', 'commondir'])
+def test_admit_refuses_a_root_whose_git_metadata_lives_elsewhere(tmp_path, borrow):
+    config = _base_config()
+    other = tmp_path / 'other-repo'
+    _git_init(other)
+    root = tmp_path / 'tenant-a'
+    root.mkdir()
+    if borrow == 'git-link':
+        (root / '.git').symlink_to(other / '.git', target_is_directory=True)
+    else:
+        _git_init(root)
+        if borrow == 'objects-link':
+            import shutil
+            shutil.rmtree(root / '.git' / 'objects')
+            (root / '.git' / 'objects').symlink_to(other / '.git' / 'objects', target_is_directory=True)
+        else:
+            (root / '.git' / 'commondir').write_text(str(other / '.git') + '\n')
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(root))
