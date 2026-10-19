@@ -950,3 +950,26 @@ def test_admit_fails_closed_on_a_repository_larger_than_the_scan_limits(tmp_path
     monkeypatch.setattr(tenant_repo, limit, 2)
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_admit_refuses_special_files_inside_git(tmp_path):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    os.mkfifo(repo / '.git' / 'objects' / 'pack' / 'multi-pack-index')
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_isolation_scan_is_killed_at_its_deadline(tmp_path, monkeypatch):
+    import time as clock
+    from lib import tenant_repo
+    repo = _tenant_repo(tmp_path)
+    # A git that never answers stands in for one blocked on a stalled read.
+    slow = tmp_path / 'slow-git'
+    slow.write_text('#!/bin/sh\ncase "$*" in *batch-all-objects*) exec sleep 60;; esac\nexec git "$@"\n')
+    slow.chmod(0o755)
+    monkeypatch.setattr(tenant_repo, 'SCAN_SECONDS', 1)
+    started = clock.monotonic()
+    assert tenant_repo.git_layout(repo, str(slow)) is None
+    elapsed = clock.monotonic() - started
+    assert 0.9 < elapsed < 10

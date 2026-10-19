@@ -7,6 +7,7 @@ other tenant, no shared instance data and no link that leads out of it.
 """
 import os
 import re
+import stat
 import subprocess
 import threading
 import time
@@ -66,9 +67,9 @@ def _manifest_tenant(raw):
 def _own_object_store(root):
     """True when .git and its object store are real directories inside *root*.
 
-    A .git file or link, any link inside .git (objects, shards, packs), a
-    commondir file or an alternates list would all let this root read another
-    repository's objects.
+    A .git file or link, any link or special file inside .git (objects, shards,
+    packs), a commondir file or an alternates list would all let this root read
+    another repository's objects or stall the scan.
     """
     root = os.path.realpath(str(root))
     git_dir = os.path.join(root, '.git')
@@ -82,10 +83,22 @@ def _own_object_store(root):
         return False
     # Git follows a link anywhere in its metadata (a loose-object shard, a pack
     # file), so one link inside .git is enough to borrow foreign objects.
+    # Only real directories and regular files: a FIFO, socket or device inside .git
+    # could block or redirect Git's reads during the scan and the task.
     for directory, subdirs, files in os.walk(git_dir, followlinks=False):
-        if any(os.path.islink(os.path.join(directory, name)) for name in subdirs + files):
-            return False
+        for name in subdirs + files:
+            mode = os.lstat(os.path.join(directory, name)).st_mode
+            if not (stat.S_ISDIR(mode) or stat.S_ISREG(mode)):
+                return False
     return True
+
+
+def _watchdog(process, deadline):
+    """Kill *process* at *deadline*, so a read blocked on it ends (EOF) instead of hanging."""
+    timer = threading.Timer(max(0.0, deadline - time.monotonic()), process.kill)
+    timer.daemon = True
+    timer.start()
+    return timer
 
 
 def _batch(git_path, root, oids, deadline):
@@ -93,6 +106,7 @@ def _batch(git_path, root, oids, deadline):
     whole output; the input is fed from a thread so neither pipe can fill and stall."""
     process = subprocess.Popen([git_path, '-C', str(root), 'cat-file', '--batch'],
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    watchdog = _watchdog(process, deadline)
     def feed():
         try:
             for oid in oids:
@@ -107,12 +121,13 @@ def _batch(git_path, root, oids, deadline):
             if time.monotonic() > deadline:
                 raise subprocess.TimeoutExpired('git cat-file', SCAN_SECONDS)
             header = process.stdout.readline().split()
-            if len(header) != 3:
+            if time.monotonic() > deadline or len(header) != 3:
                 raise subprocess.SubprocessError('unexpected cat-file output')
             body = process.stdout.read(int(header[2]))
             process.stdout.read(1)
             yield header[0], header[1], body
     finally:
+        watchdog.cancel()
         process.kill()
         process.wait()
         writer.join(1)
@@ -147,6 +162,7 @@ def git_layout(root, git_path='git'):
         listing = subprocess.Popen([git_path, '-C', str(root), 'cat-file', '--batch-all-objects',
                                     '--batch-check=%(objecttype) %(objectname) %(objectsize)'],
                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        watchdog = _watchdog(listing, deadline)
         try:
             for line in listing.stdout:
                 count += 1
@@ -159,9 +175,10 @@ def git_layout(root, git_path='git'):
                 if count > MAX_OBJECTS or metadata > MAX_METADATA_BYTES or time.monotonic() > deadline:
                     return None
         finally:
+            watchdog.cancel()
             listing.kill()
             listing.wait()
-        if listing.returncode not in (0, -9):
+        if listing.returncode not in (0, -9) or time.monotonic() > deadline:
             return None
         entries, roots = {}, set()
         for name, kind, body in _batch(git_path, root, wanted, deadline):
