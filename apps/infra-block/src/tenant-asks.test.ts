@@ -114,6 +114,12 @@ describe('ask stack', () => {
     expect(onAnswer).toHaveBeenCalledWith(ask, {accept: true});
   });
 
+  it('names the tenant on cards that share a role, title and source', () => {
+    const stack = render([model(), model({id: 'b'.repeat(32), project: 'sunfeed', tenant: 'sunfeed'})], vi.fn());
+    const metas = stack.all().filter(element => element.className === 'oc-asks-meta').map(element => element.textContent);
+    expect(metas).toEqual(['heyzack · fact · librarian · context/offer.md', 'sunfeed · fact · librarian · context/offer.md']);
+  });
+
   it('caps a text ask at 500 characters and ignores an empty submit', async () => {
     const ask = model();
     const onAnswer = vi.fn().mockResolvedValue(undefined);

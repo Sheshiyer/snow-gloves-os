@@ -141,7 +141,8 @@ export function renderAskStack(asks: TenantAsk[], onAnswer: (ask: TenantAsk, ans
     title.textContent = ask.title;
     const meta = document.createElement('p');
     meta.className = 'oc-asks-meta';
-    meta.textContent = `${ask.kind} · ${ask.role} · ${ask.source}`;
+    // Resident tickets mix tenants for one role, so every card names the tenant it answers for.
+    meta.textContent = `${ask.tenant} · ${ask.kind} · ${ask.role} · ${ask.source}`;
     card.append(title, meta);
     // An answered ask shows its answer; its controls stay hidden until the founder chooses to change it.
     const appendControls = (controls: HTMLElement) => {

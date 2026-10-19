@@ -414,3 +414,17 @@ def test_a_proposal_far_behind_the_journal_end_still_counts(tmp_path):
     proposals = load_proposals(t)
     # The early record survives, an oversized line is skipped whole, and the next line still parses.
     assert proposals['a' * 32] == 'EUR 99' and proposals['c' * 32] == 'yes' and 'b' * 32 not in proposals
+
+
+def test_journal_history_never_crowds_out_a_current_asks_proposal(tmp_path):
+    from lib.tenant_asks import MAX_PROPOSAL_IDS
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True); (t / 'asks').mkdir()
+    (t / 'context' / 'offer.md').write_text('# Offer\nFILL: the price.\n')
+    target = ask_id('heyzack', 'fact', 'context/offer.md|the price.')
+    history = ''.join(json.dumps({'ask_id': '%032x' % n, 'proposed': 'old'}) + '\n' for n in range(MAX_PROPOSAL_IDS + 50))
+    (t / 'asks' / 'proposed.jsonl').write_text(history + json.dumps({'ask_id': target, 'proposed': 'EUR 99'}) + '\n')
+    ask = [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact'][0]
+    assert ask['answer_type'] == 'yes_no' and ask['proposed'] == 'EUR 99'
+    # Without a wanted set the newest ids win, so a new ask is never locked out.
+    loaded = load_proposals(t)
+    assert len(loaded) == MAX_PROPOSAL_IDS and loaded[target] == 'EUR 99' and '%032x' % 0 not in loaded

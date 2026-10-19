@@ -106,12 +106,14 @@ def _read_text(path: Path) -> str | None:
         return None
 
 
-def load_proposals(tenant_dir: Path) -> dict[str, str]:
+def load_proposals(tenant_dir: Path, wanted: set[str] | None = None) -> dict[str, str]:
     """Latest valid proposal per ask id, streamed over the whole journal.
 
     The importer appends a proposal only once per value, so an ask's only record
-    can sit anywhere in the file. Memory stays bounded: lines over the line cap
-    are skipped and at most MAX_PROPOSAL_IDS distinct ask ids are kept.
+    can sit anywhere in the file. With *wanted* (the tenant's current ask ids)
+    only those ids are kept, so history never crowds out a current ask. Without
+    it, at most MAX_PROPOSAL_IDS ids are kept, evicting the least recently
+    written, so a new ask always gets its proposal. Lines over the line cap are skipped.
     """
     asks_dir = tenant_dir / 'asks'
     path = asks_dir / 'proposed.jsonl'
@@ -144,8 +146,14 @@ def load_proposals(tenant_dir: Path) -> dict[str, str]:
                 if (not proposed.strip() or len(proposed) > MAX_PROPOSED or SENSITIVE_RE.search(proposed)
                         or CONTROL_RE.search(proposed) or not is_scalar_text(proposed)):
                     continue
-                if ask in proposals or len(proposals) < MAX_PROPOSAL_IDS:
-                    proposals[ask] = proposed
+                if wanted is not None:
+                    if ask in wanted:
+                        proposals[ask] = proposed
+                    continue
+                proposals.pop(ask, None)
+                proposals[ask] = proposed
+                if len(proposals) > MAX_PROPOSAL_IDS:
+                    del proposals[next(iter(proposals))]
     except (OSError, UnicodeError):
         pass
     return proposals
@@ -338,7 +346,13 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
     tenant_dir = _tenant_dir(tenants_dir, tenant)
     if tenant_dir is None:
         return []
-    proposals = load_proposals(tenant_dir)
+    # Load proposals only for the fact asks that exist now, so journal history
+    # can never crowd a current ask out of its proposal.
+    fact_asks = _fact_asks(tenant_dir, tenant, {})
+    proposals = load_proposals(tenant_dir, {ask['id'] for ask in fact_asks})
+    for ask in fact_asks:
+        if ask['id'] in proposals:
+            ask.update(answer_type='yes_no', proposed=proposals[ask['id']])
     # Source and brand asks come only from a sources.yaml the tenant view accepts.
     sources_value, _ = read_sources(tenant_dir)
     # Share the capability view's fail-closed parser: held enablement asks for no connector.
@@ -373,5 +387,5 @@ def derive_asks(tenants_dir: Path, tenant: str, proposal: dict | None = None,
         return unique
 
     others = keep(others)[:MAX_ASKS]
-    facts = keep(_fact_asks(tenant_dir, tenant, proposals))[:MAX_ASKS - len(others)]
+    facts = keep(fact_asks)[:MAX_ASKS - len(others)]
     return facts + others
