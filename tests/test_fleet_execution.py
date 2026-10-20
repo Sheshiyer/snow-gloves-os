@@ -686,6 +686,23 @@ def test_scrub_refuses_when_a_shared_file_the_account_can_write_changed(worker, 
     assert w.scrub_task_account('nobody') is False
 
 
+def test_scrub_refuses_when_a_shared_folders_attributes_or_acl_changed(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Another account's world-writable folder: a run could keep data in its extended
+    # attributes without owning any entry. New entries by others must not count as a change.
+    folder = tmp_path / 'shared-tmp' / 'drop'
+    folder.mkdir()
+    folder.chmod(0o777)
+    assert w.scrub_task_account('nobody', 'before') is True
+    (folder / 'someone-elses.log').write_text('')
+    assert w.scrub_task_account('nobody') is True
+    for change in (['/usr/bin/xattr', '-w', 'com.example.stash', 'tenant-a private context', str(folder)],
+                   ['/bin/chmod', '+a', 'everyone allow writeextattr', str(folder)]):
+        assert w.scrub_task_account('nobody', 'before') is True
+        subprocess.run(change, check=True)
+        assert w.scrub_task_account('nobody') is False
+
+
 def test_a_failing_reap_command_still_reports_and_settles(worker, tmp_path, monkeypatch):
     w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
     real_run = subprocess.run

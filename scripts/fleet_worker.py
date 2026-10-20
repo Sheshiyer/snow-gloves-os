@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Single-slot pilot worker. Never retries execution after an uncertain outcome."""
 import argparse
+import ctypes
+import errno
 import fcntl
 import fnmatch
 import hashlib
@@ -144,6 +146,52 @@ def _signal_group(pgid, signum):
 # find's message for a folder it could not open; MAX_DENIED caps how many are probed.
 DENIED = re.compile(rb'find: (/.+): Permission denied')
 MAX_DENIED = 1000
+
+
+def folder_metadata(path):
+    """A digest of a folder's persistent metadata that ignores its entries: mode, owner,
+    extended attributes (names and values) and ACL. A folder's times change whenever anyone
+    adds a file, so they cannot show whether a run wrote to the folder itself."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.listxattr.restype = libc.getxattr.restype = ctypes.c_ssize_t
+    libc.listxattr.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_int]
+    libc.getxattr.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint32, ctypes.c_int]
+    libc.acl_get_link_np.restype = libc.acl_to_text.restype = ctypes.c_void_p
+    libc.acl_get_link_np.argtypes = [ctypes.c_char_p, ctypes.c_int]
+    libc.acl_to_text.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    libc.acl_free.argtypes = [ctypes.c_void_p]
+
+    def sized(call):
+        size = call(None, 0)
+        if size < 0:
+            raise OSError(ctypes.get_errno(), 'Cannot read folder metadata', os.fsdecode(path))
+        buf = ctypes.create_string_buffer(size)
+        if call(buf, size) != size:
+            raise OSError(0, 'Folder metadata changed while it was read', os.fsdecode(path))
+        return buf.raw
+    info = os.lstat(path)
+    digest = hashlib.sha256(repr((info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid)).encode())
+    names = sized(lambda buf, size: libc.listxattr(path, buf, size, XATTR_NOFOLLOW)).split(b'\0')
+    for name in sorted(n for n in names if n):
+        value = sized(lambda buf, size: libc.getxattr(path, name, buf, size, 0, XATTR_NOFOLLOW))
+        digest.update(b'%d:%s%d:%s' % (len(name), name, len(value), value))
+    acl = libc.acl_get_link_np(path, ACL_TYPE_EXTENDED)
+    if acl:
+        try:
+            text = libc.acl_to_text(acl, None)
+            if not text:
+                raise OSError(ctypes.get_errno(), 'Cannot read folder ACL', os.fsdecode(path))
+            digest.update(b'acl:' + ctypes.string_at(text))
+            libc.acl_free(text)
+        finally:
+            libc.acl_free(acl)
+    elif ctypes.get_errno() != errno.ENOENT:
+        raise OSError(ctypes.get_errno(), 'Cannot read folder ACL', os.fsdecode(path))
+    return digest.hexdigest()
+
+
+XATTR_NOFOLLOW = 0x0001
+ACL_TYPE_EXTENDED = 0x00000100
 
 
 def stop_group(process, grace=5):
@@ -862,11 +910,12 @@ class Worker:
         return owned
 
     def _shared_writable(self, as_task, roots, user):
-        """Fingerprint every non-folder under `roots` that another account owns but the task
-        account may be able to write (group- or other-writable, or carrying an ACL). A run could
-        hide data in one without owning it, so these are compared across the run instead of
-        deleted. None when the list or any fingerprint cannot be confirmed."""
-        found = self._task_find(as_task, roots, user, ['(', '-user', user, '-prune', ')', '-o', '!', '-type', 'd',
+        """Fingerprint everything under `roots` that another account owns but the task account
+        may be able to write (group- or other-writable, or carrying an ACL). A run could hide
+        data in one without owning it, in its content or in a folder's extended attributes, so
+        these are compared across the run instead of deleted. None when the list or any
+        fingerprint cannot be confirmed."""
+        found = self._task_find(as_task, roots, user, ['(', '-user', user, '-prune', ')', '-o',
                                                        '(', '-perm', '-002', '-o', '-perm', '-020', '-o', '-acl', ')', '-print0'])
         if found is None:
             return None
@@ -874,9 +923,13 @@ class Worker:
         for path in found:
             try:
                 info = os.lstat(path)
-            except OSError:
+                if stat.S_ISDIR(info.st_mode):
+                    prints[path.hex()] = folder_metadata(path)
+                else:
+                    # A file's change time moves with any content, attribute or ACL write.
+                    prints[path.hex()] = [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+            except (OSError, AttributeError):  # AttributeError: a libc without these calls (not macOS)
                 return None
-            prints[path.hex()] = [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
         return prints
 
     def scrub_task_account(self, user, phase='after'):
