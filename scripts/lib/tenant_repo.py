@@ -249,6 +249,14 @@ def git_layout(root, git_path='git'):
             entries[name] = children
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
+    # Every tree a commit or tree points at, and every file a tree lists, must be present:
+    # a missing one passes as empty here, while a clone or checkout of it fails.
+    for children in entries.values():
+        for mode, oid in children.values():
+            if (mode == b'40000' and oid not in entries) or (mode in (b'100644', b'100755', b'120000') and oid not in sizes):
+                return None
+    if roots - entries.keys():
+        return None
     tenants = set()
     for children in entries.values():
         mode, oid = children.get(b'tenants', (None, None))
@@ -288,16 +296,18 @@ def git_layout(root, git_path='git'):
 
 def isolation_problem(root, tenant, git_path='git'):
     """Why *root* is not a tenant-only repository for *tenant*, or None when it is."""
-    layout = git_layout(root, git_path)
-    if layout is None:
-        return 'Cannot verify the Git history of project root %s; use a standalone tenant repository' % root
-    found, top, links, names, owners = layout
+    # The config goes first, read without includes: every later Git command would follow an
+    # include (one naming a FIFO could block it for its whole timeout) or run what it names.
     unsafe = _unsafe_config(root, git_path)
     if unsafe is None:
         return 'Cannot read the Git config of project root %s; use a standalone tenant repository' % root
     if unsafe:
         return ('Project root %s has Git config that could run commands (%s); use a tenant-only repository with default config'
                 % (root, ', '.join(unsafe)))
+    layout = git_layout(root, git_path)
+    if layout is None:
+        return 'Cannot verify the Git history of project root %s; use a standalone tenant repository' % root
+    found, top, links, names, owners = layout
     if found - {tenant}:
         return 'Project root %s has other tenants in its Git history; use a tenant-only repository' % root
     # A worker checks the tree out, so a tracked link could lead its task out of the root.

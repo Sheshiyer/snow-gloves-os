@@ -1283,3 +1283,34 @@ def test_admit_refuses_zero_padded_tree_modes(tmp_path, padded):
     git('update-ref', 'refs/heads/padded', commit)
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_admit_reads_the_config_before_any_git_command_follows_an_include(tmp_path):
+    import time as clock
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    fifo = tmp_path / 'include.fifo'
+    os.mkfifo(fifo)
+    # Any Git command that honours includes would block opening the FIFO until its timeout.
+    with open(repo / '.git' / 'config', 'a') as handle:
+        handle.write('[include]\n\tpath = %s\n' % fifo)
+    started = clock.monotonic()
+    with pytest.raises(ValueError, match='could run commands'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+    assert clock.monotonic() - started < 10
+
+
+def test_admit_refuses_a_commit_whose_root_tree_is_missing(tmp_path):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    git = lambda *args, data=None: subprocess.run(['git', '-C', str(repo), *args], input=data, check=True,
+                                                   capture_output=True).stdout.decode().strip()
+    head = git('rev-parse', 'HEAD')
+    # The earlier commit is this tenant's; the new one points at a tree that does not exist,
+    # so a clone of it would fail.
+    body = ('tree %s\nparent %s\nauthor t <t@example.invalid> 0 +0000\ncommitter t <t@example.invalid> 0 +0000\n\nbroken\n'
+            % ('1' * len(head), head)).encode()
+    broken = git('hash-object', '-t', 'commit', '-w', '--literally', '--stdin', data=body)
+    git('update-ref', 'refs/heads/broken', broken)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
