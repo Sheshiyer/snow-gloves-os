@@ -234,6 +234,7 @@ class Worker:
             task_root = config.get('task_root')
             if not isinstance(self.task_users, dict) or not self.task_users:
                 raise ValueError('task_users must map each tenant to its own account')
+            task_uids = set()
             for tenant_slug, account in self.task_users.items():
                 if (not isinstance(tenant_slug, str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', tenant_slug)
                         or not isinstance(account, str) or not re.fullmatch(r'[a-z_][a-z0-9_-]{0,31}', account)):
@@ -244,8 +245,10 @@ class Worker:
                     raise ValueError('task_users must name existing accounts') from None
                 if task_uid in (0, os.getuid()):
                     raise ValueError('task_users must name ordinary accounts other than this worker')
-            if len(set(self.task_users.values())) != len(self.task_users):
-                raise ValueError('task_users must give every tenant its own account')
+                # Compared by UID: two names for one UID are one account to ACLs, processes and IPC.
+                if task_uid in task_uids:
+                    raise ValueError('task_users must give every tenant its own account')
+                task_uids.add(task_uid)
             if not isinstance(task_root, str) or not Path(task_root).is_absolute():
                 raise ValueError('task_users needs an absolute task_root')
             root_stat = os.lstat(task_root)
@@ -335,10 +338,14 @@ class Worker:
         if self.task_users is not None:
             # A process the dead worker left running as a task account keeps its open files
             # and cwd whatever happens to the folders, so end it first and hold if that fails.
+            # Files a crashed run left in shared folders missed their post-run scrub; scrub now.
             for account in sorted(set(self.task_users.values())):
                 if not self.task_account_idle(account):
                     private_json(self.held, {'attempt_id': 'task-account:' + account,
                                              'reason': 'Task-account processes survived a worker restart; reconcile before dispatch'})
+                elif not self.scrub_task_account(account):
+                    private_json(self.held, {'attempt_id': 'task-account:' + account,
+                                             'reason': 'Task-account files left in shared folders after a restart; reconcile before dispatch'})
             # A workdir left in task_root by a crash stays reachable by the task account until
             # it is moved into private state; if that fails, nothing more is dispatched.
             for leftover in sorted(self.task_root.iterdir()):

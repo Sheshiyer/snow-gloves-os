@@ -711,6 +711,28 @@ def test_restart_reaps_the_task_account_or_holds(worker, tmp_path, monkeypatch):
     assert 'restart' in json.loads(w.held.read_text())['reason']
 
 
+def test_worker_accepts_tenant_accounts_with_distinct_uids(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, _ = worker
+    root = tmp_path / 'task-root'
+    root.mkdir()
+    root.chmod(0o711)
+    monkeypatch.setattr(fleet_worker, 'account_uid', {'sg-a': 90001, 'sg-b': 90002}.__getitem__)
+    assert fleet_worker.Worker(dict(w.config, task_users={'tenant-a': 'sg-a', 'tenant-b': 'sg-b'}, task_root=str(root))).task_users
+
+
+def test_restart_scrubs_what_a_crashed_run_left_in_shared_folders(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    w.request = lambda route, body: {}
+    # Stands in for a run that copied tenant data to /tmp and then lost its worker.
+    (tmp_path / 'shared-tmp' / 'stash.md').write_text('tenant-a private context')
+    w.recover()
+    assert list((tmp_path / 'shared-tmp').iterdir()) == [] and not w.held.exists()
+    monkeypatch.setattr(w, 'scrub_task_account', lambda user: False)
+    w.recover()
+    assert 'shared folders' in json.loads(w.held.read_text())['reason']
+
+
 def test_each_tenant_runs_as_its_own_account_and_an_unmapped_tenant_is_refused(worker, tmp_path, monkeypatch):
     import fleet_worker
     w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
@@ -721,7 +743,9 @@ def test_each_tenant_runs_as_its_own_account_and_an_unmapped_tenant_is_refused(w
     assert reports[-1]['type'] == 'failed' and not (root / 'task9-attempt9').exists() and not calls.exists()
 
 
-@pytest.mark.parametrize('mapping', [{'tenant-a': 'same', 'tenant-b': 'same'}, {}, ['tenant-a'], {'Tenant A': 'sg-a'}])
+# Two names for one UID (every name maps to 99999 here) are one account, so they are refused too.
+@pytest.mark.parametrize('mapping', [{'tenant-a': 'same', 'tenant-b': 'same'}, {'tenant-a': 'sg-a', 'tenant-b': 'sg-a-alias'},
+                                     {}, ['tenant-a'], {'Tenant A': 'sg-a'}])
 def test_worker_refuses_a_task_account_map_that_shares_or_is_malformed(worker, tmp_path, monkeypatch, mapping):
     import fleet_worker
     w, _ = worker
