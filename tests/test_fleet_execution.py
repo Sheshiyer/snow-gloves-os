@@ -428,3 +428,75 @@ def test_bridge_rechecks_the_checkout_before_every_run(hermes_checkout, tmp_path
     with pytest.raises(ValueError, match='refusing to run unpinned code'):
         bridge.interpret(body)
     assert len(ran) == 1
+
+
+def _task_account(worker, tmp_path, monkeypatch, log_name='sudo.log'):
+    """Point the worker at a stand-in sudo that records each call and runs the command as us,
+    except pkill, which it only records (it must never signal this test's own processes)."""
+    import fleet_worker
+    import pwd as accounts
+    w, task = worker
+    me = accounts.getpwuid(os.getuid()).pw_name
+    monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: 99999)
+    root = tmp_path / 'task-root'
+    root.mkdir(mode=0o711)
+    root.chmod(0o711)
+    calls = tmp_path / log_name
+    sudo = tmp_path / 'sudo'
+    sudo.write_text('#!/usr/bin/env python3\n'
+                    'import json, os, sys\n'
+                    'args = sys.argv[1:]\n'
+                    'rest = args[args.index("--") + 1:] if "--" in args else args[3:]\n'
+                    'with open(%r, "a") as log: log.write(json.dumps({"args": args, "env": sorted(os.environ)}) + "\\n")\n'
+                    'if rest and rest[0] == "/usr/bin/pkill": sys.exit(0)\n'
+                    'os.execv(rest[0], rest)\n' % str(calls))
+    sudo.chmod(0o700)
+    config = dict(w.config, task_user=me, task_root=str(root), sudo_path=str(sudo))
+    return fleet_worker.Worker(config), dict(task, tenant='tenant-a', tenant_isolated=True), root, calls
+
+
+def test_tenant_tasks_run_as_the_task_account_in_a_private_workdir(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    records = [json.loads(line) for line in calls.read_text().splitlines()]
+    run = next(r for r in records if '--' in r['args'] and r['args'][r['args'].index('--') + 1].endswith('codex'))
+    assert run['args'][:3] == ['-n', '-u', w.task_user]
+    preserved = run['args'][3].split('=', 1)[1].split(',')
+    assert 'OMNIROUTE_API_KEY' in preserved and {'HOME', 'CODEX_HOME', 'TMPDIR'} <= set(preserved)
+    # The key travels only in the environment, never on the command line.
+    assert not any('gateway-secret' in arg for arg in run['args'])
+    # The run used a workdir under task_root, never the worker's own state, and it was removed.
+    assert '-C' in run['args'] and run['args'][run['args'].index('-C') + 1].startswith(str(root))
+    assert list(root.iterdir()) == [] and not (w.state / 'worktrees').exists()
+
+
+def test_task_account_runs_are_reaped_and_refuse_write(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(dict(task, access='write'))
+    assert reports[-1]['type'] == 'failed'
+    w.execute(dict(task, id='task2', attempt_id='attempt2'))
+    records = [json.loads(line)['args'] for line in calls.read_text().splitlines()]
+    # After the run, whatever the task account still runs is ended through sudo.
+    assert any(args[-4:] == ['/usr/bin/pkill', '-KILL', '-U', w.task_user] for args in records)
+
+
+@pytest.mark.parametrize('change', ['same-account', 'no-root', 'group-writable-root', 'closed-root'])
+def test_worker_refuses_an_unsafe_task_account_setup(worker, tmp_path, monkeypatch, change):
+    import fleet_worker
+    import pwd as accounts
+    w, _ = worker
+    root = tmp_path / 'task-root'
+    root.mkdir()
+    root.chmod({'group-writable-root': 0o771, 'closed-root': 0o700}.get(change, 0o711))
+    monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: os.getuid() if change == 'same-account' else 99999)
+    config = dict(w.config, task_user=accounts.getpwuid(os.getuid()).pw_name, task_root=str(root))
+    if change == 'no-root':
+        config.pop('task_root')
+    with pytest.raises(ValueError):
+        fleet_worker.Worker(config)

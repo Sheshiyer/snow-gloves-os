@@ -246,3 +246,39 @@ The first isolated real-flow probe interpreted and planned through pinned Hermes
 
 
 Actual corrected candidate flow on Coding01 completed root → Librarian → Sentinel with the pinned Hermes bridge and three sequential Codex jobs, all with zero collaboration events. Exact predecessor output was verified in the owned CLI session prompts, rather than inferred from artifact references. Sentinel corrected five root citation offsets against the real checkout. This isolated run leaves production admission and human semantic acceptance pending; the serving board remains unchanged. The first interrupted candidate and all recovery evidence are preserved without replay.
+
+## Running tenant tasks as a separate account (optional, off by default)
+
+The worker and every other service run as the operator account, which owns all private instance data: the ops checkout, every tenant workspace, backups, configs and the gateway key. The read-only Codex sandbox does not confine reads, so a tenant task run as that account could read any of it, whatever the private clone and history checks do. Folder permissions cannot hide files from their owner, so isolating tenant tasks needs a second account.
+
+With `task_user` and `task_root` set in the worker config, each tenant-isolated task (`tenant_isolated` in its claim) runs this way:
+
+- The worker creates `<task_root>/<task>-<attempt>/` (mode 700) as the operator account and makes the private clone in `repo/` there. The clone is outside the operator's home.
+- ACL entries give the task account read access to `repo/`, and full access to a fresh `home/` that serves as `HOME`, `CODEX_HOME` and `TMPDIR`. The task account gets nothing else.
+- Codex runs as `sudo -n -u <task_user> --preserve-env=<names> -- <codex …>`. The gateway key goes through the environment only, never the command line.
+- Stopping a run signals the group as before, then runs `pkill -KILL -U <task_user>` as the task account, because sudo cannot relay SIGKILL. The worker runs one job at a time, so nothing else belongs to that account.
+- After reporting, the worker removes `home/` as the task account and the rest of the workdir as itself. The result artifact is written by the operator account as before.
+- Write tasks are refused on this path; tenant projects are read-only.
+
+Without these settings the worker behaves as before.
+
+**One-time setup (needs an administrator):**
+
+1. Create a standard account (for example `sg-task`) with no admin rights, no login shell, no SSH or Screen Sharing access, and its own primary group rather than `staff`. That keeps group-readable files in other homes out of reach.
+2. Make the operator's home owner-only: `chmod 700 /Users/<operator>`. Without this, every member of `staff` can read the operator's 755 folders, the ops checkout included.
+3. Create `task_root` outside that home, owned by the operator with mode 711. Other accounts can pass through it but not list it.
+4. Add `/etc/sudoers.d/snowgloves-task` (edit with `visudo -f`) so the operator can run only these commands as the task account, without a password and keeping the listed environment:
+
+   ```
+   <operator> ALL=(sg-task) NOPASSWD:SETENV: /opt/homebrew/bin/codex, /usr/bin/pkill, /bin/rm
+   ```
+
+   Each runs with the task account's rights only.
+5. Set `task_user`, `task_root` and, if needed, `sudo_path` in the worker config, then restart the worker.
+
+**Check before relying on it:**
+
+- Run `sudo -u sg-task cat /Users/<operator>/Projects/<ops checkout>/fleet.yaml`, plus the same for another tenant's workspace and the gateway key. Each must be denied.
+- Run one real tenant task and confirm it succeeds and its result imports.
+
+**Rollback:** remove the two worker config keys and restart the worker, delete the sudoers file, and if needed restore the home folder's earlier mode.

@@ -7,9 +7,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import pwd
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import time
 import uuid
@@ -99,6 +101,10 @@ def load_config(path):
     return value
 
 
+def account_uid(name):
+    return pwd.getpwnam(name).pw_uid
+
+
 def runtime_environment():
     return {name: os.environ[name] for name in
             ('HOME', 'PATH', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'SSL_CERT_FILE', 'SSL_CERT_DIR')
@@ -149,6 +155,10 @@ def stop_group(process, grace=5):
     except subprocess.TimeoutExpired:
         _signal_group(pgid, signal.SIGKILL)
         process.wait(timeout=grace)
+    reap = getattr(process, 'reap_command', None)
+    if reap:
+        # A run under another account: its processes are not ours to signal directly.
+        subprocess.run(reap, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=grace + 10)
 
 
 class Worker:
@@ -197,6 +207,29 @@ class Worker:
                     or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', tenant) or Path(path).resolve() not in allowed_roots):
                 raise ValueError('Invalid tenant root')
             self.tenant_roots[Path(path).resolve()] = tenant
+        # Optional separate account for tenant-isolated tasks. Every service runs as the
+        # account that owns all private data, so only a different account can keep a
+        # tenant task from reading other tenants' files. Unset, tasks run as today.
+        self.task_user = config.get('task_user')
+        if self.task_user is not None:
+            task_root = config.get('task_root')
+            if not isinstance(self.task_user, str) or not re.fullmatch(r'[a-z_][a-z0-9_-]{0,31}', self.task_user):
+                raise ValueError('task_user must name a different, ordinary account')
+            try:
+                task_uid = account_uid(self.task_user)
+            except KeyError:
+                raise ValueError('task_user must name an existing account') from None
+            if task_uid in (0, os.getuid()):
+                raise ValueError('task_user must name a different, ordinary account')
+            if not isinstance(task_root, str) or not Path(task_root).is_absolute():
+                raise ValueError('task_user needs an absolute task_root')
+            root_stat = os.lstat(task_root)
+            if (not stat.S_ISDIR(root_stat.st_mode) or root_stat.st_uid != os.getuid()
+                    or root_stat.st_mode & 0o022 or not root_stat.st_mode & 0o001):
+                raise ValueError('task_root must be a directory this worker owns, writable only by it, '
+                                 'that other accounts may pass through (mode 711)')
+            self.task_root = Path(task_root)
+            self.sudo_path = config.get('sudo_path', '/usr/bin/sudo')
         if not loopback_endpoint(config['endpoint']):
             raise ValueError('Pilot coordinator must use loopback')
         if config.get('gateway_url') != 'http://127.0.0.1:20128/v1':
@@ -663,9 +696,40 @@ class Worker:
         return dict(access='write', base=run_git('rev-parse', 'HEAD').decode().strip(), files=names,
                     patch={'text': text, 'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw)}, tests=results)
 
+    def prepare_task_account(self, workdir, worktree):
+        """Give the task account read access to the clone and a private home for Codex, by
+        ACL on folders this worker owns; it gets nothing else. Returns its environment."""
+        home = workdir / 'home'
+        for path in (home, home / '.codex', home / 'tmp'):
+            path.mkdir(mode=0o700)
+        user, me = self.task_user, pwd.getpwuid(os.getuid()).pw_name
+        def grant(entry, path, recursive=False):
+            subprocess.run(['/bin/chmod', *(['-R'] if recursive else []), '+a', entry, str(path)],
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+        grant('user:%s allow search' % user, workdir)
+        grant('user:%s allow list,search,read,readattr,readextattr,readsecurity,file_inherit,directory_inherit' % user,
+              worktree, recursive=True)
+        # Codex writes its session state under home; this account keeps delete rights on all
+        # of it so cleanup works whatever the task account creates there.
+        grant('user:%s allow list,search,read,delete,delete_child,readattr,writeattr,readextattr,readsecurity,'
+              'file_inherit,directory_inherit' % me, home, recursive=True)
+        grant('user:%s allow list,search,add_file,add_subdirectory,delete_child,read,write,append,readattr,writeattr,'
+              'readextattr,writeextattr,readsecurity,file_inherit,directory_inherit' % user, home, recursive=True)
+        return {'HOME': str(home), 'CODEX_HOME': str(home / '.codex'), 'TMPDIR': str(home / 'tmp'),
+                'USER': user, 'LOGNAME': user}
+
+    def remove_task_workdir(self, workdir):
+        """Remove a task-account run's clone and home; anything the task account kept away from
+        this account is removed as the task account first."""
+        home = workdir / 'home'
+        if home.exists():
+            subprocess.run([self.sudo_path, '-n', '-u', self.task_user, '/bin/rm', '-rf', '--', str(home)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+        shutil.rmtree(workdir, ignore_errors=True)
+
     def execute(self, task):
         kind, message, artifact = 'failed', 'Execution did not complete', None
-        process = None
+        process, workdir = None, None
         try:
             review = self._review_assignment(task, (self.config.get('token'),))
             private_json(self.active, task)
@@ -725,8 +789,18 @@ class Worker:
                 tenant = task['tenant']
             if tenant is not None and isolation_problem(root, tenant, self.config.get('git_path', 'git')):
                 raise ValueError('Tenant root failed its isolation check')
-            worktree = self.state / 'worktrees' / (task['id'] + '-' + task['attempt_id'])
-            worktree.parent.mkdir(exist_ok=True, mode=0o700)
+            as_task_user = tenant is not None and self.task_user is not None
+            if as_task_user and write:
+                raise WriteRejected('Tenant tasks run as the task account are read-only')
+            if as_task_user:
+                # Outside this account's home, which the task account must not enter at all.
+                workdir = self.task_root / (task['id'] + '-' + task['attempt_id'])
+                workdir.mkdir(mode=0o700)
+                worktree = workdir / 'repo'
+            else:
+                workdir = None
+                worktree = self.state / 'worktrees' / (task['id'] + '-' + task['attempt_id'])
+                worktree.parent.mkdir(exist_ok=True, mode=0o700)
             git = [self.config.get('git_path', 'git'), '-c', 'core.hooksPath=' + os.devnull]  # never run repository hooks
             if tenant is not None:
                 # A tenant task gets its own clone holding only objects reachable from the
@@ -756,6 +830,8 @@ class Worker:
                                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
             env = runtime_environment()
             env['OMNIROUTE_API_KEY'] = key
+            if as_task_user:
+                env.update(self.prepare_task_account(workdir, worktree))
             start = time.monotonic()
             runs = 1 + max(0, int(self.config.get('transient_retries', 2)))
             if business is not None:
@@ -766,8 +842,17 @@ class Worker:
             for run in range(runs):
                 log = self.state / (task['attempt_id'] + ('.retry%d' % run if run else '') + '.jsonl')
                 with os.fdopen(os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
-                    process = subprocess.Popen(self.command(worktree, write), stdin=subprocess.PIPE, stdout=output, stderr=output,
+                    argv = self.command(worktree, write)
+                    if as_task_user:
+                        # Only the listed variables cross into the task account; the key never
+                        # appears in the command line.
+                        argv = [self.sudo_path, '-n', '-u', self.task_user, '--preserve-env=' + ','.join(sorted(env)), '--', *argv]
+                    process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=output, stderr=output,
                                                env=env, start_new_session=True)
+                    if as_task_user:
+                        # sudo relays SIGTERM but cannot relay SIGKILL; this ends whatever the
+                        # task account still runs once the group is stopped.
+                        process.reap_command = [self.sudo_path, '-n', '-u', self.task_user, '/usr/bin/pkill', '-KILL', '-U', self.task_user]
                     process.stdin.write(((WRITE_PREAMBLE if write else '') + prompt).encode())
                     process.stdin.close()
                     early, note = self.monitor(task, start, lambda: process.poll() is not None, process)
@@ -831,6 +916,8 @@ class Worker:
             if process:
                 stop_group(process)
             message = 'Execution prerequisite or runtime failed; inspect private worker state'
+        if workdir is not None:
+            self.remove_task_workdir(workdir)
         body = self.report(task, kind, message=message)
         if artifact:
             body['artifact'] = artifact
