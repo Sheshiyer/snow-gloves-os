@@ -228,8 +228,13 @@ def git_layout(root, git_path='git'):
         entries, roots = {}, set()
         for name, kind, body in _batch(git_path, root, wanted, deadline):
             if kind == b'commit':
-                if body.startswith(b'tree '):
-                    roots.add(body[5:body.index(b'\n')])
+                # Every commit must open with a canonical tree header. One without it never adds
+                # a root here, so a valid commit elsewhere could pass the scan while a clone
+                # rejects the repository as a bogus commit.
+                header = re.match(rb'tree ([0-9a-f]{%d})\n' % (2 * width), body)
+                if header is None:
+                    return None
+                roots.add(header.group(1))
                 continue
             children, cursor = {}, 0
             while cursor < len(body):

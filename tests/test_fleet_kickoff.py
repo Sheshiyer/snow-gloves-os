@@ -1314,3 +1314,22 @@ def test_admit_refuses_a_commit_whose_root_tree_is_missing(tmp_path):
     git('update-ref', 'refs/heads/broken', broken)
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+@pytest.mark.parametrize('header', ['none', 'uppercase'])
+def test_admit_refuses_a_commit_without_a_canonical_tree_header(tmp_path, header):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    git = lambda *args, data=None: subprocess.run(['git', '-C', str(repo), *args], input=data, check=True,
+                                                   capture_output=True).stdout.decode().strip()
+    head = git('rev-parse', 'HEAD')
+    tree = git('rev-parse', 'HEAD^{tree}')
+    first = '' if header == 'none' else 'tree %s\n' % tree.upper()
+    # Beside a valid tenant commit, a commit object a clone would reject as bogus.
+    body = ('%sparent %s\nauthor t <t@example.invalid> 0 +0000\ncommitter t <t@example.invalid> 0 +0000\n\nbogus\n'
+            % (first, head)).encode()
+    bogus = git('hash-object', '-t', 'commit', '-w', '--literally', '--stdin', data=body)
+    # update-ref parses the commit and refuses it, so write the ref as a corrupt repository has it.
+    (repo / '.git' / 'refs' / 'heads' / 'bogus').write_text(bogus + '\n')
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
