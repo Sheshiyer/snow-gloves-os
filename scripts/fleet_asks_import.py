@@ -133,12 +133,22 @@ def _open_journal(tenants_dir, tenant):
     return asks
 
 
+def _open_regular(name, flags, dir_fd, mode=0o600):
+    """Open *name* in the held asks directory without blocking or following a link, and
+    refuse anything but a regular file: a FIFO planted under a known name would otherwise
+    block the open (or a later read) while the tenant's journal lock is held."""
+    fd = os.open(name, flags | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0), mode, dir_fd=dir_fd)
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        raise OSError(errno.EINVAL, 'Not a regular file', name)
+    return fd
+
+
 def _locked_journal(asks):
     """The journal opened in the held asks directory and locked, retrying if compaction
     replaced the file between our open and our lock."""
-    nofollow = getattr(os, 'O_NOFOLLOW', 0)
     while True:
-        fd = os.open(JOURNAL, os.O_APPEND | os.O_CREAT | os.O_RDWR | nofollow, 0o600, dir_fd=asks)
+        fd = _open_regular(JOURNAL, os.O_APPEND | os.O_CREAT | os.O_RDWR, asks)
         fcntl.flock(fd, fcntl.LOCK_EX)
         try:
             if os.fstat(fd).st_ino == os.stat(JOURNAL, dir_fd=asks, follow_symlinks=False).st_ino:
@@ -186,13 +196,9 @@ def _mark_imported(asks, sources, deadline=None):
         for source, when in sources.items():
             if deadline is not None and marked and time.monotonic() > deadline:
                 break
-            # Nonblocking, so a FIFO planted under a marker's name cannot hang the open while the
-            # journal lock is held; anything but a regular file is refused before it is truncated.
-            fd = os.open(_marker(source), os.O_WRONLY | os.O_CREAT | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0),
-                         0o600, dir_fd=held)
+            # A FIFO planted under a marker's name is refused, never waited on, before truncation.
+            fd = _open_regular(_marker(source), os.O_WRONLY | os.O_CREAT, held)
             try:
-                if not stat.S_ISREG(os.fstat(fd).st_mode):
-                    raise OSError(errno.EINVAL, 'Import marker is not a regular file', _marker(source))
                 os.ftruncate(fd, 0)
                 os.write(fd, json.dumps({'source': source, 'created': when, 'complete': True}).encode())
                 os.fsync(fd)
@@ -208,9 +214,9 @@ def _mark_imported(asks, sources, deadline=None):
 def _compacted_size(asks):
     """The journal size right after the last compaction, from a small marker file (0 if none)."""
     try:
-        fd = os.open(JOURNAL + '.compacted', os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0), dir_fd=asks)
+        fd = _open_regular(JOURNAL + '.compacted', os.O_RDONLY, asks)
     except OSError:
-        return 0
+        return 0  # missing, or not a regular file: compact as if never compacted
     try:
         value = os.read(fd, 32).strip()
         return int(value) if value.isdigit() else 0
@@ -219,8 +225,9 @@ def _compacted_size(asks):
 
 
 def _record_compacted_size(asks, size):
-    fd = os.open(JOURNAL + '.compacted', os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0), 0o600, dir_fd=asks)
+    fd = _open_regular(JOURNAL + '.compacted', os.O_WRONLY | os.O_CREAT, asks)
     try:
+        os.ftruncate(fd, 0)  # only once it is known to be a regular file
         os.write(fd, str(size).encode())
     finally:
         os.close(fd)

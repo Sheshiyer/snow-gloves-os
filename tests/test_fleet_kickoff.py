@@ -1460,3 +1460,22 @@ def test_a_special_file_under_an_import_marker_name_fails_fast(tmp_path):
     with pytest.raises(OSError):
         import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='task-1', created=1.0)
     assert clock.monotonic() - started < 5
+
+
+@pytest.mark.parametrize('name', ['proposed.jsonl.compacted', 'proposed.jsonl'])
+def test_a_fifo_at_a_journal_file_name_never_stalls_an_import(tmp_path, monkeypatch, name):
+    import time as clock
+    import fleet_asks_import
+    from lib.tenant_asks import load_proposals
+    monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 1)  # every import reaches compaction
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    asks_dir.mkdir(parents=True)
+    os.mkfifo(asks_dir / name)
+    started = clock.monotonic()
+    imported = import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='t1', created=1.0)
+    assert clock.monotonic() - started < 5
+    if name == 'proposed.jsonl':
+        assert imported == 0  # the journal itself is unusable: nothing imported, nothing hung
+    else:
+        assert imported == 1 and load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 1'}
