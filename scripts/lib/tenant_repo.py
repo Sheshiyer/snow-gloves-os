@@ -221,7 +221,7 @@ def git_layout(root, git_path='git'):
         if subprocess.run([git_path, '--no-replace-objects', '-C', str(root), 'rev-parse', '--verify', '--quiet', 'HEAD^{commit}'],
                           capture_output=True, timeout=SCAN_SECONDS).returncode:
             return None
-        wanted, sizes, count, metadata = [], {}, 0, 0
+        wanted, sizes, count, metadata, commits = [], {}, 0, 0, set()
         listing = subprocess.Popen([git_path, '--no-replace-objects', '-C', str(root), 'cat-file', '--batch-all-objects',
                                     '--batch-check=%(objecttype) %(objectname) %(objectsize)'],
                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -233,6 +233,8 @@ def git_layout(root, git_path='git'):
                 if kind in (b'tree', b'commit'):
                     wanted.append(oid)
                     metadata += int(size)
+                    if kind == b'commit':
+                        commits.add(oid)
                 elif kind == b'blob':
                     sizes[oid] = int(size)
                 if count > MAX_OBJECTS or metadata > MAX_METADATA_BYTES or time.monotonic() > deadline:
@@ -243,7 +245,7 @@ def git_layout(root, git_path='git'):
             listing.wait()
         if listing.returncode not in (0, -9) or time.monotonic() > deadline:
             return None
-        entries, roots = {}, set()
+        entries, roots, parents = {}, set(), set()
         for name, kind, body in _batch(git_path, root, wanted, deadline):
             if kind == b'commit':
                 # Every commit must open with a canonical tree header. One without it never adds
@@ -253,6 +255,15 @@ def git_layout(root, git_path='git'):
                 if header is None:
                     return None
                 roots.add(header.group(1))
+                # Parent lines follow the tree line, and a clone walks every one of them; a
+                # malformed one is as bogus to a clone as a missing header.
+                cursor = header.end()
+                while body.startswith(b'parent ', cursor):
+                    parent = re.compile(rb'parent ([0-9a-f]{%d})\n' % (2 * width)).match(body, cursor)
+                    if parent is None:
+                        return None
+                    parents.add(parent.group(1))
+                    cursor = parent.end()
                 continue
             children, cursor = {}, 0
             while cursor < len(body):
@@ -280,7 +291,8 @@ def git_layout(root, git_path='git'):
         for mode, oid in children.values():
             if (mode == b'40000' and oid not in entries) or (mode in (b'100644', b'100755', b'120000') and oid not in sizes):
                 return None
-    if roots - entries.keys():
+    # A missing (or non-commit) parent passes here, but the clone that walks it fails.
+    if roots - entries.keys() or parents - commits:
         return None
     tenants = set()
     for children in entries.values():

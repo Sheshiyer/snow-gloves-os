@@ -1351,3 +1351,21 @@ def test_admit_refuses_tree_names_a_checkout_would_reject(tmp_path, name):
     git('update-ref', 'refs/heads/bad-name', commit)
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+@pytest.mark.parametrize('parent', ['missing', 'tree', 'malformed'])
+def test_admit_refuses_a_commit_whose_parent_is_not_a_present_commit(tmp_path, parent):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    git = lambda *args, data=None: subprocess.run(['git', '-C', str(repo), *args], input=data, check=True,
+                                                   capture_output=True).stdout.decode().strip()
+    tree = git('rev-parse', 'HEAD^{tree}')
+    # A commit with this tenant's own root tree, whose parent a clone could not walk.
+    named = {'missing': '1' * len(tree), 'tree': tree, 'malformed': tree.upper()}[parent]
+    body = ('tree %s\nparent %s\nauthor t <t@example.invalid> 0 +0000\ncommitter t <t@example.invalid> 0 +0000\n\nbroken parent\n'
+            % (tree, named)).encode()
+    broken = git('hash-object', '-t', 'commit', '-w', '--literally', '--stdin', data=body)
+    # update-ref may refuse such a commit, so write the ref as a corrupt repository has it.
+    (repo / '.git' / 'refs' / 'heads' / 'broken').write_text(broken + '\n')
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
