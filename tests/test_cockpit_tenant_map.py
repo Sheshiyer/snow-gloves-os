@@ -197,3 +197,15 @@ def test_malformed_enablement_row_holds_the_enablement(tree):
     result = capability_map(repo, tenant)
     assert result['enabledState'] == 'held'
     assert result['configuredModules'] == [] and result['assignedAgents'] == []
+
+
+def test_a_preparation_template_listed_under_agents_is_held(tree):
+    repo, tenant = tree
+    path = tenant / 'enabled.yaml'
+    enabled = yaml.safe_load(path.read_text())
+    enabled['agents'] = ['cto', 'writer']
+    path.write_text(yaml.safe_dump(enabled))
+    result = capability_map(repo, tenant)
+    # Only control agents exist at runtime; a business template is preparation-only.
+    assert result['assignedAgents'] == [{'id': 'cto', 'status': 'configured'}, {'id': 'writer', 'status': 'held'}]
+    assert [r['id'] for r in result['availableBusinessRoles']] == ['writer']

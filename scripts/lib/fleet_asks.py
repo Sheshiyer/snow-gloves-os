@@ -26,6 +26,8 @@ MAX_ANSWER = 500
 MAX_PRINCIPAL = 120  # the client's answered_by limit
 MAX_RECORD_BYTES = 64 * 1024  # far above any answer record; bounds every backward scan
 ASK_ID = re.compile(r'[a-f0-9]{32}\Z')
+ANSWER_BATCH = 400  # ask ids per answer lookup (SQLite bound-parameter headroom)
+FLUSH_BATCH = 100  # outbox rows loaded at a time
 
 
 def install(coordinator):
@@ -232,10 +234,16 @@ class Asks:
         self.c._need(principal, 'read')
         cfg = self.c.capabilities.project(principal, project)
         self.flush(cfg['tenant'])
-        with self.c.lock:
-            rows = {row['ask_id']: row for row in self.c.db.execute(
-                'SELECT * FROM ask_answers WHERE project=?', (project,))}
         asks = derive_asks(paths.tenants_dir(), cfg['tenant'], load_proposal(paths.data_root()), load_catalog(paths.code_root()))
+        # Only answers for the asks that exist now: answers to asks that vanished stay stored
+        # but must not make every listing load the project's whole history.
+        ids, rows = [ask['id'] for ask in asks], {}
+        with self.c.lock:
+            for start in range(0, len(ids), ANSWER_BATCH):
+                chunk = ids[start:start + ANSWER_BATCH]
+                rows.update((row['ask_id'], row) for row in self.c.db.execute(
+                    'SELECT * FROM ask_answers WHERE project=? AND ask_id IN (%s)' % ','.join('?' * len(chunk)),
+                    (project, *chunk)))
         public = []
         for ask in asks:
             row = rows.get(ask['id'])
@@ -286,20 +294,31 @@ class Asks:
         """Append committed outbox records to their journals; a failed append stays queued."""
         from .fleet_coordinator import Rejected
         with self._flush_lock:
-            with self.c.lock:
-                query, params = 'SELECT rowid, * FROM ask_journal_outbox', ()
+            blocked, after = set(), 0
+            # A bounded batch at a time: a long-failing journal can leave a large queue, and
+            # its tenant's rows are skipped in the query rather than loaded and passed over.
+            while True:
+                where, params = ['rowid > ?'], [after]
                 if tenant is not None:
-                    query, params = query + ' WHERE tenant=?', (tenant,)
-                rows = list(self.c.db.execute(query + ' ORDER BY rowid', params))
-            blocked = set()
-            for row in rows:
-                # Keep per-tenant order: once one record fails, later ones wait.
-                if row['tenant'] in blocked:
-                    continue
-                try:
-                    self._append_journal(self._journal_path(row['tenant']), json.loads(row['record_json']))
-                except (Rejected, OSError, ValueError):
-                    blocked.add(row['tenant'])
-                    continue
-                with self.c.transaction():
-                    self.c.db.execute('DELETE FROM ask_journal_outbox WHERE answer_id=?', (row['answer_id'],))
+                    where.append('tenant = ?')
+                    params.append(tenant)
+                if blocked:
+                    where.append('tenant NOT IN (%s)' % ','.join('?' * len(blocked)))
+                    params.extend(sorted(blocked))
+                with self.c.lock:
+                    rows = list(self.c.db.execute('SELECT rowid, * FROM ask_journal_outbox WHERE %s ORDER BY rowid LIMIT ?'
+                                                  % ' AND '.join(where), (*params, FLUSH_BATCH)))
+                if not rows:
+                    break
+                for row in rows:
+                    after = row['rowid']
+                    # Keep per-tenant order: once one record fails, later ones wait.
+                    if row['tenant'] in blocked:
+                        continue
+                    try:
+                        self._append_journal(self._journal_path(row['tenant']), json.loads(row['record_json']))
+                    except (Rejected, OSError, ValueError):
+                        blocked.add(row['tenant'])
+                        continue
+                    with self.c.transaction():
+                        self.c.db.execute('DELETE FROM ask_journal_outbox WHERE answer_id=?', (row['answer_id'],))

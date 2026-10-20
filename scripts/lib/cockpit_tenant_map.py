@@ -201,9 +201,12 @@ def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
     enabled, enabled_state = read_enablement(tenant_dir)
     configured, assigned = [], []
     known_roles = {r["id"] for r in controls + templates}
+    # Only control agents exist at runtime (manifests under agents/); a preparation-only
+    # template listed under agents cannot be assigned, so it is held, not configured.
+    control_ids = {r["id"] for r in controls}
     if enabled_state == "configured":
         for ident in enabled["agents"]:
-            assigned.append({"id": ident, "status": "configured" if ident in known_roles else "held"})
+            assigned.append({"id": ident, "status": "configured" if ident in control_ids else "held"})
         for item in enabled["modules"]:
             ident = item.get("id") if isinstance(item, dict) else item
             card = cards.get(ident, {})

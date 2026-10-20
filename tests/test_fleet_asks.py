@@ -392,3 +392,48 @@ def test_a_damaged_journal_tail_is_refused_without_a_full_backward_scan(asks_ctx
         c.asks._append_journal(path, {'answer_id': 'new', 'ask_id': target})
     # Nothing was cut or appended; the outbox keeps the answer for repair.
     assert path.read_bytes().endswith(b'x' * 1024) and b'"new"' not in path.read_bytes()
+
+
+def test_listing_loads_answers_only_for_current_asks(asks_ctx):
+    c, config, _, tenant = asks_ctx
+    target = _ask_id(c, config)
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'value': 'EUR 99'})
+    # Answers to asks that no longer exist (edited FILL lines) stay stored.
+    with c.transaction():
+        c.db.executemany('INSERT INTO ask_answers(project, ask_id, tenant, kind, answer_json, answered, answered_by, proposed) '
+                         'VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
+                         [('snowgloves', '%032x' % n, 'heyzack', 'fact', '{"value":"old"}', 1.0, 'x', None) for n in range(500)])
+    statements = []
+    c.db.set_trace_callback(statements.append)
+    try:
+        listed = c.asks.list('founder', config['principals']['founder'], 'snowgloves')['asks']
+    finally:
+        c.db.set_trace_callback(None)
+    assert [a['answer'] for a in listed] == [{'value': 'EUR 99'}]
+    lookups = [s for s in statements if 'FROM ask_answers' in s]
+    assert lookups and all('ask_id IN' in s for s in lookups)
+
+
+def test_outbox_flushes_in_batches_and_skips_a_blocked_tenant_in_the_query(asks_ctx, monkeypatch):
+    import lib.fleet_asks as fleet_asks
+    c, config, _, tenant = asks_ctx
+    monkeypatch.setattr(fleet_asks, 'FLUSH_BATCH', 2)
+    rows = [('gone-%d' % n, 'missing-tenant') for n in range(5)] + [('ok-%d' % n, 'heyzack') for n in range(3)]
+    with c.transaction():
+        c.db.executemany('INSERT INTO ask_journal_outbox(answer_id, tenant, record_json, created) VALUES(?, ?, ?, ?)',
+                         [(answer_id, owner, json.dumps({'answer_id': answer_id, 'tenant': owner}), 1.0) for answer_id, owner in rows])
+    attempts = []
+    original = c.asks._append_journal
+    monkeypatch.setattr(c.asks, '_append_journal', lambda path, record: (attempts.append(record['answer_id']), original(path, record))[1])
+    statements = []
+    c.db.set_trace_callback(statements.append)
+    try:
+        c.asks.flush()
+    finally:
+        c.db.set_trace_callback(None)
+    # The tenant with no journal fails at its first row; the query then skips its later rows.
+    assert [a for a in attempts if a.startswith('gone')] == []
+    assert [a for a in attempts if a.startswith('ok')] == ['ok-0', 'ok-1', 'ok-2']
+    assert sorted(r[0] for r in c.db.execute('SELECT answer_id FROM ask_journal_outbox')) == ['gone-%d' % n for n in range(5)]
+    reads = [s for s in statements if 'FROM ask_journal_outbox' in s and s.lstrip().upper().startswith('SELECT')]
+    assert reads and all('LIMIT' in s for s in reads) and any('NOT IN' in s for s in reads)
