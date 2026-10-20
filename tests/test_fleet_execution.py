@@ -78,6 +78,7 @@ def test_worker_rechecks_a_tenant_root_before_every_task(worker):
     w.tenant_roots = {root: 'tenant-a'}
     reports = []
     w.request = lambda route, body: reports.append(body) or {}
+    task = dict(task, tenant='tenant-a')  # every claim names its project's tenant
     w.execute(task)
     assert reports[-1]['type'] == 'succeeded'
     # A later fetch brings another tenant's tree into the object database.
@@ -689,11 +690,12 @@ def test_scrub_refuses_when_a_shared_file_the_account_can_write_changed(worker, 
 
 def test_scrub_refuses_when_a_shared_folders_attributes_or_acl_changed(worker, tmp_path, monkeypatch):
     w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
-    # Another account's world-writable folder: a run could keep data in its extended
-    # attributes without owning any entry. New entries by others must not count as a change.
+    # Another account's world-writable sticky folder (as /tmp is): a run could keep data in its
+    # extended attributes without owning any entry. New entries by others must not count as a
+    # change, since only their owners can remove them.
     folder = tmp_path / 'shared-tmp' / 'drop'
     folder.mkdir()
-    folder.chmod(0o777)
+    folder.chmod(0o1777)
     assert w.scrub_task_account('nobody', 'before') is True
     (folder / 'someone-elses.log').write_text('')
     assert w.scrub_task_account('nobody') is True
@@ -874,3 +876,33 @@ def test_preparation_keeps_the_lease_alive_and_honours_cancellation(worker, monk
     if coordinator != 'renews':
         # Stopped before the clone: no private copy of the tenant repository was made.
         assert not (w.state / 'worktrees' / 'task1-attempt1').exists()
+
+
+def test_tenant_roots_serve_only_their_own_tenant(worker):
+    w, task = worker
+    root = Path(task['root']).resolve()
+    w.tenant_roots = {root: 'tenant-a'}
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    # A project of tenant B mapped to tenant A's reserved root, without the admitted flag.
+    w.execute(dict(task, tenant='tenant-b'))
+    assert reports[-1]['type'] == 'failed'
+    assert not (w.state / 'worktrees' / 'task1-attempt1').exists()
+    w.execute(dict(task, id='task2', attempt_id='attempt2', tenant='tenant-a'))
+    assert reports[-1]['type'] == 'succeeded'
+
+
+def test_scrub_refuses_when_a_non_sticky_shared_folder_lost_an_entry(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Without the sticky bit, write access to the folder lets the task account delete or
+    # rename another account's entry even though the entry itself is not writable.
+    folder = tmp_path / 'shared-tmp' / 'open'
+    folder.mkdir()
+    (folder / 'theirs.txt').write_text('another account')
+    (folder / 'theirs.txt').chmod(0o444)
+    folder.chmod(0o777)
+    assert w.scrub_task_account('nobody', 'before') is True
+    assert w.scrub_task_account('nobody') is True  # unchanged across the run
+    assert w.scrub_task_account('nobody', 'before') is True
+    (folder / 'theirs.txt').rename(folder / 'moved.txt')
+    assert w.scrub_task_account('nobody') is False

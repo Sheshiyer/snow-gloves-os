@@ -273,10 +273,23 @@ def folder_metadata(path):
             libc.acl_free(acl)
     elif ctypes.get_errno() != errno.ENOENT:
         raise OSError(ctypes.get_errno(), 'Cannot read folder ACL', os.fsdecode(path))
+    # Without the sticky bit (or with an ACL, which can grant delete_child), write access to
+    # the folder lets the task account delete or rename another account's entries in it, so
+    # those folders also fingerprint their entries (names and inodes, never times).
+    if acl or not info.st_mode & stat.S_ISVTX:
+        children = []
+        with os.scandir(path) as listing:
+            for entry in listing:
+                if len(children) >= MAX_FOLDER_ENTRIES:
+                    raise OSError(0, 'Too many entries to fingerprint', os.fsdecode(path))
+                children.append((entry.name, entry.inode()))
+        for name, inode in sorted(children):
+            digest.update(b'entry:%d:%s%d' % (len(name), name, inode))
     return digest.hexdigest()
 
 
 XATTR_NOFOLLOW = 0x0001
+MAX_FOLDER_ENTRIES = 10_000
 ACL_TYPE_EXTENDED = 0x00000100
 
 
@@ -1114,6 +1127,11 @@ class Worker:
             # worker lists in tenant_roots is re-verified before every task; a fetch since
             # admission must not bring another tenant's objects into the worktree.
             tenant = self.tenant_roots.get(root)
+            # A root this worker reserves for one tenant serves only that tenant's claims, whether
+            # or not the coordinator marks the project admitted: a project mapped to the wrong
+            # root must not clone, run as and report another tenant's repository.
+            if tenant is not None and task.get('tenant') != tenant:
+                raise ValueError('Tenant assignment does not match this root')
             if task.get('tenant_isolated') is True:
                 if not isinstance(task.get('tenant'), str) or tenant not in (None, task['tenant']):
                     raise ValueError('Tenant assignment does not match this root')

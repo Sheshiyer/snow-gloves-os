@@ -548,3 +548,13 @@ def test_a_revised_website_prompt_is_a_new_ask(tmp_path):
         return [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'website'][0]['id']
     assert website('FILL: main domain') == website('FILL: main domain')
     assert website('FILL: shop domain') != website('FILL: main domain')
+
+
+def test_fill_lines_refused_only_after_normalization_never_spend_the_budget(tmp_path):
+    import lib.tenant_asks as ta
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    # Each of these passes the raw check but normalizes (tab to space) into a refused title.
+    (t / 'context' / 'a.md').write_text(''.join('FILL: api\tkey for %d\n' % n for n in range(ta.MAX_ASKS)))
+    (t / 'context' / 'b.md').write_text('FILL: the launch date.\n')
+    titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact']
+    assert titles == ['the launch date.']

@@ -200,12 +200,20 @@ def _fact_asks(tenant_dir: Path, tenant: str, proposals: dict[str, str]) -> list
         except UnicodeError:
             continue
         source = f"context/{path.name}"
+        # The checks keep() applies to the final text run here too, before an ask is counted:
+        # lines that only normalize into something refused must not spend the budget.
+        shown_source = _clean_text(source)[:MAX_SOURCE]
+        if not shown_source or SENSITIVE_RE.search(shown_source) or not is_scalar_text(shown_source):
+            continue
         for line in text.splitlines():
             match = FILL_RE.match(line)
             if not match:
                 continue
             value = match.group(1).strip()
             if not value or SENSITIVE_RE.search(value):
+                continue
+            shown = _clean_text(value)[:MAX_TITLE]
+            if not shown or SENSITIVE_RE.search(shown) or not is_scalar_text(shown):
                 continue
             key = f"{source}|{value}"
             identity = ask_id(tenant, 'fact', key)
