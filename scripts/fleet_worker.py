@@ -789,24 +789,36 @@ class Worker:
 
     def scrub_task_account(self):
         """Delete everything the task account owns in the shared writable folders, then check
-        nothing is left. Returns whether that could be confirmed."""
+        nothing is left. Returns True only when every command succeeded and the re-check
+        found nothing; any error (a missing sudoers entry, an unreadable folder) fails closed."""
         as_task = [self.sudo_path, '-n', '-u', self.task_user]
         roots = [root for root in self.task_scrub_roots if os.path.isdir(root)]
+        # Folders the account cannot enter (no execute for others) cannot hold its files, so
+        # they are pruned instead of failing; anything else find cannot read makes it fail.
+        listing = ['-xdev', '-mindepth', '1', '(', '-type', 'd', '!', '-user', self.task_user, '!', '-perm', '-001', ')',
+                   '-prune', '-o', '-user', self.task_user, '-print0', '-prune']
         try:
             if self.task_scrub_user_dir:
-                user_dir = subprocess.run([*as_task, '/usr/bin/getconf', 'DARWIN_USER_DIR'], capture_output=True,
-                                          timeout=10).stdout.decode('utf-8', 'replace').strip()
-                if not user_dir or not Path(user_dir).is_absolute():
+                user_dir = subprocess.run([*as_task, '/usr/bin/getconf', 'DARWIN_USER_DIR'], capture_output=True, timeout=10)
+                path = user_dir.stdout.decode('utf-8', 'replace').strip()
+                if user_dir.returncode or not path or not Path(path).is_absolute():
                     return False
-                roots.append(user_dir)
+                roots.append(path)
             if not roots:
                 return True
-            find = [*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', '-user', self.task_user]
-            subprocess.run([*find, '-delete'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
-            left = subprocess.run([*find, '-print', '-quit'], capture_output=True, timeout=300).stdout
+            found = subprocess.run([*as_task, '/usr/bin/find', *roots, *listing], capture_output=True, timeout=300)
+            if found.returncode:
+                return False
+            paths = [entry for entry in found.stdout.split(b'\0') if entry]
+            for start in range(0, len(paths), 100):
+                removed = subprocess.run([*as_task, '/bin/rm', '-rf', '--', *(os.fsdecode(p) for p in paths[start:start + 100])],
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+                if removed.returncode:
+                    return False
+            again = subprocess.run([*as_task, '/usr/bin/find', *roots, *listing], capture_output=True, timeout=300)
         except (OSError, subprocess.SubprocessError):
             return False
-        return not left.strip()
+        return again.returncode == 0 and not again.stdout.strip(b'\0').strip()
 
     def settle_task_workdir(self, workdir, task, succeeded):
         """Remove a succeeded run's workdir and keep any other; if neither works, or anything

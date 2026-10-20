@@ -618,3 +618,15 @@ def test_an_unconfirmable_scrub_holds_dispatch(worker, tmp_path, monkeypatch):
     w.request = lambda route, body: reports.append(body) or {}
     w.execute(task)
     assert reports[-1]['type'] == 'failed' and 'clean' in json.loads(w.held.read_text())['reason']
+
+
+def test_a_failing_scrub_command_fails_closed(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Stands in for a host whose sudoers entry does not yet allow find.
+    real_run = subprocess.run
+    def run(argv, *args, **kwargs):
+        if isinstance(argv, list) and '/usr/bin/find' in argv:
+            return subprocess.CompletedProcess(argv, 1, b'', b'sudo: a password is required')
+        return real_run(argv, *args, **kwargs)
+    monkeypatch.setattr(subprocess, 'run', run)
+    assert w.scrub_task_account() is False
