@@ -1,4 +1,5 @@
 """Founder asks derived from tenant files: bounded, sensitive-safe, never raising."""
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -108,7 +109,7 @@ def test_decision_connect_website_brand(tmp_path):
     assert [a['role'] for a in asks] == ['chief-of-staff', 'dispatcher', 'dispatcher', 'interpreter', 'interpreter']
     assert [a['answer_type'] for a in asks] == ['yes_no', 'yes_no', 'yes_no', 'text', 'yes_no']
     assert all(a['proposed'] is None for a in asks)
-    expected = [('decision', 'flow|f1'), ('connect', 'source|drive'), ('connect', 'module|github-mcp'),
+    expected = [('decision', 'flow|f1|' + hashlib.sha256(b'X').hexdigest()[:16]), ('connect', 'source|drive'), ('connect', 'module|github-mcp'),
                 ('website', 'domain'), ('brand', 'meristem')]
     assert {a['id'] for a in asks} == {ask_id('heyzack', kind, key) for kind, key in expected}
     assert {a['source'] for a in asks} == {'portfolio-map-proposal.json', 'sources.yaml', 'enabled.yaml', 'MANIFEST.yaml'}
@@ -525,3 +526,15 @@ def test_context_byte_budget_counts_bytes_not_characters(tmp_path, monkeypatch):
     # An undecodable file still spends the bytes it took to read.
     (t / 'context' / '00.md').write_bytes(b'\xff' * 3000)
     assert [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact'] == []
+
+
+def test_a_revised_decision_is_a_new_ask(tmp_path):
+    (tmp_path / 'heyzack').mkdir()
+    def decision(description):
+        proposal = {'cross_brand_flows': [{'id': 'f1', 'status': 'proposed_not_approved', 'participants': ['heyzack'],
+                                           'description': description}]}
+        return [a for a in derive_asks(tmp_path, 'heyzack', proposal) if a['kind'] == 'decision'][0]['id']
+    # Same flow and text: the same ask, so its answer still applies.
+    assert decision('Share leads with acme') == decision('Share leads with acme')
+    # Revised text: a new ask, so an answer to the old wording is not shown as its answer.
+    assert decision('Share leads and revenue with acme') != decision('Share leads with acme')

@@ -437,3 +437,26 @@ def test_outbox_flushes_in_batches_and_skips_a_blocked_tenant_in_the_query(asks_
     assert sorted(r[0] for r in c.db.execute('SELECT answer_id FROM ask_journal_outbox')) == ['gone-%d' % n for n in range(5)]
     reads = [s for s in statements if 'FROM ask_journal_outbox' in s and s.lstrip().upper().startswith('SELECT')]
     assert reads and all('LIMIT' in s for s in reads) and any('NOT IN' in s for s in reads)
+
+
+def test_a_decision_answer_does_not_carry_over_to_revised_text(asks_ctx):
+    c, config, _, tenant = asks_ctx
+    spec = Path(config['data_root']) / 'specs' / '006-editorial-steward-integration'
+    spec.mkdir(parents=True)
+    def propose(description):
+        (spec / 'portfolio-map-proposal.json').write_text(json.dumps({'cross_brand_flows': [
+            {'id': 'f1', 'status': 'proposed_not_approved', 'participants': ['heyzack'], 'description': description}]}))
+    def decision():
+        listed = c.asks.list('founder', config['principals']['founder'], 'snowgloves')['asks']
+        return [a for a in listed if a['kind'] == 'decision'][0]
+    propose('Share leads with acme')
+    old = decision()['id']
+    c.asks.answer('approver', config['principals']['approver'], 'snowgloves', old, {'accept': True})
+    assert decision()['status'] == 'answered'
+    propose('Share leads and revenue with acme')
+    revised = decision()
+    assert revised['id'] != old and revised['status'] == 'open' and revised['answer'] is None
+    # A click still bound to the old wording no longer reaches any ask.
+    with pytest.raises(Rejected) as error:
+        c.asks.answer('approver', config['principals']['approver'], 'snowgloves', old, {'accept': True})
+    assert error.value.status == 404

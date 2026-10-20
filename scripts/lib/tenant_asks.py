@@ -243,7 +243,10 @@ def _decision_asks(tenant: str, proposal: dict | None) -> list[dict]:
         title = title.strip()
         if SENSITIVE_RE.search(title):
             continue
-        key = f"flow|{flow_id}"
+        # The ask is bound to the decision text it shows: a revised description is a new
+        # question, so an earlier yes/no (or a stale click on the old text) cannot answer it.
+        digest = hashlib.sha256(title.encode('utf-8', 'surrogatepass')).hexdigest()[:16]
+        key = f"flow|{flow_id}|{digest}"
         asks.append({'id': ask_id(tenant, 'decision', key), 'tenant': tenant, 'kind': 'decision',
                      'role': ROLE_FOR_KIND['decision'], 'title': title[:MAX_TITLE],
                      'source': 'portfolio-map-proposal.json', 'answer_type': 'yes_no', 'proposed': None})
