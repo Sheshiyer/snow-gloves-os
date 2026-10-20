@@ -1057,14 +1057,17 @@ class Worker:
         and every check passed; any error (a missing sudoers entry, a folder the account can
         enter but not list) fails closed."""
         as_task = [self.sudo_path, '-n', '-u', user]
-        roots = [root for root in self.task_scrub_roots if os.path.isdir(root)]
+        # find (default -P) does not descend into a root that is itself a symlink, such as
+        # /tmp -> /private/tmp, and would find nothing there; scan the resolved folders.
+        roots = list(dict.fromkeys(os.path.realpath(root) for root in self.task_scrub_roots if os.path.isdir(root)))
         try:
             if self.task_scrub_user_dir:
                 user_dir = subprocess.run([*as_task, '/usr/bin/getconf', 'DARWIN_USER_DIR'], capture_output=True, timeout=10)
                 path = user_dir.stdout.decode('utf-8', 'replace').strip()
                 if user_dir.returncode or not path or not Path(path).is_absolute():
                     return False
-                roots.append(path)
+                roots.append(os.path.realpath(path))
+                roots = list(dict.fromkeys(roots))
             if not roots:
                 return True
             owned = ['-user', user, '-print0', '-prune']

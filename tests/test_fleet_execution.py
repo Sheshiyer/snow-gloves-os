@@ -994,3 +994,15 @@ def test_the_terminal_report_is_sent_before_account_cleanup(worker, tmp_path, mo
     w.execute(task)
     assert seen_at_cleanup and seen_at_cleanup[0][-1] == 'succeeded'
     assert not w.pending.exists() and list(root.iterdir()) == []
+
+
+def test_a_symlinked_scrub_root_is_scanned_through_to_its_folder(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # As /tmp is a link to /private/tmp on macOS.
+    link = tmp_path / 'tmp-link'
+    link.symlink_to(tmp_path / 'shared-tmp')
+    w = fleet_worker.Worker(dict(w.config, task_scrub_roots=[str(link)]))
+    (tmp_path / 'shared-tmp' / 'stash.md').write_text('tenant-a private context')
+    assert w.scrub_task_account(w.task_users['tenant-a']) is True
+    assert list((tmp_path / 'shared-tmp').iterdir()) == []
