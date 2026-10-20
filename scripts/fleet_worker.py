@@ -101,6 +101,12 @@ def load_config(path):
     return value
 
 
+def has_acl(path):
+    """Whether *path* itself carries any ACL entry (macOS `ls -led` lists them as `N: ...`)."""
+    listing = subprocess.run(['/bin/ls', '-led', str(path)], capture_output=True, check=True, timeout=10).stdout
+    return any(re.match(rb'\s*\d+: ', line) for line in listing.splitlines()[1:])
+
+
 def account_uid(name):
     return pwd.getpwnam(name).pw_uid
 
@@ -228,6 +234,10 @@ class Worker:
                     or root_stat.st_mode & 0o022 or not root_stat.st_mode & 0o001):
                 raise ValueError('task_root must be a directory this worker owns, writable only by it, '
                                  'that other accounts may pass through (mode 711)')
+            # Mode bits say nothing about ACL entries, which could grant (or pass on to new
+            # workdirs) more access than 711; the root must carry none.
+            if has_acl(task_root):
+                raise ValueError('task_root must carry no ACL entries')
             self.task_root = Path(task_root)
             self.sudo_path = config.get('sudo_path', '/usr/bin/sudo')
             self.pgrep_path = config.get('pgrep_path', '/usr/bin/pgrep')
@@ -304,6 +314,11 @@ class Worker:
             private_json(self.held, {'attempt_id': task['attempt_id'], 'reason': 'Prior process state uncertain; reconcile before dispatch'})
             private_json(self.pending, self.report(task, 'interrupted', message='Worker restarted; manual reconciliation required'))
         if self.task_user is not None:
+            # A process the dead worker left running as the task account keeps its open files
+            # and cwd whatever happens to the folders, so end it first and hold if that fails.
+            if not self.task_account_idle():
+                private_json(self.held, {'attempt_id': 'task-account',
+                                         'reason': 'Task-account processes survived a worker restart; reconcile before dispatch'})
             # A workdir left in task_root by a crash stays reachable by the task account until
             # it is moved into private state; if that fails, nothing more is dispatched.
             for leftover in sorted(self.task_root.iterdir()):
@@ -909,6 +924,8 @@ class Worker:
                 # Outside this account's home, which the task account must not enter at all.
                 workdir = self.task_root / (task['id'] + '-' + task['attempt_id'])
                 workdir.mkdir(mode=0o700)
+                if has_acl(workdir):  # e.g. an ACL added to task_root since startup, inherited here
+                    raise ValueError('Task workdir inherited ACL entries')
                 worktree = workdir / 'repo'
             else:
                 workdir = None

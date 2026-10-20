@@ -630,3 +630,29 @@ def test_a_failing_scrub_command_fails_closed(worker, tmp_path, monkeypatch):
         return real_run(argv, *args, **kwargs)
     monkeypatch.setattr(subprocess, 'run', run)
     assert w.scrub_task_account() is False
+
+
+def test_worker_refuses_a_task_root_with_acl_entries(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    import pwd as accounts
+    w, _ = worker
+    root = tmp_path / 'task-root'
+    root.mkdir()
+    root.chmod(0o711)
+    subprocess.run(['/bin/chmod', '+a', 'everyone allow add_file,add_subdirectory,file_inherit,directory_inherit', str(root)], check=True)
+    monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: 99999)
+    with pytest.raises(ValueError, match='ACL'):
+        fleet_worker.Worker(dict(w.config, task_user=accounts.getpwuid(os.getuid()).pw_name, task_root=str(root)))
+
+
+def test_restart_reaps_the_task_account_or_holds(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    monkeypatch.setattr(fleet_worker.time, 'sleep', lambda seconds: None)
+    w.request = lambda route, body: {}
+    w.recover()
+    # Recovery checked the task account and found it idle, so nothing is held.
+    assert not w.held.exists()
+    (tmp_path / 'busy').write_text('')
+    w.recover()
+    assert 'restart' in json.loads(w.held.read_text())['reason']
