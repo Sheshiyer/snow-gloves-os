@@ -558,3 +558,15 @@ def test_fill_lines_refused_only_after_normalization_never_spend_the_budget(tmp_
     (t / 'context' / 'b.md').write_text('FILL: the launch date.\n')
     titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact']
     assert titles == ['the launch date.']
+
+
+def test_a_context_file_hard_linked_to_another_tenant_is_never_read(tmp_path):
+    import os as system
+    for name in ('heyzack', 'other'):
+        (tmp_path / name / 'context').mkdir(parents=True)
+    (tmp_path / 'other' / 'context' / 'plans.md').write_text('FILL: the other tenant launch price.\n')
+    # Same inode under heyzack's context folder: O_NOFOLLOW cannot tell it apart.
+    system.link(tmp_path / 'other' / 'context' / 'plans.md', tmp_path / 'heyzack' / 'context' / 'plans.md')
+    (tmp_path / 'heyzack' / 'context' / 'own.md').write_text('FILL: our launch date.\n')
+    titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact']
+    assert titles == ['our launch date.']

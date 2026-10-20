@@ -1039,3 +1039,29 @@ def test_an_unreadable_account_owned_root_fails_the_scrub_closed(worker, tmp_pat
         return real_metadata(path, entries)
     monkeypatch.setattr(fleet_worker, 'folder_metadata', unreadable)
     assert w.scrub_task_account(w.task_users['tenant-a'], 'before') is False
+
+
+def test_a_review_base_dropped_by_a_force_push_still_reaches_the_tenant_clone(worker, monkeypatch):
+    w, task = worker
+    root = Path(task['root']).resolve()
+    git = lambda *args: subprocess.run(['git', '-C', str(root), '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', *args],
+                                       check=True, capture_output=True).stdout.decode().strip()
+    (root / 'README.md').write_text('reviewed version\n')
+    git('add', 'README.md')
+    git('commit', '-q', '-m', 'reviewed')
+    base = git('rev-parse', 'HEAD')
+    (root / 'README.md').write_text('reviewed version\nwith the patch\n')
+    patch = subprocess.run(['git', '-C', str(root), 'diff'], check=True, capture_output=True, text=True).stdout
+    git('checkout', '-q', '--', 'README.md')
+    # A force-push: the reviewed commit is still in the object database but on no branch.
+    git('reset', '-q', '--hard', 'HEAD~1')
+    import hashlib
+    review = {'base': base, 'patch': {'text': patch, 'sha256': hashlib.sha256(patch.encode()).hexdigest()}}
+    monkeypatch.setattr(w, '_review_assignment', lambda task_, tokens: review)
+    monkeypatch.setattr(w, '_review_prompt', lambda task_, evidence: 'Review the patch')
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(dict(task, tenant='tenant-a', tenant_isolated=True))
+    clone = w.state / 'worktrees' / 'task1-attempt1'
+    assert subprocess.run(['git', '-C', str(clone), 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip() == base
+    assert not (clone / '.git' / 'FETCH_HEAD').exists()

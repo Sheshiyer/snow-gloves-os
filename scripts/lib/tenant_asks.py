@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import time
 from pathlib import Path
 
@@ -127,6 +128,9 @@ def load_proposals(tenant_dir: Path, wanted: set[str] | None = None) -> dict[str
                 or not path.resolve().is_relative_to(tenant_dir.resolve())):
             return proposals
         with os.fdopen(open_nofollow(path), 'rb') as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                return proposals  # a hard link could be another tenant's journal
             scanned = 0
             while True:
                 raw = stream.readline(MAX_PROPOSAL_LINE + 1)

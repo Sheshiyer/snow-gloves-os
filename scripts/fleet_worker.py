@@ -1226,6 +1226,16 @@ class Worker:
                 # it, and it shares no object database with the root while the task runs.
                 subprocess.run([*git, 'clone', '--quiet', '--no-checkout', '--no-tags', 'file://' + str(root), str(worktree)],
                                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+                if base != 'HEAD':
+                    # A review base already validated in the root may be unreachable from its refs
+                    # (after a force-push); a clone copies only reachable history, so fetch that one
+                    # commit explicitly. The clone's isolation check below then scans it too.
+                    subprocess.run([*git, '-C', str(worktree), 'fetch', '--quiet', '--no-tags',
+                                    '--upload-pack', 'git -c uploadpack.allowAnySHA1InWant=true upload-pack',
+                                    'file://' + str(root), base],
+                                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+                    # FETCH_HEAD names the source path; the task needs no pointer back to it.
+                    (worktree / '.git' / 'FETCH_HEAD').unlink(missing_ok=True)
                 if isolation_problem(worktree, tenant, git[0]):
                     raise ValueError('Tenant task clone failed its isolation check')
                 preparing.check()

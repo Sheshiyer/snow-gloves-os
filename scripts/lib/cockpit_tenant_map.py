@@ -50,7 +50,10 @@ def read_raw(path: Path, limit=MAX_BYTES):
         return None, "held"
     try:
         import stat
-        if not stat.S_ISREG(os.fstat(fd).st_mode) or os.fstat(fd).st_size > limit:
+        info = os.fstat(fd)
+        # One link only: O_NOFOLLOW cannot confine a hard link, which could be another
+        # tenant's file read (and shown) as this tenant's.
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > limit:
             return None, "held"
         raw = os.read(fd, limit + 1)
         return (None, "held") if len(raw) > limit else (raw, "configured")
