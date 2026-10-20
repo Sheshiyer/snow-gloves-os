@@ -337,8 +337,10 @@ def _website_ask(tenant: str, manifest) -> list[dict]:
         title = 'Confirm brand domain'
     if SENSITIVE_RE.search(title):
         return []
+    # Bound to the prompt it shows, as fact and decision asks are: a revised FILL prompt is a
+    # new question, so an earlier answer (or a form opened before the edit) cannot answer it.
+    key = 'domain|' + hashlib.sha256(title.encode('utf-8', 'surrogatepass')).hexdigest()[:16]
     title = title[:MAX_TITLE]
-    key = 'domain'
     return [{'id': ask_id(tenant, 'website', key), 'tenant': tenant, 'kind': 'website',
              'role': ROLE_FOR_KIND['website'], 'title': title, 'source': 'MANIFEST.yaml',
              'answer_type': 'text', 'proposed': None}]

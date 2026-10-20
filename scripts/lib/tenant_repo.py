@@ -44,6 +44,24 @@ SAFE_CONFIG = re.compile(r'(core\.(repositoryformatversion|filemode|bare|logallr
 # The only tree entry modes Git writes: folder, file, executable, symlink, submodule.
 TREE_MODES = frozenset({b'40000', b'100644', b'100755', b'120000', b'160000'})
 
+# Characters macOS (HFS+) ignores when comparing names, so ".g\u200cit" still means ".git".
+_HFS_IGNORED = re.compile('[\u200c-\u200f\u202a-\u202e\u206a-\u206f\ufeff]')
+
+
+def _valid_tree_name(name):
+    """Whether Git would check out a tree entry named *name* (bytes). Names a checkout
+    refuses (empty, ".", "..", a slash or backslash, any spelling of ".git") pass a
+    --no-checkout clone but fail every task's checkout, so the scan refuses them."""
+    if not name or name in (b'.', b'..') or b'/' in name or b'\\' in name:
+        return False
+    try:
+        text = name.decode('utf-8')
+    except UnicodeDecodeError:
+        return True  # not a Unicode spelling of .git; Git checks out raw bytes
+    folded = _HFS_IGNORED.sub('', text).rstrip(' .').lower()
+    return folded != '.git' and folded != 'git~1'
+
+
 def _unsafe_config(root, git_path='git'):
     """Repository-local config keys outside SAFE_CONFIG, or None when the config cannot be read."""
     config = os.path.join(str(root), '.git', 'config')
@@ -244,6 +262,8 @@ def git_layout(root, git_path='git'):
                 # Git reads zero-padded modes such as 040000 or 0120000 as folders and links;
                 # only the canonical spellings are classified below, so refuse any other.
                 if body[cursor:space] not in TREE_MODES:
+                    return None
+                if not _valid_tree_name(name_bytes):
                     return None
                 # A malformed tree naming an entry twice would hide one copy from this scan
                 # while a clone still carries both; refuse it.

@@ -1333,3 +1333,21 @@ def test_admit_refuses_a_commit_without_a_canonical_tree_header(tmp_path, header
     (repo / '.git' / 'refs' / 'heads' / 'bogus').write_text(bogus + '\n')
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+@pytest.mark.parametrize('name', [b'..', b'.', b'.git', b'.GIT', b'a/b', b'a\\b'])
+def test_admit_refuses_tree_names_a_checkout_would_reject(tmp_path, name):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    git = lambda *args, data=None: subprocess.run(['git', '-C', str(repo), *args], input=data, check=True,
+                                                   capture_output=True).stdout.decode().strip()
+    own = git('hash-object', '-w', '--stdin', data=b'tenant: tenant-a\n')
+    note = git('hash-object', '-w', '--stdin', data=b'note\n')
+    # Inside an allowed folder, an entry name that a --no-checkout clone accepts but checkout refuses.
+    context = git('hash-object', '-t', 'tree', '-w', '--literally', '--stdin', data=b'100644 ' + name + b'\0' + bytes.fromhex(note))
+    body = b'100644 MANIFEST.yaml\0' + bytes.fromhex(own) + b'40000 context\0' + bytes.fromhex(context)
+    tree = git('hash-object', '-t', 'tree', '-w', '--literally', '--stdin', data=body)
+    commit = git('-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit-tree', tree, '-m', 'bad name', '-p', 'HEAD')
+    git('update-ref', 'refs/heads/bad-name', commit)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))

@@ -110,7 +110,7 @@ def test_decision_connect_website_brand(tmp_path):
     assert [a['answer_type'] for a in asks] == ['yes_no', 'yes_no', 'yes_no', 'text', 'yes_no']
     assert all(a['proposed'] is None for a in asks)
     expected = [('decision', 'flow|f1|' + hashlib.sha256(b'X').hexdigest()[:16]), ('connect', 'source|drive'), ('connect', 'module|github-mcp'),
-                ('website', 'domain'), ('brand', 'meristem')]
+                ('website', 'domain|' + hashlib.sha256(b'confirm').hexdigest()[:16]), ('brand', 'meristem')]
     assert {a['id'] for a in asks} == {ask_id('heyzack', kind, key) for kind, key in expected}
     assert {a['source'] for a in asks} == {'portfolio-map-proposal.json', 'sources.yaml', 'enabled.yaml', 'MANIFEST.yaml'}
     assert asks[0]['title'] == 'X'
@@ -538,3 +538,13 @@ def test_a_revised_decision_is_a_new_ask(tmp_path):
     assert decision('Share leads with acme') == decision('Share leads with acme')
     # Revised text: a new ask, so an answer to the old wording is not shown as its answer.
     assert decision('Share leads and revenue with acme') != decision('Share leads with acme')
+
+
+def test_a_revised_website_prompt_is_a_new_ask(tmp_path):
+    t = tmp_path / 'heyzack'
+    t.mkdir()
+    def website(prompt):
+        (t / 'MANIFEST.yaml').write_text(yaml.safe_dump({'tenant': 'heyzack', 'brand': {'domain': prompt}}))
+        return [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'website'][0]['id']
+    assert website('FILL: main domain') == website('FILL: main domain')
+    assert website('FILL: shop domain') != website('FILL: main domain')
