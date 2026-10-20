@@ -190,13 +190,18 @@ def read_enablement(tenant_dir: Path):
     return enabled, "configured"
 
 
-def capability_map(repo_root: Path, tenant_dir: Path) -> dict:
-    """Only IDs, public labels and closed enums leave this source reader."""
+def shared_catalog(repo_root: Path):
+    """The catalog and role templates every tenant's map reads, parsed once so a snapshot of
+    many tenants does not re-read the same files per tenant."""
+    return (*read_catalog(repo_root), *read_templates(repo_root))
+
+
+def capability_map(repo_root: Path, tenant_dir: Path, shared=None) -> dict:
+    """Only IDs, public labels and closed enums leave this source reader. *shared* is a
+    shared_catalog() result to reuse; without it the catalog is read here."""
     if not safe_id(tenant_dir.name):
         raise ValueError("invalid tenant")
-    catalog, cards, controls, catalog_state = read_catalog(repo_root)
-
-    templates, roles_state = read_templates(repo_root)
+    catalog, cards, controls, catalog_state, templates, roles_state = shared if shared is not None else shared_catalog(repo_root)
 
     enabled, enabled_state = read_enablement(tenant_dir)
     configured, assigned = [], []

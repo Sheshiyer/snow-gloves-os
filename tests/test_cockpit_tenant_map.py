@@ -209,3 +209,18 @@ def test_a_preparation_template_listed_under_agents_is_held(tree):
     # Only control agents exist at runtime; a business template is preparation-only.
     assert result['assignedAgents'] == [{'id': 'cto', 'status': 'configured'}, {'id': 'writer', 'status': 'held'}]
     assert [r['id'] for r in result['availableBusinessRoles']] == ['writer']
+
+
+def test_a_snapshot_reads_the_shared_catalog_once_for_all_tenants(tree, monkeypatch):
+    import lib.cockpit_tenant_map as tenant_map
+    from lib.cockpit_snapshot import build_snapshot
+    repo, tenant = tree
+    for name in ('beta', 'gamma'):
+        other = tenant.parent / name
+        other.mkdir()
+        (other / 'enabled.yaml').write_text(yaml.safe_dump({'schema': 'snowgloves.enabled.v1', 'tenant': name, 'agents': ['cto'], 'modules': ['skill-a']}))
+    reads = []
+    real = tenant_map.read_catalog
+    monkeypatch.setattr(tenant_map, 'read_catalog', lambda root: reads.append(root) or real(root))
+    snapshot = build_snapshot(repo, data_root=tenant.parent.parent)
+    assert len(snapshot['tenants']) == 3 and len(reads) == 1

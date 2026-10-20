@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Import agent research proposals into a tenant's ask proposal journal."""
 import argparse
+import errno
 import fcntl
 import hashlib
 import json
@@ -185,8 +186,14 @@ def _mark_imported(asks, sources, deadline=None):
         for source, when in sources.items():
             if deadline is not None and marked and time.monotonic() > deadline:
                 break
-            fd = os.open(_marker(source), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0), 0o600, dir_fd=held)
+            # Nonblocking, so a FIFO planted under a marker's name cannot hang the open while the
+            # journal lock is held; anything but a regular file is refused before it is truncated.
+            fd = os.open(_marker(source), os.O_WRONLY | os.O_CREAT | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0),
+                         0o600, dir_fd=held)
             try:
+                if not stat.S_ISREG(os.fstat(fd).st_mode):
+                    raise OSError(errno.EINVAL, 'Import marker is not a regular file', _marker(source))
+                os.ftruncate(fd, 0)
                 os.write(fd, json.dumps({'source': source, 'created': when, 'complete': True}).encode())
                 os.fsync(fd)
             finally:

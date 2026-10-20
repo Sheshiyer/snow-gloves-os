@@ -25,7 +25,7 @@ import yaml
 from lib import paths
 from lib.redact import redact_text
 from lib.cockpit_brand_summary import brand_summary
-from lib.cockpit_tenant_map import capability_map
+from lib.cockpit_tenant_map import capability_map, shared_catalog
 
 MAX_FILE_BYTES = 4 * 1024 * 1024       # 4 MB max YAML/JSON
 MAX_CATALOG_BYTES = 1 * 1024 * 1024    # 1 MB max catalog
@@ -256,7 +256,7 @@ def _load_tenants(repo_root: Path, data_root: Optional[Path], filter_tenant: Opt
     if filter_tenant and filter_tenant not in [e.name for e in entries if e.is_dir() and not e.is_symlink()]:
         raise ValueError("unknown_tenant")
 
-    count = 0
+    count, shared = 0, None
     for entry in entries:
         if count >= MAX_TENANTS:
             break
@@ -325,7 +325,9 @@ def _load_tenants(repo_root: Path, data_root: Optional[Path], filter_tenant: Opt
         total_malformed_approvals += app_malformed
 
         try:
-            cap_map = capability_map(repo_root, entry)
+            if shared is None:
+                shared = shared_catalog(repo_root)  # once per snapshot, not once per tenant
+            cap_map = capability_map(repo_root, entry, shared)
         except (ValueError, OSError):
             # One tenant's unsafe identifier must not fail the whole snapshot.
             cap_map = None

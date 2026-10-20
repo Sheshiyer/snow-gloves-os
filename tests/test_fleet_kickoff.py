@@ -1446,3 +1446,17 @@ def test_a_nested_too_deep_journal_line_is_skipped_by_every_reader(tmp_path, mon
     finally:
         os.close(asks)
     assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 1', 'id2': 'EUR 2'}
+
+
+def test_a_special_file_under_an_import_marker_name_fails_fast(tmp_path):
+    import time as clock
+    import fleet_asks_import
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    (asks_dir / 'imported').mkdir(parents=True)
+    # A FIFO where task-1's marker goes: a blocking open for writing would wait for a reader.
+    os.mkfifo(asks_dir / 'imported' / fleet_asks_import._marker('task-1'))
+    started = clock.monotonic()
+    with pytest.raises(OSError):
+        import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='task-1', created=1.0)
+    assert clock.monotonic() - started < 5
