@@ -10,6 +10,7 @@ from pathlib import Path
 
 from lib.tenant_repo import isolation_problem
 
+MAX_HOLDER_ENTRIES = 64  # entries read under a candidate's tenants/ folder
 PROJECT_ID = re.compile(r'[a-z0-9][a-z0-9_-]{0,63}')
 
 
@@ -70,9 +71,16 @@ def admit(config, tenants, organization, principal, workers, root=None, remote_r
         if not os.path.isdir(candidate) or not os.path.exists(os.path.join(candidate, '.git')):
             raise ValueError('Project root must be an existing Git checkout: %s' % candidate)
         holder = os.path.join(candidate, 'tenants')
-        if os.path.isdir(holder) and any(name != tenant for name in os.listdir(holder)
-                                         if os.path.isdir(os.path.join(holder, name))):
-            raise ValueError('Project root %s holds other tenants; use a tenant-scoped checkout' % candidate)
+        if os.path.isdir(holder):
+            # Read entry by entry under a cap: a tenant-scoped checkout holds at most its own
+            # folder here, so a huge (untracked) listing is refused before it fills memory.
+            with os.scandir(holder) as listing:
+                for count, entry in enumerate(listing):
+                    if count >= MAX_HOLDER_ENTRIES:
+                        raise ValueError('Project root %s has too many entries under tenants/; use a tenant-scoped '
+                                         'checkout' % candidate)
+                    if entry.name != tenant and entry.is_dir():
+                        raise ValueError('Project root %s holds other tenants; use a tenant-scoped checkout' % candidate)
         # The coordinator resolves roots, so compare resolved paths: a template like
         # /srv/{tenant}/.. would otherwise give every tenant the same checkout.
         problem = isolation_problem(candidate, tenant)

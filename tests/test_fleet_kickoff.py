@@ -1597,3 +1597,16 @@ def test_admit_refuses_a_root_with_too_many_top_level_entries(tmp_path, monkeypa
     with pytest.raises(ValueError, match='more than 10 top-level entries'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
     assert len(taken) <= 12  # the cap plus .git
+
+
+def test_admit_refuses_a_crowded_nested_tenants_folder(tmp_path, monkeypatch):
+    import fleet_admit_tenants
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    holder = repo / 'tenants'
+    holder.mkdir(exist_ok=True)
+    for n in range(100):
+        (holder / ('junk-%03d' % n)).write_text('')
+    monkeypatch.setattr(fleet_admit_tenants, 'MAX_HOLDER_ENTRIES', 10)
+    with pytest.raises(ValueError, match='too many entries under tenants/'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))

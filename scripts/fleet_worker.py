@@ -15,7 +15,6 @@ import shutil
 import signal
 import stat
 import subprocess
-import tempfile
 import threading
 import time
 import uuid
@@ -207,35 +206,50 @@ SCRUB_SECONDS = 120
 def bounded_run(argv, timeout=SCRUB_SECONDS):
     """Run *argv*, returning (returncode, stdout, stderr), or None once it outlives *timeout*,
     prints more than MAX_SCRUB_ENTRIES NUL-separated entries, or either stream passes
-    MAX_SCRUB_BYTES. stdout is read as it arrives, never buffered whole first."""
-    with tempfile.TemporaryFile() as err:
-        process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=err)
-        expired = []
-        timer = threading.Timer(timeout, lambda: (expired.append(True), process.kill()))
-        timer.start()
-        chunks, size, entries = [], 0, 0
-        try:
-            while True:
-                chunk = process.stdout.read(65536)
-                if not chunk:
-                    break
-                size += len(chunk)
-                entries += chunk.count(b'\0')
-                if size > MAX_SCRUB_BYTES or entries > MAX_SCRUB_ENTRIES:
-                    process.kill()
-                    return None
-                chunks.append(chunk)
-        finally:
-            timer.cancel()
-            process.stdout.close()
-            process.wait()
-        if expired:
-            return None
-        err.seek(0)
-        stderr = err.read(MAX_SCRUB_BYTES + 1)
-        if len(stderr) > MAX_SCRUB_BYTES:
-            return None
-        return process.returncode, b''.join(chunks), stderr
+    MAX_SCRUB_BYTES. Both streams are read as they arrive (stderr on its own thread), so
+    neither is ever buffered or spooled past its cap: the process is killed at once."""
+    process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    over = []
+    timer = threading.Timer(timeout, lambda: (over.append('time'), process.kill()))
+    errors = []
+
+    def drain_stderr():
+        size = 0
+        while True:
+            chunk = process.stderr.read(65536)
+            if not chunk:
+                return
+            size += len(chunk)
+            if size > MAX_SCRUB_BYTES:
+                over.append('stderr')
+                process.kill()
+                return
+            errors.append(chunk)
+    reader = threading.Thread(target=drain_stderr, daemon=True)
+    timer.start()
+    reader.start()
+    chunks, size, entries = [], 0, 0
+    try:
+        while True:
+            chunk = process.stdout.read(65536)
+            if not chunk:
+                break
+            size += len(chunk)
+            entries += chunk.count(b'\0')
+            if size > MAX_SCRUB_BYTES or entries > MAX_SCRUB_ENTRIES:
+                over.append('stdout')
+                process.kill()
+                break
+            chunks.append(chunk)
+    finally:
+        timer.cancel()
+        process.wait()
+        reader.join()
+        process.stdout.close()
+        process.stderr.close()
+    if over:
+        return None
+    return process.returncode, b''.join(chunks), b''.join(errors)
 
 
 def folder_metadata(path, entries=True):

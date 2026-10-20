@@ -1065,3 +1065,15 @@ def test_a_review_base_dropped_by_a_force_push_still_reaches_the_tenant_clone(wo
     clone = w.state / 'worktrees' / 'task1-attempt1'
     assert subprocess.run(['git', '-C', str(clone), 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip() == base
     assert not (clone / '.git' / 'FETCH_HEAD').exists()
+
+
+def test_cleanup_scans_stop_at_the_stderr_cap_while_the_process_runs(monkeypatch):
+    import time as clock
+    import fleet_worker
+    monkeypatch.setattr(fleet_worker, 'MAX_SCRUB_BYTES', 64 * 1024)
+    started = clock.monotonic()
+    # Endless diagnostics: killed once stderr passes the cap, never spooled until the timeout.
+    assert fleet_worker.bounded_run(['/bin/sh', '-c', 'yes denied >&2'], 60) is None
+    assert clock.monotonic() - started < 10
+    # Ordinary output still comes back whole.
+    assert fleet_worker.bounded_run(['/bin/sh', '-c', 'printf out; printf err >&2'], 10) == (0, b'out', b'err')
