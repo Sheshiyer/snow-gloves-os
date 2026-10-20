@@ -109,22 +109,23 @@ def _scan_journal(stream, ask_ids, source):
 def _open_journal(tenants_dir, tenant):
     """Hold tenants/<tenant>/asks/, opening one component at a time.
 
-    Only the data root (tenants/'s parent) is opened by path. tenants/ is then
-    opened with O_NOFOLLOW, and the tenant and asks directories are created if
-    missing and opened the same way relative to the held parent, so a link at
-    any of them (placed before or after any check) can never redirect the append.
+    Only the data root (tenants/'s parent) is opened by path. tenants/ and the tenant
+    directory must already exist: an import for a tenant deleted meanwhile must not bring
+    it back as an empty tenant. Each is opened with O_NOFOLLOW relative to the held parent,
+    and only asks/ is created if missing, so a link at any of them (placed before or after
+    any check) can never redirect the append. A missing tenant raises FileNotFoundError.
     """
     nofollow = getattr(os, 'O_NOFOLLOW', 0)
     directory = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0)
     tenants_dir = Path(tenants_dir).absolute()
-    tenants_dir.parent.mkdir(parents=True, exist_ok=True)
     handles = [os.open(tenants_dir.parent, directory)]
     try:
         for name in (tenants_dir.name, tenant, 'asks'):
-            try:
-                os.mkdir(name, 0o700, dir_fd=handles[-1])
-            except FileExistsError:
-                pass
+            if name == 'asks':
+                try:
+                    os.mkdir(name, 0o700, dir_fd=handles[-1])
+                except FileExistsError:
+                    pass
             handles.append(os.open(name, directory | nofollow, dir_fd=handles[-1]))
         asks = os.dup(handles[-1])
     finally:

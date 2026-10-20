@@ -1122,18 +1122,24 @@ class Worker:
     def settle_task_workdir(self, workdir, task, succeeded, user):
         """Remove a succeeded run's workdir and keep any other; if neither works, or anything
         the run started is still alive as the task account, hold dispatch so no later task
-        runs while a previous tenant's data or processes remain reachable."""
+        runs while a previous tenant's data or processes remain reachable. Returns whether
+        the account was left idle and clean with the workdir removed or privately retained."""
+        clean = True
         if not self.task_account_idle(user):
+            clean = False
             private_json(self.held, {'attempt_id': task['attempt_id'],
                                      'reason': 'Task-account processes survived the run; reconcile before dispatch'})
         elif not self.scrub_task_account(user):
+            clean = False
             private_json(self.held, {'attempt_id': task['attempt_id'],
                                      'reason': 'Task-account files left in, or shared files changed in, shared folders; reconcile before dispatch'})
         if succeeded and self.remove_task_workdir(workdir, user):
-            return
+            return clean
         if os.path.lexists(workdir) and not self.retain_task_workdir(workdir):
             private_json(self.held, {'attempt_id': task['attempt_id'],
                                      'reason': 'Task-account workdir could not be removed or retained; reconcile before dispatch'})
+            return False
+        return clean
 
     def execute(self, task):
         kind, message, artifact = 'failed', 'Execution did not complete', None
@@ -1365,19 +1371,25 @@ class Worker:
         if preparing is not None:
             preparing.stopped.set()
             preparing.thread.join()
+        if workdir is not None:
+            # Settle first and report after, so success is claimed only once cleanup has passed.
+            # Cleanup can take minutes, so the lease is renewed meanwhile. A crash in between
+            # leaves active.json without a report, which recover() turns into "interrupted"
+            # and a dispatch hold.
+            renewing = PreparationHeartbeat(self, task)
+            try:
+                clean = self.settle_task_workdir(workdir, task, kind == 'succeeded', account)
+            finally:
+                renewing.stopped.set()
+                renewing.thread.join()
+            if kind == 'succeeded' and not clean:
+                kind, artifact = 'failed', None
+                message = 'Task-account cleanup failed after the run; result withheld, reconcile before dispatch'
         body = self.report(task, kind, message=message)
         if artifact:
             body['artifact'] = artifact
         private_json(self.pending, body)
-        # Send the terminal report while the lease is still live: account cleanup below can take
-        # minutes (scans and deletions under SCRUB_SECONDS each) with no heartbeat running. If
-        # cleanup then fails, recovery-required.json holds the next claim (run() checks it), so
-        # reporting first never lets another task start on an unclean account.
         self.flush()
-        if workdir is not None:
-            # Only after the terminal report is on disk: a succeeded run's workdir is
-            # removed, anything else is kept (privately) for reconciliation.
-            self.settle_task_workdir(workdir, task, kind == 'succeeded', account)
 
     def run(self):
         lock = os.open(self.state / 'worker.lock', os.O_CREAT | os.O_RDWR, 0o600)

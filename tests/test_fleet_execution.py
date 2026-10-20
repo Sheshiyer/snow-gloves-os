@@ -574,7 +574,7 @@ def test_surviving_task_account_processes_hold_dispatch(worker, tmp_path, monkey
     real_settle = w.settle_task_workdir
     def settle(workdir, task_, succeeded, user):
         (tmp_path / 'busy').write_text('')
-        real_settle(workdir, task_, succeeded, user)
+        return real_settle(workdir, task_, succeeded, user)
     w.settle_task_workdir = settle
     w.execute(task)
     assert json.loads(w.held.read_text())['reason'].startswith('Task-account processes survived')
@@ -603,7 +603,7 @@ def test_files_a_run_leaves_in_shared_temp_folders_are_scrubbed(worker, tmp_path
     def settle(workdir, task_, succeeded, user):
         (tmp_path / 'shared-tmp' / 'stash').mkdir()
         (tmp_path / 'shared-tmp' / 'stash' / 'copy.md').write_text('tenant-a private context')
-        real_settle(workdir, task_, succeeded, user)
+        return real_settle(workdir, task_, succeeded, user)
     w.settle_task_workdir = settle
     reports = []
     w.request = lambda route, body: reports.append(body) or {}
@@ -981,19 +981,29 @@ def test_scrub_refuses_when_a_non_sticky_scrub_root_lost_an_entry(worker, tmp_pa
     assert w.scrub_task_account('nobody') is False
 
 
-def test_the_terminal_report_is_sent_before_account_cleanup(worker, tmp_path, monkeypatch):
+@pytest.mark.parametrize('cleanup', ['passes', 'fails'])
+def test_success_is_reported_only_after_cleanup_passes_and_the_lease_is_renewed_meanwhile(worker, tmp_path, monkeypatch, cleanup):
+    import time as clock
     w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
-    reports, seen_at_cleanup = [], []
+    w.config['heartbeat_seconds'] = 0.05
+    reports, during_cleanup = [], []
     w.request = lambda route, body: reports.append(body) or {}
     real_settle = w.settle_task_workdir
     def slow_settle(*args):
-        # Cleanup can outlast the lease; by now the coordinator must already have the result.
-        seen_at_cleanup.append([r['type'] for r in reports])
-        return real_settle(*args)
+        start = len(reports)
+        clock.sleep(0.4)  # cleanup can outlast the lease
+        result = real_settle(*args) if cleanup == 'passes' else False
+        during_cleanup.extend(r['type'] for r in reports[start:])
+        return result
     monkeypatch.setattr(w, 'settle_task_workdir', slow_settle)
     w.execute(task)
-    assert seen_at_cleanup and seen_at_cleanup[0][-1] == 'succeeded'
-    assert not w.pending.exists() and list(root.iterdir()) == []
+    # Nothing terminal went out while cleanup ran, but the lease kept being renewed.
+    assert during_cleanup and set(during_cleanup) == {'heartbeat'}
+    if cleanup == 'passes':
+        assert reports[-1]['type'] == 'succeeded' and reports[-1].get('artifact')
+    else:
+        assert reports[-1]['type'] == 'failed' and 'artifact' not in reports[-1]
+    assert not w.pending.exists()
 
 
 def test_a_symlinked_scrub_root_is_scanned_through_to_its_folder(worker, tmp_path, monkeypatch):

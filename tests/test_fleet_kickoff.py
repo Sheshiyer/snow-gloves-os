@@ -1011,6 +1011,7 @@ def test_large_journals_are_compacted_to_live_records(tmp_path, monkeypatch):
     from lib.tenant_asks import load_proposals
     monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 2000)
     tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True, exist_ok=True)
     journal = tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl'
     for n in range(30):
         artifact = json.dumps([{'ask_id': 'id1', 'proposed': 'EUR %d' % n, 'evidence': 'x' * 50},
@@ -1048,6 +1049,7 @@ def test_compaction_waits_for_the_journal_to_double_and_gives_up_past_its_budget
     from lib.tenant_asks import load_proposals
     monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 500)
     tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True, exist_ok=True)
     journal = tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl'
     marker = journal.parent / 'proposed.jsonl.compacted'
     calls = []
@@ -1178,6 +1180,7 @@ def test_compaction_drops_proposals_for_asks_that_no_longer_exist(tmp_path, monk
     from lib.tenant_asks import load_proposals
     monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 300)
     tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True, exist_ok=True)
     for n in range(10):
         import_proposals(tenants_dir, 'heyzack', json.dumps([{'ask_id': 'old%d' % n, 'proposed': 'x' * 40}]), {'old%d' % n},
                          source='s%d' % n, created=float(n), current_ids={'old%d' % n})
@@ -1210,6 +1213,7 @@ def test_deeply_nested_artifact_json_is_ignored_not_fatal(tmp_path, monkeypatch)
         return real(self, text, index)
     monkeypatch.setattr(json.JSONDecoder, 'raw_decode', shallow)
     tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True, exist_ok=True)
     deep = '[{"ask_id":"id1","proposed":' + '[' * 50 + ']' * 50 + '}]'
     assert import_proposals(tenants_dir, 'heyzack', deep, {'id1'}) == 0
     assert import_proposals(tenants_dir, 'heyzack', deep + ' [{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}) == 1
@@ -1397,6 +1401,7 @@ def test_compaction_with_an_empty_current_listing_drops_stale_proposals(tmp_path
     from lib.tenant_asks import load_proposals
     monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 1)
     tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True, exist_ok=True)
     import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"old","proposed":"EUR 1"}]', {'old'}, source='s1', created=1.0,
                      current_ids={'old'})
     (tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl.compacted').unlink(missing_ok=True)
@@ -1425,6 +1430,7 @@ def test_a_nested_too_deep_journal_line_is_skipped_by_every_reader(tmp_path, mon
     import fleet_asks_import
     from lib.tenant_asks import load_proposals
     tenants_dir = tmp_path / 'tenants'
+    (tenants_dir / 'heyzack').mkdir(parents=True, exist_ok=True)
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='s1', created=1.0) == 1
     journal = tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl'
     with open(journal, 'a') as handle:
@@ -1610,3 +1616,11 @@ def test_admit_refuses_a_crowded_nested_tenants_folder(tmp_path, monkeypatch):
     monkeypatch.setattr(fleet_admit_tenants, 'MAX_HOLDER_ENTRIES', 10)
     with pytest.raises(ValueError, match='too many entries under tenants/'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_an_import_for_a_deleted_tenant_never_recreates_it(tmp_path):
+    tenants_dir = tmp_path / 'tenants'
+    tenants_dir.mkdir()
+    # The tenant was removed after its kickoff task started; the task finishes now.
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='t1', created=1.0) == 0
+    assert not (tenants_dir / 'heyzack').exists()
