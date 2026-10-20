@@ -81,6 +81,51 @@ class WriteRejected(ValueError):
     """A write attempt failed a gate; the message is safe to report."""
 
 
+class PreparationStopped(Exception):
+    """The coordinator cancelled or took back an assignment while it was being prepared."""
+
+    def __init__(self, kind, message):
+        super().__init__(message)
+        self.kind, self.message = kind, message
+
+
+class PreparationHeartbeat:
+    """Keep an assignment's lease alive while it is prepared (isolation scans, clone, account
+    checks), which can outlast the lease before monitor() sends its first heartbeat. It
+    records a cancellation or a lost assignment for check() to raise between steps."""
+
+    def __init__(self, worker, task):
+        self.worker, self.task, self.outcome = worker, task, None
+        self.stopped = threading.Event()
+        self.thread = threading.Thread(target=self._beat, daemon=True)
+        self.thread.start()
+
+    def _beat(self):
+        interval = min(10, self.worker.config.get('heartbeat_seconds', 5))
+        while not self.stopped.wait(interval):
+            try:
+                response = self.worker.request('/v1/worker/report', self.worker.report(self.task, 'heartbeat'))
+                if response.get('cancel_requested'):
+                    self.outcome = ('cancelled', 'Cancellation completed before the runtime started')
+                    return
+            except HTTPError as error:
+                if error.code in (403, 409):
+                    self.outcome = ('interrupted', 'Assignment lost; manual reconciliation required')
+                    return
+            except (OSError, ValueError):
+                pass  # a brief coordinator restart; the next beat retries
+
+    def check(self):
+        if self.outcome is not None:
+            raise PreparationStopped(*self.outcome)
+
+    def close(self):
+        """Stop beating (monitor() takes over) and raise if the assignment ended meanwhile."""
+        self.stopped.set()
+        self.thread.join()
+        self.check()
+
+
 def loopback_endpoint(value):
     """Accept only the local side of an SSH forward to the coordinator."""
     if not isinstance(value, str):
@@ -1043,10 +1088,11 @@ class Worker:
 
     def execute(self, task):
         kind, message, artifact = 'failed', 'Execution did not complete', None
-        process, workdir, account = None, None, None
+        process, workdir, account, preparing = None, None, None, None
         try:
             review = self._review_assignment(task, (self.config.get('token'),))
             private_json(self.active, task)
+            preparing = PreparationHeartbeat(self, task)
             for key in ('id', 'attempt_id'):
                 if not re.fullmatch('[a-zA-Z0-9_-]{1,100}', task[key]):
                     raise ValueError('Invalid assignment identifier')
@@ -1074,6 +1120,7 @@ class Worker:
                 tenant = task['tenant']
             if tenant is not None and isolation_problem(root, tenant, self.config.get('git_path', 'git')):
                 raise ValueError('Tenant root failed its isolation check')
+            preparing.check()
             business = self.business_assignment(task)
             if business is not None and (fanout or review is not None):
                 raise ValueError('Invalid business assignment')
@@ -1138,6 +1185,7 @@ class Worker:
                                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
                 if isolation_problem(worktree, tenant, git[0]):
                     raise ValueError('Tenant task clone failed its isolation check')
+                preparing.check()
                 subprocess.run([*git, '-C', str(worktree), 'checkout', '--quiet', '--detach', base],
                                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
                 # Keep no pointer back to the mutable source: pin the base on a local ref
@@ -1160,6 +1208,7 @@ class Worker:
             env['OMNIROUTE_API_KEY'] = key
             if as_task_user:
                 env.update(self.prepare_task_account(workdir, worktree, account))
+            preparing.close()  # monitor() heartbeats from here on
             start = time.monotonic()
             runs = 1 + max(0, int(self.config.get('transient_retries', 2)))
             if business is not None:
@@ -1238,12 +1287,17 @@ class Worker:
                 kind, message = 'succeeded', 'Verified result artifact available'
             elif kind == 'failed':
                 message = 'Runtime exited unsuccessfully; no automatic replay'
+        except PreparationStopped as stop:
+            kind, message = stop.kind, stop.message
         except WriteRejected as error:
             message = str(error)
         except (OSError, ValueError, KeyError, subprocess.SubprocessError):
             if process:
                 stop_group(process)
             message = 'Execution prerequisite or runtime failed; inspect private worker state'
+        if preparing is not None:
+            preparing.stopped.set()
+            preparing.thread.join()
         body = self.report(task, kind, message=message)
         if artifact:
             body['artifact'] = artifact

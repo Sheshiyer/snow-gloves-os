@@ -842,3 +842,35 @@ def test_cleanup_scans_stop_at_their_entry_byte_and_time_caps(worker, tmp_path, 
     started = clock.monotonic()
     assert fleet_worker.bounded_run(['/bin/sleep', '30'], 0.5) is None
     assert clock.monotonic() - started < 10
+
+
+@pytest.mark.parametrize('coordinator', ['renews', 'cancels', 'lost'])
+def test_preparation_keeps_the_lease_alive_and_honours_cancellation(worker, monkeypatch, coordinator):
+    import time as clock
+    from urllib.error import HTTPError
+    import fleet_worker
+    w, task = worker
+    w.config['heartbeat_seconds'] = 0.05
+    real = fleet_worker.isolation_problem
+    reports, during_scan = [], []
+    def slow_scan(*args):
+        # A slow repository scan: longer than several heartbeat intervals.
+        clock.sleep(0.4)
+        during_scan.append(sum(r['type'] == 'heartbeat' for r in reports))
+        return real(*args)
+    monkeypatch.setattr(fleet_worker, 'isolation_problem', slow_scan)
+    def request(route, body):
+        reports.append(body)
+        if body['type'] == 'heartbeat' and coordinator == 'cancels':
+            return {'cancel_requested': True}
+        if body['type'] == 'heartbeat' and coordinator == 'lost':
+            raise HTTPError('http://coordinator', 409, 'lease expired', {}, None)
+        return {}
+    w.request = request
+    w.execute(dict(task, tenant='tenant-a', tenant_isolated=True))
+    # The lease was renewed while the first scan was still running, before any runtime started.
+    assert during_scan and during_scan[0] > 0
+    assert reports[-1]['type'] == {'renews': 'succeeded', 'cancels': 'cancelled', 'lost': 'interrupted'}[coordinator]
+    if coordinator != 'renews':
+        # Stopped before the clone: no private copy of the tenant repository was made.
+        assert not (w.state / 'worktrees' / 'task1-attempt1').exists()
