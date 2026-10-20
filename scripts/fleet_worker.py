@@ -1388,8 +1388,9 @@ class Worker:
             elif renewing.outcome is not None and kind not in ('cancelled', 'interrupted'):
                 # Cancelled (or the lease lost) while cleanup ran: the coordinator refuses any
                 # other terminal type now, so report what it will accept.
-                kind, message = renewing.outcome
-                artifact = None
+                kind, artifact = renewing.outcome[0], None
+                message = ('Cancellation completed after the run' if kind == 'cancelled'
+                           else 'Assignment lost; manual reconciliation required')
         body = self.report(task, kind, message=message)
         if artifact:
             body['artifact'] = artifact
