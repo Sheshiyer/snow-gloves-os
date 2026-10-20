@@ -231,6 +231,14 @@ class Worker:
             self.task_root = Path(task_root)
             self.sudo_path = config.get('sudo_path', '/usr/bin/sudo')
             self.pgrep_path = config.get('pgrep_path', '/usr/bin/pgrep')
+            # Shared writable places one run could leave tenant data in for the next, since
+            # every tenant's runs share this account. Its own per-user temp and cache folders
+            # (DARWIN_USER_DIR) are added unless turned off.
+            scrub = config.get('task_scrub_roots', ['/private/tmp', '/private/var/tmp', '/Users/Shared'])
+            if not isinstance(scrub, list) or not all(isinstance(path, str) and Path(path).is_absolute() for path in scrub):
+                raise ValueError('task_scrub_roots must list absolute folders')
+            self.task_scrub_roots = scrub
+            self.task_scrub_user_dir = config.get('task_scrub_user_dir', True) is not False
         if not loopback_endpoint(config['endpoint']):
             raise ValueError('Pilot coordinator must use loopback')
         if config.get('gateway_url') != 'http://127.0.0.1:20128/v1':
@@ -779,6 +787,27 @@ class Worker:
             time.sleep(0.25)
         return False
 
+    def scrub_task_account(self):
+        """Delete everything the task account owns in the shared writable folders, then check
+        nothing is left. Returns whether that could be confirmed."""
+        as_task = [self.sudo_path, '-n', '-u', self.task_user]
+        roots = [root for root in self.task_scrub_roots if os.path.isdir(root)]
+        try:
+            if self.task_scrub_user_dir:
+                user_dir = subprocess.run([*as_task, '/usr/bin/getconf', 'DARWIN_USER_DIR'], capture_output=True,
+                                          timeout=10).stdout.decode('utf-8', 'replace').strip()
+                if not user_dir or not Path(user_dir).is_absolute():
+                    return False
+                roots.append(user_dir)
+            if not roots:
+                return True
+            find = [*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', '-user', self.task_user]
+            subprocess.run([*find, '-delete'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+            left = subprocess.run([*find, '-print', '-quit'], capture_output=True, timeout=300).stdout
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return not left.strip()
+
     def settle_task_workdir(self, workdir, task, succeeded):
         """Remove a succeeded run's workdir and keep any other; if neither works, or anything
         the run started is still alive as the task account, hold dispatch so no later task
@@ -786,6 +815,9 @@ class Worker:
         if not self.task_account_idle():
             private_json(self.held, {'attempt_id': task['attempt_id'],
                                      'reason': 'Task-account processes survived the run; reconcile before dispatch'})
+        elif not self.scrub_task_account():
+            private_json(self.held, {'attempt_id': task['attempt_id'],
+                                     'reason': 'Task-account files left in shared folders; reconcile before dispatch'})
         if succeeded and self.remove_task_workdir(workdir):
             return
         if os.path.lexists(workdir) and not self.retain_task_workdir(workdir):
@@ -857,10 +889,10 @@ class Worker:
             as_task_user = tenant is not None and self.task_user is not None
             if as_task_user and write:
                 raise WriteRejected('Tenant tasks run as the task account are read-only')
-            if as_task_user and not self.task_account_idle():
+            if as_task_user and not (self.task_account_idle() and self.scrub_task_account()):
                 private_json(self.held, {'attempt_id': task['attempt_id'],
-                                         'reason': 'Task account was not idle before a run; reconcile before dispatch'})
-                raise ValueError('Task account is not idle')
+                                         'reason': 'Task account was not idle and clean before a run; reconcile before dispatch'})
+                raise ValueError('Task account is not idle and clean')
             if as_task_user:
                 # Outside this account's home, which the task account must not enter at all.
                 workdir = self.task_root / (task['id'] + '-' + task['attempt_id'])

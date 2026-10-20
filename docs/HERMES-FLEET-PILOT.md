@@ -258,19 +258,20 @@ With `task_user` and `task_root` set in the worker config, each tenant-isolated 
 - Codex runs as `sudo -n -u <task_user> --preserve-env=<names> -- <codex …>`. The gateway key goes through the environment only, never the command line.
 - Stopping a run signals the group as before, then runs `pkill -KILL -U <task_user>` as the task account, because sudo cannot relay SIGKILL. The worker runs one job at a time, so nothing else belongs to that account. Before each run and after it, the worker checks with `pgrep -U <task_user>` (run as itself) that the account runs nothing, ending what it still runs and checking again for a few seconds. If that can't be confirmed, the run is refused or dispatch is held, so a surviving process can't read the next tenant's checkout.
 - After the terminal report is written to disk, the worker deletes a succeeded run's workdir: `home/` as the task account, the rest as itself, then checks it is gone. Any other run (failed, cancelled, interrupted), or one whose deletion fails, is moved to `<state_root>/retained-task-workdirs/` for reconciliation. The task account cannot reach that folder, which matters because later tasks of other tenants run as the same account. Workdirs a crash leaves in `task_root` are moved there at the next start. If a workdir can be neither deleted nor moved, the worker holds dispatch (`recovery-required.json`) until an operator reconciles. The result artifact is still written by the operator account.
+- Every tenant's runs share this one account, so before and after each run the worker deletes everything the account owns in the shared writable folders (`task_scrub_roots`, by default `/private/tmp`, `/private/var/tmp` and `/Users/Shared`) and in the account's own per-user temp and cache folder (`getconf DARWIN_USER_DIR`). It then checks nothing is left. If that can't be confirmed, the run is refused or dispatch is held. Give the account no real home (`/var/empty`) so there is no other place for it to keep files. For stronger separation, use one task account per tenant.
 - Write tasks are refused on this path; tenant projects are read-only.
 
 Without these settings the worker behaves as before.
 
 **One-time setup (needs an administrator):**
 
-1. Create a standard account (for example `sg-task`) with no admin rights, no login shell, no SSH or Screen Sharing access, and its own primary group rather than `staff`. That keeps group-readable files in other homes out of reach.
+1. Create a standard account (for example `sg-task`) with no admin rights, no login shell, no home folder (`/var/empty`), no SSH or Screen Sharing access, and its own primary group rather than `staff`. That keeps group-readable files in other homes out of reach.
 2. Make the operator's home owner-only: `chmod 700 /Users/<operator>`. Without this, every member of `staff` can read the operator's 755 folders, the ops checkout included.
 3. Create `task_root` outside that home, owned by the operator with mode 711. Other accounts can pass through it but not list it.
 4. Add `/etc/sudoers.d/snowgloves-task` (edit with `visudo -f`) so the operator can run only these commands as the task account, without a password and keeping the listed environment:
 
    ```
-   <operator> ALL=(sg-task) NOPASSWD:SETENV: /opt/homebrew/bin/codex, /usr/bin/pkill, /bin/rm
+   <operator> ALL=(sg-task) NOPASSWD:SETENV: /opt/homebrew/bin/codex, /usr/bin/pkill, /bin/rm, /usr/bin/find, /usr/bin/getconf
    ```
 
    Each runs with the task account's rights only.

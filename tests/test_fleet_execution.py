@@ -453,19 +453,24 @@ def _task_account(worker, tmp_path, monkeypatch, log_name='sudo.log'):
                     'rest = args[i + 1:] if i < len(args) and args[i] == "--" else args[i:]\n'
                     'with open(%r, "a") as log: log.write(json.dumps({"args": args, "env": sorted(os.environ)}) + "\\n")\n'
                     'if rest and rest[0] == "/usr/bin/pkill": sys.exit(0)\n'
+                    # Never let a scrub touch anything outside this test's own folder.
+                    'if rest and rest[0] == "/usr/bin/find" and not all(a.startswith(%r) for a in rest[1:rest.index("-xdev")]): sys.exit(2)\n'
                     'if rest and rest[0] == "/bin/rm" and os.path.exists(%r): sys.exit(1)\n'
                     # As macOS may: empty the home but refuse the folder itself, exiting nonzero.
                     'if rest and rest[0] == "/bin/rm" and os.path.exists(%r):\n'
                     '    import shutil\n'
                     '    for name in os.listdir(rest[-1]): shutil.rmtree(os.path.join(rest[-1], name))\n'
                     '    sys.exit(1)\n'
-                    'os.execv(rest[0], rest)\n' % (str(calls), str(tmp_path / 'fail-rm'), str(tmp_path / 'keep-home-dir')))
+                    'os.execv(rest[0], rest)\n' % (str(calls), str(tmp_path), str(tmp_path / 'fail-rm'), str(tmp_path / 'keep-home-dir')))
     sudo.chmod(0o700)
     # A stand-in pgrep: "no processes" unless a flag file says the account is still busy.
     pgrep = tmp_path / 'pgrep'
     pgrep.write_text('#!/bin/sh\n[ -e %s ] && exit 0\nexit 1\n' % (tmp_path / 'busy'))
     pgrep.chmod(0o700)
-    config = dict(w.config, task_user=me, task_root=str(root), sudo_path=str(sudo), pgrep_path=str(pgrep))
+    shared = tmp_path / 'shared-tmp'
+    shared.mkdir()
+    config = dict(w.config, task_user=me, task_root=str(root), sudo_path=str(sudo), pgrep_path=str(pgrep),
+                  task_scrub_roots=[str(shared)], task_scrub_user_dir=False)
     return fleet_worker.Worker(config), dict(task, tenant='tenant-a', tenant_isolated=True), root, calls
 
 
@@ -588,3 +593,28 @@ def test_cleanup_succeeds_when_only_the_empty_home_folder_is_refused(worker, tmp
     assert reports[-1]['type'] == 'succeeded'
     # Deleted, not retained: the task account emptied its home and this account removed the rest.
     assert list(root.iterdir()) == [] and not (w.state / 'retained-task-workdirs').exists() and not w.held.exists()
+
+
+def test_files_a_run_leaves_in_shared_temp_folders_are_scrubbed(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Stands in for a run that copied tenant data to /tmp for a later run to read.
+    real_settle = w.settle_task_workdir
+    def settle(workdir, task_, succeeded):
+        (tmp_path / 'shared-tmp' / 'stash').mkdir()
+        (tmp_path / 'shared-tmp' / 'stash' / 'copy.md').write_text('tenant-a private context')
+        real_settle(workdir, task_, succeeded)
+    w.settle_task_workdir = settle
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    assert list((tmp_path / 'shared-tmp').iterdir()) == [] and not w.held.exists()
+
+
+def test_an_unconfirmable_scrub_holds_dispatch(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    monkeypatch.setattr(w, 'scrub_task_account', lambda: False)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'failed' and 'clean' in json.loads(w.held.read_text())['reason']
