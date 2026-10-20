@@ -486,3 +486,19 @@ def test_one_flush_appends_a_bounded_number_of_rows_and_leaves_the_rest_queued(a
                      ('late', 'heyzack', json.dumps({'answer_id': 'late', 'tenant': 'heyzack'}), 1.0))
     c.asks.flush()
     assert 'late' not in written()
+
+
+def test_a_hard_linked_answer_journal_is_never_written(asks_ctx, tmp_path):
+    import os as system
+    c, config, _, tenant = asks_ctx
+    precious = tmp_path / 'precious.json'
+    precious.write_text('{"keep": "this"}')
+    (tenant / 'asks').mkdir(exist_ok=True)
+    # answers.jsonl shares an inode with an unrelated private file.
+    system.link(precious, tenant / 'asks' / 'answers.jsonl')
+    target = _ask_id(c, config)
+    result = c.asks.answer('approver', config['principals']['approver'], 'snowgloves', target, {'value': 'EUR 99'})
+    # The answer is recorded in SQLite; the journal write is refused and stays queued.
+    assert result['ask']['status'] == 'answered'
+    assert precious.read_text() == '{"keep": "this"}'
+    assert c.db.execute('SELECT count(*) FROM ask_journal_outbox').fetchone()[0] == 1

@@ -14,6 +14,7 @@ the private tenants directory.
 import json
 import os
 import re
+import stat
 import threading
 import time
 import uuid
@@ -162,9 +163,17 @@ class Asks:
         """
         asks = Asks._hold_asks(path)
         try:
-            return os.open(path.name, os.O_RDWR | os.O_CREAT | os.O_APPEND | getattr(os, 'O_NOFOLLOW', 0), 0o600, dir_fd=asks)
+            fd = os.open(path.name, os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0),
+                         0o600, dir_fd=asks)
         finally:
             os.close(asks)
+        # Only a regular file with one link: a hard link would let the truncate-and-append
+        # below rewrite whatever other file shares the inode (a config, another tenant's data).
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            os.close(fd)
+            raise OSError('Answer journal is not a single-link regular file')
+        return fd
 
     @staticmethod
     def _hold_asks(path):

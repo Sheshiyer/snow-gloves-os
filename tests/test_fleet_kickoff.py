@@ -1479,3 +1479,22 @@ def test_a_fifo_at_a_journal_file_name_never_stalls_an_import(tmp_path, monkeypa
         assert imported == 0  # the journal itself is unusable: nothing imported, nothing hung
     else:
         assert imported == 1 and load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 1'}
+
+
+@pytest.mark.parametrize('linked', ['marker', 'compacted'])
+def test_hard_linked_import_files_are_never_rewritten(tmp_path, monkeypatch, linked):
+    import fleet_asks_import
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    (asks_dir / 'imported').mkdir(parents=True)
+    precious = tmp_path / 'precious.json'
+    precious.write_text('{"keep": "this"}')
+    if linked == 'marker':
+        os.link(precious, asks_dir / 'imported' / fleet_asks_import._marker('t1'))
+        with pytest.raises(OSError):
+            import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='t1', created=1.0)
+    else:
+        monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 1)  # this import reaches compaction
+        os.link(precious, asks_dir / 'proposed.jsonl.compacted')
+        assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='t1', created=1.0) == 1
+    assert precious.read_text() == '{"keep": "this"}'

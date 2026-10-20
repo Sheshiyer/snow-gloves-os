@@ -135,12 +135,14 @@ def _open_journal(tenants_dir, tenant):
 
 def _open_regular(name, flags, dir_fd, mode=0o600):
     """Open *name* in the held asks directory without blocking or following a link, and
-    refuse anything but a regular file: a FIFO planted under a known name would otherwise
-    block the open (or a later read) while the tenant's journal lock is held."""
+    refuse anything but a regular file with one link: a FIFO planted under a known name
+    would otherwise block the open (or a later read) while the tenant's journal lock is held."""
     fd = os.open(name, flags | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0), mode, dir_fd=dir_fd)
-    if not stat.S_ISREG(os.fstat(fd).st_mode):
+    info = os.fstat(fd)
+    # One link only: writing through a hard link would rewrite whatever else shares the inode.
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
         os.close(fd)
-        raise OSError(errno.EINVAL, 'Not a regular file', name)
+        raise OSError(errno.EINVAL, 'Not a single-link regular file', name)
     return fd
 
 
@@ -180,7 +182,9 @@ def _source_done(asks, source):
     except FileNotFoundError:
         return False
     try:
-        return stat.S_ISREG(os.stat(_marker(source), dir_fd=held, follow_symlinks=False).st_mode)
+        info = os.stat(_marker(source), dir_fd=held, follow_symlinks=False)
+        # Only a marker this importer could have written counts: one link, a regular file.
+        return stat.S_ISREG(info.st_mode) and info.st_nlink == 1
     except FileNotFoundError:
         return False
     finally:
