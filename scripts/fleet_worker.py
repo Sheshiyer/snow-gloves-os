@@ -141,6 +141,11 @@ def _signal_group(pgid, signum):
     return True
 
 
+# find's message for a folder it could not open; MAX_DENIED caps how many are probed.
+DENIED = re.compile(rb'find: (/.+): Permission denied')
+MAX_DENIED = 1000
+
+
 def stop_group(process, grace=5):
     """Terminate the whole session started for `process` (start_new_session=True) and reap the leader.
 
@@ -164,7 +169,11 @@ def stop_group(process, grace=5):
     reap = getattr(process, 'reap_command', None)
     if reap:
         # A run under another account: its processes are not ours to signal directly.
-        subprocess.run(reap, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=grace + 10)
+        # A failure here is not fatal: settlement checks the account is idle and holds otherwise.
+        try:
+            subprocess.run(reap, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=grace + 10)
+        except (OSError, subprocess.SubprocessError):
+            pass
 
 
 class Worker:
@@ -813,16 +822,45 @@ class Worker:
             time.sleep(0.25)
         return False
 
+    def _task_owned(self, as_task, roots, user):
+        """List what the task account owns under `roots`, or None when that cannot be confirmed.
+
+        find runs as the account, so a folder it cannot open is one the account itself cannot
+        read. Such a folder is accepted only when the account cannot search it either (then it
+        cannot have created anything inside). The kernel answers that check, so access through
+        groups or ACLs counts; any other error fails closed."""
+        found = subprocess.run([*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', '-user', user, '-print0', '-prune'],
+                               capture_output=True, timeout=300)
+        owned = [entry for entry in found.stdout.split(b'\0') if entry]
+        if found.returncode == 0:
+            return owned
+        prefixes = tuple(os.fsencode(root.rstrip('/')) + b'/' for root in roots)
+        denied = [DENIED.fullmatch(line) for line in found.stderr.splitlines()]
+        if not denied or len(denied) > MAX_DENIED or not all(m and m[1].startswith(prefixes) for m in denied):
+            return None
+        # A newline in a name could make one error line pass for another.
+        odd = subprocess.run([*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', '-name', '*\n*', '!', '-user', user,
+                              '-print0', '-prune'], capture_output=True, timeout=300)
+        if odd.stdout.strip(b'\0'):
+            return None
+        paths = [os.fsdecode(m[1]) + '/.' for m in denied]
+        for start in range(0, len(paths), 100):
+            batch = paths[start:start + 100]
+            probe = subprocess.run([*as_task, '/usr/bin/find', *batch, '-xdev', '-maxdepth', '0', '-print0'],
+                                   capture_output=True, timeout=60)
+            errors = probe.stderr.splitlines()
+            # Searchable but unreadable: the account could have left files in it unseen.
+            if probe.stdout.strip(b'\0') or len(errors) != len(batch) or not all(DENIED.fullmatch(line) for line in errors):
+                return None
+        return owned
+
     def scrub_task_account(self, user):
         """Delete everything the task account owns in the shared writable folders, then check
         nothing is left. Returns True only when every command succeeded and the re-check
-        found nothing; any error (a missing sudoers entry, an unreadable folder) fails closed."""
+        found nothing; any error (a missing sudoers entry, a folder the account can enter but
+        not list) fails closed."""
         as_task = [self.sudo_path, '-n', '-u', user]
         roots = [root for root in self.task_scrub_roots if os.path.isdir(root)]
-        # Folders the account cannot enter (no execute for others) cannot hold its files, so
-        # they are pruned instead of failing; anything else find cannot read makes it fail.
-        listing = ['-xdev', '-mindepth', '1', '(', '-type', 'd', '!', '-user', user, '!', '-perm', '-001', ')',
-                   '-prune', '-o', '-user', user, '-print0', '-prune']
         try:
             if self.task_scrub_user_dir:
                 user_dir = subprocess.run([*as_task, '/usr/bin/getconf', 'DARWIN_USER_DIR'], capture_output=True, timeout=10)
@@ -832,19 +870,17 @@ class Worker:
                 roots.append(path)
             if not roots:
                 return True
-            found = subprocess.run([*as_task, '/usr/bin/find', *roots, *listing], capture_output=True, timeout=300)
-            if found.returncode:
+            paths = self._task_owned(as_task, roots, user)
+            if paths is None:
                 return False
-            paths = [entry for entry in found.stdout.split(b'\0') if entry]
             for start in range(0, len(paths), 100):
                 removed = subprocess.run([*as_task, '/bin/rm', '-rf', '--', *(os.fsdecode(p) for p in paths[start:start + 100])],
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
                 if removed.returncode:
                     return False
-            again = subprocess.run([*as_task, '/usr/bin/find', *roots, *listing], capture_output=True, timeout=300)
+            return self._task_owned(as_task, roots, user) == []
         except (OSError, subprocess.SubprocessError):
             return False
-        return again.returncode == 0 and not again.stdout.strip(b'\0').strip()
 
     def settle_task_workdir(self, workdir, task, succeeded, user):
         """Remove a succeeded run's workdir and keep any other; if neither works, or anything

@@ -632,6 +632,59 @@ def test_a_failing_scrub_command_fails_closed(worker, tmp_path, monkeypatch):
     assert w.scrub_task_account(w.task_users['tenant-a']) is False
 
 
+def _locked(*folders):
+    """Restore permissions on test folders a scrub test locked, so pytest can clean them up."""
+    for folder in folders:
+        folder.chmod(0o700)
+
+
+def test_scrub_enters_folders_it_can_reach_without_the_other_execute_bit(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Scrubbing as "nobody" while the stand-in sudo runs as us: this folder is another
+    # account's with no other-execute bit, yet the scrub can enter it (as group or ACL
+    # access would allow), so it must look inside. There the account could have left files
+    # in a folder it can enter but not list, so the scrub cannot confirm it is clean.
+    private = tmp_path / 'shared-tmp' / 'private'
+    drop = private / 'drop'
+    drop.mkdir(parents=True)
+    drop.chmod(0o300)
+    private.chmod(0o700)
+    try:
+        assert w.scrub_task_account('nobody') is False
+    finally:
+        _locked(drop)
+
+
+def test_scrub_accepts_folders_the_account_cannot_search(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    locked = tmp_path / 'shared-tmp' / 'locked'
+    locked.mkdir()
+    (locked / 'other.txt').write_text('another account')
+    locked.chmod(0o000)
+    try:
+        assert w.scrub_task_account('nobody') is True
+        # A name with a newline could fake find's error lines, so it fails closed.
+        (tmp_path / 'shared-tmp' / 'fake\nfind: x').mkdir()
+        assert w.scrub_task_account('nobody') is False
+    finally:
+        _locked(locked)
+
+
+def test_a_failing_reap_command_still_reports_and_settles(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    real_run = subprocess.run
+    def run(argv, *args, **kwargs):
+        if isinstance(argv, list) and '/usr/bin/pkill' in argv:
+            raise subprocess.TimeoutExpired(argv, kwargs.get('timeout'))
+        return real_run(argv, *args, **kwargs)
+    monkeypatch.setattr(subprocess, 'run', run)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    assert list(root.iterdir()) == [] and not w.held.exists()
+
+
 def test_worker_refuses_a_task_root_with_acl_entries(worker, tmp_path, monkeypatch):
     import fleet_worker
     import pwd as accounts
