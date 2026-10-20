@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """Single-slot pilot worker. Never retries execution after an uncertain outcome."""
 import argparse
+import ctypes
+import errno
 import fcntl
 import fnmatch
 import hashlib
 import json
 import os
 from pathlib import Path
+import pwd
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import time
 import uuid
@@ -99,6 +103,16 @@ def load_config(path):
     return value
 
 
+def has_acl(path):
+    """Whether *path* itself carries any ACL entry (macOS `ls -led` lists them as `N: ...`)."""
+    listing = subprocess.run(['/bin/ls', '-led', str(path)], capture_output=True, check=True, timeout=10).stdout
+    return any(re.match(rb'\s*\d+: ', line) for line in listing.splitlines()[1:])
+
+
+def account_uid(name):
+    return pwd.getpwnam(name).pw_uid
+
+
 def runtime_environment():
     return {name: os.environ[name] for name in
             ('HOME', 'PATH', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'SSL_CERT_FILE', 'SSL_CERT_DIR')
@@ -129,6 +143,57 @@ def _signal_group(pgid, signum):
     return True
 
 
+# find's message for a folder it could not open; MAX_DENIED caps how many are probed.
+DENIED = re.compile(rb'find: (/.+): Permission denied')
+MAX_DENIED = 1000
+
+
+def folder_metadata(path):
+    """A digest of a folder's persistent metadata that ignores its entries: mode, owner,
+    extended attributes (names and values) and ACL. A folder's times change whenever anyone
+    adds a file, so they cannot show whether a run wrote to the folder itself."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.listxattr.restype = libc.getxattr.restype = ctypes.c_ssize_t
+    libc.listxattr.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_int]
+    libc.getxattr.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint32, ctypes.c_int]
+    libc.acl_get_link_np.restype = libc.acl_to_text.restype = ctypes.c_void_p
+    libc.acl_get_link_np.argtypes = [ctypes.c_char_p, ctypes.c_int]
+    libc.acl_to_text.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    libc.acl_free.argtypes = [ctypes.c_void_p]
+
+    def sized(call):
+        size = call(None, 0)
+        if size < 0:
+            raise OSError(ctypes.get_errno(), 'Cannot read folder metadata', os.fsdecode(path))
+        buf = ctypes.create_string_buffer(size)
+        if call(buf, size) != size:
+            raise OSError(0, 'Folder metadata changed while it was read', os.fsdecode(path))
+        return buf.raw
+    info = os.lstat(path)
+    digest = hashlib.sha256(repr((info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid)).encode())
+    names = sized(lambda buf, size: libc.listxattr(path, buf, size, XATTR_NOFOLLOW)).split(b'\0')
+    for name in sorted(n for n in names if n):
+        value = sized(lambda buf, size: libc.getxattr(path, name, buf, size, 0, XATTR_NOFOLLOW))
+        digest.update(b'%d:%s%d:%s' % (len(name), name, len(value), value))
+    acl = libc.acl_get_link_np(path, ACL_TYPE_EXTENDED)
+    if acl:
+        try:
+            text = libc.acl_to_text(acl, None)
+            if not text:
+                raise OSError(ctypes.get_errno(), 'Cannot read folder ACL', os.fsdecode(path))
+            digest.update(b'acl:' + ctypes.string_at(text))
+            libc.acl_free(text)
+        finally:
+            libc.acl_free(acl)
+    elif ctypes.get_errno() != errno.ENOENT:
+        raise OSError(ctypes.get_errno(), 'Cannot read folder ACL', os.fsdecode(path))
+    return digest.hexdigest()
+
+
+XATTR_NOFOLLOW = 0x0001
+ACL_TYPE_EXTENDED = 0x00000100
+
+
 def stop_group(process, grace=5):
     """Terminate the whole session started for `process` (start_new_session=True) and reap the leader.
 
@@ -149,6 +214,14 @@ def stop_group(process, grace=5):
     except subprocess.TimeoutExpired:
         _signal_group(pgid, signal.SIGKILL)
         process.wait(timeout=grace)
+    reap = getattr(process, 'reap_command', None)
+    if reap:
+        # A run under another account: its processes are not ours to signal directly.
+        # A failure here is not fatal: settlement checks the account is idle and holds otherwise.
+        try:
+            subprocess.run(reap, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=grace + 10)
+        except (OSError, subprocess.SubprocessError):
+            pass
 
 
 class Worker:
@@ -197,6 +270,55 @@ class Worker:
                     or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', tenant) or Path(path).resolve() not in allowed_roots):
                 raise ValueError('Invalid tenant root')
             self.tenant_roots[Path(path).resolve()] = tenant
+        # Optional separate accounts for tenant-isolated tasks, one per tenant. Every service
+        # runs as the account that owns all private data, so only a different account can keep
+        # a tenant task from reading other tenants' files; and only a different account per
+        # tenant keeps one tenant's run from leaving data (files, semaphores, any same-UID
+        # state) for another's. Unset, tasks run as today.
+        if 'task_user' in config:
+            raise ValueError('task_user (one shared account) is not supported; map each tenant to its own account in task_users')
+        self.task_users = config.get('task_users')
+        if self.task_users is not None:
+            task_root = config.get('task_root')
+            if not isinstance(self.task_users, dict) or not self.task_users:
+                raise ValueError('task_users must map each tenant to its own account')
+            task_uids = set()
+            for tenant_slug, account in self.task_users.items():
+                if (not isinstance(tenant_slug, str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', tenant_slug)
+                        or not isinstance(account, str) or not re.fullmatch(r'[a-z_][a-z0-9_-]{0,31}', account)):
+                    raise ValueError('task_users must map tenant slugs to ordinary account names')
+                try:
+                    task_uid = account_uid(account)
+                except KeyError:
+                    raise ValueError('task_users must name existing accounts') from None
+                if task_uid in (0, os.getuid()):
+                    raise ValueError('task_users must name ordinary accounts other than this worker')
+                # Compared by UID: two names for one UID are one account to ACLs, processes and IPC.
+                if task_uid in task_uids:
+                    raise ValueError('task_users must give every tenant its own account')
+                task_uids.add(task_uid)
+            if not isinstance(task_root, str) or not Path(task_root).is_absolute():
+                raise ValueError('task_users needs an absolute task_root')
+            root_stat = os.lstat(task_root)
+            if (not stat.S_ISDIR(root_stat.st_mode) or root_stat.st_uid != os.getuid()
+                    or root_stat.st_mode & 0o022 or not root_stat.st_mode & 0o001):
+                raise ValueError('task_root must be a directory this worker owns, writable only by it, '
+                                 'that other accounts may pass through (mode 711)')
+            # Mode bits say nothing about ACL entries, which could grant (or pass on to new
+            # workdirs) more access than 711; the root must carry none.
+            if has_acl(task_root):
+                raise ValueError('task_root must carry no ACL entries')
+            self.task_root = Path(task_root)
+            self.sudo_path = config.get('sudo_path', '/usr/bin/sudo')
+            self.pgrep_path = config.get('pgrep_path', '/usr/bin/pgrep')
+            # Shared writable places a run could leave tenant data in for that tenant's next run
+            # or for other local accounts to find. Each account's per-user temp and cache folders
+            # (DARWIN_USER_DIR) are added unless turned off.
+            scrub = config.get('task_scrub_roots', ['/private/tmp', '/private/var/tmp', '/Users/Shared'])
+            if not isinstance(scrub, list) or not all(isinstance(path, str) and Path(path).is_absolute() for path in scrub):
+                raise ValueError('task_scrub_roots must list absolute folders')
+            self.task_scrub_roots = scrub
+            self.task_scrub_user_dir = config.get('task_scrub_user_dir', True) is not False
         if not loopback_endpoint(config['endpoint']):
             raise ValueError('Pilot coordinator must use loopback')
         if config.get('gateway_url') != 'http://127.0.0.1:20128/v1':
@@ -261,6 +383,23 @@ class Worker:
             task = json.loads(self.active.read_text())
             private_json(self.held, {'attempt_id': task['attempt_id'], 'reason': 'Prior process state uncertain; reconcile before dispatch'})
             private_json(self.pending, self.report(task, 'interrupted', message='Worker restarted; manual reconciliation required'))
+        if self.task_users is not None:
+            # A process the dead worker left running as a task account keeps its open files
+            # and cwd whatever happens to the folders, so end it first and hold if that fails.
+            # Files a crashed run left in shared folders missed their post-run scrub; scrub now.
+            for account in sorted(set(self.task_users.values())):
+                if not self.task_account_idle(account):
+                    private_json(self.held, {'attempt_id': 'task-account:' + account,
+                                             'reason': 'Task-account processes survived a worker restart; reconcile before dispatch'})
+                elif not self.scrub_task_account(account):
+                    private_json(self.held, {'attempt_id': 'task-account:' + account,
+                                             'reason': 'Task-account files left in shared folders after a restart; reconcile before dispatch'})
+            # A workdir left in task_root by a crash stays reachable by the task account until
+            # it is moved into private state; if that fails, nothing more is dispatched.
+            for leftover in sorted(self.task_root.iterdir()):
+                if not self.retain_task_workdir(leftover):
+                    private_json(self.held, {'attempt_id': leftover.name,
+                                             'reason': 'Task-account workdir left after a restart; reconcile before dispatch'})
         return self.flush()
 
     def command(self, worktree, write=False):
@@ -663,9 +802,199 @@ class Worker:
         return dict(access='write', base=run_git('rev-parse', 'HEAD').decode().strip(), files=names,
                     patch={'text': text, 'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw)}, tests=results)
 
+    def prepare_task_account(self, workdir, worktree, user):
+        """Give the task account read access to the clone and a private home for Codex, by
+        ACL on folders this worker owns; it gets nothing else. Returns its environment."""
+        home = workdir / 'home'
+        for path in (home, home / '.codex', home / 'tmp'):
+            path.mkdir(mode=0o700)
+        me = pwd.getpwuid(os.getuid()).pw_name
+        def grant(entry, path, recursive=False):
+            subprocess.run(['/bin/chmod', *(['-R'] if recursive else []), '+a', entry, str(path)],
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+        grant('user:%s allow search' % user, workdir)
+        grant('user:%s allow list,search,read,readattr,readextattr,readsecurity,file_inherit,directory_inherit' % user,
+              worktree, recursive=True)
+        # Codex writes its session state under home; this account keeps delete rights on all
+        # of it so cleanup works whatever the task account creates there.
+        grant('user:%s allow list,search,read,delete,delete_child,readattr,writeattr,readextattr,readsecurity,'
+              'file_inherit,directory_inherit' % me, home, recursive=True)
+        grant('user:%s allow list,search,add_file,add_subdirectory,delete_child,read,write,append,readattr,writeattr,'
+              'readextattr,writeextattr,readsecurity,file_inherit,directory_inherit' % user, home, recursive=True)
+        # Lets its cleanup rm remove the home folder too (not inherited by anything inside).
+        grant('user:%s allow delete' % user, home)
+        return {'HOME': str(home), 'CODEX_HOME': str(home / '.codex'), 'TMPDIR': str(home / 'tmp'),
+                'USER': user, 'LOGNAME': user}
+
+    def remove_task_workdir(self, workdir, user):
+        """Remove a task-account run's clone and home; anything the task account kept away from
+        this account is removed as the task account first. Returns whether it is all gone."""
+        home = workdir / 'home'
+        try:
+            if home.exists():
+                subprocess.run([self.sudo_path, '-n', '-u', user, '/bin/rm', '-rf', '--', str(home)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+                # Success is everything the task account made being gone. Removing the home
+                # folder itself may be refused to that account (this account owns it and its
+                # parent), so a nonzero exit with an empty home is fine; this account removes it.
+                if home.exists() and os.listdir(home):
+                    return False
+            shutil.rmtree(workdir)
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return not os.path.lexists(workdir)
+
+    def retain_task_workdir(self, workdir):
+        """Keep a workdir for reconciliation inside this worker's private state, where the
+        task account cannot reach it, so nothing of a stopped run stays open to its account.
+        Returns whether it was moved."""
+        retained = self.state / 'retained-task-workdirs'
+        try:
+            retained.mkdir(exist_ok=True, mode=0o700)
+            os.rename(workdir, retained / workdir.name)
+        except OSError:
+            return False
+        return True
+
+    def task_account_idle(self, user):
+        """Whether the task account runs nothing, ending what it still runs (as that account)
+        and re-checking for a few seconds. pgrep exits 1 for no match, 0 for a match."""
+        for _ in range(20):
+            try:
+                found = subprocess.run([self.pgrep_path, '-U', user],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10).returncode
+            except (OSError, subprocess.SubprocessError):
+                return False
+            if found == 1:
+                return True
+            if found != 0:
+                return False
+            try:
+                subprocess.run([self.sudo_path, '-n', '-u', user, '/usr/bin/pkill', '-KILL', '-U', user],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+            except (OSError, subprocess.SubprocessError):
+                return False
+            time.sleep(0.25)
+        return False
+
+    def _task_find(self, as_task, roots, user, select):
+        """List what `select` matches under `roots`, or None when that cannot be confirmed.
+
+        find runs as the account, so a folder it cannot open is one the account itself cannot
+        read. Such a folder is accepted only when the account cannot search it either (then it
+        cannot have created anything inside). The kernel answers that check, so access through
+        groups or ACLs counts; any other error fails closed."""
+        found = subprocess.run([*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', *select],
+                               capture_output=True, timeout=300)
+        owned = [entry for entry in found.stdout.split(b'\0') if entry]
+        if found.returncode == 0:
+            return owned
+        prefixes = tuple(os.fsencode(root.rstrip('/')) + b'/' for root in roots)
+        denied = [DENIED.fullmatch(line) for line in found.stderr.splitlines()]
+        if not denied or len(denied) > MAX_DENIED or not all(m and m[1].startswith(prefixes) for m in denied):
+            return None
+        # A newline in a name could make one error line pass for another.
+        odd = subprocess.run([*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', '-name', '*\n*', '!', '-user', user,
+                              '-print0', '-prune'], capture_output=True, timeout=300)
+        if odd.stdout.strip(b'\0'):
+            return None
+        paths = [os.fsdecode(m[1]) + '/.' for m in denied]
+        for start in range(0, len(paths), 100):
+            batch = paths[start:start + 100]
+            probe = subprocess.run([*as_task, '/usr/bin/find', *batch, '-xdev', '-maxdepth', '0', '-print0'],
+                                   capture_output=True, timeout=60)
+            errors = probe.stderr.splitlines()
+            # Searchable but unreadable: the account could have left files in it unseen.
+            if probe.stdout.strip(b'\0') or len(errors) != len(batch) or not all(DENIED.fullmatch(line) for line in errors):
+                return None
+        return owned
+
+    def _shared_writable(self, as_task, roots, user):
+        """Fingerprint everything under `roots` that another account owns but the task account
+        may be able to write (group- or other-writable, or carrying an ACL). A run could hide
+        data in one without owning it, in its content or in a folder's extended attributes, so
+        these are compared across the run instead of deleted. None when the list or any
+        fingerprint cannot be confirmed."""
+        found = self._task_find(as_task, roots, user, ['(', '-user', user, '-prune', ')', '-o',
+                                                       '(', '-perm', '-002', '-o', '-perm', '-020', '-o', '-acl', ')', '-print0'])
+        if found is None:
+            return None
+        prints = {}
+        for path in found:
+            try:
+                info = os.lstat(path)
+                if stat.S_ISDIR(info.st_mode):
+                    prints[path.hex()] = folder_metadata(path)
+                else:
+                    # A file's change time moves with any content, attribute or ACL write.
+                    prints[path.hex()] = [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+            except (OSError, AttributeError):  # AttributeError: a libc without these calls (not macOS)
+                return None
+        return prints
+
+    def scrub_task_account(self, user, phase='after'):
+        """Delete everything the task account owns in the shared writable folders, then check
+        nothing is left. Before a run, also record a fingerprint of the shared objects the
+        account could write without owning; after it (or at restart, when a run was cut
+        short), refuse if any of them changed. Returns True only when every command succeeded
+        and every check passed; any error (a missing sudoers entry, a folder the account can
+        enter but not list) fails closed."""
+        as_task = [self.sudo_path, '-n', '-u', user]
+        roots = [root for root in self.task_scrub_roots if os.path.isdir(root)]
+        try:
+            if self.task_scrub_user_dir:
+                user_dir = subprocess.run([*as_task, '/usr/bin/getconf', 'DARWIN_USER_DIR'], capture_output=True, timeout=10)
+                path = user_dir.stdout.decode('utf-8', 'replace').strip()
+                if user_dir.returncode or not path or not Path(path).is_absolute():
+                    return False
+                roots.append(path)
+            if not roots:
+                return True
+            owned = ['-user', user, '-print0', '-prune']
+            paths = self._task_find(as_task, roots, user, owned)
+            if paths is None:
+                return False
+            for start in range(0, len(paths), 100):
+                removed = subprocess.run([*as_task, '/bin/rm', '-rf', '--', *(os.fsdecode(p) for p in paths[start:start + 100])],
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+                if removed.returncode:
+                    return False
+            if self._task_find(as_task, roots, user, owned) != []:
+                return False
+            prints = self._shared_writable(as_task, roots, user)
+            if prints is None:
+                return False
+            record = self.state / ('shared-writable-%s.json' % user)
+            if phase == 'before':
+                private_json(record, prints)
+                return True
+            if record.exists():
+                if json.loads(record.read_text()) != prints:
+                    return False
+                record.unlink()
+            return True
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return False
+
+    def settle_task_workdir(self, workdir, task, succeeded, user):
+        """Remove a succeeded run's workdir and keep any other; if neither works, or anything
+        the run started is still alive as the task account, hold dispatch so no later task
+        runs while a previous tenant's data or processes remain reachable."""
+        if not self.task_account_idle(user):
+            private_json(self.held, {'attempt_id': task['attempt_id'],
+                                     'reason': 'Task-account processes survived the run; reconcile before dispatch'})
+        elif not self.scrub_task_account(user):
+            private_json(self.held, {'attempt_id': task['attempt_id'],
+                                     'reason': 'Task-account files left in, or shared files changed in, shared folders; reconcile before dispatch'})
+        if succeeded and self.remove_task_workdir(workdir, user):
+            return
+        if os.path.lexists(workdir) and not self.retain_task_workdir(workdir):
+            private_json(self.held, {'attempt_id': task['attempt_id'],
+                                     'reason': 'Task-account workdir could not be removed or retained; reconcile before dispatch'})
+
     def execute(self, task):
         kind, message, artifact = 'failed', 'Execution did not complete', None
-        process = None
+        process, workdir, account = None, None, None
         try:
             review = self._review_assignment(task, (self.config.get('token'),))
             private_json(self.active, task)
@@ -725,8 +1054,30 @@ class Worker:
                 tenant = task['tenant']
             if tenant is not None and isolation_problem(root, tenant, self.config.get('git_path', 'git')):
                 raise ValueError('Tenant root failed its isolation check')
-            worktree = self.state / 'worktrees' / (task['id'] + '-' + task['attempt_id'])
-            worktree.parent.mkdir(exist_ok=True, mode=0o700)
+            account = None
+            if tenant is not None and self.task_users is not None:
+                # Fail closed: a tenant with no account of its own never runs as another's.
+                account = self.task_users.get(tenant)
+                if account is None:
+                    raise ValueError('No task account is mapped for this tenant')
+            as_task_user = account is not None
+            if as_task_user and write:
+                raise WriteRejected('Tenant tasks run as the task account are read-only')
+            if as_task_user and not (self.task_account_idle(account) and self.scrub_task_account(account, 'before')):
+                private_json(self.held, {'attempt_id': task['attempt_id'],
+                                         'reason': 'Task account was not idle and clean before a run; reconcile before dispatch'})
+                raise ValueError('Task account is not idle and clean')
+            if as_task_user:
+                # Outside this account's home, which the task account must not enter at all.
+                workdir = self.task_root / (task['id'] + '-' + task['attempt_id'])
+                workdir.mkdir(mode=0o700)
+                if has_acl(workdir):  # e.g. an ACL added to task_root since startup, inherited here
+                    raise ValueError('Task workdir inherited ACL entries')
+                worktree = workdir / 'repo'
+            else:
+                workdir = None
+                worktree = self.state / 'worktrees' / (task['id'] + '-' + task['attempt_id'])
+                worktree.parent.mkdir(exist_ok=True, mode=0o700)
             git = [self.config.get('git_path', 'git'), '-c', 'core.hooksPath=' + os.devnull]  # never run repository hooks
             if tenant is not None:
                 # A tenant task gets its own clone holding only objects reachable from the
@@ -756,6 +1107,8 @@ class Worker:
                                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
             env = runtime_environment()
             env['OMNIROUTE_API_KEY'] = key
+            if as_task_user:
+                env.update(self.prepare_task_account(workdir, worktree, account))
             start = time.monotonic()
             runs = 1 + max(0, int(self.config.get('transient_retries', 2)))
             if business is not None:
@@ -766,8 +1119,17 @@ class Worker:
             for run in range(runs):
                 log = self.state / (task['attempt_id'] + ('.retry%d' % run if run else '') + '.jsonl')
                 with os.fdopen(os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
-                    process = subprocess.Popen(self.command(worktree, write), stdin=subprocess.PIPE, stdout=output, stderr=output,
+                    argv = self.command(worktree, write)
+                    if as_task_user:
+                        # Only the listed variables cross into the task account; the key never
+                        # appears in the command line.
+                        argv = [self.sudo_path, '-n', '-u', account, '--preserve-env=' + ','.join(sorted(env)), '--', *argv]
+                    process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=output, stderr=output,
                                                env=env, start_new_session=True)
+                    if as_task_user:
+                        # sudo relays SIGTERM but cannot relay SIGKILL; this ends whatever the
+                        # task account still runs once the group is stopped.
+                        process.reap_command = [self.sudo_path, '-n', '-u', account, '/usr/bin/pkill', '-KILL', '-U', account]
                     process.stdin.write(((WRITE_PREAMBLE if write else '') + prompt).encode())
                     process.stdin.close()
                     early, note = self.monitor(task, start, lambda: process.poll() is not None, process)
@@ -835,6 +1197,10 @@ class Worker:
         if artifact:
             body['artifact'] = artifact
         private_json(self.pending, body)
+        if workdir is not None:
+            # Only after the terminal report is on disk: a succeeded run's workdir is
+            # removed, anything else is kept (privately) for reconciliation.
+            self.settle_task_workdir(workdir, task, kind == 'succeeded', account)
         self.flush()
 
     def run(self):

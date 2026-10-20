@@ -428,3 +428,370 @@ def test_bridge_rechecks_the_checkout_before_every_run(hermes_checkout, tmp_path
     with pytest.raises(ValueError, match='refusing to run unpinned code'):
         bridge.interpret(body)
     assert len(ran) == 1
+
+
+def _task_account(worker, tmp_path, monkeypatch, log_name='sudo.log'):
+    """Point the worker at a stand-in sudo that records each call and runs the command as us,
+    except pkill, which it only records (it must never signal this test's own processes)."""
+    import fleet_worker
+    import pwd as accounts
+    w, task = worker
+    me = accounts.getpwuid(os.getuid()).pw_name
+    monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: 99999)
+    root = tmp_path / 'task-root'
+    root.mkdir(mode=0o711)
+    root.chmod(0o711)
+    calls = tmp_path / log_name
+    sudo = tmp_path / 'sudo'
+    sudo.write_text('#!/usr/bin/env python3\n'
+                    'import json, os, sys\n'
+                    'args = sys.argv[1:]\n'
+                    # Parse like sudo: options (-n, -u USER, --preserve-env=...), then an optional --.
+                    'i = 0\n'
+                    'while i < len(args) and args[i].startswith("-") and args[i] != "--":\n'
+                    '    i += 2 if args[i] == "-u" else 1\n'
+                    'rest = args[i + 1:] if i < len(args) and args[i] == "--" else args[i:]\n'
+                    'with open(%r, "a") as log: log.write(json.dumps({"args": args, "env": sorted(os.environ)}) + "\\n")\n'
+                    'if rest and rest[0] == "/usr/bin/pkill": sys.exit(0)\n'
+                    # Never let a scrub touch anything outside this test's own folder.
+                    'if rest and rest[0] == "/usr/bin/find" and not all(a.startswith(%r) for a in rest[1:rest.index("-xdev")]): sys.exit(2)\n'
+                    'if rest and rest[0] == "/bin/rm" and os.path.exists(%r): sys.exit(1)\n'
+                    # As macOS may: empty the home but refuse the folder itself, exiting nonzero.
+                    'if rest and rest[0] == "/bin/rm" and os.path.exists(%r):\n'
+                    '    import shutil\n'
+                    '    for name in os.listdir(rest[-1]): shutil.rmtree(os.path.join(rest[-1], name))\n'
+                    '    sys.exit(1)\n'
+                    'os.execv(rest[0], rest)\n' % (str(calls), str(tmp_path), str(tmp_path / 'fail-rm'), str(tmp_path / 'keep-home-dir')))
+    sudo.chmod(0o700)
+    # A stand-in pgrep: "no processes" unless a flag file says the account is still busy.
+    pgrep = tmp_path / 'pgrep'
+    pgrep.write_text('#!/bin/sh\n[ -e %s ] && exit 0\nexit 1\n' % (tmp_path / 'busy'))
+    pgrep.chmod(0o700)
+    shared = tmp_path / 'shared-tmp'
+    shared.mkdir()
+    config = dict(w.config, task_users={'tenant-a': me}, task_root=str(root), sudo_path=str(sudo), pgrep_path=str(pgrep),
+                  task_scrub_roots=[str(shared)], task_scrub_user_dir=False)
+    return fleet_worker.Worker(config), dict(task, tenant='tenant-a', tenant_isolated=True), root, calls
+
+
+def test_tenant_tasks_run_as_the_task_account_in_a_private_workdir(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    records = [json.loads(line) for line in calls.read_text().splitlines()]
+    run = next(r for r in records if '--' in r['args'] and r['args'][r['args'].index('--') + 1].endswith('codex'))
+    assert run['args'][:3] == ['-n', '-u', w.task_users['tenant-a']]
+    preserved = run['args'][3].split('=', 1)[1].split(',')
+    assert 'OMNIROUTE_API_KEY' in preserved and {'HOME', 'CODEX_HOME', 'TMPDIR'} <= set(preserved)
+    # The key travels only in the environment, never on the command line.
+    assert not any('gateway-secret' in arg for arg in run['args'])
+    # The run used a workdir under task_root, never the worker's own state, and it was deleted
+    # (not merely retained).
+    assert '-C' in run['args'] and run['args'][run['args'].index('-C') + 1].startswith(str(root))
+    assert list(root.iterdir()) == [] and not (w.state / 'worktrees').exists()
+    assert not (w.state / 'retained-task-workdirs').exists() and not w.held.exists()
+    assert any(r['args'][3:5] == ['/bin/rm', '-rf'] for r in records)
+
+
+def test_task_account_runs_are_reaped_and_refuse_write(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(dict(task, access='write'))
+    assert reports[-1]['type'] == 'failed'
+    w.execute(dict(task, id='task2', attempt_id='attempt2'))
+    records = [json.loads(line)['args'] for line in calls.read_text().splitlines()]
+    # After the run, whatever the task account still runs is ended through sudo.
+    assert any(args[-4:] == ['/usr/bin/pkill', '-KILL', '-U', w.task_users['tenant-a']] for args in records)
+
+
+@pytest.mark.parametrize('change', ['same-account', 'no-root', 'group-writable-root', 'closed-root'])
+def test_worker_refuses_an_unsafe_task_account_setup(worker, tmp_path, monkeypatch, change):
+    import fleet_worker
+    import pwd as accounts
+    w, _ = worker
+    root = tmp_path / 'task-root'
+    root.mkdir()
+    root.chmod({'group-writable-root': 0o771, 'closed-root': 0o700}.get(change, 0o711))
+    monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: os.getuid() if change == 'same-account' else 99999)
+    config = dict(w.config, task_users={'tenant-a': accounts.getpwuid(os.getuid()).pw_name}, task_root=str(root))
+    if change == 'no-root':
+        config.pop('task_root')
+    with pytest.raises(ValueError):
+        fleet_worker.Worker(config)
+
+
+def test_a_failed_task_account_run_is_kept_privately_for_reconciliation(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    failing = tmp_path / 'codex-fails'
+    failing.write_text('#!/bin/sh\ncat >/dev/null\nexit 3\n')
+    failing.chmod(0o700)
+    w.config['codex_path'] = str(failing)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'failed'
+    kept = w.state / 'retained-task-workdirs' / 'task1-attempt1'
+    # Moved out of task_root (shared with the task account) into the worker's own state.
+    assert list(root.iterdir()) == [] and (kept / 'repo' / 'MANIFEST.yaml').exists() and not w.held.exists()
+
+
+def test_cleanup_failure_after_success_keeps_the_workdir_or_holds_dispatch(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    (tmp_path / 'fail-rm').write_text('')
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    # Removal failed, so the run was retained privately rather than left behind.
+    assert list(root.iterdir()) == [] and (w.state / 'retained-task-workdirs' / 'task1-attempt1').exists()
+    # If it can be neither removed nor moved, nothing more is dispatched.
+    monkeypatch.setattr(fleet_worker.os, 'rename', lambda *a: (_ for _ in ()).throw(OSError('cross-device')))
+    w.execute(dict(task, id='task2', attempt_id='attempt2'))
+    assert (root / 'task2-attempt2').exists() and json.loads(w.held.read_text())['attempt_id'] == 'attempt2'
+
+
+def test_restart_moves_leftover_task_workdirs_out_of_reach(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    (root / 'old-attempt' / 'home').mkdir(parents=True)
+    w.request = lambda route, body: {}
+    w.recover()
+    assert list(root.iterdir()) == [] and (w.state / 'retained-task-workdirs' / 'old-attempt' / 'home').exists()
+
+
+def test_surviving_task_account_processes_hold_dispatch(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    monkeypatch.setattr(fleet_worker.time, 'sleep', lambda seconds: None)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    # Something keeps running as the task account after the run (pkill cannot end it).
+    real_settle = w.settle_task_workdir
+    def settle(workdir, task_, succeeded, user):
+        (tmp_path / 'busy').write_text('')
+        real_settle(workdir, task_, succeeded, user)
+    w.settle_task_workdir = settle
+    w.execute(task)
+    assert json.loads(w.held.read_text())['reason'].startswith('Task-account processes survived')
+    # And a run never starts while the account is busy.
+    w.held.unlink()
+    w.execute(dict(task, id='task2', attempt_id='attempt2'))
+    assert reports[-1]['type'] == 'failed' and not (root / 'task2-attempt2').exists()
+    assert 'not idle' in json.loads(w.held.read_text())['reason']
+
+
+def test_cleanup_succeeds_when_only_the_empty_home_folder_is_refused(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    (tmp_path / 'keep-home-dir').write_text('')
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    # Deleted, not retained: the task account emptied its home and this account removed the rest.
+    assert list(root.iterdir()) == [] and not (w.state / 'retained-task-workdirs').exists() and not w.held.exists()
+
+
+def test_files_a_run_leaves_in_shared_temp_folders_are_scrubbed(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Stands in for a run that copied tenant data to /tmp for a later run to read.
+    real_settle = w.settle_task_workdir
+    def settle(workdir, task_, succeeded, user):
+        (tmp_path / 'shared-tmp' / 'stash').mkdir()
+        (tmp_path / 'shared-tmp' / 'stash' / 'copy.md').write_text('tenant-a private context')
+        real_settle(workdir, task_, succeeded, user)
+    w.settle_task_workdir = settle
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    assert list((tmp_path / 'shared-tmp').iterdir()) == [] and not w.held.exists()
+
+
+def test_an_unconfirmable_scrub_holds_dispatch(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    monkeypatch.setattr(w, 'scrub_task_account', lambda user, phase='after': False)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'failed' and 'clean' in json.loads(w.held.read_text())['reason']
+
+
+def test_a_failing_scrub_command_fails_closed(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Stands in for a host whose sudoers entry does not yet allow find.
+    real_run = subprocess.run
+    def run(argv, *args, **kwargs):
+        if isinstance(argv, list) and '/usr/bin/find' in argv:
+            return subprocess.CompletedProcess(argv, 1, b'', b'sudo: a password is required')
+        return real_run(argv, *args, **kwargs)
+    monkeypatch.setattr(subprocess, 'run', run)
+    assert w.scrub_task_account(w.task_users['tenant-a']) is False
+
+
+def _locked(*folders):
+    """Restore permissions on test folders a scrub test locked, so pytest can clean them up."""
+    for folder in folders:
+        folder.chmod(0o700)
+
+
+def test_scrub_enters_folders_it_can_reach_without_the_other_execute_bit(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Scrubbing as "nobody" while the stand-in sudo runs as us: this folder is another
+    # account's with no other-execute bit, yet the scrub can enter it (as group or ACL
+    # access would allow), so it must look inside. There the account could have left files
+    # in a folder it can enter but not list, so the scrub cannot confirm it is clean.
+    private = tmp_path / 'shared-tmp' / 'private'
+    drop = private / 'drop'
+    drop.mkdir(parents=True)
+    drop.chmod(0o300)
+    private.chmod(0o700)
+    try:
+        assert w.scrub_task_account('nobody') is False
+    finally:
+        _locked(drop)
+
+
+def test_scrub_accepts_folders_the_account_cannot_search(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    locked = tmp_path / 'shared-tmp' / 'locked'
+    locked.mkdir()
+    (locked / 'other.txt').write_text('another account')
+    locked.chmod(0o000)
+    try:
+        assert w.scrub_task_account('nobody') is True
+        # A name with a newline could fake find's error lines, so it fails closed.
+        (tmp_path / 'shared-tmp' / 'fake\nfind: x').mkdir()
+        assert w.scrub_task_account('nobody') is False
+    finally:
+        _locked(locked)
+
+
+def test_scrub_refuses_when_a_shared_file_the_account_can_write_changed(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Another account's world-writable file in a shared folder: a run could hide data in it
+    # without owning it, so the scrub cannot delete it and compares it across the run instead.
+    drop = tmp_path / 'shared-tmp' / 'drop'
+    drop.write_text('')
+    drop.chmod(0o666)
+    assert w.scrub_task_account('nobody', 'before') is True
+    assert w.scrub_task_account('nobody') is True  # unchanged across the run
+    assert w.scrub_task_account('nobody', 'before') is True
+    drop.write_text('tenant-a private context')
+    assert w.scrub_task_account('nobody') is False
+    # A restart after a crashed run compares against the same record.
+    assert w.scrub_task_account('nobody') is False
+
+
+def test_scrub_refuses_when_a_shared_folders_attributes_or_acl_changed(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Another account's world-writable folder: a run could keep data in its extended
+    # attributes without owning any entry. New entries by others must not count as a change.
+    folder = tmp_path / 'shared-tmp' / 'drop'
+    folder.mkdir()
+    folder.chmod(0o777)
+    assert w.scrub_task_account('nobody', 'before') is True
+    (folder / 'someone-elses.log').write_text('')
+    assert w.scrub_task_account('nobody') is True
+    for change in (['/usr/bin/xattr', '-w', 'com.example.stash', 'tenant-a private context', str(folder)],
+                   ['/bin/chmod', '+a', 'everyone allow writeextattr', str(folder)]):
+        assert w.scrub_task_account('nobody', 'before') is True
+        subprocess.run(change, check=True)
+        assert w.scrub_task_account('nobody') is False
+
+
+def test_a_failing_reap_command_still_reports_and_settles(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    real_run = subprocess.run
+    def run(argv, *args, **kwargs):
+        if isinstance(argv, list) and '/usr/bin/pkill' in argv:
+            raise subprocess.TimeoutExpired(argv, kwargs.get('timeout'))
+        return real_run(argv, *args, **kwargs)
+    monkeypatch.setattr(subprocess, 'run', run)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    assert list(root.iterdir()) == [] and not w.held.exists()
+
+
+def test_worker_refuses_a_task_root_with_acl_entries(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    import pwd as accounts
+    w, _ = worker
+    root = tmp_path / 'task-root'
+    root.mkdir()
+    root.chmod(0o711)
+    subprocess.run(['/bin/chmod', '+a', 'everyone allow add_file,add_subdirectory,file_inherit,directory_inherit', str(root)], check=True)
+    monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: 99999)
+    with pytest.raises(ValueError, match='ACL'):
+        fleet_worker.Worker(dict(w.config, task_users={'tenant-a': accounts.getpwuid(os.getuid()).pw_name}, task_root=str(root)))
+
+
+def test_restart_reaps_the_task_account_or_holds(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    monkeypatch.setattr(fleet_worker.time, 'sleep', lambda seconds: None)
+    w.request = lambda route, body: {}
+    w.recover()
+    # Recovery checked the task account and found it idle, so nothing is held.
+    assert not w.held.exists()
+    (tmp_path / 'busy').write_text('')
+    w.recover()
+    assert 'restart' in json.loads(w.held.read_text())['reason']
+
+
+def test_worker_accepts_tenant_accounts_with_distinct_uids(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, _ = worker
+    root = tmp_path / 'task-root'
+    root.mkdir()
+    root.chmod(0o711)
+    monkeypatch.setattr(fleet_worker, 'account_uid', {'sg-a': 90001, 'sg-b': 90002}.__getitem__)
+    assert fleet_worker.Worker(dict(w.config, task_users={'tenant-a': 'sg-a', 'tenant-b': 'sg-b'}, task_root=str(root))).task_users
+
+
+def test_restart_scrubs_what_a_crashed_run_left_in_shared_folders(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    w.request = lambda route, body: {}
+    # Stands in for a run that copied tenant data to /tmp and then lost its worker.
+    (tmp_path / 'shared-tmp' / 'stash.md').write_text('tenant-a private context')
+    w.recover()
+    assert list((tmp_path / 'shared-tmp').iterdir()) == [] and not w.held.exists()
+    monkeypatch.setattr(w, 'scrub_task_account', lambda user, phase='after': False)
+    w.recover()
+    assert 'shared folders' in json.loads(w.held.read_text())['reason']
+
+
+def test_each_tenant_runs_as_its_own_account_and_an_unmapped_tenant_is_refused(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(dict(task, tenant='tenant-b', id='task9', attempt_id='attempt9'))
+    # No account for tenant-b: refused before any workdir or sudo call exists.
+    assert reports[-1]['type'] == 'failed' and not (root / 'task9-attempt9').exists() and not calls.exists()
+
+
+# Two names for one UID (every name maps to 99999 here) are one account, so they are refused too.
+@pytest.mark.parametrize('mapping', [{'tenant-a': 'same', 'tenant-b': 'same'}, {'tenant-a': 'sg-a', 'tenant-b': 'sg-a-alias'},
+                                     {}, ['tenant-a'], {'Tenant A': 'sg-a'}])
+def test_worker_refuses_a_task_account_map_that_shares_or_is_malformed(worker, tmp_path, monkeypatch, mapping):
+    import fleet_worker
+    w, _ = worker
+    root = tmp_path / 'task-root'
+    root.mkdir()
+    root.chmod(0o711)
+    monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: 99999)
+    with pytest.raises(ValueError):
+        fleet_worker.Worker(dict(w.config, task_users=mapping, task_root=str(root)))
+
+
+def test_worker_refuses_the_retired_shared_task_user_setting(worker, tmp_path):
+    import fleet_worker
+    w, _ = worker
+    with pytest.raises(ValueError, match='task_users'):
+        fleet_worker.Worker(dict(w.config, task_user='sg-task', task_root=str(tmp_path)))

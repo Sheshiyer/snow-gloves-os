@@ -246,3 +246,51 @@ The first isolated real-flow probe interpreted and planned through pinned Hermes
 
 
 Actual corrected candidate flow on Coding01 completed root → Librarian → Sentinel with the pinned Hermes bridge and three sequential Codex jobs, all with zero collaboration events. Exact predecessor output was verified in the owned CLI session prompts, rather than inferred from artifact references. Sentinel corrected five root citation offsets against the real checkout. This isolated run leaves production admission and human semantic acceptance pending; the serving board remains unchanged. The first interrupted candidate and all recovery evidence are preserved without replay.
+
+## Running each tenant's tasks as its own account (optional, off by default)
+
+The worker and every other service run as the operator account, which owns all private instance data: the ops checkout, every tenant workspace, backups, configs and the gateway key. The read-only Codex sandbox does not confine reads, so a tenant task run as that account could read any of it, whatever the private clone and history checks do. Folder permissions cannot hide files from their owner, so isolating tenant tasks needs other accounts.
+
+Each tenant gets its own account. A shared account would keep tenants out of the operator's data but not away from each other: one run could leave data for another tenant's run through files, or through same-account state that leaves no files, such as named POSIX semaphores, which Codex's sandbox allows. With one account per tenant, such state is visible by default only to the same tenant's later runs.
+
+**Known limit: deliberate hand-offs through named semaphores.** Separate accounts stop one tenant's task from reading another tenant's data. They do not stop two compromised tasks from passing data on purpose. Codex's sandbox allows named POSIX semaphores. A task can create one that other accounts may open (mode 0666), and that semaphore outlives the run. macOS gives semaphores no file and offers no way to list them, so the worker cannot scrub them. So a compromised task of tenant A could store A's data in semaphore values for a later compromised task of tenant B to read. This needs a compromised task on both sides; it does not let any task read another tenant's files. The worker cannot add a rule to Codex's sandbox, and macOS refuses a second sandbox around Codex's own (`sandbox_apply: Operation not permitted`). So closing this means one of two things: replace Codex's sandbox with a worker-owned profile that also denies `ipc-posix-sem`, or give each tenant its own host or VM.
+
+With `task_users` (a map from tenant slug to account) and `task_root` set in the worker config, each tenant-isolated task (`tenant_isolated` in its claim) runs this way:
+
+- The worker looks up the tenant's account. A tenant with no entry is refused; it never runs as another tenant's account or as the operator. Every tenant must map to a different account (compared by UID, so two names for one UID are refused), and the old single `task_user` setting is rejected.
+- The worker creates `<task_root>/<task>-<attempt>/` (mode 700) as the operator and makes the private clone in `repo/` there. The clone is outside the operator's home.
+- ACL entries give that tenant's account read access to `repo/`, and full access to a fresh `home/` that serves as `HOME`, `CODEX_HOME` and `TMPDIR`. The account gets nothing else.
+- Codex runs as `sudo -n -u <account> --preserve-env=<names> -- <codex …>`. The gateway key goes through the environment only, never the command line.
+- Stopping a run signals the group as before, then runs `pkill -KILL -U <account>` as that account, because sudo cannot relay SIGKILL. Before and after each run, and for every account at worker start, the worker checks with `pgrep -U <account>` (as itself) that the account runs nothing, ending what it still runs and re-checking for a few seconds. If that can't be confirmed, the run is refused or dispatch is held.
+- Before and after each run, and for every account at worker start (a crashed run never got its post-run scrub), the worker deletes everything the account owns in the shared writable folders (`task_scrub_roots`, by default `/private/tmp`, `/private/var/tmp` and `/Users/Shared`) and in the account's per-user temp and cache folder (`getconf DARWIN_USER_DIR`), then checks nothing is left. It looks inside every folder the account can enter. A folder the account can enter but not list could hide its files, so finding one fails closed. Files and folders there that another account owns but the task account may write (group- or other-writable, or with an ACL) cannot be deleted. The worker fingerprints them before the run: files by size and times, folders by mode, owner, extended attributes and ACL (not their entries). It holds dispatch if any changed by the end, or by the next start after a crash. Any other failing step fails closed too.
+- After the terminal report is written to disk, a succeeded run's workdir is deleted (`home/` as the account, the rest as the operator) and checked gone. Any other run, or one whose deletion fails, is moved to `<state_root>/retained-task-workdirs/` for reconciliation. Workdirs a crash leaves in `task_root` are moved there at the next start. If a workdir can be neither deleted nor moved, dispatch is held (`recovery-required.json`).
+- `task_root` and each new workdir must carry no ACL entries of their own; mode 711 says nothing about ACLs.
+- Write tasks are refused on this path; tenant projects are read-only.
+
+Without these settings the worker behaves as before.
+
+**One-time setup (needs an administrator):**
+
+1. For each tenant the worker serves, create a standard account (for example `sg-t-<tenant>`; macOS short names are at most 32 characters). Each needs:
+   - no admin rights and no login shell;
+   - no home folder (`/var/empty`);
+   - no SSH or Screen Sharing access;
+   - its own primary group rather than `staff`, so group-readable files in other homes stay out of reach.
+2. Make the operator's home owner-only: `chmod 700 /Users/<operator>`. Without this, every member of `staff` can read the operator's 755 folders, the ops checkout included.
+3. Create `task_root` outside that home, owned by the operator with mode 711 and no ACL entries (`ls -led` shows none). Other accounts can pass through it but not list it.
+4. Add `/etc/sudoers.d/snowgloves-task` (edit with `visudo -f`) so the operator can run only these commands as the tenant accounts, without a password and keeping the listed environment:
+
+   ```
+   Runas_Alias SG_TENANTS = sg-t-tenant-a, sg-t-tenant-b
+   <operator> ALL=(SG_TENANTS) NOPASSWD:SETENV: /opt/homebrew/bin/codex, /usr/bin/pkill, /bin/rm, /usr/bin/find, /usr/bin/getconf
+   ```
+
+   Each runs with that tenant account's rights only. Add a tenant's account to the alias when you admit the tenant.
+5. In the worker config, set `task_users` (for example `{"tenant-a": "sg-t-tenant-a", "tenant-b": "sg-t-tenant-b"}`), `task_root`, and if needed `sudo_path`. Then restart the worker.
+
+**Check before relying on it:**
+
+- For each account, run `sudo -u <account> cat /Users/<operator>/Projects/<ops checkout>/fleet.yaml`, plus the same for another tenant's workspace and the gateway key. Each must be denied.
+- Run one real task per tenant and confirm it succeeds and its result imports.
+
+**Rollback:** remove `task_users` and `task_root` from the worker config and restart the worker, delete the sudoers file, and if needed restore the home folder's earlier mode.
