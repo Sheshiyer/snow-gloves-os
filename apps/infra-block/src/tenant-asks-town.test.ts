@@ -684,5 +684,35 @@ describe('tenant asks in the town', () => {
     expect(document.activeElement).toBe(carried);
     (host.querySelector('#oc-btn-return') as DomElement | null)?.click();
   });
+  it('forgets a crew ticket draft when the board disconnects', () => {
+    restoreDom = installDom();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const home = mountHome(host as unknown as HTMLElement, homeCallbacks);
+    const poll = (asks: TenantAsk[] | null) => document.dispatchEvent(new CustomEvent('tenant-asks', {detail: asks}));
+    poll([ask()]);
+    home.selectResident('librarian');
+    (host.querySelector('#ih-ticket-asks .oc-asks-input') as unknown as HTMLInputElement).value = 'EUR 9';
+    // Disconnect, then connect again (perhaps with another token): the unsent text is gone.
+    poll(null);
+    poll([ask()]);
+    expect((host.querySelector('#ih-ticket-asks .oc-asks-input') as unknown as HTMLInputElement).value).toBe('');
+    home.dispose();
+  });
+
+  it('forgets a tenant view draft when the board disconnects', () => {
+    restoreDom = installDom();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const cockpit = mountCockpit(host as unknown as HTMLElement, () => {});
+    const poll = (asks: TenantAsk[] | null) => document.dispatchEvent(new CustomEvent('tenant-asks', {detail: asks}));
+    poll([ask()]);
+    cockpit.openTenant('heyzack');
+    (host.querySelector('.oc-waiting .oc-asks-input') as unknown as HTMLInputElement).value = 'EUR 7';
+    poll(null);
+    poll([ask()]);
+    expect((host.querySelector('.oc-waiting .oc-asks-input') as unknown as HTMLInputElement).value).toBe('');
+    (host.querySelector('#oc-btn-return') as DomElement | null)?.click();
+  });
 });
 

@@ -10,7 +10,7 @@ import type { OpsSnapshot } from './ops-contracts';
 import { loadSnapshot, validateSnapshot } from './ops-client';
 import { FLEET_LAYOUT, fleetActivity, fleetNodes, type FleetProjection } from './fleet-model';
 import { submitTenantAsk } from './fleet-tasks';
-import { askStackKey, rememberAskDrafts, renderAskStack, restoreAskDrafts, summarizeAsks, type TenantAsk } from './tenant-asks';
+import { askStackKey, forgetAskDrafts, rememberAskDrafts, renderAskStack, restoreAskDrafts, summarizeAsks, type TenantAsk } from './tenant-asks';
 
 export interface HomeNavigation { slug: string | null; x: number; z: number; moving: boolean; nearbySlug: string | null; }
 
@@ -1100,6 +1100,7 @@ function disposeNavigation(): void {
     if (disposed) return;
     const detail = (event as CustomEvent<TenantAsk[] | null>).detail;
     townAsks = Array.isArray(detail) ? detail : null;
+    if (townAsks === null) forgetAskDrafts(host.querySelector('#ih-ticket-asks'), ticketDrafts);
     renderBelt();
     if (selectedSlug) openDialogue(selectedSlug);
   };

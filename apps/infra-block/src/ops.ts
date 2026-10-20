@@ -2,7 +2,7 @@ import { renderBrandPassport, brandDisplayName } from './brand-summary';
 import { renderTenantCapabilityMap, tenantCapabilityCountLabels } from './tenant-map';
 import './ops.css';
 import { createFleetBoard, submitTenantAsk } from './fleet-tasks';
-import { askStackKey, rememberAskDrafts, renderAskStack, restoreAskDrafts, type TenantAsk } from './tenant-asks';
+import { askStackKey, forgetAskDrafts, rememberAskDrafts, renderAskStack, restoreAskDrafts, type TenantAsk } from './tenant-asks';
 import { loadSnapshot, loadDocument, previewPlan, validateSnapshot } from './ops-client';
 import type { OpsSnapshot, OpsDocument, PlanRequest, PlanPreview } from './ops-contracts';
 import { fleetNodes, fleetActivity } from './fleet-model';
@@ -931,6 +931,7 @@ export function mountCockpit(
     const detail = (event as CustomEvent<TenantAsk[] | null>).detail;
     const before = waitingKey();
     townAsks = Array.isArray(detail) ? detail : null;
+    if (townAsks === null) forgetAskDrafts(rootEl, askDraftStore);
     if (isOpen && currentSection === 'Tenants' && waitingKey() !== before) render();
   };
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {

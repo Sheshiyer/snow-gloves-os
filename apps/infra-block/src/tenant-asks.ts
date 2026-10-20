@@ -252,6 +252,14 @@ export function rememberAskDrafts(root: ParentNode, store: Map<string, string>):
   return {...drafts, values: store};
 }
 
+// A disconnect (the asks stream emits null) ends the session: forget every unsent answer and
+// blank the visible inputs first, so the rebuild that follows cannot capture them again.
+export function forgetAskDrafts(root: ParentNode | null, store: Map<string, string>): void {
+  store.clear();
+  if (!root) return;
+  for (const input of Array.from(root.querySelectorAll<HTMLInputElement>('.oc-asks-input'))) input.value = '';
+}
+
 export function restoreAskDrafts(root: ParentNode, drafts: AskDrafts): void {
   for (const input of Array.from(root.querySelectorAll<HTMLInputElement>('.oc-asks-input'))) {
     const id = input.getAttribute('data-ask-id');
