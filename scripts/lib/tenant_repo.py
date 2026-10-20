@@ -41,6 +41,9 @@ SAFE_CONFIG = re.compile(r'(core\.(repositoryformatversion|filemode|bare|logallr
                          r'|remote\.[^.\s]+\.(url|fetch|tagopt)|branch\.[^.\s]+\.(remote|merge))')
 
 
+# The only tree entry modes Git writes: folder, file, executable, symlink, submodule.
+TREE_MODES = frozenset({b'40000', b'100644', b'100755', b'120000', b'160000'})
+
 def _unsafe_config(root, git_path='git'):
     """Repository-local config keys outside SAFE_CONFIG, or None when the config cannot be read."""
     config = os.path.join(str(root), '.git', 'config')
@@ -233,6 +236,10 @@ def git_layout(root, git_path='git'):
                 space = body.index(b' ', cursor)
                 nul = body.index(b'\0', space)
                 name_bytes = body[space + 1:nul]
+                # Git reads zero-padded modes such as 040000 or 0120000 as folders and links;
+                # only the canonical spellings are classified below, so refuse any other.
+                if body[cursor:space] not in TREE_MODES:
+                    return None
                 # A malformed tree naming an entry twice would hide one copy from this scan
                 # while a clone still carries both; refuse it.
                 if name_bytes in children:

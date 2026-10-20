@@ -1258,3 +1258,28 @@ def test_compaction_moves_legacy_completion_lines_in_bounded_batches(tmp_path, m
     assert '"complete"' not in journal.read_text()
     for source in ('task-5', 'task-2499'):
         assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"no"}]', {'id1'}, source=source) == 0
+
+
+@pytest.mark.parametrize('padded', ['folder', 'link'])
+def test_admit_refuses_zero_padded_tree_modes(tmp_path, padded):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    git = lambda *args, data=None: subprocess.run(['git', '-C', str(repo), *args], input=data, check=True,
+                                                   capture_output=True).stdout.decode().strip()
+    own = git('hash-object', '-w', '--stdin', data=b'tenant: tenant-a\n')
+    if padded == 'folder':
+        # 040000 is still a folder to Git: a tenants/ folder holding another tenant's manifest.
+        foreign = git('hash-object', '-w', '--stdin', data=b'tenant: tenant-b\n')
+        inner = git('mktree', data=('100644 blob %s\tMANIFEST.yaml\n' % foreign).encode())
+        wrapper = git('mktree', data=('040000 tree %s\ttenant-b\n' % inner).encode())
+        extra = b'040000 tenants\0' + bytes.fromhex(wrapper)
+    else:
+        # 0120000 is still a symlink to Git: an allowed top-level name pointing elsewhere.
+        target = git('hash-object', '-w', '--stdin', data=b'../../other-tenant')
+        extra = b'0120000 context\0' + bytes.fromhex(target)
+    body = b'100644 MANIFEST.yaml\0' + bytes.fromhex(own) + extra
+    tree = git('hash-object', '-t', 'tree', '-w', '--literally', '--stdin', data=body)
+    commit = git('-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit-tree', tree, '-m', 'padded', '-p', 'HEAD')
+    git('update-ref', 'refs/heads/padded', commit)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
