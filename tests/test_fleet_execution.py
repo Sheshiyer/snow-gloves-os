@@ -622,13 +622,14 @@ def test_an_unconfirmable_scrub_holds_dispatch(worker, tmp_path, monkeypatch):
 
 def test_a_failing_scrub_command_fails_closed(worker, tmp_path, monkeypatch):
     w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    import fleet_worker
     # Stands in for a host whose sudoers entry does not yet allow find.
-    real_run = subprocess.run
+    real_run = fleet_worker.bounded_run
     def run(argv, *args, **kwargs):
-        if isinstance(argv, list) and '/usr/bin/find' in argv:
-            return subprocess.CompletedProcess(argv, 1, b'', b'sudo: a password is required')
+        if '/usr/bin/find' in argv:
+            return 1, b'', b'sudo: a password is required'
         return real_run(argv, *args, **kwargs)
-    monkeypatch.setattr(subprocess, 'run', run)
+    monkeypatch.setattr(fleet_worker, 'bounded_run', run)
     assert w.scrub_task_account(w.task_users['tenant-a']) is False
 
 
@@ -817,3 +818,27 @@ def test_review_tasks_check_tenant_isolation_before_any_git_lookup(worker, tmp_p
     assert reports[-1]['type'] == 'failed' and clock.monotonic() - started < 10
     # Refused on its config before the review's cat-file and rev-parse ever ran on the root.
     assert not any('cat-file' in argv or 'rev-parse' in argv for argv in ran)
+
+
+def test_cleanup_scans_stop_at_their_entry_byte_and_time_caps(worker, tmp_path, monkeypatch):
+    import time as clock
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    account = w.task_users['tenant-a']
+    for n in range(30):
+        (tmp_path / 'shared-tmp' / ('left-%02d' % n)).write_text('x')
+    # A run that left more entries than the cap fails closed without buffering them all.
+    monkeypatch.setattr(fleet_worker, 'MAX_SCRUB_ENTRIES', 10)
+    assert w.scrub_task_account(account) is False
+    assert len(list((tmp_path / 'shared-tmp').iterdir())) == 30
+    monkeypatch.setattr(fleet_worker, 'MAX_SCRUB_ENTRIES', 20_000)
+    monkeypatch.setattr(fleet_worker, 'MAX_SCRUB_BYTES', 50)
+    assert w.scrub_task_account(account) is False
+    monkeypatch.setattr(fleet_worker, 'MAX_SCRUB_BYTES', 8 * 1024 * 1024)
+    assert w.scrub_task_account(account) is True and list((tmp_path / 'shared-tmp').iterdir()) == []
+    # Endless output stops at the byte cap; a scan that never ends stops at its deadline.
+    monkeypatch.setattr(fleet_worker, 'MAX_SCRUB_BYTES', 1024 * 1024)
+    assert fleet_worker.bounded_run(['/usr/bin/yes']) is None
+    started = clock.monotonic()
+    assert fleet_worker.bounded_run(['/bin/sleep', '30'], 0.5) is None
+    assert clock.monotonic() - started < 10

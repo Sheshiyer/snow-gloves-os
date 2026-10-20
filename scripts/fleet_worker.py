@@ -15,6 +15,8 @@ import shutil
 import signal
 import stat
 import subprocess
+import tempfile
+import threading
 import time
 import uuid
 from urllib.request import Request, urlopen
@@ -146,6 +148,45 @@ def _signal_group(pgid, signum):
 # find's message for a folder it could not open; MAX_DENIED caps how many are probed.
 DENIED = re.compile(rb'find: (/.+): Permission denied')
 MAX_DENIED = 1000
+# Cleanup scans run as the task account over folders it may have filled on purpose, so their
+# output is streamed and capped; past any cap (or SCRUB_SECONDS) the scan fails closed.
+MAX_SCRUB_ENTRIES = 20_000
+MAX_SCRUB_BYTES = 8 * 1024 * 1024
+SCRUB_SECONDS = 120
+
+
+def bounded_run(argv, timeout=SCRUB_SECONDS):
+    """Run *argv*, returning (returncode, stdout, stderr), or None once it outlives *timeout*,
+    prints more than MAX_SCRUB_ENTRIES NUL-separated entries, or either stream passes
+    MAX_SCRUB_BYTES. stdout is read as it arrives, never buffered whole first."""
+    with tempfile.TemporaryFile() as err:
+        process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=err)
+        expired = []
+        timer = threading.Timer(timeout, lambda: (expired.append(True), process.kill()))
+        timer.start()
+        chunks, size, entries = [], 0, 0
+        try:
+            while True:
+                chunk = process.stdout.read(65536)
+                if not chunk:
+                    break
+                size += len(chunk)
+                entries += chunk.count(b'\0')
+                if size > MAX_SCRUB_BYTES or entries > MAX_SCRUB_ENTRIES:
+                    process.kill()
+                    return None
+                chunks.append(chunk)
+        finally:
+            timer.cancel()
+            process.stdout.close()
+            process.wait()
+        if expired:
+            return None
+        err.seek(0)
+        stderr = err.read(MAX_SCRUB_BYTES + 1)
+        if len(stderr) > MAX_SCRUB_BYTES:
+            return None
+        return process.returncode, b''.join(chunks), stderr
 
 
 def folder_metadata(path):
@@ -884,28 +925,31 @@ class Worker:
         read. Such a folder is accepted only when the account cannot search it either (then it
         cannot have created anything inside). The kernel answers that check, so access through
         groups or ACLs counts; any other error fails closed."""
-        found = subprocess.run([*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', *select],
-                               capture_output=True, timeout=300)
-        owned = [entry for entry in found.stdout.split(b'\0') if entry]
-        if found.returncode == 0:
+        found = bounded_run([*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', *select])
+        if found is None:
+            return None
+        returncode, stdout, stderr = found
+        owned = [entry for entry in stdout.split(b'\0') if entry]
+        if returncode == 0:
             return owned
         prefixes = tuple(os.fsencode(root.rstrip('/')) + b'/' for root in roots)
-        denied = [DENIED.fullmatch(line) for line in found.stderr.splitlines()]
+        denied = [DENIED.fullmatch(line) for line in stderr.splitlines()]
         if not denied or len(denied) > MAX_DENIED or not all(m and m[1].startswith(prefixes) for m in denied):
             return None
         # A newline in a name could make one error line pass for another.
-        odd = subprocess.run([*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', '-name', '*\n*', '!', '-user', user,
-                              '-print0', '-prune'], capture_output=True, timeout=300)
-        if odd.stdout.strip(b'\0'):
+        odd = bounded_run([*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', '-name', '*\n*', '!', '-user', user,
+                           '-print0', '-prune'])
+        if odd is None or odd[1].strip(b'\0'):
             return None
         paths = [os.fsdecode(m[1]) + '/.' for m in denied]
         for start in range(0, len(paths), 100):
             batch = paths[start:start + 100]
-            probe = subprocess.run([*as_task, '/usr/bin/find', *batch, '-xdev', '-maxdepth', '0', '-print0'],
-                                   capture_output=True, timeout=60)
-            errors = probe.stderr.splitlines()
+            probe = bounded_run([*as_task, '/usr/bin/find', *batch, '-xdev', '-maxdepth', '0', '-print0'], 60)
+            if probe is None:
+                return None
+            errors = probe[2].splitlines()
             # Searchable but unreadable: the account could have left files in it unseen.
-            if probe.stdout.strip(b'\0') or len(errors) != len(batch) or not all(DENIED.fullmatch(line) for line in errors):
+            if probe[1].strip(b'\0') or len(errors) != len(batch) or not all(DENIED.fullmatch(line) for line in errors):
                 return None
         return owned
 
@@ -954,9 +998,14 @@ class Worker:
             paths = self._task_find(as_task, roots, user, owned)
             if paths is None:
                 return False
+            # One deadline for all deletions: an entry can be a folder holding any number of files.
+            deadline = time.monotonic() + SCRUB_SECONDS
             for start in range(0, len(paths), 100):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
                 removed = subprocess.run([*as_task, '/bin/rm', '-rf', '--', *(os.fsdecode(p) for p in paths[start:start + 100])],
-                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=remaining)
                 if removed.returncode:
                     return False
             if self._task_find(as_task, roots, user, owned) != []:
