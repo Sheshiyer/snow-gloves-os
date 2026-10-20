@@ -143,7 +143,7 @@ def load_proposals(tenant_dir: Path, wanted: set[str] | None = None) -> dict[str
                     continue
                 try:
                     record = json.loads(raw.decode('utf-8', errors='replace'))
-                except (ValueError, TypeError):
+                except (ValueError, TypeError, RecursionError):  # deep nesting: skip the line
                     continue
                 if not isinstance(record, dict):
                     continue

@@ -222,7 +222,7 @@ class Asks:
                     if start is not None:
                         try:
                             last = json.loads(os.pread(fd, keep - start, start))
-                        except ValueError:
+                        except (ValueError, RecursionError):
                             last = None
                         if isinstance(last, dict) and last.get('answer_id') == record.get('answer_id'):
                             return

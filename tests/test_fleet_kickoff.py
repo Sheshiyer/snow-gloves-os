@@ -1419,3 +1419,30 @@ def test_admit_refuses_a_repository_whose_files_exceed_the_byte_budget(tmp_path,
     monkeypatch.setattr(tenant_repo, 'MAX_BLOB_BYTES', 8)
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(_base_config(), ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_a_nested_too_deep_journal_line_is_skipped_by_every_reader(tmp_path, monkeypatch):
+    import fleet_asks_import
+    from lib.tenant_asks import load_proposals
+    tenants_dir = tmp_path / 'tenants'
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='s1', created=1.0) == 1
+    journal = tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl'
+    with open(journal, 'a') as handle:
+        handle.write('{"deep":' + '[' * 50 + ']' * 50 + '}\n')
+    # Decoders with a lower nesting limit than CPython's raise RecursionError on such a line.
+    real = json.JSONDecoder.raw_decode
+    def shallow(self, text, idx=0):
+        if text.startswith('{"deep":', idx):
+            raise RecursionError('maximum recursion depth exceeded')
+        return real(self, text, idx)
+    monkeypatch.setattr(json.JSONDecoder, 'raw_decode', shallow)
+    # Listing, importing (the journal scan) and compaction all skip it.
+    assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 1'}
+    assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id2","proposed":"EUR 2"}]', {'id2'}, source='s2', created=2.0) == 1
+    asks = os.open(journal.parent, os.O_RDONLY)
+    try:
+        with open(journal, 'rb') as stream:
+            assert fleet_asks_import._compact(stream, asks) is True
+    finally:
+        os.close(asks)
+    assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 1', 'id2': 'EUR 2'}

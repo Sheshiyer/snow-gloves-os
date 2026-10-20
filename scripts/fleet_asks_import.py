@@ -94,7 +94,7 @@ def _scan_journal(stream, ask_ids, source):
             return None
         try:
             record = json.loads(line.decode('utf-8', errors='replace'))
-        except ValueError:
+        except (ValueError, RecursionError):  # a nested-too-deep line is skipped like any bad one
             continue
         if not isinstance(record, dict):
             continue
@@ -252,7 +252,7 @@ def _compact(stream, asks, current_ids=None):
             continue
         try:
             record = json.loads(line.decode('utf-8', errors='replace'))
-        except ValueError:
+        except (ValueError, RecursionError):  # a nested-too-deep line is skipped like any bad one
             continue
         if not isinstance(record, dict):
             continue
