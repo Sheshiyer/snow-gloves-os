@@ -829,14 +829,14 @@ class Worker:
             time.sleep(0.25)
         return False
 
-    def _task_owned(self, as_task, roots, user):
-        """List what the task account owns under `roots`, or None when that cannot be confirmed.
+    def _task_find(self, as_task, roots, user, select):
+        """List what `select` matches under `roots`, or None when that cannot be confirmed.
 
         find runs as the account, so a folder it cannot open is one the account itself cannot
         read. Such a folder is accepted only when the account cannot search it either (then it
         cannot have created anything inside). The kernel answers that check, so access through
         groups or ACLs counts; any other error fails closed."""
-        found = subprocess.run([*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', '-user', user, '-print0', '-prune'],
+        found = subprocess.run([*as_task, '/usr/bin/find', *roots, '-xdev', '-mindepth', '1', *select],
                                capture_output=True, timeout=300)
         owned = [entry for entry in found.stdout.split(b'\0') if entry]
         if found.returncode == 0:
@@ -861,11 +861,31 @@ class Worker:
                 return None
         return owned
 
-    def scrub_task_account(self, user):
+    def _shared_writable(self, as_task, roots, user):
+        """Fingerprint every non-folder under `roots` that another account owns but the task
+        account may be able to write (group- or other-writable, or carrying an ACL). A run could
+        hide data in one without owning it, so these are compared across the run instead of
+        deleted. None when the list or any fingerprint cannot be confirmed."""
+        found = self._task_find(as_task, roots, user, ['(', '-user', user, '-prune', ')', '-o', '!', '-type', 'd',
+                                                       '(', '-perm', '-002', '-o', '-perm', '-020', '-o', '-acl', ')', '-print0'])
+        if found is None:
+            return None
+        prints = {}
+        for path in found:
+            try:
+                info = os.lstat(path)
+            except OSError:
+                return None
+            prints[path.hex()] = [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+        return prints
+
+    def scrub_task_account(self, user, phase='after'):
         """Delete everything the task account owns in the shared writable folders, then check
-        nothing is left. Returns True only when every command succeeded and the re-check
-        found nothing; any error (a missing sudoers entry, a folder the account can enter but
-        not list) fails closed."""
+        nothing is left. Before a run, also record a fingerprint of the shared objects the
+        account could write without owning; after it (or at restart, when a run was cut
+        short), refuse if any of them changed. Returns True only when every command succeeded
+        and every check passed; any error (a missing sudoers entry, a folder the account can
+        enter but not list) fails closed."""
         as_task = [self.sudo_path, '-n', '-u', user]
         roots = [root for root in self.task_scrub_roots if os.path.isdir(root)]
         try:
@@ -877,7 +897,8 @@ class Worker:
                 roots.append(path)
             if not roots:
                 return True
-            paths = self._task_owned(as_task, roots, user)
+            owned = ['-user', user, '-print0', '-prune']
+            paths = self._task_find(as_task, roots, user, owned)
             if paths is None:
                 return False
             for start in range(0, len(paths), 100):
@@ -885,8 +906,21 @@ class Worker:
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
                 if removed.returncode:
                     return False
-            return self._task_owned(as_task, roots, user) == []
-        except (OSError, subprocess.SubprocessError):
+            if self._task_find(as_task, roots, user, owned) != []:
+                return False
+            prints = self._shared_writable(as_task, roots, user)
+            if prints is None:
+                return False
+            record = self.state / ('shared-writable-%s.json' % user)
+            if phase == 'before':
+                private_json(record, prints)
+                return True
+            if record.exists():
+                if json.loads(record.read_text()) != prints:
+                    return False
+                record.unlink()
+            return True
+        except (OSError, ValueError, subprocess.SubprocessError):
             return False
 
     def settle_task_workdir(self, workdir, task, succeeded, user):
@@ -898,7 +932,7 @@ class Worker:
                                      'reason': 'Task-account processes survived the run; reconcile before dispatch'})
         elif not self.scrub_task_account(user):
             private_json(self.held, {'attempt_id': task['attempt_id'],
-                                     'reason': 'Task-account files left in shared folders; reconcile before dispatch'})
+                                     'reason': 'Task-account files left in, or shared files changed in, shared folders; reconcile before dispatch'})
         if succeeded and self.remove_task_workdir(workdir, user):
             return
         if os.path.lexists(workdir) and not self.retain_task_workdir(workdir):
@@ -976,7 +1010,7 @@ class Worker:
             as_task_user = account is not None
             if as_task_user and write:
                 raise WriteRejected('Tenant tasks run as the task account are read-only')
-            if as_task_user and not (self.task_account_idle(account) and self.scrub_task_account(account)):
+            if as_task_user and not (self.task_account_idle(account) and self.scrub_task_account(account, 'before')):
                 private_json(self.held, {'attempt_id': task['attempt_id'],
                                          'reason': 'Task account was not idle and clean before a run; reconcile before dispatch'})
                 raise ValueError('Task account is not idle and clean')

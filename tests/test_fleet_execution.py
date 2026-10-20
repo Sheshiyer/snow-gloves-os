@@ -613,7 +613,7 @@ def test_files_a_run_leaves_in_shared_temp_folders_are_scrubbed(worker, tmp_path
 
 def test_an_unconfirmable_scrub_holds_dispatch(worker, tmp_path, monkeypatch):
     w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
-    monkeypatch.setattr(w, 'scrub_task_account', lambda user: False)
+    monkeypatch.setattr(w, 'scrub_task_account', lambda user, phase='after': False)
     reports = []
     w.request = lambda route, body: reports.append(body) or {}
     w.execute(task)
@@ -668,6 +668,22 @@ def test_scrub_accepts_folders_the_account_cannot_search(worker, tmp_path, monke
         assert w.scrub_task_account('nobody') is False
     finally:
         _locked(locked)
+
+
+def test_scrub_refuses_when_a_shared_file_the_account_can_write_changed(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # Another account's world-writable file in a shared folder: a run could hide data in it
+    # without owning it, so the scrub cannot delete it and compares it across the run instead.
+    drop = tmp_path / 'shared-tmp' / 'drop'
+    drop.write_text('')
+    drop.chmod(0o666)
+    assert w.scrub_task_account('nobody', 'before') is True
+    assert w.scrub_task_account('nobody') is True  # unchanged across the run
+    assert w.scrub_task_account('nobody', 'before') is True
+    drop.write_text('tenant-a private context')
+    assert w.scrub_task_account('nobody') is False
+    # A restart after a crashed run compares against the same record.
+    assert w.scrub_task_account('nobody') is False
 
 
 def test_a_failing_reap_command_still_reports_and_settles(worker, tmp_path, monkeypatch):
@@ -728,7 +744,7 @@ def test_restart_scrubs_what_a_crashed_run_left_in_shared_folders(worker, tmp_pa
     (tmp_path / 'shared-tmp' / 'stash.md').write_text('tenant-a private context')
     w.recover()
     assert list((tmp_path / 'shared-tmp').iterdir()) == [] and not w.held.exists()
-    monkeypatch.setattr(w, 'scrub_task_account', lambda user: False)
+    monkeypatch.setattr(w, 'scrub_task_account', lambda user, phase='after': False)
     w.recover()
     assert 'shared folders' in json.loads(w.held.read_text())['reason']
 
