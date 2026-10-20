@@ -446,11 +446,20 @@ def _task_account(worker, tmp_path, monkeypatch, log_name='sudo.log'):
     sudo.write_text('#!/usr/bin/env python3\n'
                     'import json, os, sys\n'
                     'args = sys.argv[1:]\n'
-                    'rest = args[args.index("--") + 1:] if "--" in args else args[3:]\n'
+                    # Parse like sudo: options (-n, -u USER, --preserve-env=...), then an optional --.
+                    'i = 0\n'
+                    'while i < len(args) and args[i].startswith("-") and args[i] != "--":\n'
+                    '    i += 2 if args[i] == "-u" else 1\n'
+                    'rest = args[i + 1:] if i < len(args) and args[i] == "--" else args[i:]\n'
                     'with open(%r, "a") as log: log.write(json.dumps({"args": args, "env": sorted(os.environ)}) + "\\n")\n'
                     'if rest and rest[0] == "/usr/bin/pkill": sys.exit(0)\n'
                     'if rest and rest[0] == "/bin/rm" and os.path.exists(%r): sys.exit(1)\n'
-                    'os.execv(rest[0], rest)\n' % (str(calls), str(tmp_path / 'fail-rm')))
+                    # As macOS may: empty the home but refuse the folder itself, exiting nonzero.
+                    'if rest and rest[0] == "/bin/rm" and os.path.exists(%r):\n'
+                    '    import shutil\n'
+                    '    for name in os.listdir(rest[-1]): shutil.rmtree(os.path.join(rest[-1], name))\n'
+                    '    sys.exit(1)\n'
+                    'os.execv(rest[0], rest)\n' % (str(calls), str(tmp_path / 'fail-rm'), str(tmp_path / 'keep-home-dir')))
     sudo.chmod(0o700)
     # A stand-in pgrep: "no processes" unless a flag file says the account is still busy.
     pgrep = tmp_path / 'pgrep'
@@ -473,9 +482,12 @@ def test_tenant_tasks_run_as_the_task_account_in_a_private_workdir(worker, tmp_p
     assert 'OMNIROUTE_API_KEY' in preserved and {'HOME', 'CODEX_HOME', 'TMPDIR'} <= set(preserved)
     # The key travels only in the environment, never on the command line.
     assert not any('gateway-secret' in arg for arg in run['args'])
-    # The run used a workdir under task_root, never the worker's own state, and it was removed.
+    # The run used a workdir under task_root, never the worker's own state, and it was deleted
+    # (not merely retained).
     assert '-C' in run['args'] and run['args'][run['args'].index('-C') + 1].startswith(str(root))
     assert list(root.iterdir()) == [] and not (w.state / 'worktrees').exists()
+    assert not (w.state / 'retained-task-workdirs').exists() and not w.held.exists()
+    assert any(r['args'][3:5] == ['/bin/rm', '-rf'] for r in records)
 
 
 def test_task_account_runs_are_reaped_and_refuse_write(worker, tmp_path, monkeypatch):
@@ -565,3 +577,14 @@ def test_surviving_task_account_processes_hold_dispatch(worker, tmp_path, monkey
     w.execute(dict(task, id='task2', attempt_id='attempt2'))
     assert reports[-1]['type'] == 'failed' and not (root / 'task2-attempt2').exists()
     assert 'not idle' in json.loads(w.held.read_text())['reason']
+
+
+def test_cleanup_succeeds_when_only_the_empty_home_folder_is_refused(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    (tmp_path / 'keep-home-dir').write_text('')
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    # Deleted, not retained: the task account emptied its home and this account removed the rest.
+    assert list(root.iterdir()) == [] and not (w.state / 'retained-task-workdirs').exists() and not w.held.exists()

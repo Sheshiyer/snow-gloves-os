@@ -723,6 +723,8 @@ class Worker:
               'file_inherit,directory_inherit' % me, home, recursive=True)
         grant('user:%s allow list,search,add_file,add_subdirectory,delete_child,read,write,append,readattr,writeattr,'
               'readextattr,writeextattr,readsecurity,file_inherit,directory_inherit' % user, home, recursive=True)
+        # Lets its cleanup rm remove the home folder too (not inherited by anything inside).
+        grant('user:%s allow delete' % user, home)
         return {'HOME': str(home), 'CODEX_HOME': str(home / '.codex'), 'TMPDIR': str(home / 'tmp'),
                 'USER': user, 'LOGNAME': user}
 
@@ -732,9 +734,12 @@ class Worker:
         home = workdir / 'home'
         try:
             if home.exists():
-                removed = subprocess.run([self.sudo_path, '-n', '-u', self.task_user, '/bin/rm', '-rf', '--', str(home)],
-                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
-                if removed.returncode:
+                subprocess.run([self.sudo_path, '-n', '-u', self.task_user, '/bin/rm', '-rf', '--', str(home)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+                # Success is everything the task account made being gone. Removing the home
+                # folder itself may be refused to that account (this account owns it and its
+                # parent), so a nonzero exit with an empty home is fine; this account removes it.
+                if home.exists() and os.listdir(home):
                     return False
             shutil.rmtree(workdir)
         except (OSError, subprocess.SubprocessError):
