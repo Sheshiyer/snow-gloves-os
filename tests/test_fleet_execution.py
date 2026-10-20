@@ -1006,3 +1006,36 @@ def test_a_symlinked_scrub_root_is_scanned_through_to_its_folder(worker, tmp_pat
     (tmp_path / 'shared-tmp' / 'stash.md').write_text('tenant-a private context')
     assert w.scrub_task_account(w.task_users['tenant-a']) is True
     assert list((tmp_path / 'shared-tmp').iterdir()) == []
+
+
+def test_scrub_refuses_when_the_accounts_own_scrub_root_gains_an_xattr_or_acl(worker, tmp_path, monkeypatch):
+    import os as system
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # The per-user folder belongs to the task account itself (here: us, the test account).
+    monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: system.getuid())
+    shared = tmp_path / 'shared-tmp'
+    account = w.task_users['tenant-a']
+    for change in (['/usr/bin/xattr', '-w', 'com.example.stash', 'tenant-a private context', str(shared)],
+                   ['/bin/chmod', '+a', 'everyone allow read', str(shared)]):
+        assert w.scrub_task_account(account, 'before') is True
+        assert w.scrub_task_account(account) is True  # unchanged across the run
+        assert w.scrub_task_account(account, 'before') is True
+        subprocess.run(change, check=True)
+        assert w.scrub_task_account(account) is False
+
+
+def test_an_unreadable_account_owned_root_fails_the_scrub_closed(worker, tmp_path, monkeypatch):
+    import os as system
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: system.getuid())
+    shared = tmp_path / 'shared-tmp'
+    real_metadata = fleet_worker.folder_metadata
+    def unreadable(path, entries=True):
+        # As a mode-700 per-user folder is to the worker account.
+        if path == system.fsencode(system.path.realpath(shared)):
+            raise PermissionError(13, 'Permission denied')
+        return real_metadata(path, entries)
+    monkeypatch.setattr(fleet_worker, 'folder_metadata', unreadable)
+    assert w.scrub_task_account(w.task_users['tenant-a'], 'before') is False

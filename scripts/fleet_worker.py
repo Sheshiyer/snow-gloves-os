@@ -238,7 +238,7 @@ def bounded_run(argv, timeout=SCRUB_SECONDS):
         return process.returncode, b''.join(chunks), stderr
 
 
-def folder_metadata(path):
+def folder_metadata(path, entries=True):
     """A digest of a folder's persistent metadata that ignores its entries: mode, owner,
     extended attributes (names and values) and ACL. A folder's times change whenever anyone
     adds a file, so they cannot show whether a run wrote to the folder itself."""
@@ -280,7 +280,7 @@ def folder_metadata(path):
     # Without the sticky bit (or with an ACL, which can grant delete_child), write access to
     # the folder lets the task account delete or rename another account's entries in it, so
     # those folders also fingerprint their entries (names and inodes, never times).
-    if acl or not info.st_mode & stat.S_ISVTX:
+    if entries and (acl or not info.st_mode & stat.S_ISVTX):
         children = []
         with os.scandir(path) as listing:
             for entry in listing:
@@ -1038,13 +1038,17 @@ class Worker:
                 return None
         # find's -mindepth 1 never lists the roots themselves, yet a writable non-sticky root
         # (or one whose ACL grants delete_child) lets the account remove another account's
-        # entry in it. Fingerprint each root too, except the account's own per-user folder.
+        # entry in it. Fingerprint each root too. A root the account owns (its per-user folder)
+        # is fingerprinted without its entries, which the scrub empties anyway, but with its
+        # xattrs and ACL: data kept there, or an ACL opening it to another account, must show.
         try:
             uid = account_uid(user)
             for root in roots:
                 real = os.fsencode(os.path.realpath(root))
-                if os.lstat(real).st_uid != uid:
-                    prints['root:' + real.hex()] = folder_metadata(real)
+                owned = os.lstat(real).st_uid == uid
+                # A root this worker cannot read (a mode-700 per-user folder) fails closed here;
+                # macOS creates DARWIN_USER_DIR readable (755), so normal setups pass.
+                prints['root:' + real.hex()] = folder_metadata(real, entries=not owned)
         except (OSError, KeyError, AttributeError):
             return None
         return prints
