@@ -469,7 +469,7 @@ def _task_account(worker, tmp_path, monkeypatch, log_name='sudo.log'):
     pgrep.chmod(0o700)
     shared = tmp_path / 'shared-tmp'
     shared.mkdir()
-    config = dict(w.config, task_user=me, task_root=str(root), sudo_path=str(sudo), pgrep_path=str(pgrep),
+    config = dict(w.config, task_users={'tenant-a': me}, task_root=str(root), sudo_path=str(sudo), pgrep_path=str(pgrep),
                   task_scrub_roots=[str(shared)], task_scrub_user_dir=False)
     return fleet_worker.Worker(config), dict(task, tenant='tenant-a', tenant_isolated=True), root, calls
 
@@ -482,7 +482,7 @@ def test_tenant_tasks_run_as_the_task_account_in_a_private_workdir(worker, tmp_p
     assert reports[-1]['type'] == 'succeeded'
     records = [json.loads(line) for line in calls.read_text().splitlines()]
     run = next(r for r in records if '--' in r['args'] and r['args'][r['args'].index('--') + 1].endswith('codex'))
-    assert run['args'][:3] == ['-n', '-u', w.task_user]
+    assert run['args'][:3] == ['-n', '-u', w.task_users['tenant-a']]
     preserved = run['args'][3].split('=', 1)[1].split(',')
     assert 'OMNIROUTE_API_KEY' in preserved and {'HOME', 'CODEX_HOME', 'TMPDIR'} <= set(preserved)
     # The key travels only in the environment, never on the command line.
@@ -505,7 +505,7 @@ def test_task_account_runs_are_reaped_and_refuse_write(worker, tmp_path, monkeyp
     w.execute(dict(task, id='task2', attempt_id='attempt2'))
     records = [json.loads(line)['args'] for line in calls.read_text().splitlines()]
     # After the run, whatever the task account still runs is ended through sudo.
-    assert any(args[-4:] == ['/usr/bin/pkill', '-KILL', '-U', w.task_user] for args in records)
+    assert any(args[-4:] == ['/usr/bin/pkill', '-KILL', '-U', w.task_users['tenant-a']] for args in records)
 
 
 @pytest.mark.parametrize('change', ['same-account', 'no-root', 'group-writable-root', 'closed-root'])
@@ -517,7 +517,7 @@ def test_worker_refuses_an_unsafe_task_account_setup(worker, tmp_path, monkeypat
     root.mkdir()
     root.chmod({'group-writable-root': 0o771, 'closed-root': 0o700}.get(change, 0o711))
     monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: os.getuid() if change == 'same-account' else 99999)
-    config = dict(w.config, task_user=accounts.getpwuid(os.getuid()).pw_name, task_root=str(root))
+    config = dict(w.config, task_users={'tenant-a': accounts.getpwuid(os.getuid()).pw_name}, task_root=str(root))
     if change == 'no-root':
         config.pop('task_root')
     with pytest.raises(ValueError):
@@ -571,9 +571,9 @@ def test_surviving_task_account_processes_hold_dispatch(worker, tmp_path, monkey
     w.request = lambda route, body: reports.append(body) or {}
     # Something keeps running as the task account after the run (pkill cannot end it).
     real_settle = w.settle_task_workdir
-    def settle(workdir, task_, succeeded):
+    def settle(workdir, task_, succeeded, user):
         (tmp_path / 'busy').write_text('')
-        real_settle(workdir, task_, succeeded)
+        real_settle(workdir, task_, succeeded, user)
     w.settle_task_workdir = settle
     w.execute(task)
     assert json.loads(w.held.read_text())['reason'].startswith('Task-account processes survived')
@@ -599,10 +599,10 @@ def test_files_a_run_leaves_in_shared_temp_folders_are_scrubbed(worker, tmp_path
     w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
     # Stands in for a run that copied tenant data to /tmp for a later run to read.
     real_settle = w.settle_task_workdir
-    def settle(workdir, task_, succeeded):
+    def settle(workdir, task_, succeeded, user):
         (tmp_path / 'shared-tmp' / 'stash').mkdir()
         (tmp_path / 'shared-tmp' / 'stash' / 'copy.md').write_text('tenant-a private context')
-        real_settle(workdir, task_, succeeded)
+        real_settle(workdir, task_, succeeded, user)
     w.settle_task_workdir = settle
     reports = []
     w.request = lambda route, body: reports.append(body) or {}
@@ -613,7 +613,7 @@ def test_files_a_run_leaves_in_shared_temp_folders_are_scrubbed(worker, tmp_path
 
 def test_an_unconfirmable_scrub_holds_dispatch(worker, tmp_path, monkeypatch):
     w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
-    monkeypatch.setattr(w, 'scrub_task_account', lambda: False)
+    monkeypatch.setattr(w, 'scrub_task_account', lambda user: False)
     reports = []
     w.request = lambda route, body: reports.append(body) or {}
     w.execute(task)
@@ -629,7 +629,7 @@ def test_a_failing_scrub_command_fails_closed(worker, tmp_path, monkeypatch):
             return subprocess.CompletedProcess(argv, 1, b'', b'sudo: a password is required')
         return real_run(argv, *args, **kwargs)
     monkeypatch.setattr(subprocess, 'run', run)
-    assert w.scrub_task_account() is False
+    assert w.scrub_task_account(w.task_users['tenant-a']) is False
 
 
 def test_worker_refuses_a_task_root_with_acl_entries(worker, tmp_path, monkeypatch):
@@ -642,7 +642,7 @@ def test_worker_refuses_a_task_root_with_acl_entries(worker, tmp_path, monkeypat
     subprocess.run(['/bin/chmod', '+a', 'everyone allow add_file,add_subdirectory,file_inherit,directory_inherit', str(root)], check=True)
     monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: 99999)
     with pytest.raises(ValueError, match='ACL'):
-        fleet_worker.Worker(dict(w.config, task_user=accounts.getpwuid(os.getuid()).pw_name, task_root=str(root)))
+        fleet_worker.Worker(dict(w.config, task_users={'tenant-a': accounts.getpwuid(os.getuid()).pw_name}, task_root=str(root)))
 
 
 def test_restart_reaps_the_task_account_or_holds(worker, tmp_path, monkeypatch):
@@ -656,3 +656,32 @@ def test_restart_reaps_the_task_account_or_holds(worker, tmp_path, monkeypatch):
     (tmp_path / 'busy').write_text('')
     w.recover()
     assert 'restart' in json.loads(w.held.read_text())['reason']
+
+
+def test_each_tenant_runs_as_its_own_account_and_an_unmapped_tenant_is_refused(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(dict(task, tenant='tenant-b', id='task9', attempt_id='attempt9'))
+    # No account for tenant-b: refused before any workdir or sudo call exists.
+    assert reports[-1]['type'] == 'failed' and not (root / 'task9-attempt9').exists() and not calls.exists()
+
+
+@pytest.mark.parametrize('mapping', [{'tenant-a': 'same', 'tenant-b': 'same'}, {}, ['tenant-a'], {'Tenant A': 'sg-a'}])
+def test_worker_refuses_a_task_account_map_that_shares_or_is_malformed(worker, tmp_path, monkeypatch, mapping):
+    import fleet_worker
+    w, _ = worker
+    root = tmp_path / 'task-root'
+    root.mkdir()
+    root.chmod(0o711)
+    monkeypatch.setattr(fleet_worker, 'account_uid', lambda name: 99999)
+    with pytest.raises(ValueError):
+        fleet_worker.Worker(dict(w.config, task_users=mapping, task_root=str(root)))
+
+
+def test_worker_refuses_the_retired_shared_task_user_setting(worker, tmp_path):
+    import fleet_worker
+    w, _ = worker
+    with pytest.raises(ValueError, match='task_users'):
+        fleet_worker.Worker(dict(w.config, task_user='sg-task', task_root=str(tmp_path)))
