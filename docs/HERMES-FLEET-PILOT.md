@@ -257,7 +257,7 @@ With `task_user` and `task_root` set in the worker config, each tenant-isolated 
 - ACL entries give the task account read access to `repo/`, and full access to a fresh `home/` that serves as `HOME`, `CODEX_HOME` and `TMPDIR`. The task account gets nothing else.
 - Codex runs as `sudo -n -u <task_user> --preserve-env=<names> -- <codex …>`. The gateway key goes through the environment only, never the command line.
 - Stopping a run signals the group as before, then runs `pkill -KILL -U <task_user>` as the task account, because sudo cannot relay SIGKILL. The worker runs one job at a time, so nothing else belongs to that account.
-- After reporting, the worker removes `home/` as the task account and the rest of the workdir as itself. The result artifact is written by the operator account as before.
+- After the terminal report is written to disk, the worker deletes a succeeded run's workdir: `home/` as the task account, the rest as itself, then checks it is gone. Any other run (failed, cancelled, interrupted), or one whose deletion fails, is moved to `<state_root>/retained-task-workdirs/` for reconciliation. The task account cannot reach that folder, which matters because later tasks of other tenants run as the same account. Workdirs a crash leaves in `task_root` are moved there at the next start. If a workdir can be neither deleted nor moved, the worker holds dispatch (`recovery-required.json`) until an operator reconciles. The result artifact is still written by the operator account.
 - Write tasks are refused on this path; tenant projects are read-only.
 
 Without these settings the worker behaves as before.

@@ -449,7 +449,8 @@ def _task_account(worker, tmp_path, monkeypatch, log_name='sudo.log'):
                     'rest = args[args.index("--") + 1:] if "--" in args else args[3:]\n'
                     'with open(%r, "a") as log: log.write(json.dumps({"args": args, "env": sorted(os.environ)}) + "\\n")\n'
                     'if rest and rest[0] == "/usr/bin/pkill": sys.exit(0)\n'
-                    'os.execv(rest[0], rest)\n' % str(calls))
+                    'if rest and rest[0] == "/bin/rm" and os.path.exists(%r): sys.exit(1)\n'
+                    'os.execv(rest[0], rest)\n' % (str(calls), str(tmp_path / 'fail-rm')))
     sudo.chmod(0o700)
     config = dict(w.config, task_user=me, task_root=str(root), sudo_path=str(sudo))
     return fleet_worker.Worker(config), dict(task, tenant='tenant-a', tenant_isolated=True), root, calls
@@ -500,3 +501,42 @@ def test_worker_refuses_an_unsafe_task_account_setup(worker, tmp_path, monkeypat
         config.pop('task_root')
     with pytest.raises(ValueError):
         fleet_worker.Worker(config)
+
+
+def test_a_failed_task_account_run_is_kept_privately_for_reconciliation(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    failing = tmp_path / 'codex-fails'
+    failing.write_text('#!/bin/sh\ncat >/dev/null\nexit 3\n')
+    failing.chmod(0o700)
+    w.config['codex_path'] = str(failing)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'failed'
+    kept = w.state / 'retained-task-workdirs' / 'task1-attempt1'
+    # Moved out of task_root (shared with the task account) into the worker's own state.
+    assert list(root.iterdir()) == [] and (kept / 'repo' / 'MANIFEST.yaml').exists() and not w.held.exists()
+
+
+def test_cleanup_failure_after_success_keeps_the_workdir_or_holds_dispatch(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    (tmp_path / 'fail-rm').write_text('')
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'succeeded'
+    # Removal failed, so the run was retained privately rather than left behind.
+    assert list(root.iterdir()) == [] and (w.state / 'retained-task-workdirs' / 'task1-attempt1').exists()
+    # If it can be neither removed nor moved, nothing more is dispatched.
+    monkeypatch.setattr(fleet_worker.os, 'rename', lambda *a: (_ for _ in ()).throw(OSError('cross-device')))
+    w.execute(dict(task, id='task2', attempt_id='attempt2'))
+    assert (root / 'task2-attempt2').exists() and json.loads(w.held.read_text())['attempt_id'] == 'attempt2'
+
+
+def test_restart_moves_leftover_task_workdirs_out_of_reach(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    (root / 'old-attempt' / 'home').mkdir(parents=True)
+    w.request = lambda route, body: {}
+    w.recover()
+    assert list(root.iterdir()) == [] and (w.state / 'retained-task-workdirs' / 'old-attempt' / 'home').exists()

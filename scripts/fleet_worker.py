@@ -294,6 +294,13 @@ class Worker:
             task = json.loads(self.active.read_text())
             private_json(self.held, {'attempt_id': task['attempt_id'], 'reason': 'Prior process state uncertain; reconcile before dispatch'})
             private_json(self.pending, self.report(task, 'interrupted', message='Worker restarted; manual reconciliation required'))
+        if self.task_user is not None:
+            # A workdir left in task_root by a crash stays reachable by the task account until
+            # it is moved into private state; if that fails, nothing more is dispatched.
+            for leftover in sorted(self.task_root.iterdir()):
+                if not self.retain_task_workdir(leftover):
+                    private_json(self.held, {'attempt_id': leftover.name,
+                                             'reason': 'Task-account workdir left after a restart; reconcile before dispatch'})
         return self.flush()
 
     def command(self, worktree, write=False):
@@ -720,12 +727,39 @@ class Worker:
 
     def remove_task_workdir(self, workdir):
         """Remove a task-account run's clone and home; anything the task account kept away from
-        this account is removed as the task account first."""
+        this account is removed as the task account first. Returns whether it is all gone."""
         home = workdir / 'home'
-        if home.exists():
-            subprocess.run([self.sudo_path, '-n', '-u', self.task_user, '/bin/rm', '-rf', '--', str(home)],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
-        shutil.rmtree(workdir, ignore_errors=True)
+        try:
+            if home.exists():
+                removed = subprocess.run([self.sudo_path, '-n', '-u', self.task_user, '/bin/rm', '-rf', '--', str(home)],
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+                if removed.returncode:
+                    return False
+            shutil.rmtree(workdir)
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return not os.path.lexists(workdir)
+
+    def retain_task_workdir(self, workdir):
+        """Keep a workdir for reconciliation inside this worker's private state, where the
+        task account cannot reach it (later tasks of other tenants share that account).
+        Returns whether it was moved."""
+        retained = self.state / 'retained-task-workdirs'
+        try:
+            retained.mkdir(exist_ok=True, mode=0o700)
+            os.rename(workdir, retained / workdir.name)
+        except OSError:
+            return False
+        return True
+
+    def settle_task_workdir(self, workdir, task, succeeded):
+        """Remove a succeeded run's workdir and keep any other; if neither works, hold
+        dispatch so no later task runs while a previous tenant's data is still reachable."""
+        if succeeded and self.remove_task_workdir(workdir):
+            return
+        if os.path.lexists(workdir) and not self.retain_task_workdir(workdir):
+            private_json(self.held, {'attempt_id': task['attempt_id'],
+                                     'reason': 'Task-account workdir could not be removed or retained; reconcile before dispatch'})
 
     def execute(self, task):
         kind, message, artifact = 'failed', 'Execution did not complete', None
@@ -916,12 +950,14 @@ class Worker:
             if process:
                 stop_group(process)
             message = 'Execution prerequisite or runtime failed; inspect private worker state'
-        if workdir is not None:
-            self.remove_task_workdir(workdir)
         body = self.report(task, kind, message=message)
         if artifact:
             body['artifact'] = artifact
         private_json(self.pending, body)
+        if workdir is not None:
+            # Only after the terminal report is on disk: a succeeded run's workdir is
+            # removed, anything else is kept (privately) for reconciliation.
+            self.settle_task_workdir(workdir, task, kind == 'succeeded')
         self.flush()
 
     def run(self):
