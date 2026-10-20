@@ -11,6 +11,7 @@ import stat
 import subprocess
 import threading
 import time
+import unicodedata
 
 from .cockpit_tenant_map import strict_yaml
 
@@ -47,6 +48,11 @@ TREE_MODES = frozenset({b'40000', b'100644', b'100755', b'120000', b'160000'})
 
 # Characters macOS (HFS+) ignores when comparing names, so ".g\u200cit" still means ".git".
 _HFS_IGNORED = re.compile('[\u200c-\u200f\u202a-\u202e\u206a-\u206f\ufeff]')
+
+
+def _folded(name):
+    """*name* as a case-insensitive, normalization-insensitive macOS volume compares it."""
+    return unicodedata.normalize('NFC', _HFS_IGNORED.sub('', name)).casefold()
 
 
 def _valid_tree_name(name):
@@ -370,7 +376,9 @@ def isolation_problem(root, tenant, git_path='git'):
     checked_out = set(os.listdir(root)) - {'.git'}
     # Fleet, node, audit, planning and spec files hold every tenant's state, at any depth
     # (backup/fleet.yaml is as readable as fleet.yaml).
-    shared = sorted((names | checked_out) & SHARED_INSTANCE_PATHS)
+    # Compared case-folded and normalized: on a case-insensitive Mac, context/FLEET.YAML or
+    # context/Nodes is the same shared data as fleet.yaml or nodes.
+    shared = sorted(name for name in names | checked_out if _folded(name) in SHARED_INSTANCE_PATHS)
     if shared:
         return 'Project root %s holds shared instance data (%s); use a tenant-only repository' % (root, ', '.join(shared))
     # The top level must look like one tenant's folder, so renamed copies of shared

@@ -1498,3 +1498,18 @@ def test_hard_linked_import_files_are_never_rewritten(tmp_path, monkeypatch, lin
         os.link(precious, asks_dir / 'proposed.jsonl.compacted')
         assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='t1', created=1.0) == 1
     assert precious.read_text() == '{"keep": "this"}'
+
+
+@pytest.mark.parametrize('path', ['context/FLEET.YAML', 'context/Nodes/coding.yaml', 'context/Specs/notes.md'])
+def test_admit_refuses_case_variants_of_shared_instance_data(tmp_path, path):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    target = repo / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text('every tenant\n')
+    subprocess.run(['git', '-C', str(repo), 'add', '-A'], check=True, capture_output=True)
+    subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', 'case'],
+                   check=True, capture_output=True)
+    # A case-insensitive Mac checks these out as the shared fleet, node and spec data.
+    with pytest.raises(ValueError, match='shared instance data'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
