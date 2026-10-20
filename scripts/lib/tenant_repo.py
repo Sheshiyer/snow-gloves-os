@@ -328,6 +328,20 @@ def git_layout(root, git_path='git'):
             owners.add(_manifest_tenant(body))
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
+    # The checks above trust each object's name. A full fsck rehashes every object, so one
+    # stored under another object's name (which a clone rejects) also fails the scan. It runs
+    # last, inside the same deadline; its output is discarded and only its status counts.
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        return None
+    try:
+        checked = subprocess.run([git_path, '--no-replace-objects', '-C', str(root), 'fsck', '--full', '--strict',
+                                  '--no-dangling', '--no-progress'],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=remaining)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if checked.returncode:
+        return None
     return tenants, top, links, names, owners
 
 

@@ -1369,3 +1369,24 @@ def test_admit_refuses_a_commit_whose_parent_is_not_a_present_commit(tmp_path, p
     (repo / '.git' / 'refs' / 'heads' / 'broken').write_text(broken + '\n')
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_admit_refuses_an_object_stored_under_another_objects_name(tmp_path):
+    import shutil as files
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    git = lambda *args, data=None: subprocess.run(['git', '-C', str(repo), *args], input=data, check=True,
+                                                   capture_output=True).stdout.decode().strip()
+    (repo / 'README.md').write_text('tenant notes\n')
+    git('add', 'README.md')
+    git('-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', 'notes')
+    readme = git('rev-parse', 'HEAD:README.md')
+    other = git('hash-object', '-w', '--stdin', data=b'something else\n')
+    objects = repo / '.git' / 'objects'
+    target = objects / readme[:2] / readme[2:]
+    # The README's loose object now holds another object's compressed body: listed under
+    # the README's id, but a clone rejects it as not the expected object.
+    target.chmod(0o644)
+    files.copyfile(objects / other[:2] / other[2:], target)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
