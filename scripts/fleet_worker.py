@@ -1187,6 +1187,9 @@ class Worker:
                 private_json(self.held, {'attempt_id': task['attempt_id'],
                                          'reason': 'Task account was not idle and clean before a run; reconcile before dispatch'})
                 raise ValueError('Task account is not idle and clean')
+            # The account checks can take minutes; nothing further (workdir, clone) starts if the
+            # assignment was cancelled or the worker was told to stop meanwhile.
+            preparing.check()
             if as_task_user:
                 # Outside this account's home, which the task account must not enter at all.
                 workdir = self.task_root / (task['id'] + '-' + task['attempt_id'])

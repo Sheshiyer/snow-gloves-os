@@ -945,3 +945,22 @@ def test_preparation_stops_when_the_worker_is_shutting_down(worker, monkeypatch)
     w.execute(dict(task, tenant='tenant-a', tenant_isolated=True))
     assert reports[-1]['type'] == 'interrupted'
     assert not started and not (w.state / 'worktrees' / 'task1-attempt1').exists()
+
+
+def test_shutdown_during_the_account_scrub_starts_no_workdir_or_clone(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    real_scrub = w.scrub_task_account
+    def scrub_then_signal(user, phase='after'):
+        result = real_scrub(user, phase)
+        if phase == 'before':
+            w.stopping = True  # SIGTERM arrives while the pre-run scrub is finishing
+        return result
+    monkeypatch.setattr(w, 'scrub_task_account', scrub_then_signal)
+    cloned = []
+    real_run = subprocess.run
+    monkeypatch.setattr(subprocess, 'run', lambda argv, *a, **k: (cloned.append(argv) if 'clone' in argv else None, real_run(argv, *a, **k))[1])
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(task)
+    assert reports[-1]['type'] == 'interrupted'
+    assert not cloned and list(root.iterdir()) == []
