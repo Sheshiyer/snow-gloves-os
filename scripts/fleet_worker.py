@@ -1385,6 +1385,11 @@ class Worker:
             if kind == 'succeeded' and not clean:
                 kind, artifact = 'failed', None
                 message = 'Task-account cleanup failed after the run; result withheld, reconcile before dispatch'
+            elif renewing.outcome is not None and kind not in ('cancelled', 'interrupted'):
+                # Cancelled (or the lease lost) while cleanup ran: the coordinator refuses any
+                # other terminal type now, so report what it will accept.
+                kind, message = renewing.outcome
+                artifact = None
         body = self.report(task, kind, message=message)
         if artifact:
             body['artifact'] = artifact

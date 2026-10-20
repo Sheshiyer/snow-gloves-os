@@ -1087,3 +1087,30 @@ def test_cleanup_scans_stop_at_the_stderr_cap_while_the_process_runs(monkeypatch
     assert clock.monotonic() - started < 10
     # Ordinary output still comes back whole.
     assert fleet_worker.bounded_run(['/bin/sh', '-c', 'printf out; printf err >&2'], 10) == (0, b'out', b'err')
+
+
+@pytest.mark.parametrize('coordinator', ['cancels', 'loses the lease'])
+def test_a_cancellation_or_lost_lease_during_cleanup_shapes_the_report(worker, tmp_path, monkeypatch, coordinator):
+    import time as clock
+    from urllib.error import HTTPError
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    w.config['heartbeat_seconds'] = 0.05
+    cleaning = []
+    reports = []
+    def request(route, body):
+        reports.append(body)
+        if body['type'] == 'heartbeat' and cleaning:
+            if coordinator == 'cancels':
+                return {'cancel_requested': True}
+            raise HTTPError('http://coordinator', 409, 'lease expired', {}, None)
+        return {}
+    w.request = request
+    real_settle = w.settle_task_workdir
+    def slow_settle(*args):
+        cleaning.append(True)  # requested only once the run itself has finished
+        clock.sleep(0.3)
+        return real_settle(*args)
+    monkeypatch.setattr(w, 'settle_task_workdir', slow_settle)
+    w.execute(task)
+    expected = {'cancels': 'cancelled', 'loses the lease': 'interrupted'}[coordinator]
+    assert reports[-1]['type'] == expected and 'artifact' not in reports[-1]
