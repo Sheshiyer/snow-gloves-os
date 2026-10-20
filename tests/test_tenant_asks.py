@@ -362,11 +362,11 @@ def test_fact_derivation_stops_at_the_cap(tmp_path, monkeypatch):
     for i in range(30):
         (t / 'context' / ('f%02d.md' % i)).write_text(''.join('FILL: item %d-%d\n' % (i, j) for j in range(20)))
     reads = []
-    original = ta._read_text
-    monkeypatch.setattr(ta, '_read_text', lambda path: (reads.append(path), original(path))[1])
+    original = ta._read_bytes
+    monkeypatch.setattr(ta, '_read_bytes', lambda path: (reads.append(path), original(path))[1])
     asks = derive_asks(tmp_path, 'heyzack')
     assert len([a for a in asks if a['kind'] == 'fact']) == 400
-    assert len(reads) == 20
+    assert len([p for p in reads if p.parent.name == 'context' and p.name.startswith('f')]) == 20
 
 
 def test_proposals_with_lone_surrogates_are_ignored(tmp_path):
@@ -511,3 +511,17 @@ def test_context_scan_stops_at_its_byte_budget(tmp_path, monkeypatch):
     titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact']
     # Files are read in order until the shared budget is spent; the rest wait.
     assert titles == ['question 0.', 'question 1.', 'question 2.']
+
+
+def test_context_byte_budget_counts_bytes_not_characters(tmp_path, monkeypatch):
+    import lib.tenant_asks as ta
+    t = tmp_path / 'heyzack'; (t / 'context').mkdir(parents=True)
+    for n in range(5):
+        # 600 two-byte characters: about 630 characters but about 1230 bytes per file.
+        (t / 'context' / ('%02d.md' % n)).write_text('# notes\n' + 'é' * 600 + '\nFILL: question %d.\n' % n, encoding='utf-8')
+    monkeypatch.setattr(ta, 'MAX_CONTEXT_BYTES', 2500)
+    titles = [a['title'] for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact']
+    assert titles == ['question 0.', 'question 1.', 'question 2.']
+    # An undecodable file still spends the bytes it took to read.
+    (t / 'context' / '00.md').write_bytes(b'\xff' * 3000)
+    assert [a for a in derive_asks(tmp_path, 'heyzack') if a['kind'] == 'fact'] == []

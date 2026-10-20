@@ -190,10 +190,15 @@ def _fact_asks(tenant_dir: Path, tenant: str, proposals: dict[str, str]) -> list
         if len(asks) >= MAX_ASKS or read >= MAX_CONTEXT_BYTES or time.monotonic() > deadline:
             break
         path = context / name
-        text = _read_text(path)
-        if text is None:
+        raw = _read_bytes(path)
+        if raw is None:
             continue
-        read += len(text)
+        # Count the bytes read, not decoded characters, and count undecodable files too.
+        read += len(raw)
+        try:
+            text = raw.decode('utf-8')
+        except UnicodeError:
+            continue
         source = f"context/{path.name}"
         for line in text.splitlines():
             match = FILL_RE.match(line)
