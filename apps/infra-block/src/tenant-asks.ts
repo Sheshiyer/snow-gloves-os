@@ -328,8 +328,10 @@ export function startAskSync(client: FleetClient, projects: string[], emit: (ask
       try {
         const results = await Promise.allSettled(routable.map(timed));
         if (stopped || epoch !== generation) return;
-        // If every poll failed, keep the last good list. Only stop() emits null.
-        if (!results.some(result => result.status === 'fulfilled')) return;
+        // If every poll failed, keep the last good list. Only stop() emits null. With no
+        // routable project there is nothing to poll: publish the (empty) list so a connected
+        // board shows "no asks" rather than "connect the board".
+        if (routable.length && !results.some(result => result.status === 'fulfilled')) return;
         results.forEach((result, index) => { if (result.status === 'fulfilled') lastGood.set(routable[index], result.value); });
         publish();
       } finally {

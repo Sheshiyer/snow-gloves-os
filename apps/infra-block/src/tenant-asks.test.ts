@@ -244,6 +244,19 @@ describe('ask sync and fleet client', () => {
     stop();
   });
 
+  it('publishes an empty list when the board has no routable projects', async () => {
+    const emit = vi.fn();
+    const asks = vi.fn(async () => [model({})]);
+    const client = {asks} as unknown as FleetClient;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation(() => 1 as unknown as ReturnType<typeof setInterval>);
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
+    const stop = startAskSync(client, ['client.prod', '_demo'], emit, 60_000);
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(asks).not.toHaveBeenCalled();
+    expect(emit).toHaveBeenCalledWith([]);
+    stop();
+  });
+
   it('applies a successful answer to the polling cache and drops older in-flight polls', async () => {
     const emit = vi.fn();
     const open = model({project: 'heyzack'});
