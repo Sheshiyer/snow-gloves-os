@@ -1036,6 +1036,17 @@ class Worker:
                     prints[path.hex()] = [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
             except (OSError, AttributeError):  # AttributeError: a libc without these calls (not macOS)
                 return None
+        # find's -mindepth 1 never lists the roots themselves, yet a writable non-sticky root
+        # (or one whose ACL grants delete_child) lets the account remove another account's
+        # entry in it. Fingerprint each root too, except the account's own per-user folder.
+        try:
+            uid = account_uid(user)
+            for root in roots:
+                real = os.fsencode(os.path.realpath(root))
+                if os.lstat(real).st_uid != uid:
+                    prints['root:' + real.hex()] = folder_metadata(real)
+        except (OSError, KeyError, AttributeError):
+            return None
         return prints
 
     def scrub_task_account(self, user, phase='after'):

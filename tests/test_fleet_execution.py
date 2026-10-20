@@ -964,3 +964,18 @@ def test_shutdown_during_the_account_scrub_starts_no_workdir_or_clone(worker, tm
     w.execute(task)
     assert reports[-1]['type'] == 'interrupted'
     assert not cloned and list(root.iterdir()) == []
+
+
+def test_scrub_refuses_when_a_non_sticky_scrub_root_lost_an_entry(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    # The scrub root itself is writable and not sticky: find never lists it (-mindepth 1), but
+    # the account could still remove another account's entry directly inside it.
+    shared = tmp_path / 'shared-tmp'
+    (shared / 'theirs.txt').write_text('another account')
+    (shared / 'theirs.txt').chmod(0o444)
+    shared.chmod(0o777)
+    assert w.scrub_task_account('nobody', 'before') is True
+    assert w.scrub_task_account('nobody') is True
+    assert w.scrub_task_account('nobody', 'before') is True
+    (shared / 'theirs.txt').unlink()
+    assert w.scrub_task_account('nobody') is False
