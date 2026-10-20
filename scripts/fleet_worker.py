@@ -1013,6 +1013,18 @@ class Worker:
                 root = Path(task['root']).resolve()
             if root not in [Path(p).resolve() for p in self.config['allowed_roots']] or task['runtime'] != 'codex':
                 raise ValueError('Unsupported assignment')
+            # Before any Git command on the root (review lookups included): the check reads the
+            # repository config without includes first, so an unsafe include is never followed.
+            # An admitted tenant project (tenant_isolated from the coordinator) or a root this
+            # worker lists in tenant_roots is re-verified before every task; a fetch since
+            # admission must not bring another tenant's objects into the worktree.
+            tenant = self.tenant_roots.get(root)
+            if task.get('tenant_isolated') is True:
+                if not isinstance(task.get('tenant'), str) or tenant not in (None, task['tenant']):
+                    raise ValueError('Tenant assignment does not match this root')
+                tenant = task['tenant']
+            if tenant is not None and isolation_problem(root, tenant, self.config.get('git_path', 'git')):
+                raise ValueError('Tenant root failed its isolation check')
             business = self.business_assignment(task)
             if business is not None and (fanout or review is not None):
                 raise ValueError('Invalid business assignment')
@@ -1044,16 +1056,6 @@ class Worker:
                     raise ValueError('Review patch base is unavailable')
             else:
                 base = 'HEAD'
-            # An admitted tenant project (tenant_isolated from the coordinator) or a root this
-            # worker lists in tenant_roots is re-verified before every task; a fetch since
-            # admission must not bring another tenant's objects into the worktree.
-            tenant = self.tenant_roots.get(root)
-            if task.get('tenant_isolated') is True:
-                if not isinstance(task.get('tenant'), str) or tenant not in (None, task['tenant']):
-                    raise ValueError('Tenant assignment does not match this root')
-                tenant = task['tenant']
-            if tenant is not None and isolation_problem(root, tenant, self.config.get('git_path', 'git')):
-                raise ValueError('Tenant root failed its isolation check')
             account = None
             if tenant is not None and self.task_users is not None:
                 # Fail closed: a tenant with no account of its own never runs as another's.

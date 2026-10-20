@@ -795,3 +795,25 @@ def test_worker_refuses_the_retired_shared_task_user_setting(worker, tmp_path):
     w, _ = worker
     with pytest.raises(ValueError, match='task_users'):
         fleet_worker.Worker(dict(w.config, task_user='sg-task', task_root=str(tmp_path)))
+
+
+def test_review_tasks_check_tenant_isolation_before_any_git_lookup(worker, tmp_path, monkeypatch):
+    import time as clock
+    w, task = worker
+    root = Path(task['root']).resolve()
+    fifo = tmp_path / 'include.fifo'
+    os.mkfifo(fifo)
+    # A Git command that honours includes would block opening the FIFO until its timeout.
+    with open(root / '.git' / 'config', 'a') as handle:
+        handle.write('[include]\n\tpath = %s\n' % fifo)
+    monkeypatch.setattr(w, '_review_assignment', lambda task_, tokens: {'base': '0' * 40})
+    ran = []
+    real_run = subprocess.run
+    monkeypatch.setattr(subprocess, 'run', lambda argv, *a, **k: (ran.append(list(argv)), real_run(argv, *a, **k))[1])
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    started = clock.monotonic()
+    w.execute(dict(task, tenant='tenant-a', tenant_isolated=True))
+    assert reports[-1]['type'] == 'failed' and clock.monotonic() - started < 10
+    # Refused on its config before the review's cat-file and rev-parse ever ran on the root.
+    assert not any('cat-file' in argv or 'rev-parse' in argv for argv in ran)
