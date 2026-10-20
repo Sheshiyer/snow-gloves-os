@@ -1338,11 +1338,15 @@ class Worker:
         if artifact:
             body['artifact'] = artifact
         private_json(self.pending, body)
+        # Send the terminal report while the lease is still live: account cleanup below can take
+        # minutes (scans and deletions under SCRUB_SECONDS each) with no heartbeat running. If
+        # cleanup then fails, recovery-required.json holds the next claim (run() checks it), so
+        # reporting first never lets another task start on an unclean account.
+        self.flush()
         if workdir is not None:
             # Only after the terminal report is on disk: a succeeded run's workdir is
             # removed, anything else is kept (privately) for reconciliation.
             self.settle_task_workdir(workdir, task, kind == 'succeeded', account)
-        self.flush()
 
     def run(self):
         lock = os.open(self.state / 'worker.lock', os.O_CREAT | os.O_RDWR, 0o600)

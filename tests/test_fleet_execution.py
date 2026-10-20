@@ -979,3 +979,18 @@ def test_scrub_refuses_when_a_non_sticky_scrub_root_lost_an_entry(worker, tmp_pa
     assert w.scrub_task_account('nobody', 'before') is True
     (shared / 'theirs.txt').unlink()
     assert w.scrub_task_account('nobody') is False
+
+
+def test_the_terminal_report_is_sent_before_account_cleanup(worker, tmp_path, monkeypatch):
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    reports, seen_at_cleanup = [], []
+    w.request = lambda route, body: reports.append(body) or {}
+    real_settle = w.settle_task_workdir
+    def slow_settle(*args):
+        # Cleanup can outlast the lease; by now the coordinator must already have the result.
+        seen_at_cleanup.append([r['type'] for r in reports])
+        return real_settle(*args)
+    monkeypatch.setattr(w, 'settle_task_workdir', slow_settle)
+    w.execute(task)
+    assert seen_at_cleanup and seen_at_cleanup[0][-1] == 'succeeded'
+    assert not w.pending.exists() and list(root.iterdir()) == []
