@@ -1513,3 +1513,24 @@ def test_admit_refuses_case_variants_of_shared_instance_data(tmp_path, path):
     # A case-insensitive Mac checks these out as the shared fleet, node and spec data.
     with pytest.raises(ValueError, match='shared instance data'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+@pytest.mark.parametrize('names', [(b'Foo.md', b'foo.md'), ('café.md'.encode(), 'café.md'.encode())])
+def test_admit_refuses_sibling_names_one_path_on_a_case_insensitive_mac(tmp_path, names):
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    git = lambda *args, data=None: subprocess.run(['git', '-C', str(repo), *args], input=data, check=True,
+                                                   capture_output=True).stdout.decode().strip()
+    own = git('hash-object', '-w', '--stdin', data=b'tenant: tenant-a\n')
+    one = git('hash-object', '-w', '--stdin', data=b'one\n')
+    two = git('hash-object', '-w', '--stdin', data=b'two\n')
+    # Case variants, and NFC vs NFD spellings, of one file name inside context/.
+    entries = sorted([(names[0], one), (names[1], two)])
+    context = git('hash-object', '-t', 'tree', '-w', '--literally', '--stdin',
+                  data=b''.join(b'100644 ' + name + b'\0' + bytes.fromhex(oid) for name, oid in entries))
+    body = b'100644 MANIFEST.yaml\0' + bytes.fromhex(own) + b'40000 context\0' + bytes.fromhex(context)
+    tree = git('hash-object', '-t', 'tree', '-w', '--literally', '--stdin', data=body)
+    commit = git('-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit-tree', tree, '-m', 'variants', '-p', 'HEAD')
+    git('update-ref', 'refs/heads/variants', commit)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))

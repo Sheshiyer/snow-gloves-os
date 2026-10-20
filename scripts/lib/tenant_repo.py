@@ -274,7 +274,7 @@ def git_layout(root, git_path='git'):
                     parents.add(parent.group(1))
                     cursor = parent.end()
                 continue
-            children, cursor = {}, 0
+            children, folded, cursor = {}, set(), 0
             while cursor < len(body):
                 space = body.index(b' ', cursor)
                 nul = body.index(b'\0', space)
@@ -289,6 +289,12 @@ def git_layout(root, git_path='git'):
                 # while a clone still carries both; refuse it.
                 if name_bytes in children:
                     return None
+                # Two siblings differing only in case or Unicode normalization (Foo.md, foo.md) are
+                # one path on a case-insensitive Mac: checkout keeps one, not the tree verified here.
+                key = _folded(name_bytes.decode('utf-8', 'replace'))
+                if key in folded:
+                    return None
+                folded.add(key)
                 children[name_bytes] = (body[cursor:space], body[nul + 1:nul + 1 + width].hex().encode())
                 cursor = nul + 1 + width
             entries[name] = children
