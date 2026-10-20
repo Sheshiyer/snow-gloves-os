@@ -1115,9 +1115,16 @@ def test_completion_history_never_pushes_proposals_past_the_listing_budget(tmp_p
                                                      for n in range(3000)))
     monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 1000)
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}, source='new', created=5000.0) == 1
+    # Each compaction moves a bounded batch of history out; live proposals go first, so
+    # listings read them within budget while the rest waits for the next pass.
+    assert '"id1"' in (asks_dir / 'proposed.jsonl').read_text().splitlines()[0]
+    assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 99'}
+    for n in range(2):
+        assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 9%d"}]' % n, {'id1'},
+                                source='new-%d' % n, created=5001.0 + n) == 1
     # Compaction moved the history out; the journal is just the live proposal.
     assert (asks_dir / 'proposed.jsonl').read_text().count('\n') == 1
-    assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 99'}
+    assert load_proposals(tenants_dir / 'heyzack') == {'id1': 'EUR 91'}
     # Old tasks are still known as imported.
     assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"EUR 1"}]', {'id1'}, source='task-7', created=7.0) == 0
 
@@ -1206,3 +1213,48 @@ def test_deeply_nested_artifact_json_is_ignored_not_fatal(tmp_path, monkeypatch)
     deep = '[{"ask_id":"id1","proposed":' + '[' * 50 + ']' * 50 + '}]'
     assert import_proposals(tenants_dir, 'heyzack', deep, {'id1'}) == 0
     assert import_proposals(tenants_dir, 'heyzack', deep + ' [{"ask_id":"id1","proposed":"EUR 99"}]', {'id1'}) == 1
+
+
+def test_compaction_stops_inside_an_oversized_unterminated_line(tmp_path, monkeypatch):
+    import fleet_asks_import
+    asks_dir = tmp_path / 'asks'
+    asks_dir.mkdir()
+    journal = asks_dir / 'proposed.jsonl'
+    # A damaged journal: one line ten times the line cap with no newline at all.
+    journal.write_bytes(b'{"ask_id": "id1", "proposed": "yes"}\n' + b'x' * (fleet_asks_import.MAX_JOURNAL_LINE * 10))
+    monkeypatch.setattr(fleet_asks_import, 'MAX_COMPACT_BYTES', fleet_asks_import.MAX_JOURNAL_LINE * 3)
+    before = journal.read_bytes()
+    asks = os.open(asks_dir, os.O_RDONLY)
+    try:
+        with open(journal, 'rb') as stream:
+            assert fleet_asks_import._compact(stream, asks) is False
+            # It gave up inside the line instead of reading on to the end of the file.
+            assert stream.tell() < len(before)
+    finally:
+        os.close(asks)
+    assert journal.read_bytes() == before
+
+
+def test_compaction_moves_legacy_completion_lines_in_bounded_batches(tmp_path, monkeypatch):
+    import fleet_asks_import
+    tenants_dir = tmp_path / 'tenants'
+    asks_dir = tenants_dir / 'heyzack' / 'asks'
+    asks_dir.mkdir(parents=True)
+    journal = asks_dir / 'proposed.jsonl'
+    # Completion lines from before marker files existed (no "created" key).
+    journal.write_text(''.join(json.dumps({'source': 'task-%d' % n}) + '\n' for n in range(2500)))
+    monkeypatch.setattr(fleet_asks_import, 'MAX_MARKERS_PER_COMPACT', 1000)
+    asks = os.open(asks_dir, os.O_RDONLY)
+    try:
+        results = []
+        for _ in range(3):
+            with open(journal, 'rb') as stream:
+                results.append(fleet_asks_import._compact(stream, asks))
+            results.append(len(os.listdir(asks_dir / 'imported')))
+    finally:
+        os.close(asks)
+    # Each pass moves one batch; the rest stay in the journal until the last pass.
+    assert results == ['partial', 1000, 'partial', 2000, True, 2500]
+    assert '"complete"' not in journal.read_text()
+    for source in ('task-5', 'task-2499'):
+        assert import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"id1","proposed":"no"}]', {'id1'}, source=source) == 0

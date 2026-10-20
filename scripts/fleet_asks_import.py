@@ -26,6 +26,7 @@ COMPACT_AT = 4 * 1024 * 1024  # past this, the journal is rewritten to its live 
 MAX_COMPACT_BYTES = 64 * 1024 * 1024
 MAX_COMPACT_RECORDS = 1_000_000
 COMPACT_SECONDS = 30
+MAX_MARKERS_PER_COMPACT = 1000  # legacy completion lines moved to marker files per compaction
 # Compaction never waits past this size, half the listing's scan budget, so live
 # proposals always stay readable by every ask listing.
 MAX_COMPACT_TRIGGER = 16 * 1024 * 1024
@@ -175,20 +176,26 @@ def _source_done(asks, source):
         os.close(held)
 
 
-def _mark_imported(asks, sources):
-    """Record each of *sources* ({source: created}) as fully imported, durably."""
+def _mark_imported(asks, sources, deadline=None):
+    """Record each of *sources* ({source: created}) as fully imported, durably. With a
+    *deadline*, stop once it passes; returns the sources recorded."""
     held = _imported_dir(asks, create=True)
+    marked = set()
     try:
         for source, when in sources.items():
+            if deadline is not None and marked and time.monotonic() > deadline:
+                break
             fd = os.open(_marker(source), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0), 0o600, dir_fd=held)
             try:
                 os.write(fd, json.dumps({'source': source, 'created': when, 'complete': True}).encode())
                 os.fsync(fd)
             finally:
                 os.close(fd)
+            marked.add(source)
         os.fsync(held)
     finally:
         os.close(held)
+    return marked
 
 
 def _compacted_size(asks):
@@ -218,8 +225,9 @@ def _compact(stream, asks, current_ids=None):
 
     Runs under the journal lock; the new file replaces the old atomically, and waiting
     importers notice the replacement and reopen. Reading is capped in bytes, records,
-    line length and time; past any cap the journal is left unchanged. Returns whether
-    it compacted. With *current_ids* (every ask the tenant has now) only their
+    line length and time; past any cap the journal is left unchanged. Returns False when
+    it did not compact, True when it did, and 'partial' when legacy completion lines are
+    still left to move to marker files. With *current_ids* (every ask the tenant has now) only their
     proposals are kept.
     """
     latest, done = {}, {}
@@ -238,6 +246,9 @@ def _compact(stream, asks, current_ids=None):
             while line and not line.endswith(b'\n'):
                 line = stream.readline(MAX_JOURNAL_LINE)
                 scanned += len(line)
+                # The same budgets hold while the rest of an oversized line is discarded.
+                if scanned > MAX_COMPACT_BYTES or time.monotonic() > deadline:
+                    return False
             continue
         try:
             record = json.loads(line.decode('utf-8', errors='replace'))
@@ -253,12 +264,16 @@ def _compact(stream, asks, current_ids=None):
                 latest[record['ask_id']] = record
         if isinstance(record.get('source'), str) and (record.get('complete') is True or 'created' not in record):
             done[record['source']] = _task_time(record.get('created'))
-    body = b''.join(json.dumps(record).encode() + b'\n' for record in latest.values())
     # Completion lines move to per-source markers first, so the journal keeps only live
     # proposals and every listing reads them within its budget. A crash in between leaves
-    # duplicate completion lines, which are harmless.
+    # duplicate completion lines, which are harmless. Each pass moves a bounded batch within
+    # the time budget; the rest stay as completion lines for the next compaction.
+    marked = set()
     if done:
-        _mark_imported(asks, done)
+        batch = dict(list(done.items())[:MAX_MARKERS_PER_COMPACT])
+        marked = _mark_imported(asks, batch, deadline)
+    left = [{'source': source, 'created': when, 'complete': True} for source, when in done.items() if source not in marked]
+    body = b''.join(json.dumps(record).encode() + b'\n' for record in [*latest.values(), *left])
     temp = JOURNAL + '.compact'
     try:
         os.unlink(temp, dir_fd=asks)
@@ -274,7 +289,7 @@ def _compact(stream, asks, current_ids=None):
         os.close(fd)
     os.replace(temp, JOURNAL, src_dir_fd=asks, dst_dir_fd=asks)
     os.fsync(asks)
-    return True
+    return 'partial' if left else True
 
 
 def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None, created=None, current_ids=None):
@@ -377,8 +392,12 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
             if os.fstat(stream.fileno()).st_size > max(COMPACT_AT, min(2 * _compacted_size(asks), MAX_COMPACT_TRIGGER)):
                 try:
                     # An empty current set means the listing failed: never drop on that.
-                    if _compact(stream, asks, current_ids or None):
-                        _record_compacted_size(asks, os.stat(JOURNAL, dir_fd=asks, follow_symlinks=False).st_size)
+                    compacted = _compact(stream, asks, current_ids or None)
+                    if compacted:
+                        # With legacy completion lines still to move, let the next import compact
+                        # again rather than wait for the journal to double.
+                        size = os.stat(JOURNAL, dir_fd=asks, follow_symlinks=False).st_size
+                        _record_compacted_size(asks, size if compacted is True else 0)
                 except OSError:
                     pass  # the appended journal is intact; compaction retries on the next import
     finally:
