@@ -230,6 +230,7 @@ class Worker:
                                  'that other accounts may pass through (mode 711)')
             self.task_root = Path(task_root)
             self.sudo_path = config.get('sudo_path', '/usr/bin/sudo')
+            self.pgrep_path = config.get('pgrep_path', '/usr/bin/pgrep')
         if not loopback_endpoint(config['endpoint']):
             raise ValueError('Pilot coordinator must use loopback')
         if config.get('gateway_url') != 'http://127.0.0.1:20128/v1':
@@ -752,9 +753,34 @@ class Worker:
             return False
         return True
 
+    def task_account_idle(self):
+        """Whether the task account runs nothing, ending what it still runs (as that account)
+        and re-checking for a few seconds. pgrep exits 1 for no match, 0 for a match."""
+        for _ in range(20):
+            try:
+                found = subprocess.run([self.pgrep_path, '-U', self.task_user],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10).returncode
+            except (OSError, subprocess.SubprocessError):
+                return False
+            if found == 1:
+                return True
+            if found != 0:
+                return False
+            try:
+                subprocess.run([self.sudo_path, '-n', '-u', self.task_user, '/usr/bin/pkill', '-KILL', '-U', self.task_user],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+            except (OSError, subprocess.SubprocessError):
+                return False
+            time.sleep(0.25)
+        return False
+
     def settle_task_workdir(self, workdir, task, succeeded):
-        """Remove a succeeded run's workdir and keep any other; if neither works, hold
-        dispatch so no later task runs while a previous tenant's data is still reachable."""
+        """Remove a succeeded run's workdir and keep any other; if neither works, or anything
+        the run started is still alive as the task account, hold dispatch so no later task
+        runs while a previous tenant's data or processes remain reachable."""
+        if not self.task_account_idle():
+            private_json(self.held, {'attempt_id': task['attempt_id'],
+                                     'reason': 'Task-account processes survived the run; reconcile before dispatch'})
         if succeeded and self.remove_task_workdir(workdir):
             return
         if os.path.lexists(workdir) and not self.retain_task_workdir(workdir):
@@ -826,6 +852,10 @@ class Worker:
             as_task_user = tenant is not None and self.task_user is not None
             if as_task_user and write:
                 raise WriteRejected('Tenant tasks run as the task account are read-only')
+            if as_task_user and not self.task_account_idle():
+                private_json(self.held, {'attempt_id': task['attempt_id'],
+                                         'reason': 'Task account was not idle before a run; reconcile before dispatch'})
+                raise ValueError('Task account is not idle')
             if as_task_user:
                 # Outside this account's home, which the task account must not enter at all.
                 workdir = self.task_root / (task['id'] + '-' + task['attempt_id'])

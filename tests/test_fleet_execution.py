@@ -452,7 +452,11 @@ def _task_account(worker, tmp_path, monkeypatch, log_name='sudo.log'):
                     'if rest and rest[0] == "/bin/rm" and os.path.exists(%r): sys.exit(1)\n'
                     'os.execv(rest[0], rest)\n' % (str(calls), str(tmp_path / 'fail-rm')))
     sudo.chmod(0o700)
-    config = dict(w.config, task_user=me, task_root=str(root), sudo_path=str(sudo))
+    # A stand-in pgrep: "no processes" unless a flag file says the account is still busy.
+    pgrep = tmp_path / 'pgrep'
+    pgrep.write_text('#!/bin/sh\n[ -e %s ] && exit 0\nexit 1\n' % (tmp_path / 'busy'))
+    pgrep.chmod(0o700)
+    config = dict(w.config, task_user=me, task_root=str(root), sudo_path=str(sudo), pgrep_path=str(pgrep))
     return fleet_worker.Worker(config), dict(task, tenant='tenant-a', tenant_isolated=True), root, calls
 
 
@@ -540,3 +544,24 @@ def test_restart_moves_leftover_task_workdirs_out_of_reach(worker, tmp_path, mon
     w.request = lambda route, body: {}
     w.recover()
     assert list(root.iterdir()) == [] and (w.state / 'retained-task-workdirs' / 'old-attempt' / 'home').exists()
+
+
+def test_surviving_task_account_processes_hold_dispatch(worker, tmp_path, monkeypatch):
+    import fleet_worker
+    w, task, root, calls = _task_account(worker, tmp_path, monkeypatch)
+    monkeypatch.setattr(fleet_worker.time, 'sleep', lambda seconds: None)
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    # Something keeps running as the task account after the run (pkill cannot end it).
+    real_settle = w.settle_task_workdir
+    def settle(workdir, task_, succeeded):
+        (tmp_path / 'busy').write_text('')
+        real_settle(workdir, task_, succeeded)
+    w.settle_task_workdir = settle
+    w.execute(task)
+    assert json.loads(w.held.read_text())['reason'].startswith('Task-account processes survived')
+    # And a run never starts while the account is busy.
+    w.held.unlink()
+    w.execute(dict(task, id='task2', attempt_id='attempt2'))
+    assert reports[-1]['type'] == 'failed' and not (root / 'task2-attempt2').exists()
+    assert 'not idle' in json.loads(w.held.read_text())['reason']
