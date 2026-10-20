@@ -127,16 +127,24 @@ def _own_object_store(root, deadline=None):
     # Only real directories and regular files: a FIFO, socket or device inside .git
     # could block or redirect Git's reads during the scan and the task. The walk shares
     # the scan's deadline and is capped in entries, so a huge .git fails closed.
+    # Entries are read one at a time (os.scandir), never a whole directory listing at once,
+    # so the cap bounds memory as well as time; an unreadable directory fails closed.
     deadline = time.monotonic() + SCAN_SECONDS if deadline is None else deadline
-    seen = 0
-    for directory, subdirs, files in os.walk(git_dir, followlinks=False):
-        for name in subdirs + files:
-            seen += 1
-            if seen > MAX_GIT_ENTRIES or time.monotonic() > deadline:
-                return False
-            mode = os.lstat(os.path.join(directory, name)).st_mode
-            if not (stat.S_ISDIR(mode) or stat.S_ISREG(mode)):
-                return False
+    seen, pending = 0, [git_dir]
+    try:
+        while pending:
+            with os.scandir(pending.pop()) as listing:
+                for entry in listing:
+                    seen += 1
+                    if seen > MAX_GIT_ENTRIES or time.monotonic() > deadline:
+                        return False
+                    mode = entry.stat(follow_symlinks=False).st_mode
+                    if stat.S_ISDIR(mode):
+                        pending.append(entry.path)
+                    elif not stat.S_ISREG(mode):
+                        return False
+    except OSError:
+        return False
     return True
 
 

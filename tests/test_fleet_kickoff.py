@@ -1534,3 +1534,38 @@ def test_admit_refuses_sibling_names_one_path_on_a_case_insensitive_mac(tmp_path
     git('update-ref', 'refs/heads/variants', commit)
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_the_git_walk_stops_at_its_entry_cap_while_reading_one_directory(tmp_path, monkeypatch):
+    from lib import tenant_repo
+    repo = _tenant_repo(tmp_path)
+    crowded = repo / '.git' / 'crowded'
+    crowded.mkdir()
+    for n in range(200):
+        (crowded / ('f%03d' % n)).write_text('')
+    monkeypatch.setattr(tenant_repo, 'MAX_GIT_ENTRIES', 50)
+    # The directory is read entry by entry: listing it whole first is what the cap must prevent.
+    real_scandir = tenant_repo.os.scandir
+    taken = []
+    class Counting:
+        def __init__(self, path):
+            self.inner = real_scandir(path)
+        def __enter__(self):
+            return self
+        def __exit__(self, *exc):
+            self.inner.close()
+        def __iter__(self):
+            for entry in self.inner:
+                taken.append(entry.name)
+                yield entry
+    monkeypatch.setattr(tenant_repo.os, 'scandir', Counting)
+    assert tenant_repo._own_object_store(repo) is False
+    assert len(taken) <= 51
+    # An unreadable directory inside .git fails closed instead of being skipped.
+    monkeypatch.setattr(tenant_repo.os, 'scandir', real_scandir)
+    monkeypatch.setattr(tenant_repo, 'MAX_GIT_ENTRIES', 1_000_000)
+    crowded.chmod(0o000)
+    try:
+        assert tenant_repo._own_object_store(repo) is False
+    finally:
+        crowded.chmod(0o700)
