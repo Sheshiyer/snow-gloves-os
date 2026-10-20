@@ -1569,3 +1569,31 @@ def test_the_git_walk_stops_at_its_entry_cap_while_reading_one_directory(tmp_pat
         assert tenant_repo._own_object_store(repo) is False
     finally:
         crowded.chmod(0o700)
+
+
+def test_admit_refuses_a_root_with_too_many_top_level_entries(tmp_path, monkeypatch):
+    from lib import tenant_repo
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    for n in range(40):
+        (repo / ('junk-%02d' % n)).write_text('')
+    monkeypatch.setattr(tenant_repo, 'MAX_ROOT_ENTRIES', 10)
+    # Read entry by entry: the listing is never built whole before the cap applies.
+    real_scandir = tenant_repo.os.scandir
+    taken = []
+    class Counting:
+        def __init__(self, path):
+            self.path, self.inner = path, real_scandir(path)
+        def __enter__(self):
+            return self
+        def __exit__(self, *exc):
+            self.inner.close()
+        def __iter__(self):
+            for entry in self.inner:
+                if str(self.path) == str(repo):
+                    taken.append(entry.name)
+                yield entry
+    monkeypatch.setattr(tenant_repo.os, 'scandir', Counting)
+    with pytest.raises(ValueError, match='more than 10 top-level entries'):
+        admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+    assert len(taken) <= 12  # the cap plus .git

@@ -30,6 +30,7 @@ SCAN_SECONDS = 120
 MAX_REFS = 10_000
 MAX_CONFIG_BYTES = 64 * 1024  # .git/config of a tenant repository
 MAX_GIT_ENTRIES = 2 * MAX_OBJECTS + 10_000  # files and directories under .git, loose objects included
+MAX_ROOT_ENTRIES = 256  # top-level names in a tenant checkout (the layout allows about 16)
 TENANT_LAYOUT = frozenset({'MANIFEST.yaml', 'README.md', '.gitignore', 'context', 'meristem', 'sources.yaml',
                            'enabled.yaml', 'runtime.yaml', 'ingest-plan.json', 'asks', 'wiki', 'history',
                            'documents', 'data', 'audit', 'tenants'})
@@ -387,7 +388,19 @@ def isolation_problem(root, tenant, git_path='git'):
     # A worker checks the tree out, so a tracked link could lead its task out of the root.
     if links:
         return 'Project root %s tracks a symlink or submodule; use a tenant-only repository without links' % root
-    checked_out = set(os.listdir(root)) - {'.git'}
+    # Read one entry at a time under a cap: a tenant root holds a handful of TENANT_LAYOUT
+    # names, so a huge listing (untracked junk) is refused before it fills memory.
+    checked_out = set()
+    try:
+        with os.scandir(root) as listing:
+            for entry in listing:
+                if entry.name != '.git':
+                    checked_out.add(entry.name)
+                    if len(checked_out) > MAX_ROOT_ENTRIES:
+                        return ('Project root %s has more than %d top-level entries; use a tenant-only repository'
+                                % (root, MAX_ROOT_ENTRIES))
+    except OSError:
+        return 'Cannot read project root %s; use a standalone tenant repository' % root
     # Fleet, node, audit, planning and spec files hold every tenant's state, at any depth
     # (backup/fleet.yaml is as readable as fleet.yaml).
     # Compared case-folded and normalized: on a case-insensitive Mac, context/FLEET.YAML or
