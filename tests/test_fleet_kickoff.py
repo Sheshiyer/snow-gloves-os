@@ -1390,3 +1390,32 @@ def test_admit_refuses_an_object_stored_under_another_objects_name(tmp_path):
     files.copyfile(objects / other[:2] / other[2:], target)
     with pytest.raises(ValueError, match='Cannot verify'):
         admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))
+
+
+def test_compaction_with_an_empty_current_listing_drops_stale_proposals(tmp_path, monkeypatch):
+    import fleet_asks_import
+    from lib.tenant_asks import load_proposals
+    monkeypatch.setattr(fleet_asks_import, 'COMPACT_AT', 1)
+    tenants_dir = tmp_path / 'tenants'
+    import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"old","proposed":"EUR 1"}]', {'old'}, source='s1', created=1.0,
+                     current_ids={'old'})
+    (tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl.compacted').unlink(missing_ok=True)
+    # The tenant's questions were all removed: a successful listing with no asks.
+    import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"gone","proposed":"x"}]', set(), source='s2', created=2.0, current_ids=set())
+    assert load_proposals(tenants_dir / 'heyzack') == {}
+    # An unavailable listing (None) keeps everything.
+    import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"kept","proposed":"EUR 2"}]', {'kept'}, source='s3', created=3.0,
+                     current_ids={'kept'})
+    (tenants_dir / 'heyzack' / 'asks' / 'proposed.jsonl.compacted').unlink(missing_ok=True)
+    import_proposals(tenants_dir, 'heyzack', '[{"ask_id":"gone","proposed":"x"}]', set(), source='s4', created=4.0, current_ids=None)
+    assert load_proposals(tenants_dir / 'heyzack') == {'kept': 'EUR 2'}
+
+
+def test_admit_refuses_a_repository_whose_files_exceed_the_byte_budget(tmp_path, monkeypatch):
+    from lib import tenant_repo
+    config = _base_config()
+    repo = _tenant_repo(tmp_path)
+    assert 'tenant-a' in admit(config, ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))['projects']
+    monkeypatch.setattr(tenant_repo, 'MAX_BLOB_BYTES', 8)
+    with pytest.raises(ValueError, match='Cannot verify'):
+        admit(_base_config(), ['tenant-a'], 'org', 'founder', ['mac-coding-1'], root=str(repo))

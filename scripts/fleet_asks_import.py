@@ -391,8 +391,9 @@ def import_proposals(tenants_dir, tenant, artifact_text, known_ids, source=None,
             # every import would make each import slower than the last.
             if os.fstat(stream.fileno()).st_size > max(COMPACT_AT, min(2 * _compacted_size(asks), MAX_COMPACT_TRIGGER)):
                 try:
-                    # An empty current set means the listing failed: never drop on that.
-                    compacted = _compact(stream, asks, current_ids or None)
+                    # None means the listing was unavailable (keep everything); an empty set is a
+                    # listing with no asks, whose stale proposals are dropped like any others.
+                    compacted = _compact(stream, asks, current_ids)
                     if compacted:
                         # With legacy completion lines still to move, let the next import compact
                         # again rather than wait for the journal to double.
@@ -446,12 +447,14 @@ def main():
         return 1
     tenants_dir = paths.tenants_dir()
     listing = _get(args.coordinator, token, '/v1/asks/' + project)
-    asks = [ask for ask in (listing.get('asks') if isinstance(listing, dict) else [])
+    # A malformed listing says nothing about which asks exist: compaction then drops nothing.
+    listed = isinstance(listing, dict) and isinstance(listing.get('asks'), list)
+    asks = [ask for ask in (listing['asks'] if listed else [])
             if isinstance(ask, dict) and isinstance(ask.get('id'), str)]
     # Only open asks take proposals; an answered ask keeps the founder's answer.
     known_ids = {ask['id'] for ask in asks if ask.get('status') == 'open'}
     count = import_proposals(tenants_dir, tenant, output, known_ids, source="task:" + args.task,
-                             created=task.get('created'), current_ids={ask['id'] for ask in asks})
+                             created=task.get('created'), current_ids={ask['id'] for ask in asks} if listed else None)
     print('Imported %d proposal(s)' % count)
     return 0
 

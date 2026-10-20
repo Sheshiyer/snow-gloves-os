@@ -24,6 +24,7 @@ MAX_MANIFEST = 256 * 1024
 # letting a pre-task scan exhaust the worker's memory or time.
 MAX_OBJECTS = 200_000
 MAX_METADATA_BYTES = 64 * 1024 * 1024  # all commit and tree bodies together
+MAX_BLOB_BYTES = 512 * 1024 * 1024  # all file contents together; every task clones them
 SCAN_SECONDS = 120
 MAX_REFS = 10_000
 MAX_CONFIG_BYTES = 64 * 1024  # .git/config of a tenant repository
@@ -221,7 +222,7 @@ def git_layout(root, git_path='git'):
         if subprocess.run([git_path, '--no-replace-objects', '-C', str(root), 'rev-parse', '--verify', '--quiet', 'HEAD^{commit}'],
                           capture_output=True, timeout=SCAN_SECONDS).returncode:
             return None
-        wanted, sizes, count, metadata, commits = [], {}, 0, 0, set()
+        wanted, sizes, count, metadata, commits, blob_bytes = [], {}, 0, 0, set(), 0
         listing = subprocess.Popen([git_path, '--no-replace-objects', '-C', str(root), 'cat-file', '--batch-all-objects',
                                     '--batch-check=%(objecttype) %(objectname) %(objectsize)'],
                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -237,7 +238,9 @@ def git_layout(root, git_path='git'):
                         commits.add(oid)
                 elif kind == b'blob':
                     sizes[oid] = int(size)
-                if count > MAX_OBJECTS or metadata > MAX_METADATA_BYTES or time.monotonic() > deadline:
+                    blob_bytes += int(size)
+                if (count > MAX_OBJECTS or metadata > MAX_METADATA_BYTES or blob_bytes > MAX_BLOB_BYTES
+                        or time.monotonic() > deadline):
                     return None
         finally:
             watchdog.cancel()
