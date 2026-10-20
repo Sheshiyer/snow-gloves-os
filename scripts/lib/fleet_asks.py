@@ -15,6 +15,7 @@ import json
 import os
 import re
 import threading
+import time
 import uuid
 from pathlib import Path
 
@@ -28,6 +29,10 @@ MAX_RECORD_BYTES = 64 * 1024  # far above any answer record; bounds every backwa
 ASK_ID = re.compile(r'[a-f0-9]{32}\Z')
 ANSWER_BATCH = 400  # ask ids per answer lookup (SQLite bound-parameter headroom)
 FLUSH_BATCH = 100  # outbox rows loaded at a time
+# One flush call appends at most this many rows, for at most this long (each is an fsync);
+# a larger backlog drains over later calls instead of stalling startup or a request.
+MAX_FLUSH_ROWS = 500
+FLUSH_SECONDS = 2.0
 
 
 def install(coordinator):
@@ -294,7 +299,8 @@ class Asks:
         """Append committed outbox records to their journals; a failed append stays queued."""
         from .fleet_coordinator import Rejected
         with self._flush_lock:
-            blocked, after = set(), 0
+            blocked, after, appended = set(), 0, 0
+            deadline = time.monotonic() + FLUSH_SECONDS
             # A bounded batch at a time: a long-failing journal can leave a large queue, and
             # its tenant's rows are skipped in the query rather than loaded and passed over.
             while True:
@@ -311,10 +317,13 @@ class Asks:
                 if not rows:
                     break
                 for row in rows:
+                    if appended >= MAX_FLUSH_ROWS or time.monotonic() > deadline:
+                        return  # the rest stays queued, in order, for the next flush
                     after = row['rowid']
                     # Keep per-tenant order: once one record fails, later ones wait.
                     if row['tenant'] in blocked:
                         continue
+                    appended += 1
                     try:
                         self._append_journal(self._journal_path(row['tenant']), json.loads(row['record_json']))
                     except (Rejected, OSError, ValueError):

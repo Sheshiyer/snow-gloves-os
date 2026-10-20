@@ -460,3 +460,29 @@ def test_a_decision_answer_does_not_carry_over_to_revised_text(asks_ctx):
     with pytest.raises(Rejected) as error:
         c.asks.answer('approver', config['principals']['approver'], 'snowgloves', old, {'accept': True})
     assert error.value.status == 404
+
+
+def test_one_flush_appends_a_bounded_number_of_rows_and_leaves_the_rest_queued(asks_ctx, monkeypatch):
+    import lib.fleet_asks as fleet_asks
+    c, config, _, tenant = asks_ctx
+    monkeypatch.setattr(fleet_asks, 'MAX_FLUSH_ROWS', 3)
+    with c.transaction():
+        c.db.executemany('INSERT INTO ask_journal_outbox(answer_id, tenant, record_json, created) VALUES(?, ?, ?, ?)',
+                         [('a%d' % n, 'heyzack', json.dumps({'answer_id': 'a%d' % n, 'tenant': 'heyzack'}), 1.0) for n in range(7)])
+    journal = tenant / 'asks' / 'answers.jsonl'
+    written = lambda: [json.loads(line)['answer_id'] for line in journal.read_text().splitlines()] if journal.exists() else []
+    # A backlog drains over several calls, in order, never all at once.
+    c.asks.flush()
+    assert written() == ['a0', 'a1', 'a2']
+    c.asks.flush()
+    c.asks.flush()
+    assert written() == ['a%d' % n for n in range(7)]
+    assert c.db.execute('SELECT count(*) FROM ask_journal_outbox').fetchone()[0] == 0
+    # The time budget stops a call too.
+    monkeypatch.setattr(fleet_asks, 'MAX_FLUSH_ROWS', 500)
+    monkeypatch.setattr(fleet_asks, 'FLUSH_SECONDS', -1)
+    with c.transaction():
+        c.db.execute('INSERT INTO ask_journal_outbox(answer_id, tenant, record_json, created) VALUES(?, ?, ?, ?)',
+                     ('late', 'heyzack', json.dumps({'answer_id': 'late', 'tenant': 'heyzack'}), 1.0))
+    c.asks.flush()
+    assert 'late' not in written()
