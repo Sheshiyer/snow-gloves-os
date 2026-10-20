@@ -906,3 +906,42 @@ def test_scrub_refuses_when_a_non_sticky_shared_folder_lost_an_entry(worker, tmp
     assert w.scrub_task_account('nobody', 'before') is True
     (folder / 'theirs.txt').rename(folder / 'moved.txt')
     assert w.scrub_task_account('nobody') is False
+
+
+def test_preparation_keeps_renewing_after_a_cancellation_until_it_is_reported(worker, monkeypatch):
+    import time as clock
+    import fleet_worker
+    w, task = worker
+    w.config['heartbeat_seconds'] = 0.05
+    real = fleet_worker.isolation_problem
+    reports, during_scan = [], []
+    def slow_scan(*args):
+        clock.sleep(0.5)  # a long step: the cancellation arrives while it runs
+        during_scan.append(sum(r['type'] == 'heartbeat' for r in reports))
+        return real(*args)
+    monkeypatch.setattr(fleet_worker, 'isolation_problem', slow_scan)
+    def request(route, body):
+        reports.append(body)
+        return {'cancel_requested': True} if body['type'] == 'heartbeat' else {}
+    w.request = request
+    w.execute(dict(task, tenant='tenant-a', tenant_isolated=True))
+    # The lease kept being renewed after the first cancel reply, until the step ended.
+    assert during_scan[0] >= 3
+    assert reports[-1]['type'] == 'cancelled'
+
+
+def test_preparation_stops_when_the_worker_is_shutting_down(worker, monkeypatch):
+    import fleet_worker
+    w, task = worker
+    real = fleet_worker.isolation_problem
+    def scan_then_signal(*args):
+        w.stopping = True  # SIGTERM arrives during the scan
+        return real(*args)
+    monkeypatch.setattr(fleet_worker, 'isolation_problem', scan_then_signal)
+    started = []
+    monkeypatch.setattr(w, 'command', lambda *args: started.append(args) or ['true'])
+    reports = []
+    w.request = lambda route, body: reports.append(body) or {}
+    w.execute(dict(task, tenant='tenant-a', tenant_isolated=True))
+    assert reports[-1]['type'] == 'interrupted'
+    assert not started and not (w.state / 'worktrees' / 'task1-attempt1').exists()

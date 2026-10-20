@@ -105,9 +105,10 @@ class PreparationHeartbeat:
         while not self.stopped.wait(interval):
             try:
                 response = self.worker.request('/v1/worker/report', self.worker.report(self.task, 'heartbeat'))
-                if response.get('cancel_requested'):
+                if response.get('cancel_requested') and self.outcome is None:
+                    # Keep beating: the main thread reports the cancellation only once its current
+                    # step (a clone can take minutes) ends, and the lease must last until then.
                     self.outcome = ('cancelled', 'Cancellation completed before the runtime started')
-                    return
             except HTTPError as error:
                 if error.code in (403, 409):
                     self.outcome = ('interrupted', 'Assignment lost; manual reconciliation required')
@@ -116,6 +117,9 @@ class PreparationHeartbeat:
                 pass  # a brief coordinator restart; the next beat retries
 
     def check(self):
+        if self.outcome is None and self.worker.stopping:
+            # Shutdown requested (SIGTERM/SIGINT): start nothing further, as monitor() would.
+            self.outcome = ('interrupted', 'Worker stopped; manual reconciliation required')
         if self.outcome is not None:
             raise PreparationStopped(*self.outcome)
 
