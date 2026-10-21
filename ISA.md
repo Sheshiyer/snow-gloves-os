@@ -784,6 +784,9 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 
 - 2026-10-21: Clean-head reconciliation preserves all acceptance boxes and historical IDs. Platform reviewed at 9248519 (PR60 includes PR61); private ops at 0cf39b1 plus durable fleet evidence. Duplicated ISC-394/395/396/397 and stale handoff counters block treating this ledger as normalized. Current working-head review is private docs/fleet/CLEAN-HEAD-REVIEW-2026-10-21.md; source tests do not close live or physical acceptance.
 
+
+- 2026-10-21: refined: resolve four historical identity collisions without changing acceptance. Original ISC-394/395/396/397 retain the fanout/cleanup meanings. The later restricted-SSH criteria now use ISC-394.1/395.1/396.1/397.1 respectively. Historical references to bare IDs must be interpreted by lane/date; no historical evidence was rewritten. All 439 checkbox states remain unchanged; 405 checked and34 open.
+
 ## Changelog
 
 - 2026-10-09 | conjectured: the historical 100-point checklist could summarize the current fleet rollout.
@@ -1675,10 +1678,10 @@ unconfirmed. No broader fleet criterion changes in this source review.
 
 Founder authorizes Gary's existing dedicated SSH public key for gary-hermes on Coding01, limited to diagnostics and public platform source. Gary is independently observed online on the company tailnet. No project/task authority, model or private operations access is implied. Use a forced command and protected public source snapshot; a standard account alone is not read-only.
 
-- [x] ISC-394: Restricted SSH dispatcher validates bounded diagnostic/source commands without arbitrary shell, paths, writes or symlink escapes.
-- [x] ISC-395: Reviewed macOS installation plan preserves existing SSH settings, restricts Gary key/IP and user behavior, validates effective configuration and supports rollback.
-- [ ] ISC-396: Coding01 standard account and restricted key install pass device readback without exposing secrets; existing founder SSH remains available.
-- [ ] ISC-397: Gary MacBook authenticates with its own key, diagnostics/public source pass, disallowed shell/write/forwarding fail, and actual Hermes execution is distinguished from transport readiness.
+- [x] ISC-394.1: Restricted SSH dispatcher validates bounded diagnostic/source commands without arbitrary shell, paths, writes or symlink escapes.
+- [x] ISC-395.1: Reviewed macOS installation plan preserves existing SSH settings, restricts Gary key/IP and user behavior, validates effective configuration and supports rollback.
+- [ ] ISC-396.1: Coding01 standard account and restricted key install pass device readback without exposing secrets; existing founder SSH remains available.
+- [ ] ISC-397.1: Gary MacBook authenticates with its own key, diagnostics/public source pass, disallowed shell/write/forwarding fail, and actual Hermes execution is distinguished from transport readiness.
 
 ## 2026-10-09 — Restricted SSH source verification
 
