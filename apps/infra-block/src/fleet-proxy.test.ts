@@ -63,6 +63,20 @@ describe('same-origin fleet proxy allowlist', () => {
     expect(fleetProxyAllowed('POST', fanout, String(32 * 1024 + 1))).toBe(false);
   });
 
+  it('allows tenant ask list and answer routes and rejects a non-hex ask id', () => {
+    const askId = 'a'.repeat(32);
+    expect(fleetProxyAllowed('GET', '/api/fleet/asks/heyzack', undefined)).toBe(true);
+    expect(fleetProxyAllowed('GET', '/api/fleet/asks/heyzack', '0')).toBe(true);
+    expect(fleetProxyAllowed('POST', `/api/fleet/asks/heyzack/${askId}/answer`, '18')).toBe(true);
+    expect(fleetProxyAllowed('POST', `/api/fleet/asks/x/${askId}/answer`, '18')).toBe(true);
+    expect(fleetProxyAllowed('POST', '/api/fleet/asks/x/notanid/answer', '18')).toBe(false);
+    expect(fleetProxyAllowed('GET', `/api/fleet/asks/heyzack/${askId}/answer`, undefined)).toBe(false);
+    expect(fleetProxyAllowed('POST', '/api/fleet/asks/heyzack', '18')).toBe(false);
+    expect(fleetProxyAllowed('GET', '/api/fleet/asks/_demo', undefined)).toBe(false);
+    expect(fleetProxyAllowed('POST', `/api/fleet/asks/heyzack/${askId}/answer`, '0')).toBe(false);
+    expect(fleetProxyAllowed('POST', `/api/fleet/asks/heyzack/${askId}/answer`, String(32 * 1024 + 1))).toBe(false);
+  });
+
   it('allows only exact catalog, approval, context and artifact routes with bounded bodies', () => {
     for (const path of ['/context', '/capabilities', '/approvals', `/tasks/${taskId}/artifact`]) {
       expect(fleetProxyAllowed('GET', `/api/fleet${path}`, undefined)).toBe(true);
@@ -132,6 +146,8 @@ describe('same-origin fleet proxy allowlist', () => {
       ['POST', '/api/fleet/approvals', '{"project":"snowgloves"}'],
       ['POST', `/api/fleet/approvals/${taskId}/approve`, '{}'],
       ['POST', `/api/fleet/approvals/${taskId}/reject`, '{}'],
+      ['GET', '/api/fleet/asks/heyzack', undefined],
+      ['POST', `/api/fleet/asks/heyzack/${taskId}/answer`, '{"accept":true}'],
     ] as const) {
       expect((await request(method, path, body)).status).toBe(200);
     }
@@ -144,15 +160,18 @@ describe('same-origin fleet proxy allowlist', () => {
       `/v1/tasks/${taskId}/fanout`,
       '/v1/context', '/v1/capabilities', '/v1/approvals', `/v1/tasks/${taskId}/artifact`,
       '/v1/capabilities/execute', '/v1/approvals', `/v1/approvals/${taskId}/approve`, `/v1/approvals/${taskId}/reject`,
+      '/v1/asks/heyzack', `/v1/asks/heyzack/${taskId}/answer`,
     ]);
     expect(received.every(item => item.authorization === headers.Authorization && item.origin === headers.Origin)).toBe(true);
-    expect(received.at(-1)?.body).toBe('{}');
+    expect(received.at(-3)?.body).toBe('{}');
+    expect(received.at(-1)?.body).toBe('{"accept":true}');
 
     const forwarded = received.length;
     expect((await fetch(`${base}/api/fleet/approvals`, {method: 'POST', headers: {...headers, 'Content-Type': 'text/plain'}, body: '{}'})).status).toBe(404);
     expect((await request('GET', `/api/fleet/tasks/${taskId}/fanout`)).status).toBe(404);
     expect((await request('POST', `/api/fleet/tasks/${taskId}/fanout`, 'x'.repeat(32 * 1024 + 1))).status).toBe(404);
     expect((await request('POST', '/api/fleet/tasks/admin/fanout', '{}')).status).toBe(404);
+    expect((await request('POST', '/api/fleet/asks/x/notanid/answer', '{"accept":true}')).status).toBe(404);
     expect(received).toHaveLength(forwarded);
   });
 });

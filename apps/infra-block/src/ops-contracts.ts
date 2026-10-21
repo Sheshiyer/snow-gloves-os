@@ -1,4 +1,5 @@
-import type { BrandKnowledge, BrandPlanning } from './brand-summary';
+import type { BrandKnowledge, BrandPlanning, BrandReconciliation } from './brand-summary';
+import type { TenantCapabilityMap } from './tenant-map';
 export interface SafeActivityRecord {
   id: string;
   timestamp: string | null;
@@ -74,6 +75,8 @@ export interface CurrentCatalogConnector {
 }
 
 export interface OpsSnapshotTenant {
+  reconciliation?: BrandReconciliation;
+  capabilityMap?: TenantCapabilityMap;
   knowledge?: BrandKnowledge;
   planning?: BrandPlanning;
   slug: string;

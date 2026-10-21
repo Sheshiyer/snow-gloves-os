@@ -168,6 +168,18 @@ describe('Hermes board lifecycle', () => {
     expect(el.all().find(item => item.attrs['aria-label'] === 'Task events and artifact receipts')?.textContent).toContain('sha256');
     board.pause(true);
   });
+  it('keeps ask sync across a close and clears it only on Disconnect', async () => {
+    const events: unknown[] = [];
+    const {board, el} = mount();
+    vi.stubGlobal('document', {createElement: (tag: string) => new ElementHarness(tag), dispatchEvent: (event: {detail: unknown}) => { events.push(event.detail); return true; }});
+    vi.stubGlobal('CustomEvent', class { detail: unknown; constructor(_type: string, init: {detail: unknown}) { this.detail = init.detail; } });
+    board.activate(); await connect(el);
+    board.pause();
+    expect(events).not.toContain(null);
+    expect(el.find('button', 'Submit to Coding 01').disabled).toBe(true);
+    el.find('button', 'Disconnect').onclick?.(); await flush();
+    expect(events.at(-1)).toBeNull();
+  });
   it('stops polling and aborts outstanding requests on close, then requires fresh credentials', async () => {
     const {board, el, fetcher} = mount(); board.activate(); await connect(el);
     const count = fetcher.mock.calls.length; board.pause(true); await vi.advanceTimersByTimeAsync(12000);

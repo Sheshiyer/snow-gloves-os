@@ -232,3 +232,17 @@ def test_failed_bridge_never_dispatches(fleet):
     assert exc.value.status==503
     assert not c.list_tasks('founder',conf['principals']['founder'])
     assert claim(c,conf) is None
+
+
+def test_claim_leaves_ordinary_projects_unmarked(fleet):
+    c,conf,_=fleet
+    submit(c,conf)
+    assert 'tenant_isolated' not in claim(c,conf)
+
+
+def test_claim_marks_admitted_tenant_projects_for_worker_recheck(fleet):
+    c,conf,_=fleet
+    conf['projects']['snowgloves']['tenant_isolated']=True
+    submit(c,conf)
+    task=claim(c,conf)
+    assert task['tenant_isolated'] is True and task['tenant']=='heyzack'

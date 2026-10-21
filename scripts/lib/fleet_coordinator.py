@@ -33,6 +33,7 @@ MAX_CHILDREN = 7
 PERMISSIONS = ('read','submit','cancel')  # legacy defaults never grant approval authority
 VALID_PERMISSIONS = (*PERMISSIONS, 'approve')
 MAX_ATTEMPTS = 3  # original plus two retries per role chain
+PROJECT_ID = r'[a-z0-9][a-z0-9_-]{0,63}'  # the ask routes and the browser share this pattern
 NO_NEW_CHILDREN = ('cancelled','cancel_requested','failed','interrupted')
 MAX_HTTP_BODY_BYTES = 64 * 1024
 MAX_REMOTE_ARTIFACT_BYTES = 24 * 1024
@@ -181,7 +182,11 @@ class Coordinator:
         from .fleet_capabilities import Capabilities, install
         install(self)
         self.capabilities = Capabilities(self)
+        from .fleet_asks import Asks, install as install_asks
+        install_asks(self)
+        self.asks = Asks(self)
         self.db.commit()
+        self.asks.flush()  # retry journal appends left over from before a restart
 
     @contextmanager
     def transaction(self):
@@ -1071,6 +1076,9 @@ class Coordinator:
                 project = self.config['projects'][row['project']]
                 result = self._public(self.db.execute('SELECT * FROM tasks WHERE id=?',(row['id'],)).fetchone())
                 result.update(tenant=project['tenant'],organization=project['organization'],lease_token=token)
+                if project.get('tenant_isolated') is True:
+                    # Admitted tenant roots: the worker re-verifies the repository before every task.
+                    result['tenant_isolated'] = True
                 if worker.get('remote_artifacts') is True:
                     # A remote worker receives a project identity, not a coordinator
                     # filesystem path. It resolves that identity through its own
@@ -1255,6 +1263,11 @@ def load_config(path):
         if isinstance(projects, list) and all(isinstance(project, str) for project in projects):
             (remote_projects if remote else local_projects).update(projects)
     for project_id, project in config['projects'].items():
+        # Ask routes and the browser address projects by PROJECT_ID; an older project id
+        # outside it (such as client.prod) still loads and keeps its task routes, it just
+        # has no asks. New tenants are admitted with routable ids only.
+        if not isinstance(project_id, str) or not project_id:
+            raise ValueError('Invalid project id')
         if not all(isinstance(project.get(key),str) and project[key] for key in ('tenant','organization')) or not isinstance(project.get('runtimes'),list):
             raise ValueError('Invalid project configuration')
         # A project served only by explicitly enrolled remote workers has no
@@ -1264,6 +1277,8 @@ def load_config(path):
             root=Path(project.get('root',''))
             if not root.is_absolute() or not root.is_dir() or not (root/'.git').exists():
                 raise ValueError('Project roots must name existing Git repositories')
+        if 'tenant_isolated' in project and project['tenant_isolated'] is not True:
+            raise ValueError('tenant_isolated may only be true')
         if 'fanout' in project and not isinstance(project['fanout'], bool):
             raise ValueError('Invalid project fanout configuration')
         if 'artifact_context' in project and not isinstance(project['artifact_context'], bool):
@@ -1381,6 +1396,11 @@ def server(coordinator, port=4101):
                 elif not worker_route and re.fullmatch(r'/v1/approvals/[a-f0-9]{32}/(?:approve|reject)', path) and self.command == 'POST':
                     parts = path.split('/')
                     result = coordinator.capabilities.decide(name, principal, parts[3], 'approved' if parts[4] == 'approve' else 'rejected', body)
+                elif not worker_route and re.fullmatch(r'/v1/asks/' + PROJECT_ID, path) and self.command == 'GET':
+                    result = coordinator.asks.list(name, principal, path.split('/')[3])
+                elif not worker_route and re.fullmatch(r'/v1/asks/' + PROJECT_ID + r'/[a-f0-9]{32}/answer', path) and self.command == 'POST':
+                    parts = path.split('/')
+                    result = coordinator.asks.answer(name, principal, parts[3], parts[4], body)
                 elif not worker_route and re.fullmatch(r'/v1/tasks/[a-f0-9]{32}/artifact', path) and self.command == 'GET':
                     result = coordinator.capabilities.artifact(name, principal, path.split('/')[3])
                 elif path=='/v1/worker/claim' and self.command=='POST':

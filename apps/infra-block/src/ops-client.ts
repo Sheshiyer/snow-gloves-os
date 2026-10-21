@@ -1,4 +1,5 @@
 import { parseBrandSummary } from './brand-summary';
+import { parseTenantCapabilityMap } from './tenant-map';
 import { FLEET_LAYOUT } from './fleet-model';
 import type {
   CurrentCatalogAdapter,
@@ -553,11 +554,15 @@ export function validateSnapshot(unknownData: unknown): OpsSnapshot {
     }
     const warnings = parseStringArray(t.warnings, `tenants[${idx}].warnings`);
     let brandSummary;
-    try { brandSummary = parseBrandSummary({knowledge:t.knowledge, planning:t.planning}); }
+    try { brandSummary = parseBrandSummary({knowledge:t.knowledge, planning:t.planning, reconciliation:t.reconciliation}, t.slug); }
     catch { throw new OpsClientError(`Invalid tenant brand summary at ${idx}`, 'invalid-response'); }
+    let capabilityMap;
+    try { capabilityMap = t.capabilityMap === undefined ? undefined : parseTenantCapabilityMap(t.capabilityMap, t.slug); }
+    catch { throw new OpsClientError(`Invalid tenant capability map at ${idx}`, 'invalid-response'); }
 
     return {
       ...brandSummary,
+      ...(capabilityMap ? {capabilityMap} : {}),
       slug: t.slug,
       name: t.name,
       primaryRuntime,

@@ -250,3 +250,31 @@ def test_remote_fanout_keeps_local_root_mapping_and_verified_context(fleet, tmp_
         assert c._artifact_payload(stored)[1]
         outputs.append(output)
     assert claim(c, conf) is None
+
+
+@pytest.mark.parametrize('project', ['acme.prod', 'Acme', '-acme', 'a' * 65])
+def test_config_keeps_legacy_project_ids_the_ask_routes_cannot_address(tmp_path, project):
+    import re
+    from lib.fleet_coordinator import PROJECT_ID
+    path = _config(tmp_path, dict(OBSERVER))
+    config = json.loads(path.read_text())
+    config['projects'] = {project: config['projects']['snowgloves']}
+    config['principals']['founder']['projects'] = [project]
+    config['principals']['gary']['projects'] = [project]
+    path.write_text(json.dumps(config))
+    # The coordinator still starts; such a project simply has no ask route.
+    assert project in load_config(path)['projects']
+    assert not re.fullmatch(r'/v1/asks/' + PROJECT_ID, '/v1/asks/' + project)
+
+
+@pytest.mark.parametrize('value', [False, 'yes', 1])
+def test_config_accepts_tenant_isolated_only_as_true(tmp_path, value):
+    path = _config(tmp_path, dict(OBSERVER))
+    config = json.loads(path.read_text())
+    config['projects']['snowgloves']['tenant_isolated'] = value
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match='tenant_isolated'):
+        load_config(path)
+    config['projects']['snowgloves']['tenant_isolated'] = True
+    path.write_text(json.dumps(config))
+    assert load_config(path)['projects']['snowgloves']['tenant_isolated'] is True

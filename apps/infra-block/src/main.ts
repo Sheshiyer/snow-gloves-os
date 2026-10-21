@@ -15,6 +15,7 @@ import { Audio as SoundEngine } from './audio';
 import { exportScorecard, challengeUrl, ReplayRecorder } from './export';
 import { mountCockpit } from './ops';
 import { mountHome } from './home';
+import { summarizeAsks, type TenantAsk } from './tenant-asks';
 
 function escapeHtml(str: unknown): string {
   return String(str ?? '')
@@ -1162,6 +1163,11 @@ document.addEventListener('brand-projection', event => {
   const tenants = snapshot?.tenants ?? null;
   brandAtlas.update(tenants,mode,stale);
   canvasMount.dispatchEvent(new CustomEvent('brand-markers', {detail:{tenants,mode,stale}}));
+});
+document.addEventListener('tenant-asks', event => {
+  const detail = (event as CustomEvent<TenantAsk[] | null>).detail;
+  const counts = Array.isArray(detail) ? summarizeAsks(detail).byTenant : {};
+  canvasMount.dispatchEvent(new CustomEvent('brand-ask-counts', {detail: counts}));
 });
 canvasMount.addEventListener('resident-select', event => home?.selectResident((event as CustomEvent<{slug:string}>).detail.slug));
 document.body.classList.toggle('home-explore', activeTab === 'explore');

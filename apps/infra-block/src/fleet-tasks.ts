@@ -1,4 +1,5 @@
 import './fleet-tasks.css';
+import {parseAsks, startAskSync, type AskSync, type TenantAsk} from './tenant-asks';
 
 type RecordValue = Record<string, unknown>;
 const record = (value: unknown): value is RecordValue => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -123,8 +124,8 @@ export class FleetClient {
   }
   async request(path: string, signal: AbortSignal, body?: unknown): Promise<unknown> {
     const method = body === undefined ? 'GET' : 'POST';
-    const getAllowed = ['/tasks', '/context', '/capabilities', '/approvals'].includes(path) || /^\/tasks\/[^/?#]+(?:\/(?:events|artifact))?$/.test(path);
-    const postAllowed = ['/tasks', '/capabilities/execute', '/approvals'].includes(path) || /^\/tasks\/[^/?#]+\/(?:cancel|fanout)$/.test(path) || /^\/approvals\/[a-f0-9]{32}\/(?:approve|reject)$/.test(path);
+    const getAllowed = ['/tasks', '/context', '/capabilities', '/approvals'].includes(path) || /^\/tasks\/[^/?#]+(?:\/(?:events|artifact))?$/.test(path) || /^\/asks\/[a-z0-9][a-z0-9_-]{0,63}$/.test(path);
+    const postAllowed = ['/tasks', '/capabilities/execute', '/approvals'].includes(path) || /^\/tasks\/[^/?#]+\/(?:cancel|fanout)$/.test(path) || /^\/approvals\/[a-f0-9]{32}\/(?:approve|reject)$/.test(path) || /^\/asks\/[a-z0-9][a-z0-9_-]{0,63}\/[a-f0-9]{32}\/answer$/.test(path);
     if ((method === 'GET' && !getAllowed) || (method === 'POST' && !postAllowed)) throw new Error('Unsupported fleet operation.');
     if (path.endsWith('/fanout') && (!record(body) || Object.keys(body).length)) throw new Error('Fanout accepts no options.');
     const encoded = body === undefined ? undefined : JSON.stringify(body);
@@ -177,6 +178,16 @@ export class FleetClient {
     if (!TASK_ID.test(id)) throw new Error('Fanout requires a 32-character lowercase hex task id.');
     return validateFanoutPlan(await this.request(`/tasks/${id}/fanout`, signal, {}), id);
   }
+  async asks(project: string, signal: AbortSignal = new AbortController().signal): Promise<TenantAsk[]> {
+    return parseAsks(await this.request(`/asks/${project}`, signal), project);
+  }
+  async answerAsk(project: string, id: string, answer: {value: string} | {accept: boolean; proposed?: string | null}): Promise<TenantAsk> {
+    const raw = await this.request(`/asks/${project}/${id}/answer`, new AbortController().signal, answer);
+    if (!record(raw) || !Object.hasOwn(raw, 'ask')) throw new Error('Invalid tenant asks.');
+    const [ask] = parseAsks({asks: [raw.ask]}, project);
+    if (!ask || ask.id !== id || ask.project !== project) throw new Error('Invalid tenant asks.');
+    return ask;
+  }
 }
 
 export interface FleetBoard {element: HTMLElement; activate(): void; pause(clearCredentials?: boolean): void}
@@ -221,6 +232,28 @@ export function createFleetBoard(): FleetBoard {
   const operationKey = () => crypto.randomUUID();
   let submissionKey = operationKey(), capabilityKey = operationKey();
   let context: FleetContext | null = null, capabilities: FleetCapability[] = [], approvals: FleetApproval[] = [];
+  let stopAsks: AskSync | null = null, askProjectKey = '';
+  function emitAsks(detail: TenantAsk[] | null) {
+    if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
+    document.dispatchEvent(new CustomEvent('tenant-asks', {detail}));
+  }
+  function stopAskSync() {
+    const stop = stopAsks;
+    stopAsks = null;
+    askProjectKey = '';
+    stop?.();
+  }
+  function syncAsks(current: FleetClient) {
+    if (client !== current || !context) return;
+    const projects = context.projects.map(project => project.id);
+    const key = projects.join('\0');
+    if (stopAsks && askProjectKey === key) return;
+    const previous = stopAsks;
+    stopAsks = null;
+    askProjectKey = key;
+    previous?.();
+    stopAsks = startAskSync(current, projects, emitAsks);
+  }
   const detailActions = new Map<HTMLButtonElement, () => boolean>();
   let artifactUrl: string | null = null, loadedArtifact: {taskId: string; artifact: FleetArtifact} | null = null;
   let preferredProject = '', preferredWorker = '', preferredCapability = '';
@@ -295,7 +328,7 @@ export function createFleetBoard(): FleetBoard {
 
   const abortRequests = () => { generation++; clearTimeout(timer); requests.forEach(controller => controller.abort()); requests.clear(); busy = false; };
   const clearView = () => { detailActions.clear(); revokeArtifact(); loadedArtifact = null; list.replaceChildren(); details.replaceChildren(); catalogRows.replaceChildren(); approvalsPanel.replaceChildren(); context = null; capabilities = []; approvals = []; projectSelect.replaceChildren(); workerSelect.replaceChildren(); capabilitySelect.replaceChildren(); approvalSelect.replaceChildren(); schema.textContent = ''; capabilityState.textContent = 'Connect to inspect catalog readiness.'; updateActions(); };
-  function failure(error: unknown) { clearView(); status.textContent = `Disconnected: ${error instanceof Error ? error.message : 'Request failed.'} No current task data.`; client = null; submit.disabled = true; abortRequests(); updateActions(); }
+  function failure(error: unknown) { clearView(); status.textContent = `Disconnected: ${error instanceof Error ? error.message : 'Request failed.'} No current task data.`; client = null; stopAskSync(); submit.disabled = true; abortRequests(); updateActions(); }
   async function request<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> { const controller = new AbortController(); requests.add(controller); try { return await operation(controller.signal); } finally { requests.delete(controller); } }
   const taskLabel = (task: FleetTask) => [task.title || task.id, task.status, task.logical_role, task.stage, task.organization || task.org || 'Organization unspecified', task.project, task.category, task.node || task.node_id || task.worker || 'Unassigned', task.runtime].map(displayValue).join(' · ');
   function renderDetail(task: FleetTask, events: RecordValue[]) {
@@ -375,6 +408,7 @@ export function createFleetBoard(): FleetBoard {
       ]);
       if (epoch !== generation || !active) return;
       context = nextContext; capabilities = nextCapabilities; approvals = nextApprovals;
+      if (client === currentClient) syncAsks(currentClient);
       renderContext();
       let detail: FleetTask | null = null, events: RecordValue[] = [];
       if (selected) [detail, events] = await Promise.all([request(signal => currentClient.detail(selected, signal)), request(signal => currentClient.events(selected, signal))]);
@@ -387,8 +421,8 @@ export function createFleetBoard(): FleetBoard {
     } catch (error) { if (epoch === generation) failure(error); }
     finally { if (epoch === generation) { busy = false; updateActions(); if (active && client) timer = setTimeout(() => void refresh(), 4000); } }
   }
-  connectForm.onsubmit = event => { event.preventDefault(); abortRequests(); clearView(); selected = ''; try { client = new FleetClient(tokenInput.value); tokenInput.value = ''; submit.disabled = true; status.textContent = 'Connecting…'; void refresh(); } catch (error) { failure(error); } };
-  disconnect.onclick = () => { abortRequests(); client = null; tokenInput.value = ''; submit.disabled = true; selected = ''; clearView(); status.textContent = 'Disconnected. Credentials cleared from this board.'; };
+  connectForm.onsubmit = event => { event.preventDefault(); abortRequests(); clearView(); stopAskSync(); selected = ''; try { client = new FleetClient(tokenInput.value); tokenInput.value = ''; submit.disabled = true; status.textContent = 'Connecting…'; void refresh(); } catch (error) { failure(error); } };
+  disconnect.onclick = () => { abortRequests(); client = null; stopAskSync(); tokenInput.value = ''; submit.disabled = true; selected = ''; clearView(); status.textContent = 'Disconnected. Credentials cleared from this board.'; };
   submitForm.oninput = () => { submissionKey = operationKey(); };
   submitForm.onsubmit = async event => {
     event.preventDefault(); if (!client || !active || busy || submit.disabled || !title.value.trim() || !brief.value.trim()) return;
@@ -428,5 +462,36 @@ export function createFleetBoard(): FleetBoard {
   }
   execute.onclick = () => capabilityOperation(false);
   requestApproval.onclick = () => capabilityOperation(true);
-  return {element, activate() { active = true; void refresh(); }, pause(clearCredentials = false) { active = false; abortRequests(); clearView(); tokenInput.value = ''; if (clearCredentials) { client = null; selected = ''; } updateActions(); status.textContent = client ? 'Paused. Reopen Hermes to refresh current records.' : 'Disconnected. Enter an operator token to connect.'; }};
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('tenant-ask-answer', event => {
+      const detail = (event as CustomEvent<{project?: string; id?: string; answer?: {value: string} | {accept: boolean; proposed?: string | null}; done?: (error?: Error) => void}>).detail;
+      if (!detail || typeof detail.done !== 'function' || typeof detail.project !== 'string' || typeof detail.id !== 'string' || !detail.answer) return;
+      event.preventDefault();
+      const current = client;
+      const finish = detail.done;
+      if (!current) { finish(new Error('Connect the Hermes board to see asks.')); return; }
+      void current.answerAsk(detail.project, detail.id, detail.answer).then(next => {
+        if (client === current) stopAsks?.applyAnswer(next);
+        finish();
+      }).catch(error => { finish(error instanceof Error ? error : new Error('Coordinator rejected the answer.')); });
+    });
+  }
+  return {element, activate() { active = true; void refresh(); }, pause(clearCredentials = false) { active = false; abortRequests(); clearView(); tokenInput.value = ''; if (clearCredentials) { client = null; selected = ''; stopAskSync(); } updateActions(); status.textContent = client ? 'Paused. Reopen Hermes to refresh current records.' : 'Disconnected. Enter an operator token to connect.'; }};
+}
+
+/** Hands an answer to the connected Hermes board. Rejects when the board has no token. */
+/** Send an answer; a yes/no answer carries the proposal it was given on, so a changed one is refused. */
+export function submitTenantAsk(project: string, id: string, answer: {value: string} | {accept: boolean}, proposed: string | null = null): Promise<void> {
+  const sent = 'accept' in answer ? {...answer, proposed} : answer;
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (error?: Error) => { if (settled) return; settled = true; if (error) reject(error); else resolve(); };
+    if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') {
+      done(new Error('Connect the Hermes board to see asks.'));
+      return;
+    }
+    const event = new CustomEvent('tenant-ask-answer', {cancelable: true, detail: {project, id, answer: sent, done}});
+    document.dispatchEvent(event);
+    if (!event.defaultPrevented) done(new Error('Connect the Hermes board to see asks.'));
+  });
 }

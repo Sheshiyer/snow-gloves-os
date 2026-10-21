@@ -1,6 +1,8 @@
-import { renderBrandPassport } from './brand-summary';
+import { renderBrandPassport, brandDisplayName } from './brand-summary';
+import { renderTenantCapabilityMap, tenantCapabilityCountLabels } from './tenant-map';
 import './ops.css';
-import { createFleetBoard } from './fleet-tasks';
+import { createFleetBoard, submitTenantAsk } from './fleet-tasks';
+import { askStackKey, forgetAskDrafts, rememberAskDrafts, renderAskStack, restoreAskDrafts, type TenantAsk } from './tenant-asks';
 import { loadSnapshot, loadDocument, previewPlan, validateSnapshot } from './ops-client';
 import type { OpsSnapshot, OpsDocument, PlanRequest, PlanPreview } from './ops-contracts';
 import { fleetNodes, fleetActivity } from './fleet-model';
@@ -330,6 +332,8 @@ export function mountCockpit(
   let renderedSection: SectionName | null = null;
 
   let snapshot: OpsSnapshot | null = null;
+  let townAsks: TenantAsk[] | null = null;
+  const askDraftStore = new Map<string, string>();
   let isFetching = false;
   let isStale = false;
   let lastLoadedSource: 'api' | 'fixture' | null = null;
@@ -423,7 +427,7 @@ export function mountCockpit(
       return;
     }
     isOpen = false;
-    fleetBoard.pause(true);
+    fleetBoard.pause();
     rootEl.setAttribute('hidden', '');
     isFetching = false;
     isPlanning = false;
@@ -901,6 +905,39 @@ export function mountCockpit(
     }
   }
 
+  function renderWaiting(slug: string): HTMLElement {
+    const section = document.createElement('section');
+    section.className = 'oc-waiting';
+    section.setAttribute('aria-label', 'Waiting on you');
+    const heading = document.createElement('h2');
+    heading.className = 'oc-card-title';
+    heading.textContent = 'Waiting on you';
+    section.append(heading);
+    if (townAsks === null) {
+      const note = document.createElement('p');
+      note.textContent = 'Connect the Hermes board to see asks';
+      section.append(note);
+    } else {
+      section.append(renderAskStack(townAsks.filter(ask => ask.tenant === slug), (ask, answer) => submitTenantAsk(ask.project, ask.id, answer, ask.proposed)));
+    }
+    return section;
+  }
+
+  // What the open tenant's Waiting on you stack shows; a poll that leaves it unchanged skips the rebuild.
+  const waitingKey = (): string => townAsks
+    ? `${selectedTenantScope}|${askStackKey(townAsks.filter(ask => ask.tenant === selectedTenantScope))}`
+    : '';
+  const onTownAsks = (event: Event): void => {
+    const detail = (event as CustomEvent<TenantAsk[] | null>).detail;
+    const before = waitingKey();
+    townAsks = Array.isArray(detail) ? detail : null;
+    if (townAsks === null) forgetAskDrafts(rootEl, askDraftStore);
+    if (isOpen && currentSection === 'Tenants' && waitingKey() !== before) render();
+  };
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('tenant-asks', onTownAsks);
+  }
+
   function jumpToBuilding(buildingId: string) {
     closeOverlay();
     onSelectNode(buildingId);
@@ -936,6 +973,8 @@ export function mountCockpit(
     const prevScrollTop = renderedSection === currentSection && prevContent ? prevContent.scrollTop : 0;
     renderedSection = currentSection;
 
+    // Every rebuild (snapshot polls and tenant switches included) keeps unsent ask answers and their focus.
+    const askDrafts = rememberAskDrafts(rootEl, askDraftStore);
     rootEl.innerHTML = '';
 
     // Top Brand Header
@@ -1244,6 +1283,7 @@ export function mountCockpit(
           break;
       }
     }
+    if (currentSection === 'Tenants' && selectedTenantScope) content.appendChild(renderWaiting(selectedTenantScope));
 
     main.append(content);
     const drawer = document.createElement('section'); drawer.className = 'oc-cockpit'; drawer.dataset.station = currentSection.toLowerCase(); drawer.setAttribute('aria-label', `${STATION_NAMES[currentSection]} field drawer`);
@@ -1282,6 +1322,8 @@ export function mountCockpit(
         }
       }
     }
+    // Answer boxes are matched by ask id, not position, so a reordered stack keeps the draft in place.
+    restoreAskDrafts(rootEl, askDrafts);
   }
 
   function getSectionCount(sec: SectionName): number | null {
@@ -2459,14 +2501,13 @@ function renderOverview(): HTMLElement {
       card.className = 'oc-card';
 
       const slug = toStr(t.slug);
-      const enabled = toArr<string>(t.enabledModules);
-      const ags = toArr<string>(t.agents);
+      const capabilityCounts = tenantCapabilityCountLabels(t.capabilityMap);
 
       const header = document.createElement('div');
       header.className = 'oc-card-header';
       header.innerHTML = safeHtml`<div>
-        <h3 class="oc-card-title">${toStr(t.name || t.slug)}</h3>
-        <div class="oc-card-subtitle">Slug: ${slug} · Runtime: ${toStr(t.primaryRuntime, 'Unconfigured')}</div>
+        <h3 class="oc-card-title">${brandDisplayName(t)}</h3>
+        <div class="oc-card-subtitle">Slug: ${slug} · Runtime: ${t.capabilityMap?.runtime || t.capabilityMap?.runtimeState || 'Unverified'}</div>
       </div>
       <span class="oc-badge oc-badge-scope-private">TENANT VAULT</span>`;
 
@@ -2474,11 +2515,11 @@ function renderOverview(): HTMLElement {
       body.className = 'oc-card-body';
 
       const modP = document.createElement('p');
-      modP.innerHTML = safeHtml`<strong>Enabled Modules (${enabled.length}):</strong> ${enabled.join(', ') || 'None'}`;
+      modP.textContent = capabilityCounts.modules;
       body.appendChild(modP);
 
       const agP = document.createElement('p');
-      agP.innerHTML = safeHtml`<strong>Assigned Agents (${ags.length}):</strong> ${ags.join(', ') || 'None'}`;
+      agP.textContent = capabilityCounts.agents;
       body.appendChild(agP);
 
       const appP = document.createElement('div');
@@ -2489,8 +2530,9 @@ function renderOverview(): HTMLElement {
 
       const availP = document.createElement('p');
       availP.style.margin = '4px 0 0 0';
-      availP.innerHTML = safeHtml`<strong>Dataset:</strong> ${toStr(t.availability, 'unavailable')} · <strong>Registered Sources:</strong> ${t.sourceCount}`;
+      availP.innerHTML = safeHtml`<strong>Dataset:</strong> ${toStr(t.availability, 'unavailable')} · <strong>Mapped registered sources:</strong> ${t.capabilityMap?.registeredSources.length ?? 'Unavailable'}`;
       body.appendChild(availP);
+      body.appendChild(renderTenantCapabilityMap(t.capabilityMap, slug));
       body.appendChild(renderBrandPassport(t));
       const provenanceP = document.createElement('p');
       provenanceP.textContent = `Source References: ${t.sources.join(', ') || 'None available'}`;

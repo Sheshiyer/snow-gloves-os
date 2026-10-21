@@ -295,9 +295,14 @@ export function createWorld(
   const onBrandMarkers = (event: Event) => {
     const {tenants,mode,stale} = (event as CustomEvent<{tenants:BrandTenant[]|null;mode:string;stale:boolean}>).detail;
     brandMarkers.update(tenants,mode,stale);
-    renderer.domElement.dataset.brandCount = String(brandMarkers.group.children.length);
+    renderer.domElement.dataset.brandCount = String(brandMarkers.group.children.filter(child => child instanceof THREE.Mesh).length);
   };
   container.addEventListener('brand-markers', onBrandMarkers);
+  const onBrandAskCounts = (event: Event) => {
+    const detail = (event as CustomEvent<Record<string, number> | null>).detail;
+    brandMarkers.setAskCounts(detail && typeof detail === 'object' ? detail : {});
+  };
+  container.addEventListener('brand-ask-counts', onBrandAskCounts);
   const focusBrands = () => {
     if (worldView === 'archipelago') setWorldView('town');
     followSuspended = true;
@@ -716,7 +721,7 @@ export function createWorld(
       renderer.render(scene, camera);
       if (renderStarted - lastMetricsAt >= 500) {
         lastMetricsAt = renderStarted;
-        renderer.domElement.dataset.brandMarkers = JSON.stringify(brandMarkers.group.children.map(mesh => {
+        renderer.domElement.dataset.brandMarkers = JSON.stringify(brandMarkers.group.children.filter(child => child instanceof THREE.Mesh).map(mesh => {
           const point = mesh.getWorldPosition(new THREE.Vector3()).project(camera);
           return {slug:mesh.userData.slug,x:(point.x+1)/2,y:(1-point.y)/2,visible:point.z>=-1&&point.z<=1&&Math.abs(point.x)<=1&&Math.abs(point.y)<=1};
         }));
@@ -902,6 +907,7 @@ export function createWorld(
     dispose() {
       islandLabels.remove(); scene.remove(archipelago.group); archipelago.dispose();
       container.removeEventListener('brand-markers', onBrandMarkers);
+      container.removeEventListener('brand-ask-counts', onBrandAskCounts);
       container.removeEventListener('brand-focus', focusBrands);
       brandMarkers.dispose();
       container.removeEventListener('resident-presence', onResidentPresence);

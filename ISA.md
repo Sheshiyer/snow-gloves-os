@@ -7,7 +7,7 @@ phase: verify
 progress: 405/439
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-10
+updated: 2026-10-21
 ---
 
 ## Problem
@@ -781,6 +781,8 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 
 - 2026-10-09: refined: a completed artifact is insufficient cleanup authority. Preserve changed/ignored work and unretained history; fail closed on recovery state and recheck before normal Git removal. The source correction follows two reproduced PR39 review findings; live cleanup and services stay untouched.
 - 2026-10-10: Shared OmniRoute inference credentials are permitted across fleet workers by founder decision; coordinator worker credentials remain distinct and project-scoped. ISC-365 stays open until a real remote worker returns a node-attributed verified artifact.
+
+- 2026-10-21: Clean-head reconciliation preserves all acceptance boxes and historical IDs. Platform reviewed at 9248519 (PR60 includes PR61); private ops at 0cf39b1 plus durable fleet evidence. Duplicated ISC-394/395/396/397 and stale handoff counters block treating this ledger as normalized. Current working-head review is private docs/fleet/CLEAN-HEAD-REVIEW-2026-10-21.md; source tests do not close live or physical acceptance.
 
 ## Changelog
 
