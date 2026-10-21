@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Controller tooling.** Add checksum-bound tool/version inspection and deterministic uv/npm/Homebrew review plans; retain application and fresh-machine gates. Frontend dependency directories remain excluded from Git.
+
 - **Controller data audit.** Read-only tenant-reference verification and checksum-bound private-file holds, with a candidate transfer preflight that rejects declared paths and copied held bytes. Capability presence grants no runtime authority.
 
 - **Manual Sentinel write review (source-only, default-off).** Owners can submit a read-only Sentinel verification child bound to a succeeded CTO write child's exact attempt and artifact checksum. The coordinator revalidates the binding and current authorization at claim, delivers bounded verified patch evidence, and the worker checks patch applicability without applying it. No automatic fanout, write, merge, or deployment authority is added.
