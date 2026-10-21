@@ -3,11 +3,11 @@ task: "Source binding, capability proof and measured fleet acceptance"
 project: snow-gloves-os
 effort: E5
 effort_source: classifier
-phase: verify
-progress: 407/439
+phase: execute
+progress: 438/479
 mode: interactive
 started: 2026-09-30
-updated: 2026-10-21
+updated: 2026-10-22
 ---
 
 ## Problem
@@ -94,6 +94,8 @@ the local pilot useful while showing the live-service requirements still held.
 - Bind apply and resume to the reviewed plan and source digest.
 
 ## Goal
+
+Current company-loop goal: continuously select useful admitted work from tenant authority, execute through verified runtimes, compare outcomes with source evidence and persist the next action. Keep private context local, bind actual role/skill/provider evidence, and retain a truthful waiting state when dependencies or acceptance remain unresolved.
 
 Deliver the founder-approved Hermes fleet coordinator pilot on AXIO using an isolated Hermes profile, one shared OmniRoute gateway, one durable task authority, a separate Codex worker and equivalent UI/SSH controls. Record physical restart, restore and external-domain acceptance independently.
 
@@ -562,6 +564,50 @@ until the actual mini supplies evidence.
 - [ ] ISC-431: Actual cold boot restores both Coding Macs and completes a fresh fleet task.
 - [ ] ISC-432: Anti: authoring runtime, disk protection and fleet role stay unchanged.
 - [x] ISC-433: Combined remote artifacts and verified role context pass source regression (renumbered from incoming ISC-401, which collides with main).
+
+- [x] ISC-440: The 21 October workflow review identifies all eleven registry tenants with existing dossier/config paths and individual next draft work.
+- [x] ISC-441: Live coordinator context distinguishes ten Coding01-only private routes from the shared four-worker platform route.
+- [x] ISC-442: Actual public-only task submission records a task identifier or the exact interpretation rejection without claiming queued execution.
+- [x] ISC-443: Owner confirmation keeps internal documents local and bounds provider-credit use to public-source work.
+- [x] ISC-444: A reviewed pinned Hermes repair passes interpretation and a real public-only task reaches a verified terminal artifact.
+- [x] ISC-445: A public-source routed run records substantive output plus selected provider/model and usage evidence.
+- [ ] ISC-446: The live fleet UI tenant-to-artifact journey is verified in the rendered in-app browser.
+- [ ] ISC-447: Each tenant has an explicit reviewed canonical application repository binding rather than an inferred or universal origin.
+
+- [x] ISC-448: Eleven tenant-specific local handoffs are saved without forwarding private records to provider routes.
+- [x] ISC-449: Eleven local operational draft artifacts preserve unknown facts and owner/source boundaries.
+- [x] ISC-450: Eleven bounded public capture tasks have terminal success and independently hash-verified coordinator artifacts.
+- [x] ISC-451: Actual public capture task records establish participation by all four fleet workers.
+- [x] ISC-452: Eleven native Hermes tenant cards contain work references and five justified human questions.
+- [x] ISC-453: A finite script-only continuation schedule has an observed successful automatic fire and immutable expiry.
+- [x] ISC-454: The first finite public QA review completes through an explicit Claude gateway seat with matching usage evidence.
+- [x] ISC-455: Controller, visibility and public QA guards pass twenty-five meaningful source tests.
+- [ ] ISC-456: An actual human response is captured, locally reviewed and used for an authorized source-bound next task.
+- [ ] ISC-457: Continuation survives the Hermes desktop/backend closing through an installed independently verified system service.
+
+- [x] ISC-458: Eleven native Hermes projects resolve to their verified Coding01 primary Git folders.
+- [x] ISC-459: Forty-four tenant work cards have explicit project bindings and preserved parent relationships.
+- [x] ISC-460: The native Hermes interface visibly renders the fifty-six-card aggregate board.
+- [x] ISC-461: All eleven local workspaces are Git roots without inventing remote origins.
+- [ ] ISC-462: Authenticated GitHub access resolves each confirmed application repository and imports its actual issues.
+- [x] ISC-463: Populated private planning cards remain unassigned local-only records without dispatching model work.
+
+- [x] ISC-464: Owner-confirmed seven initial core role contracts are selected for each of the eleven tenants.
+- [x] ISC-465: Eleven compiled private company contexts bind their goals and authority to the verified 120-file Coding01 snapshot.
+- [x] ISC-466: Tenant runtime manifests distinguish enabled skills and role declarations from actual process and provider evidence.
+- [x] ISC-467: Model payload construction excludes private goals, owner documents and local context from public execution inputs.
+- [x] ISC-468: Approved public source capture operates outside the restricted worker sandbox with bounded HTTPS and public-address checks.
+- [x] ISC-469: Changed-input admission obeys durable daily and per-tenant budgets without replaying unchanged or uncertain inputs.
+- [x] ISC-470: An independent Coding01 per-user launchd schedule completes a controller tick with exit zero.
+- [x] ISC-471: A live controller reconciles a completed task and automatically admits its next eligible public task.
+- [x] ISC-472: Five admitted core-role children complete with independently verified actual coordinator artifact hashes.
+- [x] ISC-473: A live structured public review compares worker claims with their exact captured source and retains a partial verdict.
+- [x] ISC-474: Native Hermes project comments bind controller state and evidence verdicts to the correct tenant and task.
+- [x] ISC-475: Eighty-six controller and evidence tests pass for privacy, integrity, budgets, replay protection and visibility.
+- [ ] ISC-476: A verified local reasoning runtime interprets private tenant context without external document transmission.
+- [ ] ISC-477: Each tenant has a verified skill and Meristem executor for its admitted private business workflow.
+- [ ] ISC-478: Accepted task outcomes automatically admit budgeted role graphs across the tenant workflows.
+- [ ] ISC-479: Worker receipts bind each task to its actual resolved upstream provider and usage record.
 
 ## Test Strategy
 
@@ -1743,3 +1789,37 @@ Final maintenance review adds the actual tenant enabled.yaml authority to Coding
 
 - ISC-426: actual Coding02 SSH/plist/launchctl readback — system worker and transport report running PIDs 297/439; console UID 0, zero users in uptime, coordinator service identity returns HTTP200 through the transport, and coordinator worker presence is fresh. Receipt: private docs/fleet/onboarding/2026-10-21-installation-isolation/coding-02-tailnet.json and coding-02-tailnet-details.json. This proves current operation without desktop login, not controlled cold boot or power-loss recovery.
 - ISC-427: actual Coding02 fdesetup readback — "FileVault is Off." in the same identity-bound observation. Receipt: private docs/fleet/onboarding/2026-10-21-installation-isolation/coding-02-tailnet-details.json. ISC-431 remains open for controlled physical boot and fresh execution.
+
+## Verification — tenant workflow review, 21 October 2026
+
+ISC-440–443: private `docs/fleet/TENANT-WORKFLOW-2026-10-21/` contains the eleven-tenant matrix, live evidence and per-tenant draft plan. Authenticated `/v1/context` reports eleven projects, ten private routes served only by Coding01 and shared `snowgloves` served by four workers. Real public-platform root submission returned HTTP503 “Hermes interpretation unavailable; task was not dispatched”; no task creation is inferred. Bridge configured revision93257fd differs from clean installed Hermes cf4f3a7. Hosted launch attempts stopped before inference: authoring host pressure and Coding01 credit qualification. Owner explicitly confirms internal documents stay local, credits public-source only. Public fleet HTML200 and unauthenticated context401 are transport/auth observations; in-app browser is unavailable, so ISC446 remains open. All ten dedicated tenant roots have no origin remote; ISC447 remains open. No tenant wave completion or credit consumption is claimed.
+
+### Hermes bridge recovery — 21 October 2026
+
+ISC-444: Owner explicitly approved scoped path repair and bridge restart. Atomic mode0600 config update changed only hermes_root to separate approved93257fd checkout; backup retained. PID14303 replaced by88934, bridge healthz reports expected revision. Built-in hermes pm repair rebuilt the distinct pinned install dependency environment; shared cf4f3a7 checkout remains clean and unchanged. Root interpretation accepted fbe8e61bc82644f0a258c129be52cc42; Mac Creative claimed it, but broad public UI audit exceeded300second execution budget and ended interrupted without artifact. No replay or completion inferred. Separate bounded public-source worksheet f258d2f2a6ed4b35a736b6855b108002 succeeded on mac-creative, attempt51a9d207b95547b8ae8ac2cd74cdba9f; stored artifactSHA25661eebd88ffd25200f1b707a2418afa7ca19d8fdc0deb0bf32222abfffd119471 verified against actual coordinator artifact bytes.
+
+ISC-445: Successful worksheet produced substantive French claim-evidence drafts for Ecoled and Wave Concept from supplied public information only; no internal document inputs, sends, publication or Meristem wave completion. Worker turn reports22809input/959output tokens,3328cached input. Exactly one matching successful gateway log record in run window reports codex/gpt-5.6-terra-max, correlation857d2fef-e84e-4160-95ac-ce7038bde215, usage_provenance reported. This is gateway metadata matched by time/token counts, not independent physical-provider attribution or a monetary spend receipt. Installed loopback route recovered; separate hosted-wrapper credit qualification remains held. Rendered UI, canonical per-tenant repository bindings and private OS account isolation remain separate open gates. Private review packet retains repair/result/usage evidence and PUBLIC-WORKSHEET.md.
+
+## Verification — bounded eleven-tenant workflow, 21 October 2026
+
+ISC-448–455: Private `docs/fleet/WORKFLOW-RUN-2026-10-21/` holds eleven local handoffs, eleven operational drafts, eleven succeeded public capture jobs with actual artifact SHA checks, all-four-worker participation, eleven native Kanban cards and five justified questions. Task success is not full source capture: access failures, JS shells and company identity gaps remain held. Native Hermes script-only cron5dcdc251546c fires every five minutes, repeat288, with immutable plan expiry22October16:58IST; maximum eleven capture jobs plus eleven finite public-only QA reviews, one QA per tick, no uncertain/failed replay. Twenty-five tests pass. First QA completed with held disposition; matching gateway row reports claude/claude-sonnet-5-5,3975input/301output tokens, correlation21c47661-4487-4000-a4ef-13c0aa1e33d0. Remaining ten reviews are scheduled. Native Claude subscription login is unverified and separate from this working gateway seat.
+
+Human comments tagged ANSWER or RÉPONSE are captured as pending_local_review, not approval. No real human answer yet. Coordinator hard-cap remains one active task; private task accounts, canonical application origins, complete Meristem adapters and reliable source retrieval remain open. Default Hermes backend currently owns the ticker; a system-service candidate is staged only, SSH sudo-n is unavailable. No app-independent or cold-boot claim, private-document external dispatch, campaign activation or seven-wave completion follows.
+
+## Verification — native Hermes project population, 21 October 2026
+
+ISC-458–461/463: Owner confirmed the source-linked Artisan OS repository and authorized local Git initialization where no remote mapping exists. Eleven native projects map exact primary folders under Coding01 tenant-workspaces; ten existing roots preserved and missing HeyZack initialized. No origin added or remote published. Default board contains eleven preserved project parents, forty-four idempotent local-only unassigned Todo children and one runtime record. Native computer use visibly confirms56total/44Todo and Artisan OS detail: exact project ID, local workspace, GitHub link, unassigned and blocked-by project parent. Private packet PROJECT-WORKSPACE-MAP.json, KANBAN-POPULATION.json and UI-KANBAN-READBACK.json retain evidence. Capture completion is recorded as execution evidence rather than approved research; public QA finished10reviews(7held,3partial) plus1executionhold without replay.
+
+ISC-462 stays open: connector repository read404, local gh401, Coding01 gh unresolved for owner-confirmed ecoledeurope-afk/artisan-os. This is not zero issues or repo absence. Local axio configuration selects github-mcp; no credentials or global access scopes added. Other ten remote application identities remain unmapped; owner authorized local-unpublished Git folders as fallback. Existing human questions/comments and independent service/cold-boot gates remain.
+
+## Verification — company controller and core-role execution, 22 October 2026
+
+- ISC-464–466: source and Coding01 readback — owner selected seven core roles; all eleven tenant enabled lists and compiled contexts reflect that decision. The protected live snapshot verifies120source files. Role contracts and enabled skill IDs are not77running processes or installed-tool acceptance.
+- ISC-467–469/475: source tests —86meaningful tests pass; reviewed HTTPS templates, public-address validation, TLS,12-second total capture deadline, parser-version repair, immutable public epochs, changed-input deduplication, daily6automaticroot admissions/pertenant2, strict source/task bindings and uncertain-no-replay guards. The initial5-child role canary is separate from automatic root admission counts. No monetary spend receipt is inferred.
+- ISC-470: local installation — com.snowgloves.company-loop is loaded in gui/501 from the owner LaunchAgents directory,300-second interval, observed last exit code0. Native Hermes cron5dcdc251546c is paused fallback. This removes dependence on its in-process ticker but does not prove no-login, logout or cold-boot continuity. ISC457/431remain open.
+- ISC-471: live fleet — rootf392484d375f405e9e9cfe261fabd2e0 completed on Mac Marketing and root51b52558307a45f0b72e5368fe7029da was admitted automatically and completed on Coding01; both actual raw artifact hashes verified. Changed versioned capture subsequently admitted the source-repair roote067acee306c497f8713990ce582abb1, also completed/hash verified. Further new-source work continues under the same ledger.
+- ISC-472: live role graph — plan6efba186f5964e6fb16df462eb5ece64 admitted Chief of Staff(plan), Librarian(reference), Interpreter(review), Dispatcher(dispatch), Sentinel(verify); all five succeeded with actual raw hashes verified. This is an executed read-only role chain, not private Meristem or business acceptance.
+- ISC-473: live verification — Sentinel exposed missing source provenance in the initial handoff. The repaired capture selects actual relevant RFC section bodies; the new explicit Claude reviewer compares exact original public text with worker output. Both initial and repaired note reviews remain partial with specific corrections; no unsupported approval is inferred. One exact gateway match for the initial comparison reports claude/claude-sonnet-5-5,8894input/318output tokens, correlation6723724b-8589-4c03-933b-602defece3dc. Worker noesis-execute is requested routing, not per-task resolved-provider proof.
+- ISC-474: native CLI readback — company visibility journal and project comments carry exact latest tenant/job/task bindings, role graph and structured verdicts; old or cross-tenant reviews cannot approve a new job. Latest computer-use attempt became unavailable; no new rendered-verdict or physical acceptance claim follows.
+
+Private docs/fleet/WORKFLOW-RUN-2026-10-21/ holds the plan, team decision, context, live proof, role graph, structured verdicts, code and runbook. Full private company autonomy remains open: local inference, task-specific skill/Meristem execution, approved response-to-next-work authority, canonical GitHub access, safe parallel capacity and system-owned headless recovery still require their own evidence.
