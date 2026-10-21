@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 2026-10-21: require private-tenant admission to remain fenced through task-account rollback; record current Coding02 no-desktop-login and FileVault observations separately from cold-boot acceptance.
+
 - **Controller tooling.** Add checksum-bound tool/version inspection and deterministic uv/npm/Homebrew review plans; retain application and fresh-machine gates. Frontend dependency directories remain excluded from Git.
 
 - **Controller data audit.** Read-only tenant-reference verification and checksum-bound private-file holds, with a candidate transfer preflight that rejects declared paths and copied held bytes. Capability presence grants no runtime authority.
@@ -37,4 +39,3 @@
 - Signed and notarized macOS universal DMG.
 - Windows and Linux installers.
 - Public GitHub Releases updater manifest (`latest.json`).
-

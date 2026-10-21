@@ -277,7 +277,7 @@ Without these settings the worker behaves as before.
    - no SSH or Screen Sharing access;
    - its own primary group rather than `staff`, so group-readable files in other homes stay out of reach.
 2. Make the operator's home owner-only: `chmod 700 /Users/<operator>`. Without this, every member of `staff` can read the operator's 755 folders, the ops checkout included.
-3. Create `task_root` outside that home, owned by the operator with mode 711 and no ACL entries (`ls -led` shows none). Other accounts can pass through it but not list it.
+3. Create `task_root` outside that home and outside every `task_scrub_roots` tree (for example `/Users/snowgloves-task-runs`, not a child of `/Users/Shared`), owned by the operator with mode 711 and no ACL entries (`ls -led` shows none). Other accounts can pass through it but not list it. A searchable but unlistable task root inside a scrub tree causes the scrub to fail closed.
 4. Add `/etc/sudoers.d/snowgloves-task` (edit with `visudo -f`) so the operator can run only these commands as the tenant accounts, without a password and keeping the listed environment:
 
    ```
@@ -293,4 +293,4 @@ Without these settings the worker behaves as before.
 - For each account, run `sudo -u <account> cat /Users/<operator>/Projects/<ops checkout>/fleet.yaml`, plus the same for another tenant's workspace and the gateway key. Each must be denied.
 - Run one real task per tenant and confirm it succeeds and its result imports.
 
-**Rollback:** remove `task_users` and `task_root` from the worker config and restart the worker, delete the sudoers file, and if needed restore the home folder's earlier mode.
+**Rollback:** first fence private tenant submissions and remove those projects from the worker's eligible grants; keep that fence in place throughout rollback. Removing `task_users` and `task_root` restores operator-account execution, so a healthy worker after rollback is not tenant privacy acceptance. Restore the reviewed worker/configuration backup, restart only in the approved maintenance window, and verify the fenced grants before allowing platform-only work. Remove the dedicated sudoers entry only after task accounts are idle. Restore the home folder's earlier mode only if the reviewed rollback explicitly requires it and no private tenant work can run. Re-admit private tenant projects only after the dedicated-account denial and real-task checks pass again.

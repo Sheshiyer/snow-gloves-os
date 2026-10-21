@@ -4,7 +4,7 @@ project: snow-gloves-os
 effort: E5
 effort_source: classifier
 phase: verify
-progress: 405/439
+progress: 407/439
 mode: interactive
 started: 2026-09-30
 updated: 2026-10-21
@@ -554,8 +554,8 @@ until the actual mini supplies evidence.
 - [x] ISC-423: Headless apply requires quiescence and prevents duplicate registration.
 - [x] ISC-424: Headless rollback preserves drifted files for manual recovery.
 - [ ] ISC-425: Actual Coding01 system services run without desktop login.
-- [ ] ISC-426: Actual Coding02 system services run without desktop login.
-- [ ] ISC-427: Actual Coding02 FileVault is Off before cold-boot acceptance.
+- [x] ISC-426: Actual Coding02 system services run without desktop login.
+- [x] ISC-427: Actual Coding02 FileVault is Off before cold-boot acceptance.
 - [ ] ISC-428: Actual India team device reaches company UI and scoped task operations.
 - [ ] ISC-429: Actual India team access remains denied to authoring and gateway administration.
 - [x] ISC-430: Actual Coding02 write-build task returns verified changes and output.
@@ -786,6 +786,9 @@ _Last refreshed: 2026-10-08T16:21:19.999Z_
 
 
 - 2026-10-21: refined: resolve four historical identity collisions without changing acceptance. Original ISC-394/395/396/397 retain the fanout/cleanup meanings. The later restricted-SSH criteria now use ISC-394.1/395.1/396.1/397.1 respectively. Historical references to bare IDs must be interpreted by lane/date; no historical evidence was rewritten. All 439 checkbox states remain unchanged; 405 checked and34 open.
+
+
+- 2026-10-21: Fresh four-Mac installation readback confirms older active releases and no configured per-tenant task accounts. Tenant repository isolation is distinct from OS file privacy; no private tenant canary is authorized by the missing-account state. Reviewed rollout must fence tenant grants during install and rollback, retain dirty remote checkout work, and preserve separate physical acceptance.
 
 ## Changelog
 
@@ -1735,3 +1738,8 @@ Subsequent root69517747b1b84dceb3778ab91e4fad70 failed on routed response-stream
 
 
 Final maintenance review adds the actual tenant enabled.yaml authority to Coding01 inputs. The current Coding01 plan supersedes its earlier candidate: digest cddb542df78f34174e774c8dfbecd355f57da7b4b42b41fa384910e67e69b9d1,117fingerprinted inputs,10services. Coding02 retains digest0665acfd2889fe3e91dc2d80ffc49c75b186695c5592ab63b97cd358c90c3241. Both plans passed fresh source/account/database checks with0pending jobs. HTTPS application context and163catalog entries return200 for the dedicated app principal; its scope is heyzack/snowgloves with read/submit/cancel. Private Coding01 node profiles now advertise Codex alone; other installed tools remain outside accepted fleet runtime advertisement.
+
+## Verification — fleet installation and rollout readiness, 21 October 2026
+
+- ISC-426: actual Coding02 SSH/plist/launchctl readback — system worker and transport report running PIDs 297/439; console UID 0, zero users in uptime, coordinator service identity returns HTTP200 through the transport, and coordinator worker presence is fresh. Receipt: private docs/fleet/onboarding/2026-10-21-installation-isolation/coding-02-tailnet.json and coding-02-tailnet-details.json. This proves current operation without desktop login, not controlled cold boot or power-loss recovery.
+- ISC-427: actual Coding02 fdesetup readback — "FileVault is Off." in the same identity-bound observation. Receipt: private docs/fleet/onboarding/2026-10-21-installation-isolation/coding-02-tailnet-details.json. ISC-431 remains open for controlled physical boot and fresh execution.
