@@ -38,3 +38,5 @@
 - Windows and Linux installers.
 - Public GitHub Releases updater manifest (`latest.json`).
 
+
+- 2026-10-21: require private-tenant admission to remain fenced through task-account rollback; record current Coding02 no-desktop-login and FileVault observations separately from cold-boot acceptance.
